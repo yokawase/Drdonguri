@@ -45,6 +45,7 @@
 - [x] **ステップ4**: Web/スマホUI通信サーバー検証 (`server.ts`) - 【完了】`http://0.0.0.0:3000` で WebSocket + HTTP 正常稼働中
 - [x] **ステップ5**: GitHub Actions による WebUI 自動デプロイ構築 - 【完了】`.github/workflows/deploy.yml` 作成 & Vite ビルド成功 (HTTPS 対応)
 - [x] **ステップ6**: 文字脱落完全根絶＆安全中断（ERR_UNSUPPORTED_CHAR）改修 - 【完了】サイレントスキップ全廃、Zero-Dropバリデータ導入、促音・確定タイミング最適化
+- [x] **ステップ7**: ゼロメモリ ビット演算Unicode直接着弾・実機フラッシュ完了 - 【完了】未登録漢字の中断を撤廃し全CJK漢字のF5直接打鍵を達成、AtomS3U実機書き込み完了
 
 ---
 

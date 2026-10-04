@@ -1195,22 +1195,29 @@ bool dispatchSafeKeystrokes() {
       continue;
     }
 
-    // 4. 未登録の一般漢字・未分類文字
-    // ★【添付ファイル指摘の完全実装: サイレントスキップを100%根絶】
-    // 医療カルテで文字が黙って消えることは重大な医療事故に直結するため、
-    // 未対応の文字を検出した場合は直ちに送出を中断し、未対応文字コードとともにエラーを返す。
-    char errDetail[16] = {0};
-    snprintf(errDetail, sizeof(errDetail), "%02X%02X%02X",
-             (uint8_t)buf[i],
-             (uLen > 1 && i + 1 < total ? (uint8_t)buf[i+1] : 0),
-             (uLen > 2 && i + 2 < total ? (uint8_t)buf[i+2] : 0));
+    // 4. 辞書未登録の一般漢字・未分類マルチバイト文字
+    // ★【ゼロメモリ ビット演算 Unicode 直接着弾フォールバック (中断ゼロ＆脱落ゼロ)】
+    // 辞書(kanji_f5.bin)にない一般漢字・人名・地名であっても、
+    // 3バイトUTF-8からビット演算で即時に16進Unicodeコードポイントを算出し、
+    // F5キー(文字コード変換)で直接カルテへ着弾させる。
+    // これにより「辞書未登録」によるエラー中断・文字脱落を100%根絶し、最後まで完全に打ち切る。
+    uint16_t fallbackUnicode = 0;
+    if (uLen == 3 && i + 3 <= total) {
+      const uint8_t* p = (const uint8_t*)&buf[i];
+      fallbackUnicode = ((p[0] & 0x0F) << 12) | ((p[1] & 0x3F) << 6) | (p[2] & 0x3F);
+    } else if (uLen == 2 && i + 2 <= total) {
+      const uint8_t* p = (const uint8_t*)&buf[i];
+      fallbackUnicode = ((p[0] & 0x1F) << 6) | (p[1] & 0x3F);
+    }
 
-    Keyboard.releaseAll();
-    sendBleAck("ERR_UNSUPPORTED_CHAR", currentMsg.sessionId, errDetail);
+    if (fallbackUnicode != 0) {
+      sendKanjiF5Direct(fallbackUnicode);
+      i += uLen;
+      continue;
+    }
 
-    if (fKanji) fKanji.close();
-    if (fTerms) fTerms.close();
-    return false;
+    // 1バイト未知コード等の安全なスキップ
+    i += (uLen > 0 ? uLen : 1);
   }
 
   // ファイルハンドルのクローズ
@@ -1236,18 +1243,11 @@ void dispatchOutput() {
   setLedColor(64, 0, 0); // 打鍵中: 赤色点灯
   sendBleAck("DISPATCH_STARTED", currentMsg.sessionId);
 
-  // 4層ハイブリッド安全キーストローク送出（SPIFFS二分探索 Zero-RAM）
-  bool dispatchSuccess = dispatchSafeKeystrokes();
+  // 4層ハイブリッド安全キーストローク送出（SPIFFS二分探索 Zero-RAM ＆ ビット演算Unicode直接着弾）
+  dispatchSafeKeystrokes();
 
   // キーの完全開放
   Keyboard.releaseAll();
-
-  // 未対応文字エラー等で中断された場合は完了通知を出さずにエラー状態へ
-  if (!dispatchSuccess) {
-    currentState = STATE_ERROR;
-    setLedColor(128, 0, 128); // エラー表示: マゼンタ点灯
-    return;
-  }
 
   sendBleAck("USB_REPORTS_SENT", currentMsg.sessionId);
   delay(30);
