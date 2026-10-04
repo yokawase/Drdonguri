@@ -958,18 +958,19 @@ export function kanjiWordToRomaji(word: string): string {
       } else {
         // 万一未知の漢字の場合はUnicode 16進プレフィックス等で絶対に文字を欠落させない
         const cp = ch.codePointAt(0);
-        out += cp ? `u${cp.toString(16)}` : 'kan';
+        out += cp ? `[U]${cp.toString(16).toUpperCase().padStart(4, '0')}[/U]` : '';
       }
     }
     i++;
   }
 
-  // 万一漢字が残存した場合は音読みフォールバックを行い、絶対に文字を消去しない
+  // 万一漢字が残存した場合はUnicodeタグで包み、絶対に「kan」縮退や文字消去を起こさない
   const sanitized = out.replace(/[\u4e00-\u9faf]/g, (match) => {
-    return COMMON_KANJI_ROMAJI[match] || (SINGLE_KANJI_MAP[match] ? SINGLE_KANJI_MAP[match].trim() : '') || 'kan';
+    const cp = match.codePointAt(0);
+    return cp ? `[U]${cp.toString(16).toUpperCase().padStart(4, '0')}[/U]` : '';
   }).trim();
 
-  return sanitized || 'kan';
+  return sanitized;
 }
 
 // -----------------------------------------------------------------------------
@@ -1145,8 +1146,9 @@ export function compileMedicalTextToImeBoost(
       continue;
     }
 
-    // 既にタグが付与された部分（[K]...[/K], [H]...[/H], [Z]...[/Z], [A]...[/A]）やバックスペースを保持しつつパース
-    const tokenRegex = /(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\]|\[BS\]|[\x08]+|【[^】]+】|[ァ-ヴー]{2,}|\d+(?:\.\d+)?(?:[\-~–—−―]\d+(?:\.\d+)?)?(?:mg|g|kg|mL|mmHg|bpm|℃|\%|度|日分|錠|T)?|[a-zA-Z0-9_\-\.\:\/\+\(\)]+|[一-龠]+[ぁ-ん]*|[ぁ-ん]+|[、。・，．,.:;!?！？…~〜–—−―（）「」『』／/]|\s+)/g;
+    // 既にタグが付与された部分（[K]...[/K], [H]...[/H], [Z]...[/Z], [A]...[/A], [U]...[/U]）やバックスペースを保持しつつパース
+    // ★英文・英数字フレーズ（例: Target Trial Emulation）はスペースを含めてひとまとまりでマッチさせて全角誤変換を完全防止
+    const tokenRegex = /(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\]|\[BS\]|[\x08]+|【[^】]+】|[ァ-ヴー]{2,}|\d+(?:\.\d+)?(?:[\-~–—−―]\d+(?:\.\d+)?)?(?:mg|g|kg|mL|mmHg|bpm|℃|\%|度|日分|錠|T)?|[a-zA-Z0-9_\-\.\:\/\+\(\)]+(?:\s+[a-zA-Z0-9_\-\.\:\/\+\(\)]+)*|[一-龠]+[ぁ-ん]*|[ぁ-ん]+|[、。・，．,.:;!?！？…~〜–—−―（）「」『』／/]|\s+)/g;
     const tokens = line.match(tokenRegex) || [line];
     let lineResult = '';
 
@@ -1167,16 +1169,16 @@ export function compileMedicalTextToImeBoost(
       }
 
       // 既にタグが付与されているトークン
-      if (token.startsWith('[K]') || token.startsWith('[H]') || token.startsWith('[Z]') || token.startsWith('[A]')) {
+      if (token.startsWith('[K]') || token.startsWith('[H]') || token.startsWith('[Z]') || token.startsWith('[A]') || token.startsWith('[U]')) {
         lineResult += token;
         const tag = token.slice(0, 3);
         const inner = token.slice(3, -4);
         displayTokens.push({
-          type: tag === '[K]' ? 'katakana' : tag === '[H]' ? 'hiragana' : tag === '[A]' ? 'ascii' : 'kanji',
+          type: tag === '[K]' ? 'katakana' : tag === '[H]' ? 'hiragana' : tag === '[A]' ? 'ascii' : tag === '[U]' ? 'unicode' : 'kanji',
           originalText: inner,
           actionTag: tag,
-          keystrokes: tag === '[K]' ? `${inner} ➔ [F7] ➔ [Enter]` : tag === '[H]' ? `${inner} ➔ [Enter]` : tag === '[Z]' ? `${inner} ➔ [Space] ➔ [Enter]` : inner,
-          description: tag === '[K]' ? 'F7全角カタカナ強制確定' : tag === '[H]' ? 'ひらがな直接確定（Space禁止）' : tag === '[Z]' ? '最小Chunk漢字変換' : 'ASCII直接打鍵',
+          keystrokes: tag === '[K]' ? `${inner} ➔ [F7] ➔ [Enter]` : tag === '[H]' ? `${inner} ➔ [Enter]` : tag === '[U]' ? `${inner} ➔ [F5] ➔ [Enter]` : tag === '[Z]' ? `${inner} ➔ [Space] ➔ [Enter]` : inner,
+          description: tag === '[K]' ? 'F7全角カタカナ強制確定' : tag === '[H]' ? 'ひらがな直接確定（Space禁止）' : tag === '[U]' ? 'Unicode F5直接着弾' : tag === '[Z]' ? '最小Chunk漢字変換' : 'ASCII直接打鍵',
         });
         continue;
       }
@@ -1184,15 +1186,23 @@ export function compileMedicalTextToImeBoost(
       // 見出し括弧 【主訴】 など
       if (token.startsWith('【') && token.endsWith('】')) {
         const inner = token.slice(1, -1);
-        const romaji = MEDICAL_KANJI_ROMAJI_MAP[inner] || kanaToRomaji(inner);
-        const seq = `[ ${romaji} ] `;
+        let seq = `[ `;
+        for (const ch of inner) {
+          if (/[一-龠]/.test(ch)) {
+            const cp = ch.codePointAt(0);
+            seq += cp ? `${IME_TAG_UNICODE}${cp.toString(16).toUpperCase().padStart(4, '0')}${IME_TAG_UNICODE_END}` : ch;
+          } else {
+            seq += ch;
+          }
+        }
+        seq += ` ] `;
         lineResult += seq;
         displayTokens.push({
           type: 'kanji',
           originalText: token,
           actionTag: '[ ]',
           keystrokes: seq,
-          description: 'カルテ見出し括弧（JIS補正＋スペース確定）',
+          description: 'カルテ見出し括弧（JIS補正＋Unicode確定）',
         });
         continue;
       }
@@ -1212,9 +1222,9 @@ export function compileMedicalTextToImeBoost(
         continue;
       }
 
-      // 数値・単位・英字・数値範囲 ➔ [A]...[/A] (半角ASCII直接モード)
+      // 数値・単位・英字・英文フレーズ ➔ [A]...[/A] (半角ASCII直接モード)
       const normToken = token.replace(/[–—−―]/g, '-');
-      if (ASCII_UNIT_REGEX.test(normToken)) {
+      if (/^[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$]+(?:\s+[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$]+)*$/.test(normToken)) {
         const seq = `${IME_TAG_ASCII}${normToken}${IME_TAG_ASCII_END}`;
         lineResult += seq;
         displayTokens.push({
@@ -1298,21 +1308,43 @@ export function compileMedicalTextToImeBoost(
         continue;
       }
 
-      // 漢字熟語・送り仮名付き複合語 ➔ [Z]...[/Z] (Space ➔ Enter)
+      // ★【核心改修：漢字熟語・単漢字・送り仮名付き複合語 ➔ [U]XXXX[/U] (Unicode F5直接着弾)】
+      // 従来の「ローマ字変換 ➔ スペースキー変換」は辞書未登録語の「kan」縮退や「性的な」「判事実施」等の
+      // 致命的誤変換を招くため完全撤廃。各漢字のUnicodeコードポイントを直接算出し、F5コード変換で100%着弾させる！
       if (/[一-龠]/.test(token)) {
-        const romaji = kanjiWordToRomaji(token);
-        if (romaji) {
-          const seq = `${IME_TAG_KANJI}${romaji}${IME_TAG_KANJI_END}`;
-          lineResult += seq;
-          displayTokens.push({
-            type: 'kanji',
-            originalText: token,
-            actionTag: IME_TAG_KANJI,
-            keystrokes: `${romaji} ➔ [Space] ➔ [Enter]`,
-            description: '漢字・活用語一括変換（Space即時確定）',
-          });
-          continue;
+        let seq = '';
+        for (const char of token) {
+          if (/[一-龠]/.test(char)) {
+            const cp = char.codePointAt(0);
+            if (cp) {
+              const hex = cp.toString(16).toUpperCase().padStart(4, '0');
+              seq += `${IME_TAG_UNICODE}${hex}${IME_TAG_UNICODE_END}`;
+              displayTokens.push({
+                type: 'unicode',
+                originalText: char,
+                actionTag: IME_TAG_UNICODE,
+                keystrokes: `${hex} ➔ [F5] ➔ [Enter]`,
+                description: `Unicode直接着弾「${char}」(U+${hex})`,
+              });
+            } else {
+              seq += char;
+            }
+          } else if (/^[ぁ-ん]+$/.test(char)) {
+            const r = kanaToRomaji(char);
+            seq += `${IME_TAG_HIRAGANA}${r}${IME_TAG_HIRAGANA_END}`;
+            displayTokens.push({
+              type: 'hiragana',
+              originalText: char,
+              actionTag: IME_TAG_HIRAGANA,
+              keystrokes: `${r} ➔ [Enter]`,
+              description: '送り仮名直接確定',
+            });
+          } else {
+            seq += char;
+          }
         }
+        lineResult += seq;
+        continue;
       }
 
       // その他のひらがな ➔ [H]...[/H]
@@ -1330,7 +1362,15 @@ export function compileMedicalTextToImeBoost(
         continue;
       }
 
-      // 記号または空白
+      // 空白文字（半角スペース全角化防止）
+      if (/^\s+$/.test(token)) {
+        // 単独半角スペースを [A] [/A] で確実に送出
+        const spaceSeq = token.replace(/ /g, `${IME_TAG_ASCII} ${IME_TAG_ASCII_END}`);
+        lineResult += spaceSeq;
+        continue;
+      }
+
+      // 記号またはその他の文字
       lineResult += token;
     }
 
@@ -1338,14 +1378,16 @@ export function compileMedicalTextToImeBoost(
   }
 
   // ★【Zero-Drop 保証バリデータ: 添付ファイル指摘の完全実装】
-  // 生成されたペイロードの中に、制御タグ [K], [H], [Z], [A], [U] の外側に
-  // 生の漢字（\u4E00-\u9FFF）が残存していないか走査し、残っている場合は自動的に [Z]...[/Z] でラップする
+  // 生成されたペイロードの中に、制御タグの外側に生の漢字（\u4E00-\u9FFF）が残存していないか走査し、
+  // 残っている場合は自動的に [U]XXXX[/U]（Unicode F5直接着弾）でラップする
   const sanitizedLines = compiledLines.map((line) => {
     return line.replace(/(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\])|([一-龠]+)/g, (match, tagPart, kanjiPart) => {
       if (tagPart) return tagPart;
       if (kanjiPart) {
-        const romaji = kanjiWordToRomaji(kanjiPart);
-        return `${IME_TAG_KANJI}${romaji}${IME_TAG_KANJI_END}`;
+        return Array.from(kanjiPart).map(c => {
+          const cp = c.codePointAt(0);
+          return cp ? `${IME_TAG_UNICODE}${cp.toString(16).toUpperCase().padStart(4, '0')}${IME_TAG_UNICODE_END}` : c;
+        }).join('');
       }
       return match;
     });

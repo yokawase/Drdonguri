@@ -69,6 +69,64 @@ export const LED_DEFINITIONS: Record<SystemState, LedStatus> = {
   },
 };
 
+const ROMAJI_TO_HIRA: Record<string, string> = {
+  'kya': 'きゃ', 'kyu': 'きゅ', 'kyo': 'きょ',
+  'sya': 'しゃ', 'syu': 'しゅ', 'syo': 'しょ', 'sha': 'しゃ', 'shu': 'しゅ', 'sho': 'しょ',
+  'tya': 'ちゃ', 'tyu': 'ちゅ', 'tyo': 'ちょ', 'cha': 'ちゃ', 'chu': 'ちゅ', 'cho': 'ちょ',
+  'nya': 'にゃ', 'nyu': 'にゅ', 'nyo': 'にょ',
+  'hya': 'ひゃ', 'hyu': 'ひゅ', 'hyo': 'ひょ',
+  'mya': 'みゃ', 'myu': 'みゅ', 'myo': 'みょ',
+  'rya': 'りゃ', 'ryu': 'りゅ', 'ryo': 'りょ',
+  'gya': 'ぎゃ', 'gyu': 'ぎゅ', 'gyo': 'ぎょ',
+  'ja': 'じゃ', 'ju': 'じゅ', 'jo': 'じょ', 'jya': 'じゃ', 'jyu': 'じゅ', 'jyo': 'じょ',
+  'bya': 'びゃ', 'byu': 'びゅ', 'byo': 'びょ',
+  'pya': 'ぴゃ', 'pyu': 'ぴゅ', 'pyo': 'ぴょ',
+  'ka': 'か', 'ki': 'き', 'ku': 'く', 'ke': 'け', 'ko': 'こ',
+  'sa': 'さ', 'si': 'し', 'su': 'す', 'se': 'せ', 'so': 'そ', 'shi': 'し',
+  'ta': 'た', 'ti': 'ち', 'tu': 'つ', 'te': 'て', 'to': 'と', 'chi': 'ち', 'tsu': 'つ',
+  'na': 'な', 'ni': 'に', 'nu': 'ぬ', 'ne': 'ね', 'no': 'の',
+  'ha': 'は', 'hi': 'ひ', 'fu': 'ふ', 'he': 'へ', 'ho': 'ほ', 'hu': 'ふ',
+  'ma': 'ま', 'mi': 'み', 'mu': 'む', 'me': 'め', 'mo': 'も',
+  'ya': 'や', 'yu': 'ゆ', 'yo': 'よ',
+  'ra': 'ら', 'ri': 'り', 'ru': 'る', 're': 'れ', 'ro': 'ろ',
+  'wa': 'わ', 'wo': 'を', 'nn': 'ん', 'n': 'ん',
+  'ga': 'が', 'gi': 'ぎ', 'gu': 'ぐ', 'ge': 'げ', 'go': 'ご',
+  'za': 'ざ', 'ji': 'じ', 'zu': 'ず', 'ze': 'ぜ', 'zo': 'ぞ', 'zi': 'じ',
+  'da': 'だ', 'di': 'ぢ', 'du': 'づ', 'de': 'で', 'do': 'ど',
+  'ba': 'ば', 'bi': 'び', 'bu': 'ぶ', 'be': 'べ', 'bo': 'ぼ',
+  'pa': 'ぱ', 'pi': 'ぴ', 'pu': 'ぷ', 'pe': 'ぺ', 'po': 'ぽ',
+  'a': 'あ', 'i': 'い', 'u': 'う', 'e': 'え', 'o': 'お',
+  ',': '、', '.': '。', '/': '・', '[': '「', ']': '」', '(': '（', ')': '）'
+};
+
+function decodeRomajiToKana(text: string): string {
+  if (!text) return '';
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === text[i+1] && text[i] !== 'n' && /[a-z]/i.test(text[i])) {
+      out += 'っ';
+      i++;
+      continue;
+    }
+    let matched = false;
+    for (let len = Math.min(4, text.length - i); len >= 1; len--) {
+      const sub = text.slice(i, i + len).toLowerCase();
+      if (ROMAJI_TO_HIRA[sub]) {
+        out += ROMAJI_TO_HIRA[sub];
+        i += len;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      out += text[i];
+      i++;
+    }
+  }
+  return out;
+}
+
 export class VirtualDongleSimulator {
   public currentState: SystemState = SystemState.STATE_BLE_CONNECTED;
   public isUsbMounted: boolean = true;
@@ -377,11 +435,12 @@ export class VirtualDongleSimulator {
       if (buffer.slice(i).startsWith('[H]')) {
         const endIdx = buffer.indexOf('[/H]', i + 3);
         const chunk = endIdx !== -1 ? buffer.slice(i + 3, endIdx) : buffer.slice(i + 3);
+        const decoded = decodeRomajiToKana(chunk);
         if (this.listener) {
-          this.listener.onLog('tx', 'USB_HID', `[H] ひらがな打鍵: ${chunk} ➔ [Enter] 直接確定 (Space禁止)`);
+          this.listener.onLog('tx', 'USB_HID', `[H] ひらがな打鍵: ${chunk} (${decoded}) ➔ [Enter] 直接確定 (Space禁止)`);
         }
-        this.typedText += chunk;
-        if (this.listener) this.listener.onKeystroke(chunk, this.typedText);
+        this.typedText += decoded;
+        if (this.listener) this.listener.onKeystroke(decoded, this.typedText);
         i = endIdx !== -1 ? endIdx + 4 : buffer.length;
         await new Promise(r => setTimeout(r, 20));
         continue;
@@ -401,7 +460,23 @@ export class VirtualDongleSimulator {
         continue;
       }
 
-      // D. [A]...[/A] (ASCII直接モード)
+      // D. [U]...[/U] (Unicode F5直接着弾モード)
+      if (buffer.slice(i).startsWith('[U]')) {
+        const endIdx = buffer.indexOf('[/U]', i + 3);
+        const hex = endIdx !== -1 ? buffer.slice(i + 3, endIdx) : buffer.slice(i + 3);
+        const cp = parseInt(hex, 16);
+        const resolvedChar = !isNaN(cp) ? String.fromCodePoint(cp) : '?';
+        if (this.listener) {
+          this.listener.onLog('tx', 'USB_HID', `[U] Unicode直接着弾: U+${hex} (${resolvedChar}) ➔ [F5] ➔ [Enter]`);
+        }
+        this.typedText += resolvedChar;
+        if (this.listener) this.listener.onKeystroke(resolvedChar, this.typedText);
+        i = endIdx !== -1 ? endIdx + 4 : buffer.length;
+        await new Promise(r => setTimeout(r, 20));
+        continue;
+      }
+
+      // E. [A]...[/A] (ASCII直接モード)
       if (buffer.slice(i).startsWith('[A]')) {
         const endIdx = buffer.indexOf('[/A]', i + 3);
         const chunk = endIdx !== -1 ? buffer.slice(i + 3, endIdx) : buffer.slice(i + 3);
