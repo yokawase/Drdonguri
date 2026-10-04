@@ -14,6 +14,7 @@
  */
 
 import { MEDICAL_KANJI_ROMAJI_MAP, KANA_ROMAJI_MAP, SINGLE_KANJI_MAP } from './japaneseImeTranspiler';
+import { JIS_KANJI_ROMAJI } from '../data/jisKanjiRomajiTable';
 
 // -----------------------------------------------------------------------------
 // 1. 制御タグ定義 (AtomS3U ファームウェア v8.0 と完全一致)
@@ -824,7 +825,26 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   '同僚研究者': 'douryoukennkyuusya', '研究者': 'kennkyuusya', '同僚': 'douryou',
   '共有': 'kyouyuu', '説明': 'setumei', '活用': 'katuyou',
   '具体的': 'gutaiteki', '具体的な': 'gutaitekina', '方へ': 'houe', '際に': 'saini',
-  '以下に': 'ikani'
+  '以下に': 'ikani',
+  // 追加：費用対効果・医療技術評価(HTA)・ベイズ統計・診断精度専門熟語
+  '費用効果平面': 'hiyoukoukaheimenn', '費用対効果閾値': 'hiyoutsuikoukaikiti',
+  '費用対効果良好': 'hiyoutsuikoukaryoukou', '費用対効果': 'hiyoutsuikouka',
+  '費用効果': 'hiyoukouka', '判定基準': 'hanteikijunn', '第IV象限': 'daiIVsyougenn',
+  '第I象限': 'daiIsyougenn', '象限': 'syougenn', '優位': 'yuui',
+  '削減され': 'sakugennsare', '削減': 'sakugenn', '健康効果': 'kennkoukouka',
+  '増大する': 'zoudaisuru', '増大': 'zoudai', '状態': 'jyoutai',
+  '閾値に': 'ikitini', '閾値': 'ikiti', '依存せず': 'izonnsozu',
+  '依存': 'izonn', '絶対的な': 'zettaitekina', '絶対的': 'zettaiteki',
+  '判定されます': 'hanteisaremasu', '判定': 'hantei', '高効果': 'koukouka',
+  '高コスト': 'koukosuto', '公式閾値': 'kousikiikiti', '公式': 'kousiki',
+  '500万円': '500mannenn', '750万円': '750mannenn', '万円': 'mannenn',
+  '抗がん剤': 'kougannzai', '重症特例': 'jyuusyoutokurei', '特例': 'tokurei',
+  '下回る場合': 'sitamawarubaai', '下回る': 'sitamawaru',
+  '臨床疫学的評価': 'rinnsyouekigakutekihyouka', '臨床疫学': 'rinnsyouekigaku',
+  'ベイズ統計': 'beizutoukei', '事前確率': 'jizennkakuritu', '的中率': 'tekityuuritu',
+  '対象患者群': 'taisyoukannjyagunn', '対象患者': 'taisyoukannjya',
+  '患者群': 'kannjyagunn', '転落するか': 'tennrakusuruka', '転落': 'tennraku',
+  '診断精度': 'sinndannseido', '定理': 'teiri', '評価します': 'hyoukasimasu'
 };
 
 // 汎用単漢字・頻出漢字 ➔ ローマ字読みテーブル（未登録語彙のフォールバック用）
@@ -978,6 +998,9 @@ export function kanjiWordToRomaji(word: string): string {
       out += CLINICAL_COMPOUND_MAP[ch].trim();
     } else if (COMMON_KANJI_ROMAJI[ch]) {
       out += COMMON_KANJI_ROMAJI[ch];
+    } else if (JIS_KANJI_ROMAJI[ch]) {
+      // ★ JIS第1・第2水準＋常用漢字 全6,500字以上から即座に音読み解決
+      out += JIS_KANJI_ROMAJI[ch];
     } else if (SINGLE_KANJI_MAP[ch]) {
       out += SINGLE_KANJI_MAP[ch].trim();
     } else if (KANA_ROMAJI_MAP[ch]) {
@@ -987,18 +1010,16 @@ export function kanjiWordToRomaji(word: string): string {
       if (k) {
         out += k;
       } else {
-        // 万一未知の漢字の場合はUnicode 16進プレフィックス等で絶対に文字を欠落させない
-        const cp = ch.codePointAt(0);
-        out += cp ? `[U]${cp.toString(16).toUpperCase().padStart(4, '0')}[/U]` : '';
+        // [U]コード化は絶対に禁止。安全に元の文字または空文字を保持
+        out += ch;
       }
     }
     i++;
   }
 
-  // 万一漢字が残存した場合はUnicodeタグで包み、絶対に「kan」縮退や文字消去を起こさない
+  // 万一漢字が残存した場合は、JIS全漢字テーブルで音読み解決する（[U]コード化は100%永久根絶）
   const sanitized = out.replace(/[\u4e00-\u9faf]/g, (match) => {
-    const cp = match.codePointAt(0);
-    return cp ? `[U]${cp.toString(16).toUpperCase().padStart(4, '0')}[/U]` : '';
+    return JIS_KANJI_ROMAJI[match] || match;
   }).trim();
 
   return sanitized;

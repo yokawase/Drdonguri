@@ -167,18 +167,18 @@ export function buildTransmissionSession(
   // [H]: ひらがな・助詞 (Enter即時確定・Space禁止)
   // [Z]: 漢字熟語 (Space変換 ➔ Enter確定)
   // [A]: 半角ASCII直接
-  // ★【v16.3 HYBRID Unicode・全漢字100%直接着弾パイプライン】
+  // ★【v16.4 安全ローマ字打鍵＆全語彙JIS辞書パイプライン】
   // [K]: カタカナ (F7 ➔ Enter)
   // [H]: ひらがな・助詞 (Enter確定・Space禁止)
-  // [U]: Unicode 4桁 (F5文字コード変換 ➔ Enter確定: 誤変換・同音異義語0%)
+  // [Z]: 漢字・熟語ローマ字 (Space変換 ➔ Enter確定: F5リロード誤爆0%)
   // [A]: 半角ASCII直接（英文フレーズ・記号保護）
   let formattedText = processedText;
   if (mode === DispatchMode.MODE_HYBRID_UNICODE || mode === DispatchMode.MODE_IME_ROMAJI) {
     if (enableImeBoost) {
       const compiled = compileMedicalTextToImeBoost(processedText, {
         enableFunctionKeyRouting: true,
-        enableChunkDecomposition: false, // 形態素破壊・漢字ローマ字化を完全防止
-        enableUnicodeF5Assist: true,      // 漢字は100%直接Unicode F5着弾
+        enableChunkDecomposition: false,
+        enableUnicodeF5Assist: false,     // F5リロード誤爆防止のためF5アシストは完全無効化
         enableDoctorMacros: options.compileOptions?.enableDoctorMacros ?? true,
         doctorMacros: options.compileOptions?.doctorMacros,
       });

@@ -127,14 +127,39 @@ def compile_kanji():
             utf8_b = char.encode('utf-8')[:4].ljust(4, b'\x00')
             records.append((utf8_b, ord(char), 1))
 
+def compile_kanji_yomi():
+    print(" -> [C] JIS全漢字音訓読み辞書をコンパイル中 (kanji_yomi.bin)...")
+    kanji_dict = {}
+    for cp in range(0x4E00, 0x9FA6):
+        ch = chr(cp)
+        res = kks.convert(ch)
+        if res and res[0]['hepburn'] and res[0]['hepburn'] != ch:
+            romaji = res[0]['hepburn'].lower()
+            romaji_clean = "".join([c for c in romaji if c.isalpha()])
+            if romaji_clean:
+                kanji_dict[ch] = romaji_clean
+
+    records = []
+    for ch, romaji in kanji_dict.items():
+        utf8_b = ch.encode('utf-8')[:4].ljust(4, b'\x00')
+        romaji_b = romaji.encode('ascii', errors='ignore')[:7].ljust(8, b'\x00')
+        records.append((utf8_b, romaji_b))
+
     records.sort(key=lambda x: x[0])
-    out_path = os.path.join(DATA_DIR, "kanji_f5.bin")
-    with open(out_path, 'wb') as f:
-        f.write(struct.pack('<4sHH', b'KANJ', len(records), 8))
-        for utf8_b, u_code, flag in records:
-            f.write(struct.pack('<4sHBx', utf8_b, u_code, flag))
-    print(f"     => 生成完了: {out_path} ({len(records):,} 文字, {os.path.getsize(out_path):,} bytes)")
+    bin_payload = bytearray()
+    bin_payload.extend(struct.pack('<4sHH4s', b'YOMI', len(records), 12, b'\x00'*4))
+    for utf8_b, romaji_b in records:
+        bin_payload.extend(utf8_b)
+        bin_payload.extend(romaji_b)
+
+    for out_d in [DATA_DIR, os.path.join(BASE_DIR, "firmware", "data")]:
+        os.makedirs(out_d, exist_ok=True)
+        out_bin = os.path.join(out_d, "kanji_yomi.bin")
+        with open(out_bin, 'wb') as f:
+            f.write(bin_payload)
+        print(f"     => 生成完了: {out_bin} ({len(records):,} 文字, {len(bin_payload):,} bytes)")
 
 if __name__ == '__main__':
     compile_terms()
     compile_kanji()
+    compile_kanji_yomi()

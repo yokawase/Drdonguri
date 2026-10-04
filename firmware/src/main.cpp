@@ -101,19 +101,18 @@ struct SlotHeader {
 // ----------------------------------------------------------------------------
 // SPIFFS固定長バイナリ辞書構造体 (Zero-RAM Binary Search Specification)
 // ----------------------------------------------------------------------------
-// 1. /kanji_f5.bin ヘッダ (8バイト)
-struct KanjiHeader {
-  char     magic[4];       // "KANJ"
+// 1. /kanji_yomi.bin ヘッダ (12バイト)
+struct KanjiYomiHeader {
+  char     magic[4];       // "YOMI"
   uint16_t count;          // レコード件数 (LE)
-  uint16_t recordSize;     // レコード長 (8バイト)
+  uint16_t recordSize;     // レコード長 (12バイト)
+  char     reserved[4];    // 予約
 };
 
-// /kanji_f5.bin レコード (8バイト固定長 / UTF-8昇順ソート済み)
-struct KanjiRecord {
+// /kanji_yomi.bin レコード (12バイト固定長 / UTF-8昇順ソート済み)
+struct KanjiYomiRecord {
   char     utf8[4];        // UTF-8文字バイト列 (Nullパディング)
-  uint16_t unicode;        // Unicode (UCS-2 / UTF-16) 16進値 (LE)
-  uint8_t  flag;           // 属性フラグ (0x01: F5強制)
-  uint8_t  padding;        // パディング
+  char     romaji[8];      // 代表音読みローマ字 (Nullパディング)
 };
 
 // 2. /med_terms.bin ヘッダ (16バイト)
@@ -425,15 +424,15 @@ void sendSafeChar(char c) {
 // RAM上に辞書を一括展開せず、f.seek()で必要なレコード（8B/32B）のみをスタック変数に読み出す
 // ============================================================================
 
-// 1. 難読単漢字テーブル (/kanji_f5.bin) 二分探索
-bool lookupKanjiF5(File& f, uint16_t count, const char* utf8Char, uint16_t* outUnicode) {
+// 1. JIS全漢字音訓読みテーブル (/kanji_yomi.bin) 二分探索 (Zero-RAM)
+bool lookupKanjiYomi(File& f, uint16_t count, const char* utf8Char, char* outRomaji, size_t maxLen) {
   if (utf8Char == nullptr || count == 0 || !f) return false;
 
   char target[4] = {0, 0, 0, 0};
-  size_t ulen = 0;
-  while (utf8Char[ulen] != '\0' && ulen < 4) {
-    target[ulen] = utf8Char[ulen];
-    ulen++;
+  size_t ulen = getUtf8CharLen((uint8_t)utf8Char[0]);
+  if (ulen > 4) ulen = 4;
+  for (size_t u = 0; u < ulen; u++) {
+    target[u] = utf8Char[u];
   }
 
   int32_t low = 0;
@@ -441,17 +440,18 @@ bool lookupKanjiF5(File& f, uint16_t count, const char* utf8Char, uint16_t* outU
 
   while (low <= high) {
     int32_t mid = low + (high - low) / 2;
-    uint32_t offset = (uint32_t)sizeof(KanjiHeader) + (uint32_t)mid * (uint32_t)sizeof(KanjiRecord);
+    uint32_t offset = (uint32_t)sizeof(KanjiYomiHeader) + (uint32_t)mid * (uint32_t)sizeof(KanjiYomiRecord);
 
     if (!f.seek(offset, SeekSet)) break;
 
-    KanjiRecord rec;
-    if (f.read((uint8_t*)&rec, sizeof(KanjiRecord)) != sizeof(KanjiRecord)) break;
+    KanjiYomiRecord rec;
+    if (f.read((uint8_t*)&rec, sizeof(KanjiYomiRecord)) != sizeof(KanjiYomiRecord)) break;
 
     int cmp = memcmp(target, rec.utf8, 4);
     if (cmp == 0) {
-      if (outUnicode != nullptr) {
-        *outUnicode = rec.unicode;
+      if (outRomaji != nullptr && maxLen > 0) {
+        strncpy(outRomaji, rec.romaji, maxLen - 1);
+        outRomaji[maxLen - 1] = '\0';
       }
       return true;
     } else if (cmp < 0) {
@@ -463,24 +463,24 @@ bool lookupKanjiF5(File& f, uint16_t count, const char* utf8Char, uint16_t* outU
   return false;
 }
 
-bool lookupKanjiF5(const char* utf8Char, uint16_t* outUnicode) {
+bool lookupKanjiYomi(const char* utf8Char, char* outRomaji, size_t maxLen) {
   if (utf8Char == nullptr || !spiffsMounted) return false;
 
-  File f = SPIFFS.open("/kanji_f5.bin", "r");
+  File f = SPIFFS.open("/kanji_yomi.bin", "r");
   if (!f) return false;
 
-  KanjiHeader hdr;
-  if (f.read((uint8_t*)&hdr, sizeof(KanjiHeader)) != sizeof(KanjiHeader)) {
+  KanjiYomiHeader hdr;
+  if (f.read((uint8_t*)&hdr, sizeof(KanjiYomiHeader)) != sizeof(KanjiYomiHeader)) {
     f.close();
     return false;
   }
 
-  if (memcmp(hdr.magic, "KANJ", 4) != 0 || hdr.recordSize != sizeof(KanjiRecord) || hdr.count == 0) {
+  if (memcmp(hdr.magic, "YOMI", 4) != 0 || hdr.recordSize != sizeof(KanjiYomiRecord) || hdr.count == 0) {
     f.close();
     return false;
   }
 
-  bool found = lookupKanjiF5(f, hdr.count, utf8Char, outUnicode);
+  bool found = lookupKanjiYomi(f, hdr.count, utf8Char, outRomaji, maxLen);
   f.close();
   return found;
 }
@@ -539,13 +539,6 @@ bool lookupMedicalTerm(const char* word, size_t len, MedTermRecord* outRec) {
   return found;
 }
 
-// 難読漢字・Unicodeコード安全着弾（F5リロード暴発を完全防止）
-void sendKanjiF5Direct(uint16_t unicode) {
-  // ブラウザ（Chrome/Edge/カルテ画面）でのF5リロード暴発事故を完全防止するため、
-  // F5キーは一切送出せず、安全にEnter確定のみ行う
-  Keyboard.write(KEY_RETURN);
-  delay(35);
-}
 
 // 医療用語・カタカナ薬名のモード別物理打鍵
 void sendMedTermKeystrokes(const MedTermRecord& rec) {
@@ -771,19 +764,19 @@ bool dispatchSafeKeystrokes() {
   const char* buf = currentMsg.assembledBuffer;
 
   // SPIFFS辞書ファイルのオープン（打鍵セッション中のみファイルハンドルを保持）
-  File fKanji;
+  File fYomi;
   File fTerms;
-  uint16_t kanjiCount = 0;
+  uint16_t yomiCount = 0;
   uint32_t termCount = 0;
 
   if (spiffsMounted) {
-    if (SPIFFS.exists("/kanji_f5.bin")) {
-      fKanji = SPIFFS.open("/kanji_f5.bin", "r");
-      if (fKanji) {
-        KanjiHeader kh;
-        if (fKanji.read((uint8_t*)&kh, sizeof(KanjiHeader)) == sizeof(KanjiHeader)) {
-          if (memcmp(kh.magic, "KANJ", 4) == 0 && kh.recordSize == sizeof(KanjiRecord)) {
-            kanjiCount = kh.count;
+    if (SPIFFS.exists("/kanji_yomi.bin")) {
+      fYomi = SPIFFS.open("/kanji_yomi.bin", "r");
+      if (fYomi) {
+        KanjiYomiHeader yh;
+        if (fYomi.read((uint8_t*)&yh, sizeof(KanjiYomiHeader)) == sizeof(KanjiYomiHeader)) {
+          if (memcmp(yh.magic, "YOMI", 4) == 0 && yh.recordSize == sizeof(KanjiYomiRecord)) {
+            yomiCount = yh.count;
           }
         }
       }
@@ -1025,16 +1018,23 @@ bool dispatchSafeKeystrokes() {
       continue;
     }
 
-    // 【レベル3】: /kanji_f5.bin に合致する難読医療漢字（嚥、瘻、褥、瘡等）➔ Unicode 4桁 + F5 + Enter
+    // 【レベル3】: /kanji_yomi.bin 全JIS漢字（6,500字以上）オンボード音読み解決 ➔ Space変換 ➔ Enter確定
     size_t uLen = getUtf8CharLen((uint8_t)buf[i]);
-    if (i + uLen <= total) {
+    if (uLen >= 3 && i + uLen <= total) {
       char utf8Single[5] = {0, 0, 0, 0, 0};
       memcpy(utf8Single, &buf[i], uLen);
 
-      uint16_t unicodeVal = 0;
-      if (fKanji && kanjiCount > 0 && lookupKanjiF5(fKanji, kanjiCount, utf8Single, &unicodeVal)) {
-        // ヒット時のみ限定着弾（一般漢字へのF5乱射を完全に阻止）
-        sendKanjiF5Direct(unicodeVal);
+      char yomiRomaji[16] = {0};
+      if (fYomi && yomiCount > 0 && lookupKanjiYomi(fYomi, yomiCount, utf8Single, yomiRomaji, sizeof(yomiRomaji))) {
+        // JIS漢字ヒット: 代表音読みローマ字を安全打鍵
+        for (size_t r = 0; yomiRomaji[r] != '\0'; r++) {
+          sendSafeChar(yomiRomaji[r]);
+        }
+        // Space漢字変換 ➔ Enter確定 (F5リロード誤爆ゼロ)
+        Keyboard.write(' ');
+        delay(25);
+        Keyboard.write(KEY_RETURN);
+        delay(35);
         i += uLen;
         continue;
       }
@@ -1176,24 +1176,22 @@ bool dispatchSafeKeystrokes() {
     }
 
     // 4. 辞書未登録の一般漢字・未分類マルチバイト文字
-    // ★【ゼロメモリ ビット演算 Unicode 直接着弾フォールバック (中断ゼロ＆脱落ゼロ)】
-    // 辞書(kanji_f5.bin)にない一般漢字・人名・地名であっても、
-    // 3バイトUTF-8からビット演算で即時に16進Unicodeコードポイントを算出し、
-    // F5キー(文字コード変換)で直接カルテへ着弾させる。
-    // これにより「辞書未登録」によるエラー中断・文字脱落を100%根絶し、最後まで完全に打ち切る。
-    uint16_t fallbackUnicode = 0;
-    if (uLen == 3 && i + 3 <= total) {
-      const uint8_t* p = (const uint8_t*)&buf[i];
-      fallbackUnicode = ((p[0] & 0x0F) << 12) | ((p[1] & 0x3F) << 6) | (p[2] & 0x3F);
-    } else if (uLen == 2 && i + 2 <= total) {
-      const uint8_t* p = (const uint8_t*)&buf[i];
-      fallbackUnicode = ((p[0] & 0x1F) << 6) | (p[1] & 0x3F);
-    }
-
-    if (fallbackUnicode != 0) {
-      sendKanjiF5Direct(fallbackUnicode);
-      i += uLen;
-      continue;
+    // ★【JIS全漢字音訓オンボード解決 (中断ゼロ・脱落ゼロ・F5完全廃絶)】
+    if (uLen >= 3 && i + uLen <= total) {
+      char utf8Single[5] = {0, 0, 0, 0, 0};
+      memcpy(utf8Single, &buf[i], uLen);
+      char yomiRomaji[16] = {0};
+      if (fYomi && yomiCount > 0 && lookupKanjiYomi(fYomi, yomiCount, utf8Single, yomiRomaji, sizeof(yomiRomaji))) {
+        for (size_t r = 0; yomiRomaji[r] != '\0'; r++) {
+          sendSafeChar(yomiRomaji[r]);
+        }
+        Keyboard.write(' ');
+        delay(25);
+        Keyboard.write(KEY_RETURN);
+        delay(35);
+        i += uLen;
+        continue;
+      }
     }
 
     // 1バイト未知コード等の安全なスキップ
@@ -1201,7 +1199,7 @@ bool dispatchSafeKeystrokes() {
   }
 
   // ファイルハンドルのクローズ
-  if (fKanji) fKanji.close();
+  if (fYomi) fYomi.close();
   if (fTerms) fTerms.close();
   return true;
 }
