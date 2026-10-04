@@ -1,0 +1,8 @@
+{
+  "name": "再トライ HYBRID unicode SendText　AtomS3U内辞書活用",
+  "description": "医療現場向け電子カルテ自動入力デバイス「DrVoice どんぐり君！」(M5Stack AtomS3U) と連携し、スマホで作成したカルテテキストを安全・確実にBLE転送＆Windows USB-HID自動打鍵する医療DX統合PWA/コンソール",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

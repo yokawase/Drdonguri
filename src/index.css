@@ -1,0 +1,258 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'DotGothic16', 'Monaco', 'Geneva', monospace, system-ui;
+    color: #000000;
+    image-rendering: pixelated;
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: unset;
+    font-smooth: never;
+  }
+  
+  code, pre, .font-mono, textarea, input {
+    font-family: 'Monaco', 'DotGothic16', 'Courier New', monospace;
+    image-rendering: pixelated;
+    -webkit-font-smoothing: none;
+    -moz-osx-font-smoothing: unset;
+    font-smooth: never;
+  }
+}
+
+/* 50% ディザパターンのClassic Mac デスクトップ背景 (Checkerboard Gray: 2x2 grid) */
+.classic-desktop {
+  background-image: linear-gradient(45deg, #000000 25%, transparent 25%), 
+                    linear-gradient(-45deg, #000000 25%, transparent 25%), 
+                    linear-gradient(45deg, transparent 75%, #000000 75%), 
+                    linear-gradient(-45deg, transparent 75%, #000000 75%);
+  background-size: 2px 2px;
+  background-position: 0 0, 0 1px, 1px -1px, -1px 0px;
+  background-color: #ffffff;
+}
+
+/* 25% 軽ディザパターン (サブペイン・ダイアログ用) */
+.classic-dither-light {
+  background-image: radial-gradient(#000000 0.5px, transparent 0.5px);
+  background-size: 3px 3px;
+  background-color: #ffffff;
+}
+
+/* System 7 タイトルバーの横縞6本ストライプ (1px黒 / 1px白の繰り返し) */
+.mac-title-stripes {
+  background: repeating-linear-gradient(
+    to bottom,
+    #000000,
+    #000000 1px,
+    #ffffff 1px,
+    #ffffff 2px
+  );
+}
+
+/* 非アクティブウィンドウ用クリアタイトルバー */
+.mac-title-stripes-inactive {
+  background: #ffffff;
+}
+
+/* System 7 プログレスバーの斜めストライプ */
+.mac-progress-stripe {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    #000000,
+    #000000 4px,
+    #ffffff 4px,
+    #ffffff 8px
+  );
+  animation: mac-stripe-slide 1s linear infinite;
+}
+
+@keyframes mac-stripe-slide {
+  from { background-position: 0 0; }
+  to { background-position: 16px 0; }
+}
+
+/* System 7 ボタンスタイル */
+.mac-btn {
+  background-color: #ffffff;
+  color: #000000;
+  border: 1px solid #000000;
+  border-radius: 3px;
+  box-shadow: 1px 1px 0px #000000;
+  font-family: 'DotGothic16', 'Monaco', monospace;
+  font-size: 12px;
+  padding: 3px 12px;
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: none;
+}
+
+.mac-btn:hover {
+  background-color: #f2f2f2;
+}
+
+.mac-btn:active {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  transform: translate(1px, 1px);
+}
+
+.mac-btn:disabled {
+  background-color: #ffffff;
+  color: #888888;
+  border-color: #888888;
+  box-shadow: none;
+  cursor: not-allowed;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 2px,
+    #dddddd 2px,
+    #dddddd 4px
+  );
+}
+
+/* System 7 特有の「デフォルトボタン」の太い二重丸枠（送信ボタンなどに適用） */
+.mac-btn-default-wrapper {
+  padding: 2px;
+  border: 2px solid #000000;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.mac-btn-default {
+  border: 1px solid #000000;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+/* System 7 ウィンドウ外枠 */
+.mac-window {
+  border: 1px solid #000000;
+  box-shadow: 2px 2px 0px #000000;
+  background-color: #ffffff;
+  border-radius: 4px 4px 0 0;
+  overflow: hidden;
+}
+
+/* System 7 モーダルダイアログ外枠 (重厚な二重黒枠) */
+.mac-dialog {
+  border: 2px solid #000000;
+  box-shadow: 3px 3px 0px #000000;
+  background-color: #ffffff;
+  border-radius: 0;
+  outline: 1px solid #ffffff;
+}
+
+/* Macintosh Screen Flash (ビープ代替の画面全体白黒反転) */
+@keyframes mac-screen-flash-anim {
+  0% { filter: invert(1); }
+  50% { filter: invert(1); }
+  100% { filter: invert(0); }
+}
+
+.screen-flash-trigger {
+  animation: mac-screen-flash-anim 0.12s ease-in-out;
+}
+
+/* 1-bit チェックボックス & ラジオボタン */
+.mac-checkbox {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 1px solid #000000;
+  background: #ffffff;
+  cursor: pointer;
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.mac-checkbox:checked {
+  background: #000000;
+}
+
+.mac-checkbox:checked::after {
+  content: '✓';
+  color: #ffffff;
+  font-size: 10px;
+  position: absolute;
+  top: -2px;
+  left: 1px;
+}
+
+.mac-radio {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 1px solid #000000;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.mac-radio:checked::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: #000000;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+}
+
+/* System 7 スクロールバー風スタイル */
+::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+
+::-webkit-scrollbar-track {
+  background: #ffffff;
+  border-left: 1px solid #000000;
+  background-image: repeating-linear-gradient(
+    45deg,
+    #ffffff,
+    #ffffff 1px,
+    #eeeeee 1px,
+    #eeeeee 2px
+  );
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ffffff;
+  border: 1px solid #000000;
+  box-shadow: inset 1px 1px 0px #ffffff;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #000000;
+}
+
+::-webkit-scrollbar-button {
+  background: #ffffff;
+  border: 1px solid #000000;
+  height: 16px;
+  width: 16px;
+}
+
+::-webkit-scrollbar-button:active {
+  background: #000000;
+}
+
+/* Custom glow animations for AtomS3U RGB LED */
+@keyframes led-pulse {
+  0%, 100% { opacity: 0.9; filter: drop-shadow(0 0 6px currentColor); }
+  50% { opacity: 1; filter: drop-shadow(0 0 14px currentColor); }
+}
+
+.animate-led {
+  animation: led-pulse 1.8s infinite ease-in-out;
+}

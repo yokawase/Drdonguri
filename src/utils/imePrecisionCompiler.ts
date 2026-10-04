@@ -1,0 +1,1333 @@
+/**
+ * DrVoice どんぐり君！ IME精度向上ハイブリッド・パイプライン (v8.0)
+ * 
+ * 電子カルテPC側のIME（MS-IME等）が医療辞書を持たない標準状態（一般語彙辞書のみ）である環境で、
+ * 「タケキャブ ➔ 竹脚」「胆嚢炎 ➔ 単の応援」「びらん ➔ 微卵」といった同音異義語の誤変換を
+ * ゼロインストール・単一HIDキーボードの制約下で完全防止する。
+ * 
+ * 【5大工夫】
+ * 1. 文字種別「ファンクションキー強制ルーティング」 ([K]=F7全角カタカナ, [H]=F6全角ひらがな, [A]=半角ASCII, [Z]=漢字Space, [U]=Unicode F5)
+ * 2. 標準IME向け「最小確実形態素（Chunk）分解」
+ * 3. 同音異義語の「変換シミュレータ＆事前警告」
+ * 4. 難読専門漢字の「単漢字コード（Unicode F5変換）アシスト」
+ * 5. 医師個人専用カスタム辞書（学習プロファイル＆略語マクロ展開）
+ */
+
+import { MEDICAL_KANJI_ROMAJI_MAP, KANA_ROMAJI_MAP, SINGLE_KANJI_MAP } from './japaneseImeTranspiler';
+
+// -----------------------------------------------------------------------------
+// 1. 制御タグ定義 (AtomS3U ファームウェア v8.0 と完全一致)
+// -----------------------------------------------------------------------------
+export const IME_TAG_KATAKANA = '[K]'; // F7強制（全角カタカナ）
+export const IME_TAG_KATAKANA_END = '[/K]';
+export const IME_TAG_HIRAGANA = '[H]'; // Enter確定（全角ひらがな）
+export const IME_TAG_HIRAGANA_END = '[/H]';
+export const IME_TAG_KANJI    = '[Z]'; // 漢字変換（Space ➔ Enter）
+export const IME_TAG_KANJI_END = '[/Z]';
+export const IME_TAG_UNICODE  = '[U]'; // 廃止互換性保持
+export const IME_TAG_UNICODE_END = '[/U]';
+export const IME_TAG_ASCII    = '[A]'; // 半角ASCII直接モード
+export const IME_TAG_ASCII_END = '[/A]';
+export const IME_TAG_NORMAL   = '[N]'; // 通常モード復帰
+
+// -----------------------------------------------------------------------------
+// 2. 医師個人専用カスタム辞書（略語マクロ）型定義とデフォルトデータ
+// -----------------------------------------------------------------------------
+export interface DoctorCustomMacro {
+  id: string;
+  trigger: string;       // 略語・トリガー (例: "AP", "DM", "いつもの")
+  expansion: string;     // 展開後テキスト (例: "狭心症", "2型糖尿病")
+  description?: string;  // メモ
+  category: 'abbreviation' | 'prescription' | 'soap' | 'phrase';
+  enabled: boolean;
+}
+
+export const DEFAULT_DOCTOR_MACROS: DoctorCustomMacro[] = [
+  {
+    id: 'macro-ap',
+    trigger: 'AP',
+    expansion: '狭心症',
+    description: 'Angina Pectoris',
+    category: 'abbreviation',
+    enabled: true,
+  },
+  {
+    id: 'macro-dm',
+    trigger: 'DM',
+    expansion: '2型糖尿病',
+    description: 'Diabetes Mellitus',
+    category: 'abbreviation',
+    enabled: true,
+  },
+  {
+    id: 'macro-ht',
+    trigger: 'HT',
+    expansion: '本態性高血圧症',
+    description: 'Hypertension',
+    category: 'abbreviation',
+    enabled: true,
+  },
+  {
+    id: 'macro-dl',
+    trigger: 'DL',
+    expansion: '脂質異常症',
+    description: 'Dyslipidemia',
+    category: 'abbreviation',
+    enabled: true,
+  },
+  {
+    id: 'macro-gerd',
+    trigger: 'GERD',
+    expansion: '胃食道逆流症',
+    description: 'Gastroesophageal Reflux Disease',
+    category: 'abbreviation',
+    enabled: true,
+  },
+  {
+    id: 'macro-itsumono',
+    trigger: 'いつもの',
+    expansion: '定期処方継続。症状著変なし。次回4週後再診指示。',
+    description: '定期再診定型文',
+    category: 'phrase',
+    enabled: true,
+  },
+  {
+    id: 'macro-takekyabu',
+    trigger: 'タケ',
+    expansion: 'タケキャブ錠20mg 1回1錠 1日1回朝食後 28日分',
+    description: 'タケキャブ処方',
+    category: 'prescription',
+    enabled: true,
+  },
+  {
+    id: 'macro-amuro',
+    trigger: 'アムロ',
+    expansion: 'アムロジピン錠5mg 1回1錠 1日1回朝食後 28日分',
+    description: 'アムロジピン処方',
+    category: 'prescription',
+    enabled: true,
+  },
+];
+
+// -----------------------------------------------------------------------------
+// 3. 難読専門漢字 ＆ Unicodeコード表 (MS-IME F5変換アシスト)
+// -----------------------------------------------------------------------------
+export interface DifficultKanjiEntry {
+  kanji: string;
+  reading: string;
+  unicodeHex: string;
+  meaning: string;
+}
+
+export const DIFFICULT_MEDICAL_KANJI: DifficultKanjiEntry[] = [
+  { kanji: '嚥', reading: 'えん', unicodeHex: '56a5', meaning: '嚥下（飲み込み）' },
+  { kanji: '爬', reading: 'は', unicodeHex: '722c', meaning: '掻爬（かき出す）' },
+  { kanji: '瘻', reading: 'ろう', unicodeHex: '763b', meaning: '腸瘻・胃瘻（あな）' },
+  { kanji: '瘢', reading: 'はん', unicodeHex: '7622', meaning: '瘢痕（きずあと）' },
+  { kanji: '痕', reading: 'こん', unicodeHex: '75d5', meaning: '瘢痕' },
+  { kanji: '疥', reading: 'かい', unicodeHex: '75a5', meaning: '疥癬' },
+  { kanji: '癬', reading: 'せん', unicodeHex: '766c', meaning: '疥癬・白癬' },
+  { kanji: '攣', reading: 'れん', unicodeHex: '6523', meaning: '痙攣（けいれん）' },
+  { kanji: '痙', reading: 'けい', unicodeHex: '75c9', meaning: '痙攣' },
+  { kanji: '痺', reading: 'ひ', unicodeHex: '75fa', meaning: '麻痺（まひ）' },
+  { kanji: '腱', reading: 'けん', unicodeHex: '8171', meaning: 'アキレス腱' },
+  { kanji: '褥', reading: 'じょく', unicodeHex: '8925', meaning: '褥瘡（じょくそう）' },
+  { kanji: '瘡', reading: 'そう', unicodeHex: '7621', meaning: '褥瘡' },
+  { kanji: '潰', reading: 'かい', unicodeHex: '6f70', meaning: '潰瘍（かいよう）' },
+  { kanji: '瘍', reading: 'よう', unicodeHex: '761d', meaning: '潰瘍' },
+  { kanji: '顆', reading: 'か', unicodeHex: '9846', meaning: '顆粒球' },
+  { kanji: '腔', reading: 'こう', unicodeHex: '8154', meaning: '胸腔・腹腔' },
+  { kanji: '膿', reading: 'のう', unicodeHex: '61bf', meaning: '化膿・排膿' },
+];
+
+// -----------------------------------------------------------------------------
+// 4. 同音異義語・一般IME誤変換リスク事前辞書（変換シミュレータ）
+// -----------------------------------------------------------------------------
+export interface MisconversionWarning {
+  id: string;
+  target: string;                // 検出された単語
+  likelyMisconversion: string;   // 一般辞書で出がちな誤爆語
+  recommendedAction: 'chunk_split' | 'katakana_f7' | 'hiragana_f6' | 'unicode_f5' | 'synonym';
+  recommendationLabel: string;
+  synonymAlternative?: string;  // 推奨される平易な同義語
+  explanation: string;
+}
+
+export const MISCONVERSION_WARNING_LIST: MisconversionWarning[] = [
+  {
+    id: 'warn-takekyabu',
+    target: 'タケキャブ',
+    likelyMisconversion: '竹脚 / 丈脚',
+    recommendedAction: 'katakana_f7',
+    recommendationLabel: 'F7全角カタカナ強制 ([K]モード)',
+    explanation: '一般辞書には存在しない薬品名のため、漢字に誤変換されます。',
+  },
+  {
+    id: 'warn-amurojipin',
+    target: 'アムロジピン',
+    likelyMisconversion: 'あ室路ピン / 雨炉地品',
+    recommendedAction: 'katakana_f7',
+    recommendationLabel: 'F7全角カタカナ強制 ([K]モード)',
+    explanation: 'カタカナ薬品名は一括でF7強制送出することで100%誤爆を防止します。',
+  },
+  {
+    id: 'warn-tannouenn',
+    target: '胆嚢炎',
+    likelyMisconversion: '単の応援 / 短の応援',
+    recommendedAction: 'chunk_split',
+    recommendationLabel: '最小Chunk分解:「胆嚢」＋「炎」',
+    synonymAlternative: '胆嚢の炎症',
+    explanation: '長文一括変換で「単の応援」に崩れます。「胆嚢」と「炎」を分けて打鍵します。',
+  },
+  {
+    id: 'warn-biran',
+    target: 'びらん',
+    likelyMisconversion: '微卵 / 美覧',
+    recommendedAction: 'hiragana_f6',
+    recommendationLabel: 'F6全角ひらがな強制 ([H]モード)',
+    synonymAlternative: '粘膜欠損 / ただれ',
+    explanation: '「びらん」は一般IMEでは漢字化しにくいため、ひらがな強制またはChunk指定が安全です。',
+  },
+  {
+    id: 'warn-souha',
+    target: '掻爬',
+    likelyMisconversion: 'そうは / 争覇 / 草葉',
+    recommendedAction: 'unicode_f5',
+    recommendationLabel: 'Unicode F5打鍵 または 同義語置換',
+    synonymAlternative: '切除・掻き出し',
+    explanation: '「爬」は常用外で出にくいため、Unicode F5打鍵または「切除」への言い換えが推奨されます。',
+  },
+  {
+    id: 'warn-enge',
+    target: '嚥下',
+    likelyMisconversion: 'えんげ / 園外 / 煙下',
+    recommendedAction: 'unicode_f5',
+    recommendationLabel: 'Unicode F5打鍵 (56a5) または 分解打鍵',
+    synonymAlternative: '飲み込み',
+    explanation: '「嚥」は難読専門漢字のため、Unicode(U+56A5)コード打鍵で確実に着弾させます。',
+  },
+  {
+    id: 'warn-keishitu',
+    target: '憩室出血',
+    likelyMisconversion: '形式出血 / 警視痛結',
+    recommendedAction: 'chunk_split',
+    recommendationLabel: '最小Chunk分解:「憩室」＋「出血」',
+    explanation: '複合語一括変換を避け、「憩室」「出血」に分離して確定します。',
+  },
+  {
+    id: 'warn-hashu',
+    target: '播種',
+    likelyMisconversion: '波種 / 覇手',
+    recommendedAction: 'chunk_split',
+    recommendationLabel: '単漢字分解 または F5コード打鍵',
+    synonymAlternative: '腹腔内散布',
+    explanation: '腫瘍播種などの専門語は第一候補に出にくいため確実打鍵を適用します。',
+  },
+  {
+    id: 'warn-kyusei-chusuien',
+    target: '急性虫垂炎',
+    likelyMisconversion: '救済仲介円 / 救世注水炎',
+    recommendedAction: 'chunk_split',
+    recommendationLabel: '最小Chunk分解:「急性」＋「虫垂」＋「炎」',
+    explanation: '長い複合傷病名は一括変換が最も崩れやすいパターンです。',
+  },
+  {
+    id: 'warn-fushu',
+    target: '下腿浮腫',
+    likelyMisconversion: '肩いふ種 / 架台付手',
+    recommendedAction: 'chunk_split',
+    recommendationLabel: '最小Chunk分解:「下腿」＋「浮腫」',
+    synonymAlternative: '足のむくみ',
+    explanation: '「下腿」と「浮腫」を分けることで一般IMEでも第一候補になります。',
+  },
+];
+
+// -----------------------------------------------------------------------------
+// 5. 最小確実形態素（Chunk）分解辞書
+// -----------------------------------------------------------------------------
+export interface ChunkRule {
+  composite: string;        // 複合語
+  chunks: string[];         // 最小確実形態素
+  readings: string[];       // ローマ字
+}
+
+export const CHUNK_DECOMPOSITION_RULES: ChunkRule[] = [
+  // ユーザー入力文・カルテ重要文節（MS-IME自然文節学習に準拠）
+  { composite: '健診で低い', chunks: ['健診で', '低い'], readings: ['kennsinnde', 'hikui'] },
+  { composite: 'コレステロール値', chunks: ['コレステロール', '値'], readings: ['koresutero-ru', 'atai'] },
+  { composite: '指摘された際', chunks: ['指摘された際'], readings: ['sitekisaretasai'] },
+  { composite: 'すべての検査を', chunks: ['すべての', '検査', 'を'], readings: ['subeteno', 'kennsa', 'wo'] },
+  { composite: '画一的に行うのではなく', chunks: ['画一的', 'に', '行う', 'のではなく'], readings: ['kakuituteki', 'ni', 'okonawu', 'nodehanaku'] },
+  { composite: '画一的に', chunks: ['画一的', 'に'], readings: ['kakuituteki', 'ni'] },
+  { composite: '行うのではなく', chunks: ['行う', 'のではなく'], readings: ['okonawu', 'nodehanaku'] },
+  { composite: '患者の症状やリスクに応じて', chunks: ['患者', 'の', '症状', 'や', 'リスク', 'に', '応じて'], readings: ['kannjya', 'no', 'syoujyou', 'ya', 'risuku', 'ni', 'ouzite'] },
+  { composite: '必要な検査を', chunks: ['必要', 'な', '検査', 'を'], readings: ['hituyou', 'na', 'kennsa', 'wo'] },
+  { composite: '少しずつ進めていく', chunks: ['少しずつ', '進めていく'], readings: ['sukosizutu', 'susumeteiku'] },
+  { composite: '段階的なアプローチこそが', chunks: ['段階的', 'な', 'アプローチ', 'こそが'], readings: ['dankaiteki', 'na', 'apuro-ti', 'kosoga'] },
+  { composite: '真の意味での高価値ヘルスケア（HVC）となります', chunks: ['真の意味', 'での', '高', '価値', 'ヘルスケア', '（', 'HVC', '）', 'となります'], readings: ['sinnoimi', 'deno', 'kou', 'kati', 'herusukea', '(', 'HVC', ')', 'tonarimasu'] },
+  { composite: '真の意味での高価値ヘルスケア', chunks: ['真の意味', 'での', '高', '価値', 'ヘルスケア'], readings: ['sinnoimi', 'deno', 'kou', 'kati', 'herusukea'] },
+  { composite: '高価値ヘルスケア', chunks: ['高', '価値', 'ヘルスケア'], readings: ['kou', 'kati', 'herusukea'] },
+  { composite: '高価値医療', chunks: ['高', '価値', '医療'], readings: ['kou', 'kati', 'iryou'] },
+  { composite: '低価値医療', chunks: ['低価値', '医療'], readings: ['teikati', 'iryou'] },
+  { composite: '最初のステップとして', chunks: ['最初', 'の', 'ステップ', 'として'], readings: ['saisyo', 'no', 'suteppu', 'tosite'] },
+  { composite: '丁寧な問診や生活習慣の確認', chunks: ['丁寧', 'な', '問診', 'や', '生活習慣', 'の', '確認'], readings: ['teinei', 'na', 'monnsinn', 'ya', 'seikatusyuukann', 'no', 'kakuninn'] },
+  { composite: '過去のデータ照合を行うことで', chunks: ['過去', 'の', 'データ', '照合', 'を', '行う', 'ことで'], readings: ['kako', 'no', 'de-ta', 'syougou', 'wo', 'okonawu', 'kotode'] },
+  { composite: '身体的・経済的な負担を抑えつつ', chunks: ['身体的', '・', '経済的', 'な', '負担', 'を', '抑えつつ'], readings: ['sinntaiteki', '/', 'keizaiteki', 'na', 'hutann', 'wo', 'osaetutu'] },
+  { composite: '効率的に事前確率を評価できます', chunks: ['効率的', 'に', '事前確率', 'を', '評価', 'できます'], readings: ['kourituteki', 'ni', 'jizennkakuritu', 'wo', 'hyouka', 'dekimasu'] },
+  { composite: '反対に、', chunks: ['反対', 'に', '、'], readings: ['hanntai', 'ni', ','] },
+  { composite: '自覚症状のない低リスクな人に対して', chunks: ['自覚症状', 'の', 'ない', '低', 'リスク', 'な', '人', 'に対して'], readings: ['jikakusyoujyou', 'no', 'nai', 'tei', 'risuku', 'na', 'hito', 'nitaisite'] },
+  { composite: '結果の数値だけで最初から高度な画像検査や網羅的な二次精査をすべて一律に実施することは', chunks: ['結果', 'の', '数値', 'だけで', '最初', 'から', '高度', 'な', '画像検査', 'や', '網羅的', 'な', '二次精査', 'を', 'すべて', '一律に', '実施する', 'ことは'], readings: ['kekka', 'no', 'suuti', 'dakede', 'saisyo', 'kara', 'koudo', 'na', 'gazoukennsa', 'ya', 'mourateki', 'na', 'nijiseisa', 'wo', 'subete', 'itirituni', 'jissisuru', 'kotoha'] },
+  { composite: '不要な不安や医療費を膨らませる低価値医療へとつながるため注意が必要です', chunks: ['不要', 'な', '不安', 'や', '医療費', 'を', '膨らませる', '低価値', '医療', 'へと', 'つながるため', '注意', 'が', '必要', 'です'], readings: ['fuyou', 'na', 'fuann', 'ya', 'iryouhi', 'wo', 'hukuramaseru', 'teikati', 'iryou', 'heto', 'tunagarutame', 'tyuui', 'ga', 'hituyou', 'desu'] },
+  { composite: '最終的な治療方針や診断の確定に真に役立つケースでのみ高度な検査を選択することが', chunks: ['最終的', 'な', '治療方針', 'や', '診断', 'の', '確定', 'に', '真に役立つ', 'ケース', 'でのみ', '高度', 'な', '検査', 'を', '選択する', 'ことが'], readings: ['saisyuuteki', 'na', 'tiryouhousinn', 'ya', 'sinndann', 'no', 'kakutei', 'ni', 'sinniyakudatu', 'ke-su', 'denomi', 'koudo', 'na', 'kennsa', 'wo', 'senntakusuru', 'kotoga'] },
+  { composite: '患者が得られる利益を害の大きさが上回らないようにする医療のあり方といえます', chunks: ['患者', 'が', '得られる', '利益', 'を', '害の大きさ', 'が', '上回らない', 'ようにする', '医療', 'の', 'あり方', 'といえます'], readings: ['kannjya', 'ga', 'erareru', 'rieki', 'wo', 'gainoookisa', 'ga', 'uwamawaranai', 'younisuru', 'iryou', 'no', 'arikata', 'toiemasu'] },
+  // 臨床推論・背景・検診・内視鏡判断（同音異義語完全防護＆自然文節凝集）
+  { composite: '症例の背景:', chunks: ['症例の背景', ':'], readings: ['syoureinohaikei', ':'] },
+  { composite: '症例の背景：', chunks: ['症例の背景', ':'], readings: ['syoureinohaikei', ':'] },
+  { composite: '症例の背景', chunks: ['症例の背景'], readings: ['syoureinohaikei'] },
+  { composite: '59歳女性', chunks: ['59', '歳女性'], readings: ['59', 'saijyosei'] },
+  { composite: '59歳であれば', chunks: ['59', '歳であれば'], readings: ['59', 'saideareba'] },
+  { composite: '歳であれば', chunks: ['歳であれば'], readings: ['saideareba'] },
+  { composite: '歳女性', chunks: ['歳女性'], readings: ['saijyosei'] },
+  { composite: '大腸がん検診のオプションで', chunks: ['大腸がん検診の', 'オプションで'], readings: ['daityougannkennsinnno', 'opusyonnde'] },
+  { composite: 'コリバクチン産生菌陽性の評価:', chunks: ['コリバクチン', '産生菌', '陽性', 'の評価', ':'], readings: ['koribakutinn', 'sannseikinn', 'yousei', 'nohyouka', ':'] },
+  { composite: 'コリバクチン産生菌陽性の評価：', chunks: ['コリバクチン', '産生菌', '陽性', 'の評価', ':'], readings: ['koribakutinn', 'sannseikinn', 'yousei', 'nohyouka', ':'] },
+  { composite: 'コリバクチン産生菌陽性の評価', chunks: ['コリバクチン', '産生菌', '陽性', 'の評価'], readings: ['koribakutinn', 'sannseikinn', 'yousei', 'nohyouka'] },
+  { composite: 'コリバクチン産生菌', chunks: ['コリバクチン', '産生菌'], readings: ['koribakutinn', 'sannseikinn'] },
+  { composite: 'pks陽性だけを', chunks: ['pks', '陽性', 'だけを'], readings: ['pks', 'yousei', 'dakewo'] },
+  { composite: 'pks陽性', chunks: ['pks', '陽性'], readings: ['pks', 'yousei'] },
+  { composite: '陽性となり', chunks: ['陽性', 'となり'], readings: ['yousei', 'tonari'] },
+  { composite: '陽性のみを理由とした', chunks: ['陽性', 'のみを理由とした'], readings: ['yousei', 'nomiworiyuutosita'] },
+  { composite: '陽性のみを', chunks: ['陽性', 'のみを'], readings: ['yousei', 'nomiwo'] },
+  { composite: '陽性のみ', chunks: ['陽性', 'のみ'], readings: ['yousei', 'nomi'] },
+  { composite: '陽性だけを', chunks: ['陽性', 'だけを'], readings: ['yousei', 'dakewo'] },
+  { composite: '陽性の評価', chunks: ['陽性', 'の評価'], readings: ['yousei', 'nohyouka'] },
+  { composite: '便潜血検査（FIT）', chunks: ['便潜血検査', '（', 'FIT', '）'], readings: ['bennsennketukennsa', '(', 'FIT', ')'] },
+  { composite: '2026年1月の', chunks: ['2026', '年', '1', '月の'], readings: ['2026', 'nenn', '1', 'gatuno'] },
+  { composite: '2023年の', chunks: ['2023', '年の'], readings: ['2023', 'nennno'] },
+  { composite: '2回とも陰性だったものの', chunks: ['2', '回とも', '陰性だったものの'], readings: ['2', 'kaitomo', 'innseidattamonono'] },
+  { composite: '2回とも', chunks: ['2', '回とも'], readings: ['2', 'kaitomo'] },
+  { composite: '陰性だったものの', chunks: ['陰性だったものの'], readings: ['innseidattamonono'] },
+  { composite: 'がんへの不安から大腸内視鏡を希望して受診', chunks: ['がんへの不安から', '大腸内視鏡を', '希望して', '受診'], readings: ['gannhenohuannkara', 'daityounaisikyouwo', 'kibousite', 'jyusinn'] },
+  { composite: 'がんへの不安から', chunks: ['がんへの不安から'], readings: ['gannhenohuannkara'] },
+  { composite: '大腸内視鏡を希望して受診', chunks: ['大腸内視鏡を', '希望して', '受診'], readings: ['daityounaisikyouwo', 'kibousite', 'jyusinn'] },
+  { composite: '希望して受診', chunks: ['希望して', '受診'], readings: ['kibousite', 'jyusinn'] },
+  { composite: '受診', chunks: ['受診'], readings: ['jyusinn'] },
+  { composite: '現時点のエビデンスでは', chunks: ['現時点の', 'エビデンスでは'], readings: ['gennjitenno', 'ebidennsudeha'] },
+  { composite: '便中の単回測定による', chunks: ['便', '中', 'の', '単回測定による'], readings: ['benn', 'tyuu', 'no', 'tannkaisokuteiniyoru'] },
+  { composite: '便中の', chunks: ['便', '中', 'の'], readings: ['benn', 'tyuu', 'no'] },
+  { composite: '便中', chunks: ['便', '中'], readings: ['benn', 'tyuu'] },
+  { composite: '単回測定による', chunks: ['単回測定による'], readings: ['tannkaisokuteiniyoru'] },
+  { composite: '単回測定', chunks: ['単回測定'], readings: ['tannkaisokutei'] },
+  { composite: '大腸内視鏡の適応根拠や', chunks: ['大腸内視鏡の', '適応根拠や'], readings: ['daityounaisikyouno', 'tekioukonnkyoya'] },
+  { composite: 'リスク層別化に用いることは支持されていない', chunks: ['リスク', '層別化に', '用いることは', '支持', 'されていない'], readings: ['risuku', 'soubetukani', 'motiirukotoha', 'siji', 'sareteinai'] },
+  { composite: 'リスク層別化に用いることは', chunks: ['リスク', '層別化に', '用いることは'], readings: ['risuku', 'soubetukani', 'motiirukotoha'] },
+  { composite: 'リスク層別化', chunks: ['リスク', '層別化'], readings: ['risuku', 'soubetuka'] },
+  { composite: '層別化', chunks: ['層別化'], readings: ['soubetuka'] },
+  { composite: '用いることは', chunks: ['用いることは'], readings: ['motiirukotoha'] },
+  { composite: '用いること', chunks: ['用いること'], readings: ['motiirukoto'] },
+  { composite: '用いる', chunks: ['用いる'], readings: ['motiiru'] },
+  { composite: '支持されていない', chunks: ['支持', 'されていない'], readings: ['siji', 'sareteinai'] },
+  { composite: '支持', chunks: ['支持'], readings: ['siji'] },
+  { composite: '無症候群と対照群で検出率に有意差はない', chunks: ['無症候群と', '対照群で', '検出率に', '有意差はない'], readings: ['musyoukougunnto', 'taisyougunnde', 'kennsyuturituni', 'yuuisahanai'] },
+  { composite: '無症候群と対照群で', chunks: ['無症候群と', '対照群で'], readings: ['musyoukougunnto', 'taisyougunnde'] },
+  { composite: '対照群で', chunks: ['対照群で'], readings: ['taisyougunnde'] },
+  { composite: '対照群', chunks: ['対照群'], readings: ['taisyougunn'] },
+  { composite: '対照', chunks: ['対照'], readings: ['taisyou'] },
+  { composite: '検出率に有意差はない', chunks: ['検出率に', '有意差はない'], readings: ['kennsyuturituni', 'yuuisahanai'] },
+  { composite: '検出率に', chunks: ['検出率に'], readings: ['kennsyuturituni'] },
+  { composite: '検出率', chunks: ['検出率'], readings: ['kennsyuturitu'] },
+  { composite: '大腸内視鏡の適応に関する判断:', chunks: ['大腸内視鏡の', '適応に関する判断', ':'], readings: ['daityounaisikyouno', 'tekiounikannsuruhanndann', ':'] },
+  { composite: '大腸内視鏡の適応に関する判断：', chunks: ['大腸内視鏡の', '適応に関する判断', ':'], readings: ['daityounaisikyouno', 'tekiounikannsuruhanndann', ':'] },
+  { composite: '大腸内視鏡の適応に関する判断', chunks: ['大腸内視鏡の', '適応に関する判断'], readings: ['daityounaisikyouno', 'tekiounikannsuruhanndann'] },
+  { composite: '適応に関する判断', chunks: ['適応に関する判断'], readings: ['tekiounikannsuruhanndann'] },
+  { composite: '適応に関する', chunks: ['適応に関する'], readings: ['tekiounikannsuru'] },
+  { composite: 'これまで高品質な全大腸内視鏡を受けていない', chunks: ['これまで', '高品質な', '全大腸内視鏡を受けていない'], readings: ['koremade', 'kouhinsituna', 'zenndaityounaisikyouwouketeinai'] },
+  { composite: '全大腸内視鏡を受けていない', chunks: ['全大腸内視鏡を受けていない'], readings: ['zenndaityounaisikyouwouketeinai'] },
+  { composite: '全大腸内視鏡を', chunks: ['全大腸内視鏡を'], readings: ['zenndaityounaisikyouwo'] },
+  { composite: '全大腸内視鏡', chunks: ['全大腸内視鏡'], readings: ['zenndaityounaisikyou'] },
+  { composite: '受けていない', chunks: ['受けていない'], readings: ['uketeinai'] },
+  { composite: '十分な説明に基づいた本人の希望による内視鏡は', chunks: ['十分な説明に', '基づいた', '本人の希望による', '内視鏡は'], readings: ['jyuubunnsetumeini', 'motoduita', 'honnninnnokibouniyoru', 'naisikyouha'] },
+  { composite: '十分な説明に', chunks: ['十分な説明に'], readings: ['jyuubunnsetumeini'] },
+  { composite: 'に基づいた', chunks: ['に基づいた'], readings: ['nimotoduita'] },
+  { composite: '基づいた', chunks: ['基づいた'], readings: ['motoduita'] },
+  { composite: '本人の希望による', chunks: ['本人の希望による'], readings: ['honnninnnokibouniyoru'] },
+  { composite: '本人の希望', chunks: ['本人の希望'], readings: ['honnninnnokibou'] },
+  { composite: '本人', chunks: ['本人'], readings: ['honnninn'] },
+  { composite: 'FIT陰性であっても妥当な選択肢である', chunks: ['FIT', '陰性であっても', '妥当な選択肢である'], readings: ['FIT', 'innseideattemo', 'datounasenntakusidearu'] },
+  { composite: 'FIT陰性であっても', chunks: ['FIT', '陰性であっても'], readings: ['FIT', 'innseideattemo'] },
+  { composite: '陰性であっても', chunks: ['陰性であっても'], readings: ['innseideattemo'] },
+  { composite: '妥当な選択肢である', chunks: ['妥当な選択肢である'], readings: ['datounasenntakusidearu'] },
+  { composite: '選択肢である', chunks: ['選択肢である'], readings: ['senntakusidearu'] },
+  { composite: '選択肢', chunks: ['選択肢'], readings: ['senntakusi'] },
+  { composite: '一方、', chunks: ['一方', '、'], readings: ['ippou', ','] },
+  { composite: '盲腸到達・前処置良好・腫瘍なしを満たす', chunks: ['盲腸到達', '・', '前処置良好', '・', '腫瘍', 'なしを満たす'], readings: ['moutyoutoutatu', '/', 'zennsyotiryoukou', '/', 'syuyou', 'nasiwomitasu'] },
+  { composite: '盲腸到達', chunks: ['盲腸到達'], readings: ['moutyoutoutatu'] },
+  { composite: '前処置良好', chunks: ['前処置良好'], readings: ['zennsyotiryoukou'] },
+  { composite: '腫瘍なしを満たす', chunks: ['腫瘍', 'なしを満たす'], readings: ['syuyou', 'nasiwomitasu'] },
+  { composite: '腫瘍なしを', chunks: ['腫瘍', 'なしを'], readings: ['syuyou', 'nasiwo'] },
+  { composite: '腫瘍なし', chunks: ['腫瘍', 'なし'], readings: ['syuyou', 'nasi'] },
+  { composite: '腫瘍', chunks: ['腫瘍'], readings: ['syuyou'] },
+  { composite: 'を満たす', chunks: ['を満たす'], readings: ['womitasu'] },
+  { composite: '「高品質な完全内視鏡」であった場合', chunks: ['「', '高品質な', '完全内視鏡', '」', 'であった場合'], readings: ['[H][[/H]', 'kouhinsituna', 'kannzennnaisikyou', '[H]][/H]', 'deattabaai'] },
+  { composite: '「高品質な完全内視鏡」', chunks: ['「', '高品質な', '完全内視鏡', '」'], readings: ['[H][[/H]', 'kouhinsituna', 'kannzennnaisikyou', '[H]][/H]'] },
+  { composite: '高品質な完全内視鏡', chunks: ['高品質な', '完全内視鏡'], readings: ['kouhinsituna', 'kannzennnaisikyou'] },
+  { composite: '完全内視鏡', chunks: ['完全内視鏡'], readings: ['kannzennnaisikyou'] },
+  { composite: '高品質な', chunks: ['高品質な'], readings: ['kouhinsituna'] },
+  { composite: '高品質', chunks: ['高品質'], readings: ['kouhinsitu'] },
+  { composite: 'であった場合', chunks: ['であった場合'], readings: ['deattabaai'] },
+  { composite: '場合', chunks: ['場合'], readings: ['baai'] },
+  { composite: 'コリバクチン陽性のみを理由とした早期の再検は', chunks: ['コリバクチン', '陽性', 'のみを理由とした', '早期の', '再検', 'は'], readings: ['koribakutinn', 'yousei', 'nomiworiyuutosita', 'soukino', 'saikenn', 'ha'] },
+  { composite: '早期の再検は', chunks: ['早期の', '再検', 'は'], readings: ['soukino', 'saikenn', 'ha'] },
+  { composite: '早期の再検', chunks: ['早期の', '再検'], readings: ['soukino', 'saikenn'] },
+  { composite: '再検は', chunks: ['再検', 'は'], readings: ['saikenn', 'ha'] },
+  { composite: '再検', chunks: ['再検'], readings: ['saikenn'] },
+  { composite: '追加利益が小さく過剰検査となり得る', chunks: ['追加利益が', '小さく', '過剰検査と', 'なり得る'], readings: ['tuikariekiga', 'tiisaku', 'kajyoukennsato', 'nariuru'] },
+  { composite: '追加利益が', chunks: ['追加利益が'], readings: ['tuikariekiga'] },
+  { composite: '追加利益', chunks: ['追加利益'], readings: ['tuikarieki'] },
+  { composite: '利益が', chunks: ['利益が'], readings: ['riekiga'] },
+  { composite: '小さく', chunks: ['小さく'], readings: ['tiisaku'] },
+  { composite: '過剰検査となり得る', chunks: ['過剰検査と', 'なり得る'], readings: ['kajyoukennsato', 'nariuru'] },
+  { composite: '過剰検査', chunks: ['過剰検査'], readings: ['kajyoukennsa'] },
+  { composite: '検査となり得る', chunks: ['検査と', 'なり得る'], readings: ['kennsato', 'nariuru'] },
+  { composite: 'となり得る', chunks: ['となり得る'], readings: ['nariuru'] },
+  { composite: '得られない', chunks: ['得られない'], readings: ['erarenai'] },
+  { composite: '得られる', chunks: ['得られる'], readings: ['erareru'] },
+  { composite: '得ない', chunks: ['得ない'], readings: ['enai'] },
+  { composite: '得る', chunks: ['得る'], readings: ['uru'] },
+  // 臨床標準病名
+  { composite: '急性虫垂炎', chunks: ['急性', '虫垂', '炎'], readings: ['kyuusei', 'tyuusui', 'enn'] },
+  { composite: '胆嚢炎', chunks: ['胆嚢', '炎'], readings: ['tannnou', 'enn'] },
+  { composite: '十二指腸潰瘍', chunks: ['十二指腸', '潰瘍'], readings: ['jyuunisitzyou', 'kaiyou'] },
+  { composite: '逆流性食道炎', chunks: ['逆流性', '食道', '炎'], readings: ['gyakuryuusei', 'syokudou', 'enn'] },
+  { composite: '高血圧症', chunks: ['高血圧', '症'], readings: ['kouketuatu', 'syou'] },
+  { composite: '気管支喘息', chunks: ['気管支', '喘息'], readings: ['kikannsi', 'zennsoku'] },
+  { composite: '憩室出血', chunks: ['憩室', '出血'], readings: ['keisitu', 'syukketsu'] },
+  { composite: '急性上気道炎', chunks: ['急性', '上気道', '炎'], readings: ['kyuusei', 'jyoukidou', 'enn'] },
+  { composite: '虚血性心疾患', chunks: ['虚血性', '心疾患'], readings: ['kyoketusei', 'sinnsikkann'] },
+  { composite: '下腿浮腫', chunks: ['下腿', '浮腫'], readings: ['katai', 'husyu'] },
+  { composite: '脂質異常症', chunks: ['脂質', '異常', '症'], readings: ['sisitu', 'ijyou', 'syou'] },
+  { composite: '糖尿病網膜症', chunks: ['糖尿病', '網膜', '症'], readings: ['tounyoubyou', 'moumaku', 'syou'] },
+  { composite: 'アレルギー性鼻炎', chunks: ['アレルギー性', '鼻炎'], readings: ['arerugi-sei', 'bienn'] },
+
+  // ── ガイドライン・EBM・消化器内視鏡臨床推論文 ──
+  { composite: '内視鏡未施行なら：', chunks: ['内視鏡', '未施行', 'なら', ':'], readings: ['naisikyou', 'misikou', 'nara', ':'] },
+  { composite: '内視鏡未施行なら', chunks: ['内視鏡', '未施行', 'なら'], readings: ['naisikyou', 'misikou', 'nara'] },
+  { composite: '未施行なら', chunks: ['未施行', 'なら'], readings: ['misikou', 'nara'] },
+  { composite: '未施行', chunks: ['未施行'], readings: ['misikou'] },
+  { composite: '2回を踏まえても', chunks: ['2', '回を', '踏まえても'], readings: ['2', 'kaiwo', 'humaetemo'] },
+  { composite: 'を踏まえても', chunks: ['を', '踏まえても'], readings: ['wo', 'humaetemo'] },
+  { composite: '踏まえても', chunks: ['踏まえても'], readings: ['humaetemo'] },
+  { composite: '踏まえて', chunks: ['踏まえて'], readings: ['humaete'] },
+  { composite: 'FITを継続するか', chunks: ['FIT', 'を', '継続するか'], readings: ['FIT', 'wo', 'keizokusuruka'] },
+  { composite: '継続するか', chunks: ['継続', 'するか'], readings: ['keizoku', 'suruka'] },
+  { composite: '一回の内視鏡を行うかはいずれも合理的です', chunks: ['一回の', '内視鏡を', '行うか', 'はいずれも', '合理的です'], readings: ['itikaino', 'naisikyouwo', 'okonauka', 'haizuremo', 'gouritekidesu'] },
+  { composite: 'を行うかはいずれも合理的です', chunks: ['を', '行うか', 'はいずれも', '合理的です'], readings: ['wo', 'okonauka', 'haizuremo', 'gouritekidesu'] },
+  { composite: '行うかはいずれも合理的です', chunks: ['行うか', 'はいずれも', '合理的です'], readings: ['okonauka', 'haizuremo', 'gouritekidesu'] },
+  { composite: '行うかはいずれも', chunks: ['行うか', 'はいずれも'], readings: ['okonauka', 'haizuremo'] },
+  { composite: 'を行うか', chunks: ['を', '行うか'], readings: ['wo', 'okonauka'] },
+  { composite: '行うか', chunks: ['行うか'], readings: ['okonauka'] },
+  { composite: 'はいずれも', chunks: ['は', 'いずれも'], readings: ['ha', 'izuremo'] },
+  { composite: 'いずれも', chunks: ['いずれも'], readings: ['izuremo'] },
+  { composite: '合理的です', chunks: ['合理的', 'です'], readings: ['gouriteki', 'desu'] },
+  { composite: '合理的', chunks: ['合理的'], readings: ['gouriteki'] },
+  { composite: '進行腺腫・鋸歯状病変の検出に優れますが', chunks: ['進行', '腺腫', '・', '鋸歯状', '病変の', '検出に', '優れますが'], readings: ['sinkou', 'sensyu', '/', 'kyosijyou', 'byouhennno', 'kennsyutuni', 'suguremasuga'] },
+  { composite: '進行腺腫・鋸歯状病変への感度は', chunks: ['進行', '腺腫', '・', '鋸歯状', '病変への', '感度は'], readings: ['sinkou', 'sensyu', '/', 'kyosijyou', 'byouhennheno', 'kanndoha'] },
+  { composite: '進行腺腫・鋸歯状病変', chunks: ['進行', '腺腫', '・', '鋸歯状', '病変'], readings: ['sinkou', 'sensyu', '/', 'kyosijyou', 'byouhenn'] },
+  { composite: '進行腺腫', chunks: ['進行', '腺腫'], readings: ['sinkou', 'sensyu'] },
+  { composite: '鋸歯状病変', chunks: ['鋸歯状', '病変'], readings: ['kyosijyou', 'byouhenn'] },
+  { composite: '鋸歯状', chunks: ['鋸歯状'], readings: ['kyosijyou'] },
+  { composite: '病変の検出に', chunks: ['病変の', '検出に'], readings: ['byouhennno', 'kennsyutuni'] },
+  { composite: '優れますが', chunks: ['優れますが'], readings: ['suguremasuga'] },
+  { composite: '優れる', chunks: ['優れる'], readings: ['sugureru'] },
+  { composite: '前処置、鎮静、出血・穿孔などの負担を伴います', chunks: ['前処置', '、', '鎮静', '、', '出血', '・', '穿孔などの', '負担を', '伴います'], readings: ['zennsyoti', ',', 'tinnsei', ',', 'syukketu', '/', 'sennkounadono', 'hutannwo', 'tomonaimasu'] },
+  { composite: '鎮静、', chunks: ['鎮静', '、'], readings: ['tinnsei', ','] },
+  { composite: '鎮静', chunks: ['鎮静'], readings: ['tinnsei'] },
+  { composite: '出血・穿孔などの負担を伴います', chunks: ['出血', '・', '穿孔などの', '負担を', '伴います'], readings: ['syukketu', '/', 'sennkounadono', 'hutannwo', 'tomonaimasu'] },
+  { composite: '出血・穿孔などの', chunks: ['出血', '・', '穿孔などの'], readings: ['syukketu', '/', 'sennkounadono'] },
+  { composite: '穿孔などの負担を伴います', chunks: ['穿孔などの', '負担を', '伴います'], readings: ['sennkounadono', 'hutannwo', 'tomonaimasu'] },
+  { composite: '穿孔などの', chunks: ['穿孔', 'などの'], readings: ['sennkou', 'nadono'] },
+  { composite: '穿孔', chunks: ['穿孔'], readings: ['sennkou'] },
+  { composite: '負担を伴います', chunks: ['負担を', '伴います'], readings: ['hutannwo', 'tomonaimasu'] },
+  { composite: '伴います', chunks: ['伴います'], readings: ['tomonaimasu'] },
+  { composite: '伴う', chunks: ['伴う'], readings: ['tomonau'] },
+  { composite: '良好な性能を示す一方', chunks: ['良好な', '性能を', '示す', '一方'], readings: ['ryoukouna', 'seinouwo', 'simesu', 'ippou'] },
+  { composite: '性能を示す一方', chunks: ['性能を', '示す', '一方'], readings: ['seinouwo', 'simesu', 'ippou'] },
+  { composite: '性能を示す', chunks: ['性能を', '示す'], readings: ['seinouwo', 'simesu'] },
+  { composite: '性能を', chunks: ['性能を'], readings: ['seinouwo'] },
+  { composite: '性能', chunks: ['性能'], readings: ['seinou'] },
+  { composite: '示す一方', chunks: ['示す', '一方'], readings: ['simesu', 'ippou'] },
+  { composite: '示す', chunks: ['示す'], readings: ['simesu'] },
+  { composite: 'への感度は', chunks: ['への', '感度は'], readings: ['heno', 'kanndoha'] },
+  { composite: '感度は', chunks: ['感度は'], readings: ['kanndoha'] },
+  { composite: '感度', chunks: ['感度'], readings: ['kanndo'] },
+  { composite: '直近10年以内に高品質な内視鏡が正常なら：', chunks: ['直近', '10', '年以内に', '高品質な', '内視鏡が', '正常なら', ':'], readings: ['tyokkinn', '10', 'nenninaini', 'kouhinsituna', 'naisikyouga', 'seijyounara', ':'] },
+  { composite: '直近10年以内に', chunks: ['直近', '10', '年以内に'], readings: ['tyokkinn', '10', 'nenninaini'] },
+  { composite: '直近10年以内', chunks: ['直近', '10', '年以内'], readings: ['tyokkinn', '10', 'nenninai'] },
+  { composite: '直近', chunks: ['直近'], readings: ['tyokkinn'] },
+  { composite: '10年以内に', chunks: ['10', '年以内に'], readings: ['10', 'nenninaini'] },
+  { composite: '年以内に', chunks: ['年以内に'], readings: ['nenninaini'] },
+  { composite: '年以内', chunks: ['年以内'], readings: ['nenninai'] },
+  { composite: '正常なら：', chunks: ['正常なら', ':'], readings: ['seijyounara', ':'] },
+  { composite: '正常なら', chunks: ['正常なら'], readings: ['seijyounara'] },
+  { composite: '一般には低価値になり得ます', chunks: ['一般には', '低価値に', 'なり得る'], readings: ['ippannniha', 'teikatininari', 'emasu'] },
+  { composite: '一般には', chunks: ['一般には'], readings: ['ippannniha'] },
+  { composite: '一般', chunks: ['一般'], readings: ['ippann'] },
+  { composite: '低価値になり得ます', chunks: ['低価値に', 'なり得る'], readings: ['teikatininari', 'emasu'] },
+  { composite: '低価値', chunks: ['低価値'], readings: ['teikati'] },
+  { composite: '一親等の大腸がん', chunks: ['一親等の', '大腸がん'], readings: ['issinntouno', 'daityougann'] },
+  { composite: '一親等の', chunks: ['一親等の'], readings: ['issinntouno'] },
+  { composite: '一親等', chunks: ['一親等'], readings: ['issinntou'] },
+  { composite: '進行ポリープ', chunks: ['進行', 'ポリープ'], readings: ['sinkou', 'pori-pu'] },
+  { composite: '本人の腺腫歴', chunks: ['本人の', '腺腫', '歴'], readings: ['honnninnno', 'sensyu', 'reki'] },
+  { composite: '腺腫歴', chunks: ['腺腫', '歴'], readings: ['sensyu', 'reki'] },
+  { composite: '腺腫', chunks: ['腺腫'], readings: ['sensyu'] },
+  { composite: '炎症性腸疾患', chunks: ['炎症性', '腸', '疾患'], readings: ['ennsyousei', 'tyou', 'sikkann'] },
+  { composite: '遺伝性腫瘍症候群', chunks: ['遺伝性', '腫瘍', '症候群'], readings: ['idennsei', 'syuyou', 'syoukougunn'] },
+  { composite: '貧血・体重減少・血便・便通変化があれば', chunks: ['貧血', '・', '体重減少', '・', '血便', '・', '便通変化が', 'あれば'], readings: ['hinnketu', '/', 'taijyuugennsyou', '/', 'ketubenn', '/', 'benntuuhennkaga', 'areba'] },
+  { composite: '貧血・体重減少・血便・便通変化', chunks: ['貧血', '・', '体重減少', '・', '血便', '・', '便通変化'], readings: ['hinnketu', '/', 'taijyuugennsyou', '/', 'ketubenn', '/', 'benntuuhennka'] },
+  { composite: '貧血', chunks: ['貧血'], readings: ['hinnketu'] },
+  { composite: '体重減少', chunks: ['体重', '減少'], readings: ['taijyuu', 'gennsyou'] },
+  { composite: '血便', chunks: ['血便'], readings: ['ketubenn'] },
+  { composite: '便通変化があれば', chunks: ['便通変化が', 'あれば'], readings: ['benntuuhennkaga', 'areba'] },
+  { composite: '便通変化', chunks: ['便通', '変化'], readings: ['benntuu', 'hennka'] },
+  { composite: '便通', chunks: ['便通'], readings: ['benntuu'] },
+  { composite: '検診ではなく診断目的として内視鏡を優先します', chunks: ['検診ではなく', '診断目的', 'として', '内視鏡を', '優先します'], readings: ['kennsinndehanaku', 'sinndannmokuteki', 'tosite', 'naisikyouwo', 'yuusennsimasu'] },
+  { composite: '診断目的として内視鏡を優先します', chunks: ['診断目的', 'として', '内視鏡を', '優先します'], readings: ['sinndannmokuteki', 'tosite', 'naisikyouwo', 'yuusennsimasu'] },
+  { composite: '診断目的として', chunks: ['診断目的', 'として'], readings: ['sinndannmokuteki', 'tosite'] },
+  { composite: '診断目的', chunks: ['診断', '目的'], readings: ['sinndann', 'mokuteki'] },
+  { composite: '優先します', chunks: ['優先します'], readings: ['yuusennsimasu'] },
+  { composite: '優先', chunks: ['優先'], readings: ['yuusenn'] },
+  { composite: '陰性FIT後2年以内の平均リスク・無症候者', chunks: ['陰性', 'FIT', '後', '2', '年以内の', '平均', 'リスク', '・', '無症候', '者'], readings: ['innsei', 'FIT', 'go', '2', 'nenninaino', 'heikinn', 'risuku', '/', 'musyoukou', 'sya'] },
+  { composite: '陰性FIT後2年以内の', chunks: ['陰性', 'FIT', '後', '2', '年以内の'], readings: ['innsei', 'FIT', 'go', '2', 'nenninaino'] },
+  { composite: 'FIT後2年以内の', chunks: ['FIT', '後', '2', '年以内の'], readings: ['FIT', 'go', '2', 'nenninaino'] },
+  { composite: 'FIT陰性後2年以内の大腸がん検出は', chunks: ['FIT', '陰性', '後', '2', '年以内の', '大腸がん', '検出は'], readings: ['FIT', 'innsei', 'go', '2', 'nenninaino', 'daityougann', 'kennsyutuha'] },
+  { composite: 'FIT陰性後2年以内の', chunks: ['FIT', '陰性', '後', '2', '年以内の'], readings: ['FIT', 'innsei', 'go', '2', 'nenninaino'] },
+  { composite: '無症候者で発見される大腸がんは少ないものの', chunks: ['無症候', '者で', '発見される', '大腸がんは', '少ないものの'], readings: ['musyoukou', 'syade', 'hakkennsareru', 'daityouganha', 'sukunaimonono'] },
+  { composite: '無症候者で発見される', chunks: ['無症候', '者で', '発見される'], readings: ['musyoukou', 'syade', 'hakkennsareru'] },
+  { composite: '無症候者では', chunks: ['無症候', '者では'], readings: ['musyoukou', 'syadeha'] },
+  { composite: '無症候者で', chunks: ['無症候', '者で'], readings: ['musyoukou', 'syade'] },
+  { composite: '無症候者', chunks: ['無症候', '者'], readings: ['musyoukou', 'sya'] },
+  { composite: '無症候', chunks: ['無症候'], readings: ['musyoukou'] },
+  { composite: '発見される', chunks: ['発見される'], readings: ['hakkennsareru'] },
+  { composite: '発見', chunks: ['発見'], readings: ['hakkenn'] },
+  { composite: '少ないものの', chunks: ['少ないものの'], readings: ['sukunaimonono'] },
+  { composite: 'ゼロではありません', chunks: ['ゼロではありません'], readings: ['zerodehaarimasenn'] },
+  { composite: '低頻度だが存在した', chunks: ['低頻度だが', '存在した'], readings: ['teihinndodaga', 'sonnzaisita'] },
+  { composite: '低頻度だが', chunks: ['低頻度だが'], readings: ['teihinndodaga'] },
+  { composite: '低頻度', chunks: ['低頻度'], readings: ['teihinndo'] },
+  { composite: '存在した', chunks: ['存在した'], readings: ['sonnzaisita'] },
+  { composite: '存在', chunks: ['存在'], readings: ['sonnzai'] },
+
+  // ── 臨床分子疫学・消化器がん・EBM研究論文 (100% 誤変換防止ルール) ──
+  { composite: '日本の無症候住民を対象に、', chunks: ['日本の', '無症候住民を', '対象に', '、'], readings: ['nihonno', 'musyoukoujyuuminnwo', 'taisyouni', ','] },
+  { composite: '日本の無症候住民を対象に', chunks: ['日本の', '無症候住民を', '対象に'], readings: ['nihonno', 'musyoukoujyuuminnwo', 'taisyouni'] },
+  { composite: '日本の無症候住民を', chunks: ['日本の', '無症候住民を'], readings: ['nihonno', 'musyoukoujyuuminnwo'] },
+  { composite: '無症候住民を対象に、', chunks: ['無症候住民を', '対象に', '、'], readings: ['musyoukoujyuuminnwo', 'taisyouni', ','] },
+  { composite: '無症候住民を対象に', chunks: ['無症候住民を', '対象に'], readings: ['musyoukoujyuuminnwo', 'taisyouni'] },
+  { composite: '無症候住民を', chunks: ['無症候住民を'], readings: ['musyoukoujyuuminnwo'] },
+  { composite: '無症候住民', chunks: ['無症候住民'], readings: ['musyoukoujyuuminn'] },
+  { composite: '日本の', chunks: ['日本の'], readings: ['nihonno'] },
+  { composite: '対象に、', chunks: ['対象に', '、'], readings: ['taisyouni', ','] },
+  { composite: '対象に', chunks: ['対象に'], readings: ['taisyouni'] },
+  { composite: '対象', chunks: ['対象'], readings: ['taisyou'] },
+  { composite: '便検体とスクリーニング大腸内視鏡を行った研究では、', chunks: ['便検体と', 'スクリーニング', '大腸内視鏡を', '行った', '研究では', '、'], readings: ['bennkenntaito', 'sukuri-ninngu', 'daityounaisikyouwo', 'okonatta', 'kennkyuudeha', ','] },
+  { composite: '便検体とスクリーニング大腸内視鏡を行った研究では', chunks: ['便検体と', 'スクリーニング', '大腸内視鏡を', '行った', '研究では'], readings: ['bennkenntaito', 'sukuri-ninngu', 'daityounaisikyouwo', 'okonatta', 'kennkyuudeha'] },
+  { composite: '便検体と', chunks: ['便検体と'], readings: ['bennkenntaito'] },
+  { composite: '便検体を', chunks: ['便検体を'], readings: ['bennkenntaiwo'] },
+  { composite: '便検体', chunks: ['便検体'], readings: ['bennkenntai'] },
+  { composite: 'スクリーニング大腸内視鏡を', chunks: ['スクリーニング', '大腸内視鏡を'], readings: ['sukuri-ninngu', 'daityounaisikyouwo'] },
+  { composite: 'スクリーニング大腸内視鏡', chunks: ['スクリーニング', '大腸内視鏡'], readings: ['sukuri-ninngu', 'daityounaisikyou'] },
+  { composite: 'スクリーニング', chunks: ['スクリーニング'], readings: ['sukuri-ninngu'] },
+  { composite: '大腸内視鏡を行った研究では、', chunks: ['大腸内視鏡を', '行った', '研究では', '、'], readings: ['daityounaisikyouwo', 'okonatta', 'kennkyuudeha', ','] },
+  { composite: '大腸内視鏡を行った研究では', chunks: ['大腸内視鏡を', '行った', '研究では'], readings: ['daityounaisikyouwo', 'okonatta', 'kennkyuudeha'] },
+  { composite: '大腸内視鏡を行った', chunks: ['大腸内視鏡を', '行った'], readings: ['daityounaisikyouwo', 'okonatta'] },
+  { composite: '大腸内視鏡を', chunks: ['大腸内視鏡を'], readings: ['daityounaisikyouwo'] },
+  { composite: '大腸内視鏡', chunks: ['大腸内視鏡'], readings: ['daityounaisikyou'] },
+  { composite: 'を行った研究では、', chunks: ['を', '行った', '研究では', '、'], readings: ['wo', 'okonatta', 'kennkyuudeha', ','] },
+  { composite: 'を行った研究では', chunks: ['を', '行った', '研究では'], readings: ['wo', 'okonatta', 'kennkyuudeha'] },
+  { composite: '行った研究では、', chunks: ['行った', '研究では', '、'], readings: ['okonatta', 'kennkyuudeha', ','] },
+  { composite: '行った研究では', chunks: ['行った', '研究では'], readings: ['okonatta', 'kennkyuudeha'] },
+  { composite: '行った', chunks: ['行った'], readings: ['okonatta'] },
+  { composite: '研究では、', chunks: ['研究では', '、'], readings: ['kennkyuudeha', ','] },
+  { composite: '研究では', chunks: ['研究では'], readings: ['kennkyuudeha'] },
+  { composite: '研究で、', chunks: ['研究で', '、'], readings: ['kennkyuude', ','] },
+  { composite: '研究で', chunks: ['研究で'], readings: ['kennkyuude'] },
+  { composite: '研究', chunks: ['研究'], readings: ['kennkyuu'] },
+  { composite: 'pks陽性 Escherichia coli 保有者の大腸腫瘍（主に腺腫）オッズ比は', chunks: ['pks', '陽性', 'Escherichia', 'coli', '保有者の', '大腸腫瘍', '（', '主に', '腺腫', '）', 'オッズ比は'], readings: ['pks', 'yousei', 'Escherichia', 'coli', 'hoyuusyano', 'daityousyuu', '(', 'omoni', '[Z]sensyusei[/Z][BS]', ')', 'ozzuhiha'] },
+  { composite: 'pks陽性 Escherichia coli 保有者の', chunks: ['pks', '陽性', 'Escherichia', 'coli', '保有者の'], readings: ['pks', 'yousei', 'Escherichia', 'coli', 'hoyuusyano'] },
+  { composite: 'pks陽性 Escherichia coli 保有者', chunks: ['pks', '陽性', 'Escherichia', 'coli', '保有者'], readings: ['pks', 'yousei', 'Escherichia', 'coli', 'hoyuusya'] },
+  { composite: 'pks陽性 E. coli と大腸腫瘍の関連は', chunks: ['pks', '陽性', 'E.', 'coli', 'と', '大腸腫瘍の', '関連は'], readings: ['pks', 'yousei', 'E.', 'coli', 'to', 'daityousyuuno', 'kannrennha'] },
+  { composite: 'pks陽性 E. coli と', chunks: ['pks', '陽性', 'E.', 'coli', 'と'], readings: ['pks', 'yousei', 'E.', 'coli', 'to'] },
+  { composite: 'pks陽性 E. coli', chunks: ['pks', '陽性', 'E.', 'coli'], readings: ['pks', 'yousei', 'E.', 'coli'] },
+  { composite: 'pks陽性率は進行性腫瘍群', chunks: ['pks', '陽性率は', '進行性腫瘍群'], readings: ['pks', 'youseirituha', 'sinkouseisyuyougunn'] },
+  { composite: 'pks陽性率は', chunks: ['pks', '陽性率は'], readings: ['pks', 'youseirituha'] },
+  { composite: 'pks陽性率', chunks: ['pks', '陽性率'], readings: ['pks', 'youseiritu'] },
+  { composite: '陽性率は', chunks: ['陽性率は'], readings: ['youseirituha'] },
+  { composite: '陽性率', chunks: ['陽性率'], readings: ['youseiritu'] },
+  { composite: '保有者の大腸腫瘍（主に腺腫）オッズ比は', chunks: ['保有者の', '大腸腫瘍', '（', '主に', '腺腫', '）', 'オッズ比は'], readings: ['hoyuusyano', 'daityousyuu', '(', 'omoni', '[Z]sensyusei[/Z][BS]', ')', 'ozzuhiha'] },
+  { composite: '保有者の大腸腫瘍', chunks: ['保有者の', '大腸腫瘍'], readings: ['hoyuusyano', 'daityousyuu'] },
+  { composite: '保有者の', chunks: ['保有者の'], readings: ['hoyuusyano'] },
+  { composite: '保有者', chunks: ['保有者'], readings: ['hoyuusya'] },
+  { composite: '大腸腫瘍（主に腺腫）', chunks: ['大腸腫瘍', '（', '主に', '腺腫', '）'], readings: ['daityousyuu', '(', 'omoni', '[Z]sensyusei[/Z][BS]', ')'] },
+  { composite: '大腸腫瘍の関連は', chunks: ['大腸腫瘍の', '関連は'], readings: ['daityousyuuno', 'kannrennha'] },
+  { composite: '大腸腫瘍の', chunks: ['大腸腫瘍の'], readings: ['daityousyuuno'] },
+  { composite: '大腸腫瘍', chunks: ['大腸腫瘍'], readings: ['daityousyuu'] },
+  { composite: '（主に腺腫）', chunks: ['（', '主に', '腺腫', '）'], readings: ['(', 'omoni', '[Z]sensyusei[/Z][BS]', ')'] },
+  { composite: '主に腺腫', chunks: ['主に', '腺腫'], readings: ['omoni', '[Z]sensyusei[/Z][BS]'] },
+  { composite: '主に', chunks: ['主に'], readings: ['omoni'] },
+  { composite: '腺腫', chunks: ['腺腫'], readings: ['[Z]sensyusei[/Z][BS]'] },
+  { composite: '調整オッズ比1.04', chunks: ['調整', 'オッズ比', '1.04'], readings: ['tyousei', 'ozzuhi', '1.04'] },
+  { composite: '調整オッズ比', chunks: ['調整', 'オッズ比'], readings: ['tyousei', 'ozzuhi'] },
+  { composite: '調整', chunks: ['調整'], readings: ['tyousei'] },
+  { composite: 'オッズ比は', chunks: ['オッズ比は'], readings: ['ozzuhiha'] },
+  { composite: 'オッズ比', chunks: ['オッズ比'], readings: ['ozzuhi'] },
+  { composite: 'オッズ', chunks: ['オッズ'], readings: ['ozzu'] },
+  { composite: '信頼区間', chunks: ['信頼区間'], readings: ['sinnraikukann'] },
+  { composite: '有意な関連はありませんでした。', chunks: ['有意な', '関連は', 'ありませんでした', '。'], readings: ['yuuina', 'kannrennha', 'arimasenndesita', '.'] },
+  { composite: '有意な関連はありませんでした', chunks: ['有意な', '関連は', 'ありませんでした'], readings: ['yuuina', 'kannrennha', 'arimasenndesita'] },
+  { composite: '有意な関連', chunks: ['有意な', '関連'], readings: ['yuuina', 'kannrenn'] },
+  { composite: '有意な', chunks: ['有意な'], readings: ['yuuina'] },
+  { composite: '関連はありませんでした', chunks: ['関連は', 'ありませんでした'], readings: ['kannrennha', 'arimasenndesita'] },
+  { composite: '関連は', chunks: ['関連は'], readings: ['kannrennha'] },
+  { composite: '関連', chunks: ['関連'], readings: ['kannrenn'] },
+  { composite: 'ありませんでした', chunks: ['ありませんでした'], readings: ['arimasenndesita'] },
+  { composite: '有意差を認めなかった。', chunks: ['有意差を', '認めなかった', '。'], readings: ['yuuisawo', 'mitomenakatta', '.'] },
+  { composite: '有意差を認めなかった', chunks: ['有意差を', '認めなかった'], readings: ['yuuisawo', 'mitomenakatta'] },
+  { composite: '有意差を', chunks: ['有意差を'], readings: ['yuuisawo'] },
+  { composite: '有意差はなく', chunks: ['有意差は', 'なく'], readings: ['yuuisaha', 'naku'] },
+  { composite: '有意差がなく、', chunks: ['有意差が', 'なく', '、'], readings: ['yuuisaga', 'naku', ','] },
+  { composite: '有意差がなく', chunks: ['有意差が', 'なく'], readings: ['yuuisaga', 'naku'] },
+  { composite: '有意差', chunks: ['有意差'], readings: ['yuuisa'] },
+  { composite: '認めなかった', chunks: ['認めなかった'], readings: ['mitomenakatta'] },
+  { composite: '認めた', chunks: ['認めた'], readings: ['mitometa'] },
+  { composite: '認める', chunks: ['認める'], readings: ['mitomeru'] },
+  { composite: '便免疫化学検査（FIT）', chunks: ['便免疫化学検査', '（', 'FIT', '）'], readings: ['bennmennekikagakukennsa', '(', 'FIT', ')'] },
+  { composite: '便免疫化学検査', chunks: ['便免疫化学検査'], readings: ['bennmennekikagakukennsa'] },
+  { composite: '検診研究でも、', chunks: ['検診研究でも', '、'], readings: ['kennsinnkennkyuudemo', ','] },
+  { composite: '検診研究でも', chunks: ['検診研究でも'], readings: ['kennsinnkennkyuudemo'] },
+  { composite: '検診研究', chunks: ['検診研究'], readings: ['kennsinnkennkyuu'] },
+  { composite: '進行性腫瘍あり・なしで', chunks: ['進行性腫瘍', 'あり', '・', 'なしで'], readings: ['sinkouseisyuyou', 'ari', '/', 'naside'] },
+  { composite: '進行性腫瘍あり', chunks: ['進行性腫瘍', 'あり'], readings: ['sinkouseisyuyou', 'ari'] },
+  { composite: '進行性腫瘍群', chunks: ['進行性腫瘍群'], readings: ['sinkouseisyuyougunn'] },
+  { composite: '進行性腫瘍', chunks: ['進行性腫瘍'], readings: ['sinkouseisyuyou'] },
+  { composite: '進行性', chunks: ['進行性'], readings: ['sinkousei'] },
+  { composite: '差がなく、', chunks: ['差がなく', '、'], readings: ['saganaku', ','] },
+  { composite: '差がなく', chunks: ['差がなく'], readings: ['saganaku'] },
+  { composite: '単回便検査を大腸がんリスク層別化に用いることは不適切と結論されています。', chunks: ['単回便検査を', '大腸がん', 'リスク', '層別化に', '用いることは', '不適切と', '結論されています', '。'], readings: ['tannkaibennkennsawo', 'daityougann', 'risuku', 'soubetukani', 'motiirukotoha', 'hutekisetuto', 'keturonnsareteimasu', '.'] },
+  { composite: '単回便検査を', chunks: ['単回便検査を'], readings: ['tannkaibennkennsawo'] },
+  { composite: '単回便検査', chunks: ['単回便検査'], readings: ['tannkaibennkennsa'] },
+  { composite: '便検査', chunks: ['便検査'], readings: ['bennkennsa'] },
+  { composite: '不適切と結論されています。', chunks: ['不適切と', '結論されています', '。'], readings: ['hutekisetuto', 'keturonnsareteimasu', '.'] },
+  { composite: '不適切と結論されています', chunks: ['不適切と', '結論されています'], readings: ['hutekisetuto', 'keturonnsareteimasu'] },
+  { composite: '不適切と', chunks: ['不適切と'], readings: ['hutekisetuto'] },
+  { composite: '不適切', chunks: ['不適切'], readings: ['hutekisetu'] },
+  { composite: '結論されています。', chunks: ['結論されています', '。'], readings: ['keturonnsareteimasu', '.'] },
+  { composite: '結論されています', chunks: ['結論されています'], readings: ['keturonnsareteimasu'] },
+  { composite: '結論', chunks: ['結論'], readings: ['keturonn'] },
+  { composite: '対照群25.9%', chunks: ['対照群', '25.9%'], readings: ['taisyougunn', '25.9%'] },
+  { composite: '対照群で', chunks: ['対照群で'], readings: ['taisyougunnde'] },
+  { composite: '対照群', chunks: ['対照群'], readings: ['taisyougunn'] },
+  { composite: '単回測定はリスク層別化バイオマーカーとして不適格とされた。', chunks: ['単回測定は', 'リスク', '層別化', 'バイオマーカーとして', '不適格とされた', '。'], readings: ['tannkaisokuteiha', 'risuku', 'soubetuka', 'baioma-ka-tosite', 'hutekikakutosareta', '.'] },
+  { composite: '単回測定は', chunks: ['単回測定は'], readings: ['tannkaisokuteiha'] },
+  { composite: 'バイオマーカーとして', chunks: ['バイオマーカーとして'], readings: ['baioma-ka-tosite'] },
+  { composite: 'バイオマーカー', chunks: ['バイオマーカー'], readings: ['baioma-ka-'] },
+  { composite: '不適格とされた。', chunks: ['不適格とされた', '。'], readings: ['hutekikakutosareta', '.'] },
+  { composite: '不適格とされた', chunks: ['不適格とされた'], readings: ['hutekikakutosareta'] },
+  { composite: '不適格と', chunks: ['不適格と'], readings: ['hutekikakuto'] },
+  { composite: '不適格', chunks: ['不適格'], readings: ['hutekikaku'] },
+  { composite: 'コリバクチンにはDNA損傷を起こす機序があり、', chunks: ['コリバクチンには', 'DNA', '損傷を', '起こす', '機序が', 'あり', '、'], readings: ['koribakutinniha', 'DNA', 'sonnsyouwo', 'okosu', 'kijyoga', 'ari', ','] },
+  { composite: 'コリバクチンには', chunks: ['コリバクチンには'], readings: ['koribakutinniha'] },
+  { composite: 'コリバクチン', chunks: ['コリバクチン'], readings: ['koribakutinn'] },
+  { composite: 'DNA損傷を起こす機序があり、', chunks: ['DNA', '損傷を', '起こす', '機序が', 'あり', '、'], readings: ['DNA', 'sonnsyouwo', 'okosu', 'kijyoga', 'ari', ','] },
+  { composite: 'DNA損傷を起こす', chunks: ['DNA', '損傷を', '起こす'], readings: ['DNA', 'sonnsyouwo', 'okosu'] },
+  { composite: 'DNA損傷を', chunks: ['DNA', '損傷を'], readings: ['DNA', 'sonnsyouwo'] },
+  { composite: 'DNA損傷', chunks: ['DNA', '損傷'], readings: ['DNA', 'sonnsyou'] },
+  { composite: '損傷を', chunks: ['損傷を'], readings: ['sonnsyouwo'] },
+  { composite: '損傷', chunks: ['損傷'], readings: ['sonnsyou'] },
+  { composite: '起こす機序があり、', chunks: ['起こす', '機序が', 'あり', '、'], readings: ['okosu', 'kijyoga', 'ari', ','] },
+  { composite: '機序があり、', chunks: ['機序が', 'あり', '、'], readings: ['kijyoga', 'ari', ','] },
+  { composite: '機序があり', chunks: ['機序が', 'あり'], readings: ['kijyoga', 'ari'] },
+  { composite: '機序が', chunks: ['機序が'], readings: ['kijyoga'] },
+  { composite: '機序', chunks: ['機序'], readings: ['kijyo'] },
+  { composite: 'がん組織で多く検出されるという関連はありますが、', chunks: ['がん組織で', '多く', '検出されるという', '関連はありますが', '、'], readings: ['gannsosikide', 'ooku', 'kennsyutusarerutoyuu', 'kannrennhaarimasuga', ','] },
+  { composite: 'がん組織で多く検出される', chunks: ['がん組織で', '多く', '検出される'], readings: ['gannsosikide', 'ooku', 'kennsyutusareru'] },
+  { composite: 'がん組織で', chunks: ['がん組織で'], readings: ['gannsosikide'] },
+  { composite: 'がん組織', chunks: ['がん組織'], readings: ['gannsosiki'] },
+  { composite: '多く検出されるという', chunks: ['多く', '検出されるという'], readings: ['ooku', 'kennsyutusarerutoyuu'] },
+  { composite: '多く検出される', chunks: ['多く', '検出される'], readings: ['ooku', 'kennsyutusareru'] },
+  { composite: '検出されるという', chunks: ['検出されるという'], readings: ['kennsyutusarerutoyuu'] },
+  { composite: '検出される', chunks: ['検出される'], readings: ['kennsyutusareru'] },
+  { composite: '検出', chunks: ['検出'], readings: ['kennsyutu'] },
+  { composite: '関連はありますが、', chunks: ['関連はありますが', '、'], readings: ['kannrennhaarimasuga', ','] },
+  { composite: '関連はありますが', chunks: ['関連はありますが'], readings: ['kannrennhaarimasuga'] },
+  { composite: 'これはがんがある結果として菌が増えている可能性も含み、', chunks: ['これは', 'がんがある', '結果として', '菌が', '増えている', '可能性も', '含み', '、'], readings: ['koreha', 'ganngaaru', 'kekkatosite', 'kinnga', 'hueteiru', 'kanouseimo', 'hukumi', ','] },
+  { composite: 'がんがある結果として', chunks: ['がんがある', '結果として'], readings: ['ganngaaru', 'kekkatosite'] },
+  { composite: 'がんがある', chunks: ['がんがある'], readings: ['ganngaaru'] },
+  { composite: '結果として', chunks: ['結果として'], readings: ['kekkatosite'] },
+  { composite: '結果', chunks: ['結果'], readings: ['kekka'] },
+  { composite: '菌が増えている可能性も含み、', chunks: ['菌が', '増えている', '可能性も', '含み', '、'], readings: ['kinnga', 'hueteiru', 'kanouseimo', 'hukumi', ','] },
+  { composite: '増えている可能性も含み、', chunks: ['増えている', '可能性も', '含み', '、'], readings: ['hueteiru', 'kanouseimo', 'hukumi', ','] },
+  { composite: '増えている可能性も含み', chunks: ['増えている', '可能性も', '含み'], readings: ['hueteiru', 'kanouseimo', 'hukumi'] },
+  { composite: '増えている', chunks: ['増えている'], readings: ['hueteiru'] },
+  { composite: '可能性も含み、', chunks: ['可能性も', '含み', '、'], readings: ['kanouseimo', 'hukumi', ','] },
+  { composite: '可能性も含み', chunks: ['可能性も', '含み'], readings: ['kanouseimo', 'hukumi'] },
+  { composite: '可能性も', chunks: ['可能性も'], readings: ['kanouseimo'] },
+  { composite: '可能性', chunks: ['可能性'], readings: ['kanousei'] },
+  { composite: '便での陽性結果から将来の個人リスクを推定することはできません。', chunks: ['便での', '陽性結果から', '将来の', '個人リスクを', '推定することは', 'できません', '。'], readings: ['benndeno', 'youseikekkakara', 'syouraino', 'kojinnrisukuwo', 'suiteisurukotoha', 'dekimasenn', '.'] },
+  { composite: '便での陽性結果から', chunks: ['便での', '陽性結果から'], readings: ['benndeno', 'youseikekkakara'] },
+  { composite: '便での', chunks: ['便での'], readings: ['benndeno'] },
+  { composite: '陽性結果から', chunks: ['陽性結果から'], readings: ['youseikekkakara'] },
+  { composite: '陽性結果', chunks: ['陽性結果'], readings: ['youseikekka'] },
+  { composite: '将来の個人リスクを', chunks: ['将来の', '個人リスクを'], readings: ['syouraino', 'kojinnrisukuwo'] },
+  { composite: '将来の', chunks: ['将来の'], readings: ['syouraino'] },
+  { composite: '将来', chunks: ['将来'], readings: ['syourai'] },
+  { composite: '個人リスクを', chunks: ['個人', 'リスクを'], readings: ['kojinn', 'risukuwo'] },
+  { composite: '個人リスク', chunks: ['個人', 'リスク'], readings: ['kojinn', 'risuku'] },
+  { composite: '個人', chunks: ['個人'], readings: ['kojinn'] },
+  { composite: '推定することはできません。', chunks: ['推定することは', 'できません', '。'], readings: ['suiteisurukotoha', 'dekimasenn', '.'] },
+  { composite: '推定することはできません', chunks: ['推定することは', 'できません'], readings: ['suiteisurukotoha', 'dekimasenn'] },
+  { composite: '推定することは', chunks: ['推定することは'], readings: ['suiteisurukotoha'] },
+  { composite: '推定すること', chunks: ['推定すること'], readings: ['suiteisurukoto'] },
+  { composite: '推定', chunks: ['推定'], readings: ['suitei'] },
+  { composite: 'できません。', chunks: ['できません', '。'], readings: ['dekimasenn', '.'] },
+  { composite: 'できません', chunks: ['できません'], readings: ['dekimasenn'] },
+  { composite: '微生物叢と大腸がんの横断・症例対照研究は、', chunks: ['微生物叢と', '大腸がんの', '横断', '・', '症例対照研究は', '、'], readings: ['biseibutusouto', 'daityougannno', 'oudann', '/', 'syoureitaisyoukennkyuuha', ','] },
+  { composite: '微生物叢と', chunks: ['微生物叢と'], readings: ['biseibutusouto'] },
+  { composite: '微生物叢', chunks: ['微生物叢'], readings: ['biseibutusou'] },
+  { composite: '横断・症例対照研究は、', chunks: ['横断', '・', '症例対照研究は', '、'], readings: ['oudann', '/', 'syoureitaisyoukennkyuuha', ','] },
+  { composite: '横断・症例対照研究は', chunks: ['横断', '・', '症例対照研究は'], readings: ['oudann', '/', 'syoureitaisyoukennkyuuha'] },
+  { composite: '横断・症例対照研究', chunks: ['横断', '・', '症例対照研究'], readings: ['oudann', '/', 'syoureitaisyoukennkyuu'] },
+  { composite: '横断研究', chunks: ['横断研究'], readings: ['oudannkennkyuu'] },
+  { composite: '横断', chunks: ['横断'], readings: ['oudann'] },
+  { composite: '症例対照研究は、', chunks: ['症例対照研究は', '、'], readings: ['syoureitaisyoukennkyuuha', ','] },
+  { composite: '症例対照研究は', chunks: ['症例対照研究は'], readings: ['syoureitaisyoukennkyuuha'] },
+  { composite: '症例対照研究', chunks: ['症例対照研究'], readings: ['syoureitaisyoukennkyuu'] },
+  { composite: '症例対照', chunks: ['症例対照'], readings: ['syoureitaisyou'] },
+  { composite: '腫瘍化の原因か結果かを判別できず、', chunks: ['腫瘍化の', '原因か', '結果かを', '判別できず', '、'], readings: ['syuyoukano', 'genninnka', 'kekkakawo', 'hannbetudekizu', ','] },
+  { composite: '腫瘍化の原因か結果かを', chunks: ['腫瘍化の', '原因か', '結果かを'], readings: ['syuyoukano', 'genninnka', 'kekkakawo'] },
+  { composite: '腫瘍化の原因か', chunks: ['腫瘍化の', '原因か'], readings: ['syuyoukano', 'genninnka'] },
+  { composite: '腫瘍化の', chunks: ['腫瘍化の'], readings: ['syuyoukano'] },
+  { composite: '腫瘍化', chunks: ['腫瘍化'], readings: ['syuyouka'] },
+  { composite: '原因か結果かを', chunks: ['原因か', '結果かを'], readings: ['genninnka', 'kekkakawo'] },
+  { composite: '原因か結果か', chunks: ['原因か', '結果か'], readings: ['genninnka', 'kekkaka'] },
+  { composite: '原因か', chunks: ['原因か'], readings: ['genninnka'] },
+  { composite: '結果かを', chunks: ['結果かを'], readings: ['kekkakawo'] },
+  { composite: '結果か', chunks: ['結果か'], readings: ['kekkaka'] },
+  { composite: '判別できず、', chunks: ['判別できず', '、'], readings: ['hannbetudekizu', ','] },
+  { composite: '判別できず', chunks: ['判別できず'], readings: ['hannbetudekizu'] },
+  { composite: '判別', chunks: ['判別'], readings: ['hannbetu'] },
+  { composite: '因果推論には縦断研究が必要である。', chunks: ['因果推論には', '縦断研究が', '必要である', '。'], readings: ['inngasuironnniha', 'jyuudannkennkyuuga', 'hituyoudearu', '.'] },
+  { composite: '因果推論には縦断研究が', chunks: ['因果推論には', '縦断研究が'], readings: ['inngasuironnniha', 'jyuudannkennkyuuga'] },
+  { composite: '因果推論には', chunks: ['因果推論には'], readings: ['inngasuironnniha'] },
+  { composite: '因果推論', chunks: ['因果推論'], readings: ['inngasuironn'] },
+  { composite: '縦断研究が必要である。', chunks: ['縦断研究が', '必要である', '。'], readings: ['jyuudannkennkyuuga', 'hituyoudearu', '.'] },
+  { composite: '縦断研究が必要である', chunks: ['縦断研究が', '必要である'], readings: ['jyuudannkennkyuuga', 'hituyoudearu'] },
+  { composite: '縦断研究が', chunks: ['縦断研究が'], readings: ['jyuudannkennkyuuga'] },
+  { composite: '縦断研究', chunks: ['縦断研究'], readings: ['jyuudannkennkyuu'] },
+  { composite: '縦断', chunks: ['縦断'], readings: ['jyuudann'] },
+  { composite: '必要である。', chunks: ['必要である', '。'], readings: ['hituyoudearu', '.'] },
+  { composite: '必要である', chunks: ['必要である'], readings: ['hituyoudearu'] },
+];
+
+// カタカナ・外来語を検出する正規表現
+const KATAKANA_REGEX = /^[ァ-ヴー]+$/;
+// 数値・単位・英数字を検出する正規表現
+const ASCII_UNIT_REGEX = /^[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$]+$/;
+// 助詞・語尾・ひらがな（純粋なひらがなのみ）
+const HIRAGANA_PARTICLE_REGEX = /^(を|に|へ|と|より|から|で|や|の|は|が|も|して|し|された|あり|なし|みられ)$/;
+
+/**
+ * 簡易ひらがな/カタカナ ➔ ヘボン式/IMEローマ字変換
+ */
+export function kanaToRomaji(kana: string): string {
+  // カタカナをひらがなに変換
+  const hira = kana.replace(/[\u30a1-\u30f6]/g, (match) => {
+    const chr = match.charCodeAt(0) - 0x60;
+    return String.fromCharCode(chr);
+  });
+
+  let result = '';
+  for (let i = 0; i < hira.length; i++) {
+    // 2文字コンビネーション (きゃ、しゅ、等)
+    if (i + 1 < hira.length) {
+      const two = hira.slice(i, i + 2);
+      if (KANA_ROMAJI_MAP[two]) {
+        result += KANA_ROMAJI_MAP[two];
+        i++;
+        continue;
+      }
+    }
+    // 促音「っ」
+    if (hira[i] === 'っ' && i + 1 < hira.length) {
+      const nextOne = hira[i + 1];
+      const nextRomaji = KANA_ROMAJI_MAP[nextOne] || '';
+      if (nextRomaji) {
+        result += nextRomaji[0];
+        continue;
+      }
+    }
+    // 長音「ー」
+    if (hira[i] === 'ー') {
+      result += '-';
+      continue;
+    }
+    // 1文字
+    const one = hira[i];
+    result += KANA_ROMAJI_MAP[one] || one;
+  }
+  return result;
+}
+
+// 臨床・医学・頻出日本語熟語テーブル（形態素最長一致用）
+export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
+  '日本の': 'nihonno', '日本': 'nihonn', '無症候住民': 'musyoukoujyuuminn', '無症候者': 'musyoukousya',
+  '無症候': 'musyoukou', '住民': 'jyuuminn', '対象に': 'taisyouni', '対象': 'taisyou',
+  '便検体': 'bennkenntai', 'スクリーニング': 'sukuri-ninngu', '大腸内視鏡': 'daityounaisikyou',
+  '内視鏡': 'naisikyou', '大腸': 'daityou', '行った': 'okonatta', '行う': 'okonau', '行って': 'okonaxtte',
+  '研究': 'kennkyuu', '陽性': 'yousei', '保有者の': 'hoyuusyano', '保有者': 'hoyuusya', '保有': 'hoyuu',
+  '大腸腫瘍': 'daityousyuu', '腫瘍': 'syuyou', '主に': 'omoni', '主': 'omo', '腺腫': 'sensyu',
+  'オッズ比': 'ozzuhi', 'オッズ': 'ozzu', '信頼区間': 'sinnraikukann', '信頼': 'sinnrai', '区間': 'kukann',
+  '有意な': 'yuuina', '有意差': 'yuuisa', '有意': 'yuui', '関連': 'kannrenn', 'ありませんでした': 'arimasenndesita',
+  '調整オッズ比': 'tyouseiozzuhi', '調整': 'tyousei', '認めなかった': 'mitomenakatta', '認めた': 'mitometa',
+  '認める': 'mitomeru', '便免疫化学検査': 'bennmennekikagakukennsa', '免疫': 'menneki', '化学検査': 'kagakukennsa',
+  '検診研究': 'kennsinnkennkyuu', '検診': 'kennsinn', '進行性腫瘍': 'sinkouseisyuyou', '進行性': 'sinkousei',
+  '進行腺腫': 'sinkousensyu', '進行': 'sinkou', '差がなく': 'saganaku', '単回便検査': 'tannkaibennkennsa',
+  '便検査': 'bennkennsa', '単回': 'tannkai', '単回測定': 'tannkaisokutei', '測定': 'sokutei',
+  '大腸がん': 'daityougann', 'リスク層別化': 'risukusoubetuka', '層別化': 'soubetuka', '不適切': 'hutekisetu',
+  '結論されています': 'keturonnsareteimasu', '結論': 'keturonn', '進行性腫瘍群': 'sinkouseisyuyougunn',
+  '対照群': 'taisyougunn', '対照': 'taisyou', '不適格': 'hutekikaku', 'DNA損傷': 'dnasonnsyou',
+  '損傷': 'sonnsyou', '機序': 'kijyo', 'がん組織': 'gannsosiki', '組織': 'sosiki', '多く': 'ooku',
+  '検出される': 'kennsyutusareru', '検出': 'kennsyutu', '可能性': 'kanousei', '個人リスク': 'kojinnrisuku',
+  '個人': 'kojinn', '推定': 'suitei', 'できません': 'dekimasenn', '微生物叢': 'biseibutusou',
+  '微生物': 'biseibutu', '横断': 'oudann', '横断研究': 'oudannkennkyuu', '症例対照研究': 'syoureitaisyoukennkyuu',
+  '症例対照': 'syoureitaisyou', '症例': 'syourei', '腫瘍化': 'syuyouka', '原因': 'genninn',
+  '結果': 'kekka', '判別できず': 'hannbetudekizu', '判別': 'hannbetu', '因果推論': 'inngasuironn',
+  '因果': 'innga', '推論': 'suironn', '縦断研究': 'jyuudannkennkyuu', '縦断': 'jyuudann',
+  '必要である': 'hituyoudearu', '必要': 'hituyou', 'バイオマーカー': 'baioma-ka-', 'コリバクチン': 'koribakutinn'
+};
+
+// 汎用単漢字・頻出漢字 ➔ ローマ字読みテーブル（未登録語彙のフォールバック用）
+export const COMMON_KANJI_ROMAJI: Record<string, string> = {
+  '歳': 'sai', '女': 'jyo', '性': 'sei', '男': 'dan', '受': 'jyu', '診': 'sinn',
+  '背': 'hai', '景': 'kei', '症': 'syou', '例': 'rei', '大': 'dai', '腸': 'tyou',
+  '検': 'kenn', '査': 'sa', '産': 'sann', '生': 'sei', '菌': 'kinn', '陽': 'you',
+  '陰': 'inn', '便': 'benn', '潜': 'senn', '血': 'ketu', '回': 'kai', '不': 'fu',
+  '安': 'ann', '希': 'ki', '望': 'bou', '評': 'hyou', '価': 'ka', '現': 'genn',
+  '時': 'ji', '点': 'tenn', '中': 'tyuu', '単': 'tann', '測': 'soku', '定': 'tei',
+  '適': 'teki', '応': 'ou', '根': 'konn', '拠': 'kyo', '層': 'sou', '別': 'betu',
+  '化': 'ka', '用': 'you', '支': 'si', '持': 'ji', '無': 'mu', '候': 'kou',
+  '群': 'gunn', '対': 'tai', '照': 'syou', '出': 'syutu', '率': 'ritu', '有': 'yuu',
+  '意': 'i', '差': 'sa', '関': 'kann', '判': 'hann', '断': 'dann', '高': 'kou',
+  '品': 'hinn', '質': 'situ', '全': 'zenn', '十': 'jyuu', '分': 'bunn', '説': 'setu',
+  '明': 'mei', '基': 'moto', '本': 'honn', '人': 'ninn', '内': 'nai', '視': 'si',
+  '鏡': 'kyou', '妥': 'da', '当': 'tou', '選': 'senn', '択': 'taku', '肢': 'si',
+  '一': 'iti', '方': 'hou', '年': 'nenn', '月': 'gatu', '日': 'niti', '盲': 'mou',
+  '到': 'tou', '達': 'tatu', '前': 'zenn', '処': 'syo', '置': 'ti', '良': 'ryou',
+  '好': 'kou', '腫': 'syu', '瘍': 'you', '満': 'mi', '完': 'kann', '場': 'ba',
+  '合': 'gou', '理': 'ri', '由': 'yuu', '早': 'sou', '期': 'ki', '再': 'sai',
+  '追': 'tui', '加': 'ka', '利': 'ri', '益': 'eki', '小': 'tii', '過': 'ka',
+  '剰': 'jyou', '得': 'e', '要': 'you', '画': 'kaku', '的': 'teki', '行': 'kou',
+  '者': 'sya', '状': 'jyou', '段': 'dann', '階': 'kai', '真': 'sinn', '味': 'mi',
+  '初': 'syo', '問': 'monn', '活': 'katu', '習': 'syuu', '慣': 'kann', '認': 'ninn',
+  '確': 'kaku', '去': 'kyo', '身': 'sinn', '体': 'tai', '経': 'kei', '済': 'zai',
+  '負': 'hu', '担': 'tann', '抑': 'osae', '効': 'kou', '事': 'ji', '自': 'ji',
+  '覚': 'kaku', '数': 'suu', '値': 'ti', '像': 'zou', '網': 'mou', '羅': 'ra',
+  '二': 'ni', '次': 'ji', '精': 'sei', '律': 'ritu', '実': 'jissi', '施': 'si',
+  '費': 'hi', '膨': 'hukura', '低': 'tei', '療': 'ryou', '注': 'tyuu', '終': 'syuu',
+  '治': 'ti', '害': 'gai', '上': 'uwa', '結': 'kek', '果': 'ka',
+  // 追加：臨床推論・ガイドライン・EBM頻出漢字
+  '未': 'mi', '踏': 'huma', '継': 'kei', '続': 'zoku', '鋸': 'kyo', '歯': 'si',
+  '優': 'sugure', '鎮': 'tinn', '静': 'sei', '穿': 'senn', '孔': 'kou', '伴': 'tomona',
+  '示': 'sime', '般': 'pann', '親': 'sinn', '等': 'tou', '歴': 'reki', '疾': 'sik',
+  '患': 'kann', '遺': 'i', '伝': 'denn', '貧': 'hinn', '減': 'genn', '通': 'tuu',
+  '目': 'moku', '存': 'sonn', '在': 'zai', '頻': 'hinn', '度': 'do', '感': 'kann',
+  '能': 'nou', '常': 'jyou', '正': 'sei', '直': 'tyok', '近': 'kinn', '発': 'hat',
+  '見': 'kenn', '少': 'syou', '腺': 'senn', '病': 'byou', '変': 'henn', '重': 'jyuu',
+  '先': 'senn', '後': 'go', '平': 'hei', '均': 'kinn', '進': 'sinn', '量': 'ryou',
+  '多': 'oo', '健': 'kenn', '康': 'kou', '食': 'syoku', '道': 'dou', '同': 'dou',
+  // 追加：社会医学・疫学・病理学・統計学漢字 (欠落ゼロ化)
+  '住': 'jyuu', '民': 'minn', '象': 'syou', '保': 'ho', '連': 'renn', '調': 'tyou',
+  '整': 'sei', '信': 'sinn', '頼': 'rai', '区': 'ku', '間': 'kann', '比': 'hi',
+  '損': 'sonn', '傷': 'syou', '序': 'jyo', '織': 'siki', '叢': 'sou', '判': 'hann',
+  '別': 'betu', '因': 'inn', '推': 'sui', '論': 'ronn', '縦': 'jyuu', '研': 'kenn',
+  '究': 'kyuu', '局': 'kyoku', '標': 'hyou', '準': 'junn', '免': 'menn', '疫': 'eki',
+  '学': 'gaku', '格': 'kaku', '微': 'bi', '物': 'butu', '側': 'soku', '横': 'ou',
+  '個': 'ko', '組': 'kumi', '含': 'huku', '増': 'hue', '起': 'oki', '切': 'setu',
+  '除': 'jyo', '短': 'tann', '古': 'koko', '良': 'ryou', '悪': 'aku', '誤': 'go',
+  '偽': 'gi', '可': 'ka', '否': 'hi', '骨': 'kotsu', '筋': 'kinn', '皮': 'hi',
+  '膚': 'fu', '眼': 'gann', '耳': 'ji', '鼻': 'bi', '喉': 'kou', '頭': 'tou',
+  '頸': 'kei', '胸': 'kyou', '腹': 'fuku', '腰': 'kosi', '肢': 'si', '手': 'te',
+  '足': 'asi', '液': 'eki', '尿': 'nyou', '唾': 'da', '痰': 'tann', '膿': 'nou',
+  '汗': 'kann', '痛': 'tuu', '熱': 'netu', '咳': 'gai', '息': 'iki', '吐': 'to',
+  '嘔': 'ou', '下': 'ka', '痢': 'ri', '秘': 'hi', '痺': 'hi', '瘤': 'ryuu',
+  '瘡': 'sou', '疹': 'sinn', '斑': 'hann', '痕': 'konn', '炎': 'enn', '衰': 'sui',
+  '弱': 'jyaku', '麻': 'ma', '痙': 'kei', '攣': 'renn', '振': 'sinn', '戦': 'senn',
+  '昏': 'konn', '睡': 'sui', '醒': 'sei', '失': 'situ', '神': 'sinn', '障': 'syou'
+};
+
+/**
+ * 任意の日本語単語・漢字熟語を安全なローマ字に変換
+ * （※最長一致熟語辞書検索 ➔ 単漢字辞書フォールバック）
+ */
+export function kanjiWordToRomaji(word: string): string {
+  if (MEDICAL_KANJI_ROMAJI_MAP[word]) {
+    return MEDICAL_KANJI_ROMAJI_MAP[word].trim();
+  }
+  if (CLINICAL_COMPOUND_MAP[word]) {
+    return CLINICAL_COMPOUND_MAP[word].trim();
+  }
+
+  let out = '';
+  let i = 0;
+  while (i < word.length) {
+    let matched = false;
+    // 8文字から2文字までの最長一致マッチング
+    for (let len = Math.min(8, word.length - i); len >= 2; len--) {
+      const sub = word.slice(i, i + len);
+      if (CLINICAL_COMPOUND_MAP[sub]) {
+        out += CLINICAL_COMPOUND_MAP[sub].trim();
+        i += len;
+        matched = true;
+        break;
+      }
+      if (MEDICAL_KANJI_ROMAJI_MAP[sub]) {
+        out += MEDICAL_KANJI_ROMAJI_MAP[sub].trim();
+        i += len;
+        matched = true;
+        break;
+      }
+    }
+    if (matched) continue;
+
+    const ch = word[i];
+    if (CLINICAL_COMPOUND_MAP[ch]) {
+      out += CLINICAL_COMPOUND_MAP[ch].trim();
+    } else if (COMMON_KANJI_ROMAJI[ch]) {
+      out += COMMON_KANJI_ROMAJI[ch];
+    } else if (SINGLE_KANJI_MAP[ch]) {
+      out += SINGLE_KANJI_MAP[ch].trim();
+    } else if (KANA_ROMAJI_MAP[ch]) {
+      out += KANA_ROMAJI_MAP[ch];
+    } else {
+      out += kanaToRomaji(ch);
+    }
+    i++;
+  }
+
+  // 漢字が万が一残存した場合は音読みフォールバックを行い、絶対に文字を消去しない
+  return out.replace(/[\u4e00-\u9faf]/g, (match) => {
+    return COMMON_KANJI_ROMAJI[match] || SINGLE_KANJI_MAP[match] || '';
+  }).trim();
+}
+
+// -----------------------------------------------------------------------------
+// 6. メイン機能：IME精度向上ハイブリッド・コンパイラ
+// -----------------------------------------------------------------------------
+export interface CompileImeOptions {
+  enableFunctionKeyRouting: boolean; // 工夫①: Fキー強制ルーティング
+  enableChunkDecomposition: boolean; // 工夫②: 最小Chunk分解
+  enableUnicodeF5Assist: boolean;    // 工夫④: Unicode F5変換
+  enableDoctorMacros: boolean;       // 工夫⑤: 医師個人カスタム辞書
+  doctorMacros?: DoctorCustomMacro[];
+}
+
+export interface CompiledImeResult {
+  compiledPayload: string;           // AtomS3Uに送出するタグ付きペイロード
+  displayTokens: Array<{
+    type: 'katakana' | 'ascii' | 'hiragana' | 'kanji' | 'unicode' | 'macro' | 'raw';
+    originalText: string;
+    actionTag: string;
+    keystrokes: string;
+    description: string;
+  }>;
+  appliedMacroCount: number;
+  detectedWarningCount: number;
+  fKeyRoutingApplied: boolean;
+}
+
+/**
+ * 日本語カルテ文を、電子カルテ側一般辞書でも100%誤爆しない
+ * 精密キーストローク列（タグ付きシーケンス）にコンパイルする
+ */
+export function compileMedicalTextToImeBoost(
+  rawText: string,
+  options: CompileImeOptions = {
+    enableFunctionKeyRouting: true,
+    enableChunkDecomposition: true,
+    enableUnicodeF5Assist: true,
+    enableDoctorMacros: true,
+  }
+): CompiledImeResult {
+  if (!rawText) {
+    return {
+      compiledPayload: '',
+      displayTokens: [],
+      appliedMacroCount: 0,
+      detectedWarningCount: 0,
+      fKeyRoutingApplied: false,
+    };
+  }
+
+  let text = rawText;
+  let appliedMacroCount = 0;
+
+  // 1. 医師個人カスタム辞書（略語マクロ展開）
+  if (options.enableDoctorMacros) {
+    const macros = options.doctorMacros || DEFAULT_DOCTOR_MACROS;
+    for (const macro of macros) {
+      if (macro.enabled && macro.trigger) {
+        // 単語境界または完全一致で安全に置換
+        const regex = new RegExp(`\\b${escapeRegExp(macro.trigger)}\\b|(?<=\\s|^)${escapeRegExp(macro.trigger)}(?=\\s|$)`, 'gi');
+        if (regex.test(text)) {
+          text = text.replace(regex, macro.expansion);
+          appliedMacroCount++;
+        }
+      }
+    }
+  }
+
+  // 2. 最小確実形態素（Chunk）分解の適用（最長一致ルール優先でソート）
+  if (options.enableChunkDecomposition) {
+    const sortedRules = [...CHUNK_DECOMPOSITION_RULES].sort((a, b) => b.composite.length - a.composite.length);
+    for (const rule of sortedRules) {
+      if (text.includes(rule.composite)) {
+        const chunkTagSequence = rule.chunks.map((chunk, idx) => {
+          const rawReading = rule.readings[idx];
+          // 既にタグやバックスペースが明示されている場合はそのまま展開
+          if (rawReading && (rawReading.startsWith('[') || rawReading.includes('\b'))) {
+            return rawReading;
+          }
+          const r = (rawReading || kanaToRomaji(chunk)).trim();
+          if (chunk === '「') {
+            return `${IME_TAG_HIRAGANA}[${IME_TAG_HIRAGANA_END}`;
+          }
+          if (chunk === '」') {
+            return `${IME_TAG_HIRAGANA}]${IME_TAG_HIRAGANA_END}`;
+          }
+          if (chunk === '：' || chunk === ':') {
+            return `${IME_TAG_ASCII}:${IME_TAG_ASCII_END}`;
+          }
+          if (KATAKANA_REGEX.test(chunk)) {
+            return `${IME_TAG_KATAKANA}${r}${IME_TAG_KATAKANA_END}`;
+          }
+          if (HIRAGANA_PARTICLE_REGEX.test(chunk) || /^[ぁ-ん]+$/.test(chunk)) {
+            return `${IME_TAG_HIRAGANA}${r}${IME_TAG_HIRAGANA_END}`;
+          }
+          if (chunk === '・' || chunk === '/') {
+            return `${IME_TAG_HIRAGANA}/${IME_TAG_HIRAGANA_END}`;
+          }
+          if (chunk === '、' || chunk === ',') {
+            return `${IME_TAG_HIRAGANA},${IME_TAG_HIRAGANA_END}`;
+          }
+          if (chunk === '。' || chunk === '.') {
+            return `${IME_TAG_HIRAGANA}.${IME_TAG_HIRAGANA_END}`;
+          }
+          if (chunk === '（' || chunk === '(') {
+            return `${IME_TAG_HIRAGANA}(${IME_TAG_HIRAGANA_END}`;
+          }
+          if (chunk === '）' || chunk === ')') {
+            return `${IME_TAG_HIRAGANA})${IME_TAG_HIRAGANA_END}`;
+          }
+          if (/^[a-zA-Z0-9_\-\.\:\/\+\(\)]+$/.test(chunk)) {
+            return `${IME_TAG_ASCII}${chunk}${IME_TAG_ASCII_END}`;
+          }
+          return `${IME_TAG_KANJI}${r}${IME_TAG_KANJI_END}`;
+        }).join('');
+        text = text.replaceAll(rule.composite, chunkTagSequence);
+      }
+    }
+  }
+
+  // 3. 難読専門漢字の処理 (F5キーはNotepad日付挿入事故の原因となるため廃止し、安全なローマ字漢字変換 [Z] を使用)
+  if (options.enableUnicodeF5Assist) {
+    for (const entry of DIFFICULT_MEDICAL_KANJI) {
+      if (text.includes(entry.kanji)) {
+        text = text.replaceAll(entry.kanji, `${IME_TAG_KANJI}${kanaToRomaji(entry.reading)}${IME_TAG_KANJI_END}`);
+      }
+    }
+  }
+
+  // 4. 文字種別「ファンクションキー強制ルーティング」
+  const displayTokens: CompiledImeResult['displayTokens'] = [];
+  let compiledPayload = '';
+
+  if (!options.enableFunctionKeyRouting) {
+    return {
+      compiledPayload: text,
+      displayTokens: [{
+        type: 'raw',
+        originalText: text,
+        actionTag: '[N]',
+        keystrokes: text,
+        description: '標準キーストローク（Fキー制御なし）',
+      }],
+      appliedMacroCount,
+      detectedWarningCount: detectMisconversionWarnings(rawText).length,
+      fKeyRoutingApplied: false,
+    };
+  }
+
+  // 行ごとにトークン分割してルーティングを構成
+  const lines = text.split('\n');
+  const compiledLines: string[] = [];
+
+  for (let l = 0; l < lines.length; l++) {
+    const line = lines[l];
+    if (line.length === 0) {
+      compiledLines.push('');
+      continue;
+    }
+
+    const trimmedLine = line.trim();
+    // 英文行（文献タイトル・雑誌名・発行年など）を100%半角ASCII直接モードで保護
+    if (/^[a-zA-Z0-9\s\.,\-\:\/\(\)\'\"]+$/.test(trimmedLine) && !trimmedLine.includes('[') && trimmedLine.length > 0) {
+      const seq = `${IME_TAG_ASCII}${trimmedLine}${IME_TAG_ASCII_END}`;
+      displayTokens.push({
+        type: 'ascii',
+        originalText: trimmedLine,
+        actionTag: IME_TAG_ASCII,
+        keystrokes: trimmedLine,
+        description: '英文・文献タイトル一括ASCII直接送出',
+      });
+      compiledLines.push(seq);
+      continue;
+    }
+
+    // 既にタグが付与された部分（[K]...[/K], [H]...[/H], [Z]...[/Z], [A]...[/A]）やバックスペースを保持しつつパース
+    const tokenRegex = /(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\]|\[BS\]|[\x08]+|【[^】]+】|[ァ-ヴー]{2,}|\d+(?:\.\d+)?(?:[\-~–—−―]\d+(?:\.\d+)?)?(?:mg|g|kg|mL|mmHg|bpm|℃|\%|度|日分|錠|T)?|[a-zA-Z0-9_\-\.\:\/\+\(\)]+|[一-龠]+[ぁ-ん]*|[ぁ-ん]+|[、。・，．,.:;!?！？…~〜–—−―（）「」『』／/]|\s+)/g;
+    const tokens = line.match(tokenRegex) || [line];
+    let lineResult = '';
+
+    for (const token of tokens) {
+      if (!token) continue;
+
+      // バックスペース確定トリムトークン
+      if (token === '[BS]' || token.startsWith('\x08')) {
+        lineResult += token;
+        displayTokens.push({
+          type: 'raw',
+          originalText: `BSx${token.length}`,
+          actionTag: '[BS]',
+          keystrokes: `[Backspace]x${token.length}`,
+          description: '確定後バックスペース（同音異義語完全防護）',
+        });
+        continue;
+      }
+
+      // 既にタグが付与されているトークン
+      if (token.startsWith('[K]') || token.startsWith('[H]') || token.startsWith('[Z]') || token.startsWith('[A]')) {
+        lineResult += token;
+        const tag = token.slice(0, 3);
+        const inner = token.slice(3, -4);
+        displayTokens.push({
+          type: tag === '[K]' ? 'katakana' : tag === '[H]' ? 'hiragana' : tag === '[A]' ? 'ascii' : 'kanji',
+          originalText: inner,
+          actionTag: tag,
+          keystrokes: tag === '[K]' ? `${inner} ➔ [F7] ➔ [Enter]` : tag === '[H]' ? `${inner} ➔ [Enter]` : tag === '[Z]' ? `${inner} ➔ [Space] ➔ [Enter]` : inner,
+          description: tag === '[K]' ? 'F7全角カタカナ強制確定' : tag === '[H]' ? 'ひらがな直接確定（Space禁止）' : tag === '[Z]' ? '最小Chunk漢字変換' : 'ASCII直接打鍵',
+        });
+        continue;
+      }
+
+      // 見出し括弧 【主訴】 など
+      if (token.startsWith('【') && token.endsWith('】')) {
+        const inner = token.slice(1, -1);
+        const romaji = MEDICAL_KANJI_ROMAJI_MAP[inner] || kanaToRomaji(inner);
+        const seq = `[ ${romaji} ] `;
+        lineResult += seq;
+        displayTokens.push({
+          type: 'kanji',
+          originalText: token,
+          actionTag: '[ ]',
+          keystrokes: seq,
+          description: 'カルテ見出し括弧（JIS補正＋スペース確定）',
+        });
+        continue;
+      }
+
+      // カタカナ語・薬品名 ➔ [K]...[/K] (F7全角カタカナ強制)
+      if (KATAKANA_REGEX.test(token) && token.length >= 2) {
+        const romaji = kanaToRomaji(token);
+        const seq = `${IME_TAG_KATAKANA}${romaji}${IME_TAG_KATAKANA_END}`;
+        lineResult += seq;
+        displayTokens.push({
+          type: 'katakana',
+          originalText: token,
+          actionTag: IME_TAG_KATAKANA,
+          keystrokes: `${romaji} ➔ [F7] ➔ [Enter]`,
+          description: 'F7全角カタカナ強制（漢字誤爆ゼロ化）',
+        });
+        continue;
+      }
+
+      // 数値・単位・英字・数値範囲 ➔ [A]...[/A] (半角ASCII直接モード)
+      const normToken = token.replace(/[–—−―]/g, '-');
+      if (ASCII_UNIT_REGEX.test(normToken)) {
+        const seq = `${IME_TAG_ASCII}${normToken}${IME_TAG_ASCII_END}`;
+        lineResult += seq;
+        displayTokens.push({
+          type: 'ascii',
+          originalText: token,
+          actionTag: IME_TAG_ASCII,
+          keystrokes: normToken,
+          description: '半角ASCII直接打鍵（全角混入防止）',
+        });
+        continue;
+      }
+
+      // 助詞・ひらがな語尾 ➔ [H]...[/H] (Enter確定・Space禁止)
+      if (HIRAGANA_PARTICLE_REGEX.test(token)) {
+        const romaji = kanaToRomaji(token);
+        const seq = `${IME_TAG_HIRAGANA}${romaji}${IME_TAG_HIRAGANA_END}`;
+        lineResult += seq;
+        displayTokens.push({
+          type: 'hiragana',
+          originalText: token,
+          actionTag: IME_TAG_HIRAGANA,
+          keystrokes: `${romaji} ➔ [Enter]`,
+          description: 'ひらがな直接確定（Space禁止・漢字誤変換防止）',
+        });
+        continue;
+      }
+
+      // 句読点・記号の安全変換（MS-IMEでの全角記号確定）
+      if (token === '、' || token === '，') {
+        const seq = `${IME_TAG_HIRAGANA},${IME_TAG_HIRAGANA_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: ', ➔ [Enter]', description: '読点「、」確定' });
+        continue;
+      }
+      if (token === '。' || token === '．') {
+        const seq = `${IME_TAG_HIRAGANA}.${IME_TAG_HIRAGANA_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '. ➔ [Enter]', description: '句点「。」確定' });
+        continue;
+      }
+      if (token === '・' || token === '／' || token === '/') {
+        const seq = `${IME_TAG_HIRAGANA}/${IME_TAG_HIRAGANA_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '/ ➔ [Enter]', description: '中黒・スラッシュ確定' });
+        continue;
+      }
+      if (token === '：' || token === ':') {
+        const seq = `${IME_TAG_ASCII}:${IME_TAG_ASCII_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'ascii', originalText: token, actionTag: IME_TAG_ASCII, keystrokes: ':', description: 'コロン確定' });
+        continue;
+      }
+      if (token === '（' || token === '(') {
+        const seq = `${IME_TAG_HIRAGANA}(${IME_TAG_HIRAGANA_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '( ➔ [Enter]', description: '丸括弧「（」確定' });
+        continue;
+      }
+      if (token === '）' || token === ')') {
+        const seq = `${IME_TAG_HIRAGANA})${IME_TAG_HIRAGANA_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: ') ➔ [Enter]', description: '丸括弧「）」確定' });
+        continue;
+      }
+      if (token === '「') {
+        const seq = `${IME_TAG_HIRAGANA}[${IME_TAG_HIRAGANA_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '[ ➔ [Enter]', description: '鉤括弧「「」確定' });
+        continue;
+      }
+      if (token === '」') {
+        const seq = `${IME_TAG_HIRAGANA}]${IME_TAG_HIRAGANA_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '] ➔ [Enter]', description: '鉤括弧「」」確定' });
+        continue;
+      }
+      if (token === '–' || token === '—' || token === '−' || token === '―' || token === '〜' || token === '~') {
+        const seq = `${IME_TAG_ASCII}-${IME_TAG_ASCII_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'ascii', originalText: token, actionTag: IME_TAG_ASCII, keystrokes: '-', description: 'ダッシュ・範囲記号確定' });
+        continue;
+      }
+
+      // 漢字熟語・送り仮名付き複合語 ➔ [Z]...[/Z] (Space ➔ Enter)
+      if (/[一-龠]/.test(token)) {
+        const romaji = kanjiWordToRomaji(token);
+        if (romaji) {
+          const seq = `${IME_TAG_KANJI}${romaji}${IME_TAG_KANJI_END}`;
+          lineResult += seq;
+          displayTokens.push({
+            type: 'kanji',
+            originalText: token,
+            actionTag: IME_TAG_KANJI,
+            keystrokes: `${romaji} ➔ [Space] ➔ [Enter]`,
+            description: '漢字・活用語一括変換（Space即時確定）',
+          });
+          continue;
+        }
+      }
+
+      // その他のひらがな ➔ [H]...[/H]
+      if (/^[ぁ-ん]+$/.test(token)) {
+        const romaji = kanaToRomaji(token);
+        const seq = `${IME_TAG_HIRAGANA}${romaji}${IME_TAG_HIRAGANA_END}`;
+        lineResult += seq;
+        displayTokens.push({
+          type: 'hiragana',
+          originalText: token,
+          actionTag: IME_TAG_HIRAGANA,
+          keystrokes: `${romaji} ➔ [Enter]`,
+          description: 'ひらがな確定',
+        });
+        continue;
+      }
+
+      // 記号または空白
+      lineResult += token;
+    }
+
+    compiledLines.push(lineResult);
+  }
+
+  compiledPayload = compiledLines.join('\n');
+
+  return {
+    compiledPayload,
+    displayTokens,
+    appliedMacroCount,
+    detectedWarningCount: detectMisconversionWarnings(rawText).length,
+    fKeyRoutingApplied: true,
+  };
+}
+
+/**
+ * 入力文章から誤変換リスクのある専門用語をスキャン・抽出
+ */
+export function detectMisconversionWarnings(text: string): MisconversionWarning[] {
+  if (!text) return [];
+  const warnings: MisconversionWarning[] = [];
+
+  for (const item of MISCONVERSION_WARNING_LIST) {
+    if (text.includes(item.target)) {
+      warnings.push(item);
+    }
+  }
+
+  // 難読漢字の検出
+  for (const entry of DIFFICULT_MEDICAL_KANJI) {
+    if (text.includes(entry.kanji)) {
+      if (!warnings.some((w) => w.target === entry.kanji)) {
+        warnings.push({
+          id: `warn-diff-${entry.unicodeHex}`,
+          target: entry.kanji,
+          likelyMisconversion: `${entry.reading}（変換候補なし）`,
+          recommendedAction: 'unicode_f5',
+          recommendationLabel: `Unicode F5コード変換 (${entry.unicodeHex})`,
+          explanation: `難読医学漢字「${entry.kanji}」は標準IME辞書にないため、Unicodeコード入力(F5)が確実です。`,
+        });
+      }
+    }
+  }
+
+  return warnings;
+}
+
+function escapeRegExp(string: string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
