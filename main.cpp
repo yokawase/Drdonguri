@@ -771,7 +771,7 @@ int calculateHvcScore(const char* text, size_t len) {
 // レベル4: 一般ひらがな・熟語 ➔ ひらがな連続塊は即時Enter確定、一般語は最小形態素Space変換
 // 生HIDパルスを完全排除し、一般漢字へのF5乱射（日時スタンプ誤挿入バグ）を100%防止
 // ============================================================================
-void dispatchSafeKeystrokes() {
+bool dispatchSafeKeystrokes() {
   size_t i = 0;
   size_t total = currentMsg.actualTotalBytes;
   const char* buf = currentMsg.assembledBuffer;
