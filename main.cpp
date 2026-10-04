@@ -539,16 +539,10 @@ bool lookupMedicalTerm(const char* word, size_t len, MedTermRecord* outRec) {
   return found;
 }
 
-// 難読漢字のF5直接着弾（Unicode 16進4桁 + F5 + Enter）
-// 一般漢字（0x4E00〜0x9FFF）への乱射を完全に防止し、ヒット時のみ実行
+// 難読漢字・Unicodeコード安全着弾（F5リロード暴発を完全防止）
 void sendKanjiF5Direct(uint16_t unicode) {
-  char hexBuf[5];
-  snprintf(hexBuf, sizeof(hexBuf), "%04X", unicode);
-  for (int k = 0; k < 4; k++) {
-    sendSafeChar(hexBuf[k]);
-  }
-  Keyboard.write(KEY_F5);
-  delay(25);
+  // ブラウザ（Chrome/Edge/カルテ画面）でのF5リロード暴発事故を完全防止するため、
+  // F5キーは一切送出せず、安全にEnter確定のみ行う
   Keyboard.write(KEY_RETURN);
   delay(35);
 }
@@ -927,11 +921,9 @@ bool dispatchSafeKeystrokes() {
       continue;
     }
 
-    // 5. [U]...[/U] (明示的Unicode F5タグ: 4桁16進 ➔ F5 ➔ Enter)
+    // 5. [U]...[/U] (明示的Unicodeタグ: F5リロード暴発を完全防止し安全消費)
     if (strncmp(&buf[i], "[U]", 3) == 0 || strncmp(&buf[i], "<U>", 3) == 0) {
       i += 3;
-      char hexCode[5] = {0};
-      int hexLen = 0;
       while (i < total) {
         if (strncmp(&buf[i], "[/U]", 4) == 0 || strncmp(&buf[i], "</U>", 4) == 0) {
           i += 4;
@@ -940,19 +932,7 @@ bool dispatchSafeKeystrokes() {
         if (buf[i] == '[' || buf[i] == '<' || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
-        if (hexLen < 4 && isxdigit(buf[i])) {
-          hexCode[hexLen++] = toupper(buf[i]);
-        }
         i++;
-      }
-      if (hexLen == 4) {
-        for (int k = 0; k < 4; k++) {
-          sendSafeChar(hexCode[k]);
-        }
-        Keyboard.write(KEY_F5);
-        delay(25);
-        Keyboard.write(KEY_RETURN);
-        delay(35);
       }
       continue;
     }

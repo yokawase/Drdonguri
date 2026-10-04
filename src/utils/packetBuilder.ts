@@ -192,16 +192,13 @@ export function buildTransmissionSession(
   }
 
   // ★【Zero-Drop＆Zero-Misconversion 保証バリデータ】
-  // タグ外に生漢字が残存している場合は、すべて [U]XXXX[/U]（Unicode F5直接着弾）にラップし、
-  // カルテ端末へ寸分違わず原文通りの漢字を着弾させる
+  // タグ外に生漢字が残存している場合は、すべて [Z]...[/Z]（安全なローマ字Space変換）にラップし、
+  // F5リロード誤爆を完全に防止しながらカルテ端末へ着弾させる
   if (mode === DispatchMode.MODE_HYBRID_UNICODE || mode === DispatchMode.MODE_IME_ROMAJI) {
     formattedText = formattedText.replace(/(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\])|([一-龠]+)/g, (match, tagPart, kanjiPart) => {
       if (tagPart) return tagPart;
       if (kanjiPart) {
-        return Array.from(kanjiPart).map(c => {
-          const cp = c.codePointAt(0);
-          return cp ? `[U]${cp.toString(16).toUpperCase().padStart(4, '0')}[/U]` : c;
-        }).join('');
+        return `[Z]${kanjiWordToRomaji(kanjiPart)}[/Z]`;
       }
       return match;
     });

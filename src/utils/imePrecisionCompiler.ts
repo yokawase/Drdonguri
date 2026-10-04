@@ -803,11 +803,42 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   '症例対照': 'syoureitaisyou', '症例': 'syourei', '腫瘍化': 'syuyouka', '原因': 'genninn',
   '結果': 'kekka', '判別できず': 'hannbetudekizu', '判別': 'hannbetu', '因果推論': 'inngasuironn',
   '因果': 'innga', '推論': 'suironn', '縦断研究': 'jyuudannkennkyuu', '縦断': 'jyuudann',
-  '必要である': 'hituyoudearu', '必要': 'hituyou', 'バイオマーカー': 'baioma-ka-', 'コリバクチン': 'koribakutinn'
+  '必要である': 'hituyoudearu', '必要': 'hituyou', 'バイオマーカー': 'baioma-ka-', 'コリバクチン': 'koribakutinn',
+  // 追加：臨床研究・疫学・統計解析・エミュレーション重要熟語
+  '標的臨床試験': 'hyoutekirinnsyousikenn', '臨床試験': 'rinnsyousikenn', '標的': 'hyouteki',
+  '試験': 'sikenn', '統合実装': 'tougoujissou', '統合': 'tougou', '実装': 'jissou',
+  '大規模な': 'daikibona', '大規模': 'daikibo', '比較試験': 'hikakusikenn',
+  'ランダム化比較試験': 'randamukahikakusikenn', '実施': 'jissi', '困難な': 'konnnannna',
+  '困難': 'konnnann', '医療': 'iryou', '公衆衛生分野': 'kousyuueuseibunnya',
+  '公衆衛生': 'kousyuueusei', '分野において': 'bunnyanioite', '分野': 'bunnya',
+  '静的な': 'seitekina', '静的': 'seiteki', '統計解析': 'toukeikaiseki',
+  '単純な': 'tannjunnna', '単純': 'tannjunn', '限界': 'gennkai',
+  '克服し': 'kokuhukusi', '克服': 'kokuhuku', '動的行動': 'doutekikoudou',
+  '動的': 'douteki', '行動': 'koudou', '因果関係': 'inngakannkei',
+  '立証': 'rissyou', '両立': 'ryouritu', '最先端の': 'saisentannno',
+  '最先端': 'saisentann', '数理': 'suuri', '疫学': 'ekigaku',
+  '手法': 'syuhou', '核心': 'kakusinn', '推定し': 'suiteisi',
+  '推定': 'suitei', '個体': 'kotai', '意思決定': 'isikettei',
+  '相互作用': 'sougosayou', '再現し': 'saigennsi', '再現': 'saigenn',
+  '反事実': 'hannjijitu', '純効果': 'junnkouka', '抽出': 'tyuusyutu',
+  '同僚研究者': 'douryoukennkyuusya', '研究者': 'kennkyuusya', '同僚': 'douryou',
+  '共有': 'kyouyuu', '説明': 'setumei', '活用': 'katuyou',
+  '具体的': 'gutaiteki', '具体的な': 'gutaitekina', '方へ': 'houe', '際に': 'saini',
+  '以下に': 'ikani'
 };
 
 // 汎用単漢字・頻出漢字 ➔ ローマ字読みテーブル（未登録語彙のフォールバック用）
 export const COMMON_KANJI_ROMAJI: Record<string, string> = {
+  '試': 'si', '験': 'kenn', '統': 'tou', '模': 'bo', '較': 'kaku',
+  '困': 'konn', '難': 'nann', '医': 'i', '衆': 'syuu', '衛': 'ei',
+  '析': 'seki', '克': 'koku', '核': 'kaku', '純': 'junn', '抽': 'tyuu',
+  '僚': 'ryou', '共': 'kyou', '具': 'gu', '両': 'ryou', '互': 'go',
+  '個': 'ko', '端': 'tann', '立': 'ritu', '装': 'sou', '界': 'kai',
+  '疫': 'eki', '研': 'kenn', '究': 'kyuu', '法': 'hou', '論': 'ronn',
+  '限': 'genn', '際': 'sai', '静': 'sei', '思': 'si', '係': 'kei',
+  '作': 'saku', '数': 'suu', '学': 'gaku', '手': 'te', '反': 'hann',
+  '事': 'ji', '実': 'jissi', '推': 'sui', '定': 'tei', '現': 'genn',
+  '標': 'hyou', '床': 'syou', '臨': 'rinn', '組': 'kumi', '織': 'siki',
   '歳': 'sai', '女': 'jyo', '性': 'sei', '男': 'dan', '受': 'jyu', '診': 'sinn',
   '背': 'hai', '景': 'kei', '症': 'syou', '例': 'rei', '大': 'dai', '腸': 'tyou',
   '検': 'kenn', '査': 'sa', '産': 'sann', '生': 'sei', '菌': 'kinn', '陽': 'you',
@@ -1308,43 +1339,23 @@ export function compileMedicalTextToImeBoost(
         continue;
       }
 
-      // ★【核心改修：漢字熟語・単漢字・送り仮名付き複合語 ➔ [U]XXXX[/U] (Unicode F5直接着弾)】
-      // 従来の「ローマ字変換 ➔ スペースキー変換」は辞書未登録語の「kan」縮退や「性的な」「判事実施」等の
-      // 致命的誤変換を招くため完全撤廃。各漢字のUnicodeコードポイントを直接算出し、F5コード変換で100%着弾させる！
+      // ★【核心改修：ブラウザ再読み込み事故（F5暴発）を100%根絶】
+      // F5キーはChrome/Edge/カルテ画面で「ページリロード」を誘発し入力を破壊するため完全撤廃。
+      // 大幅拡充された常用熟語・単漢字辞書から正しい日本語ローマ字を生成し、[Z]（Space変換 ➔ Enter確定）で安全打鍵する。
       if (/[一-龠]/.test(token)) {
-        let seq = '';
-        for (const char of token) {
-          if (/[一-龠]/.test(char)) {
-            const cp = char.codePointAt(0);
-            if (cp) {
-              const hex = cp.toString(16).toUpperCase().padStart(4, '0');
-              seq += `${IME_TAG_UNICODE}${hex}${IME_TAG_UNICODE_END}`;
-              displayTokens.push({
-                type: 'unicode',
-                originalText: char,
-                actionTag: IME_TAG_UNICODE,
-                keystrokes: `${hex} ➔ [F5] ➔ [Enter]`,
-                description: `Unicode直接着弾「${char}」(U+${hex})`,
-              });
-            } else {
-              seq += char;
-            }
-          } else if (/^[ぁ-ん]+$/.test(char)) {
-            const r = kanaToRomaji(char);
-            seq += `${IME_TAG_HIRAGANA}${r}${IME_TAG_HIRAGANA_END}`;
-            displayTokens.push({
-              type: 'hiragana',
-              originalText: char,
-              actionTag: IME_TAG_HIRAGANA,
-              keystrokes: `${r} ➔ [Enter]`,
-              description: '送り仮名直接確定',
-            });
-          } else {
-            seq += char;
-          }
+        const romaji = kanjiWordToRomaji(token);
+        if (romaji) {
+          const seq = `${IME_TAG_KANJI}${romaji}${IME_TAG_KANJI_END}`;
+          lineResult += seq;
+          displayTokens.push({
+            type: 'kanji',
+            originalText: token,
+            actionTag: IME_TAG_KANJI,
+            keystrokes: `${romaji} ➔ [Space] ➔ [Enter]`,
+            description: `漢字・熟語安全変換「${token}」`,
+          });
+          continue;
         }
-        lineResult += seq;
-        continue;
       }
 
       // その他のひらがな ➔ [H]...[/H]
@@ -1377,17 +1388,15 @@ export function compileMedicalTextToImeBoost(
     compiledLines.push(lineResult);
   }
 
-  // ★【Zero-Drop 保証バリデータ: 添付ファイル指摘の完全実装】
+  // ★【Zero-Drop 保証バリデータ】
   // 生成されたペイロードの中に、制御タグの外側に生の漢字（\u4E00-\u9FFF）が残存していないか走査し、
-  // 残っている場合は自動的に [U]XXXX[/U]（Unicode F5直接着弾）でラップする
+  // 残っている場合は自動的に [Z]...[/Z]（安全なローマ字Space変換）でラップする
   const sanitizedLines = compiledLines.map((line) => {
     return line.replace(/(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\])|([一-龠]+)/g, (match, tagPart, kanjiPart) => {
       if (tagPart) return tagPart;
       if (kanjiPart) {
-        return Array.from(kanjiPart).map(c => {
-          const cp = c.codePointAt(0);
-          return cp ? `${IME_TAG_UNICODE}${cp.toString(16).toUpperCase().padStart(4, '0')}${IME_TAG_UNICODE_END}` : c;
-        }).join('');
+        const romaji = kanjiWordToRomaji(kanjiPart);
+        return `${IME_TAG_KANJI}${romaji}${IME_TAG_KANJI_END}`;
       }
       return match;
     });
