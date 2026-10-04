@@ -1075,9 +1075,35 @@ void dispatchSafeKeystrokes() {
       if (memcmp(&buf[i], "ー", 3) == 0) { sendSafeChar('-'); i += 3; continue; }
     }
 
-    // 2. ひらがな連続塊: ローマ字送出 ➔ 即時Enter確定 (Space禁止！漢字巻き込みゼロ)
+// 2. ひらがな連続塊: ローマ字送出
     if (isUtf8Hiragana(&buf[i])) {
       while (i < total && isUtf8Hiragana(&buf[i])) {
+        // 促音「っ」(0xE3 0x81 0xA3) の処理: 次の文字の子音を先読みして二重化
+        if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x81 && (uint8_t)buf[i+2] == 0xA3) {
+          if (i + 6 <= total && isUtf8Hiragana(&buf[i+3])) {
+            const char* nextDi = (i + 9 <= total) ? findDigraphRomaji(&buf[i+3]) : nullptr;
+            const char* nextMo = findMonoKanaRomaji(&buf[i+3]);
+            const char* nextRomaji = (nextDi != nullptr) ? nextDi : nextMo;
+            if (nextRomaji != nullptr && nextRomaji[0] != 'a' && nextRomaji[0] != 'i' && 
+                nextRomaji[0] != 'u' && nextRomaji[0] != 'e' && nextRomaji[0] != 'o' && nextRomaji[0] != 'n') {
+              sendSafeChar(nextRomaji[0]);
+              i += 3;
+              continue;
+            }
+          }
+          sendSafeChar('l'); sendSafeChar('t'); sendSafeChar('u');
+          i += 3;
+          continue;
+        }
+
+        // 「ん」(0xE3 0x82 0x93) の処理: IMEで誤結合しないよう常に nn 送出
+        if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x82 && (uint8_t)buf[i+2] == 0x93) {
+          sendSafeChar('n');
+          sendSafeChar('n');
+          i += 3;
+          continue;
+        }
+
         // 2文字ダイグラフ判定 (きゃ, しゅ, ちょ等: 6バイト)
         if (i + 6 <= total) {
           const char* romajiDi = findDigraphRomaji(&buf[i]);
@@ -1102,15 +1128,44 @@ void dispatchSafeKeystrokes() {
         }
         i += getUtf8CharLen((uint8_t)buf[i]);
       }
-      // ひらがな塊末尾で即時Enter確定
-      Keyboard.write(KEY_RETURN);
-      delay(35);
+      // ひらがな塊末尾の確定: 文末（句点・約物・改行・終端）のときのみ確定
+      if (i >= total || buf[i] == '\n' || buf[i] == '\r' || 
+          (i + 3 <= total && (memcmp(&buf[i], "。", 3) == 0 || memcmp(&buf[i], "、", 3) == 0))) {
+        Keyboard.write(KEY_RETURN);
+        delay(35);
+      }
       continue;
     }
 
     // 3. カタカナ連続塊: ローマ字送出 ➔ F7全角カタカナ強制 ➔ Enter確定
     if (isUtf8Katakana(&buf[i])) {
       while (i < total && isUtf8Katakana(&buf[i])) {
+        // 促音「ッ」(0xE3 0x83 0x83) の処理
+        if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x83 && (uint8_t)buf[i+2] == 0x83) {
+          if (i + 6 <= total && isUtf8Katakana(&buf[i+3])) {
+            const char* nextDi = (i + 9 <= total) ? findDigraphRomaji(&buf[i+3]) : nullptr;
+            const char* nextMo = findMonoKanaRomaji(&buf[i+3]);
+            const char* nextRomaji = (nextDi != nullptr) ? nextDi : nextMo;
+            if (nextRomaji != nullptr && nextRomaji[0] != 'a' && nextRomaji[0] != 'i' && 
+                nextRomaji[0] != 'u' && nextRomaji[0] != 'e' && nextRomaji[0] != 'o' && nextRomaji[0] != 'n') {
+              sendSafeChar(nextRomaji[0]);
+              i += 3;
+              continue;
+            }
+          }
+          sendSafeChar('l'); sendSafeChar('t'); sendSafeChar('u');
+          i += 3;
+          continue;
+        }
+
+        // 「ン」(0xE3 0x83 0xB3) の処理
+        if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x83 && (uint8_t)buf[i+2] == 0xB3) {
+          sendSafeChar('n');
+          sendSafeChar('n');
+          i += 3;
+          continue;
+        }
+
         if (i + 6 <= total) {
           const char* romajiDi = findDigraphRomaji(&buf[i]);
           if (romajiDi != nullptr) {
@@ -1140,13 +1195,28 @@ void dispatchSafeKeystrokes() {
       continue;
     }
 
-    // 4. 未登録の一般漢字・未分類文字 (フォールバック: F5乱射は絶対に行わず安全にスキップ)
-    i += (uLen > 0 ? uLen : 1);
+    // 4. 未登録の一般漢字・未分類文字
+    // ★【添付ファイル指摘の完全実装: サイレントスキップを100%根絶】
+    // 医療カルテで文字が黙って消えることは重大な医療事故に直結するため、
+    // 未対応の文字を検出した場合は直ちに送出を中断し、未対応文字コードとともにエラーを返す。
+    char errDetail[16] = {0};
+    snprintf(errDetail, sizeof(errDetail), "%02X%02X%02X",
+             (uint8_t)buf[i],
+             (uLen > 1 && i + 1 < total ? (uint8_t)buf[i+1] : 0),
+             (uLen > 2 && i + 2 < total ? (uint8_t)buf[i+2] : 0));
+
+    Keyboard.releaseAll();
+    sendBleAck("ERR_UNSUPPORTED_CHAR", currentMsg.sessionId, errDetail);
+
+    if (fKanji) fKanji.close();
+    if (fTerms) fTerms.close();
+    return false;
   }
 
   // ファイルハンドルのクローズ
   if (fKanji) fKanji.close();
   if (fTerms) fTerms.close();
+  return true;
 }
 
 // ============================================================================
@@ -1167,10 +1237,18 @@ void dispatchOutput() {
   sendBleAck("DISPATCH_STARTED", currentMsg.sessionId);
 
   // 4層ハイブリッド安全キーストローク送出（SPIFFS二分探索 Zero-RAM）
-  dispatchSafeKeystrokes();
+  bool dispatchSuccess = dispatchSafeKeystrokes();
 
   // キーの完全開放
   Keyboard.releaseAll();
+
+  // 未対応文字エラー等で中断された場合は完了通知を出さずにエラー状態へ
+  if (!dispatchSuccess) {
+    currentState = STATE_ERROR;
+    setLedColor(128, 0, 128); // エラー表示: マゼンタ点灯
+    return;
+  }
+
   sendBleAck("USB_REPORTS_SENT", currentMsg.sessionId);
   delay(30);
 

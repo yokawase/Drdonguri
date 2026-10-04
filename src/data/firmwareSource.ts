@@ -1,9 +1,9 @@
 import mainCppRaw from '@/firmware/src/main.cpp?raw';
 import flashAtoms3uPs1Raw from '@/firmware/scripts/flash_atoms3u.ps1?raw';
 
-export const LATEST_FIRMWARE_VERSION = 'v16.0';
-export const FIRMWARE_RELEASE_DATE = '2026-10-03';
-export const FIRMWARE_RELEASE_TITLE = 'v16.0（SPIFFS Zero-RAM 二分探索＆医療難読漢字F5/薬名F7 物理打鍵エンジン版）';
+export const LATEST_FIRMWARE_VERSION = 'v16.1';
+export const FIRMWARE_RELEASE_DATE = '2026-10-04';
+export const FIRMWARE_RELEASE_TITLE = 'v16.1（文字脱落完全根絶＆ERR_UNSUPPORTED_CHAR安全中断対応版）';
 
 export const PARTITIONS_8MB_CSV_SOURCE = `# Name,   Type, SubType, Offset,   Size,     Flags
 nvs,      data, nvs,     0x9000,   0x5000,

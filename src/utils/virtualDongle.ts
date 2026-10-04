@@ -437,7 +437,18 @@ export class VirtualDongleSimulator {
       if (buffer.slice(i).startsWith('<IME_ON>')) { i += 8; continue; }
       if (buffer.slice(i).startsWith('<IME_OFF>')) { i += 9; continue; }
 
-      // 3. 通常文字
+      // 3. 通常文字（平文の漢字が直接来た場合の脱落防止チェック）
+      if (/[\u4e00-\u9faf]/.test(char)) {
+        if (this.listener) {
+          this.listener.onLog('sys', 'ERR', `★未対応漢字エラー: [${char}] が直接届きました (サイレントスキップは禁止されています)`);
+        }
+        this.sendAck('ERR_UNSUPPORTED_CHAR', char);
+        this.currentState = SystemState.STATE_ERROR;
+        this.notifyState();
+        this.isTyping = false;
+        return;
+      }
+
       this.typedText += char;
       if (this.listener) {
         this.listener.onKeystroke(char, this.typedText);

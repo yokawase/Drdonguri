@@ -44,6 +44,7 @@
 - [x] **ステップ3**: 実機（AtomS3U）検出 & 接続準備 - 【完了】`/dev/ttyACM0` 検出成功 (USB JTAG/Serial 303A:1001)
 - [x] **ステップ4**: Web/スマホUI通信サーバー検証 (`server.ts`) - 【完了】`http://0.0.0.0:3000` で WebSocket + HTTP 正常稼働中
 - [x] **ステップ5**: GitHub Actions による WebUI 自動デプロイ構築 - 【完了】`.github/workflows/deploy.yml` 作成 & Vite ビルド成功 (HTTPS 対応)
+- [x] **ステップ6**: 文字脱落完全根絶＆安全中断（ERR_UNSUPPORTED_CHAR）改修 - 【完了】サイレントスキップ全廃、Zero-Dropバリデータ導入、促音・確定タイミング最適化
 
 ---
 

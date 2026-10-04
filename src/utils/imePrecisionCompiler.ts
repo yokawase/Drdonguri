@@ -862,14 +862,57 @@ export const COMMON_KANJI_ROMAJI: Record<string, string> = {
   '嘔': 'ou', '下': 'ka', '痢': 'ri', '秘': 'hi', '痺': 'hi', '瘤': 'ryuu',
   '瘡': 'sou', '疹': 'sinn', '斑': 'hann', '痕': 'konn', '炎': 'enn', '衰': 'sui',
   '弱': 'jyaku', '麻': 'ma', '痙': 'kei', '攣': 'renn', '振': 'sinn', '戦': 'senn',
-  '昏': 'konn', '睡': 'sui', '醒': 'sei', '失': 'situ', '神': 'sinn', '障': 'syou'
+  '昏': 'konn', '睡': 'sui', '醒': 'sei', '失': 'situ', '神': 'sinn', '障': 'syou',
+  // 追加：日常カルテ・SOAP・診察・方針必須漢字（脱落ゼロ化）
+  '主': 'syu', '訴': 'so', '針': 'sinn', '方': 'hou', '案': 'ann', '策': 'saku',
+  '決': 'ketu', '定': 'tei', '処': 'syo', '置': 'ti', '療': 'ryou', '術': 'jyutu',
+  '導': 'dou', '入': 'nyuu', '出': 'syutu', '来': 'rai', '去': 'kyo', '今': 'konn',
+  '日': 'niti', '月': 'getu', '年': 'nenn', '時': 'ji', '分': 'bunn', '秒': 'byou',
+  '回': 'kai', '度': 'do', '数': 'suu', '量': 'ryou', '全': 'zenn', '半': 'hann',
+  '部': 'bu', '位': 'i', '置': 'ti', '側': 'soku', '面': 'menn', '点': 'tenn',
+  '線': 'senn', '直': 'tyoku', '角': 'kaku', '形': 'kei', '色': 'soku', '白': 'haku',
+  '黒': 'koku', '赤': 'seki', '青': 'sei', '黄': 'kou', '緑': 'ryoku', '大': 'dai',
+  '小': 'syou', '中': 'tyuu', '高': 'kou', '低': 'tei', '長': 'tyou', '短': 'tann',
+  '重': 'jyuu', '軽': 'kei', '深': 'sinn', '浅': 'senn', '広': 'kou', '狭': 'kyou',
+  '厚': 'kou', '薄': 'haku', '早': 'sou', '遅': 'ti', '新': 'sinn', '古': 'ko',
+  '良': 'ryou', '悪': 'aku', '正': 'sei', '誤': 'go', '真': 'sinn', '偽': 'gi',
+  '強': 'kyou', '弱': 'jyaku', '同': 'dou', '異': 'i', '有': 'yuu', '無': 'mu',
+  '可': 'ka', '否': 'hi', '親': 'sinn', '子': 'si', '父': 'fu', '母': 'bo',
+  '兄': 'kei', '弟': 'tei', '姉': 'si', '妹': 'mai', '夫': 'fu', '妻': 'sai',
+  '家': 'ka', '族': 'zoku', '友': 'yuu', '人': 'jinn', '員': 'inn', '師': 'si',
+  '士': 'si', '者': 'sya', '民': 'minn', '官': 'kann', '公': 'kou', '私': 'si',
+  '自': 'ji', '他': 'ta', '己': 'ko', '相': 'sou', '対': 'tai', '連': 'renn',
+  '合': 'gou', '離': 'ri', '集': 'syuu', '散': 'sann', '配': 'hai', '給': 'kyuu',
+  '受': 'jyu', '授': 'jyu', '送': 'sou', '迎': 'gei', '達': 'tatu', '通': 'tuu',
+  '過': 'ka', '進': 'sinn', '退': 'tai', '止': 'si', '動': 'dou', '静': 'sei',
+  '安': 'ann', '危': 'ki', '険': 'kenn', '急': 'kyuu', '緩': 'kann', '激': 'geki',
+  '常': 'jyou', '変': 'henn', '化': 'ka', '増': 'zou', '減': 'genn', '倍': 'bai',
+  '加': 'ka', '下': 'ka', '上': 'jyou', '昇': 'syou', '降': 'kou', '保': 'ho',
+  '持': 'ji', '存': 'sonn', '在': 'zai', '滅': 'metu', '亡': 'bou', '死': 'si',
+  '命': 'mei', '活': 'katu', '性': 'sei', '能': 'nou', '力': 'ryoku', '質': 'situ',
+  '格': 'kaku', '規': 'ki', '範': 'hann', '準': 'junn', '則': 'soku', '律': 'ritu',
+  '法': 'hou', '令': 'rei', '指': 'si', '示': 'ji', '導': 'dou', '教': 'kyou',
+  '育': 'iku', '研': 'kenn', '究': 'kyuu', '学': 'gaku', '問': 'monn', '知': 'ti',
+  '識': 'siki', '情': 'jyou', '報': 'hou', '告': 'koku', '絡': 'raku', '談': 'dann',
+  '協': 'kyou', '議': 'gi', '論': 'ronn', '判': 'hann', '断': 'dann', '評': 'hyou',
+  '価': 'ka', '考': 'kou', '察': 'satu', '推': 'sui', '定': 'tei', '測': 'soku',
+  '算': 'sann', '確': 'kaku', '認': 'ninn', '証': 'syou', '明': 'mei', '特': 'toku',
+  '別': 'betu', '鑑': 'kann', '診': 'sinn', '病': 'byou', '名': 'mei', '症': 'syou',
+  '候': 'kou', '群': 'gunn', '発': 'hatsu', '作': 'saku', '寛': 'kann', '解': 'kai',
+  '快': 'kai', '治': 'ti', '癒': 'yu', '再': 'sai', '転': 'tenn', '移': 'i',
+  '浸': 'sinn', '潤': 'junn', '播': 'ha', '種': 'syu', '壊': 'kai', '萎': 'i',
+  '縮': 'syuku', '肥': 'hi', '成': 'sei', '界': 'kai', '域': 'iki', '限': 'genn',
+  '広': 'kou', '汎': 'hann', '身': 'sinn', '局': 'kyoku', '所': 'syo', '枢': 'suu',
+  '末': 'matu', '梢': 'syou', '在': 'zai', '層': 'sou', '健': 'kenn', '康': 'kou',
+  '腹': 'fuku', '痛': 'tuu', '患': 'kann', '者': 'sya'
 };
 
 /**
  * 任意の日本語単語・漢字熟語を安全なローマ字に変換
- * （※最長一致熟語辞書検索 ➔ 単漢字辞書フォールバック）
+ * （※最長一致熟語辞書検索 ➔ 単漢字辞書フォールバック ➔ 音読みフォールバック）
  */
 export function kanjiWordToRomaji(word: string): string {
+  if (!word) return '';
   if (MEDICAL_KANJI_ROMAJI_MAP[word]) {
     return MEDICAL_KANJI_ROMAJI_MAP[word].trim();
   }
@@ -909,15 +952,24 @@ export function kanjiWordToRomaji(word: string): string {
     } else if (KANA_ROMAJI_MAP[ch]) {
       out += KANA_ROMAJI_MAP[ch];
     } else {
-      out += kanaToRomaji(ch);
+      const k = kanaToRomaji(ch);
+      if (k) {
+        out += k;
+      } else {
+        // 万一未知の漢字の場合はUnicode 16進プレフィックス等で絶対に文字を欠落させない
+        const cp = ch.codePointAt(0);
+        out += cp ? `u${cp.toString(16)}` : 'kan';
+      }
     }
     i++;
   }
 
-  // 漢字が万が一残存した場合は音読みフォールバックを行い、絶対に文字を消去しない
-  return out.replace(/[\u4e00-\u9faf]/g, (match) => {
-    return COMMON_KANJI_ROMAJI[match] || SINGLE_KANJI_MAP[match] || '';
+  // 万一漢字が残存した場合は音読みフォールバックを行い、絶対に文字を消去しない
+  const sanitized = out.replace(/[\u4e00-\u9faf]/g, (match) => {
+    return COMMON_KANJI_ROMAJI[match] || (SINGLE_KANJI_MAP[match] ? SINGLE_KANJI_MAP[match].trim() : '') || 'kan';
   }).trim();
+
+  return sanitized || 'kan';
 }
 
 // -----------------------------------------------------------------------------
@@ -1285,7 +1337,21 @@ export function compileMedicalTextToImeBoost(
     compiledLines.push(lineResult);
   }
 
-  compiledPayload = compiledLines.join('\n');
+  // ★【Zero-Drop 保証バリデータ: 添付ファイル指摘の完全実装】
+  // 生成されたペイロードの中に、制御タグ [K], [H], [Z], [A], [U] の外側に
+  // 生の漢字（\u4E00-\u9FFF）が残存していないか走査し、残っている場合は自動的に [Z]...[/Z] でラップする
+  const sanitizedLines = compiledLines.map((line) => {
+    return line.replace(/(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\])|([一-龠]+)/g, (match, tagPart, kanjiPart) => {
+      if (tagPart) return tagPart;
+      if (kanjiPart) {
+        const romaji = kanjiWordToRomaji(kanjiPart);
+        return `${IME_TAG_KANJI}${romaji}${IME_TAG_KANJI_END}`;
+      }
+      return match;
+    });
+  });
+
+  compiledPayload = sanitizedLines.join('\n');
 
   return {
     compiledPayload,

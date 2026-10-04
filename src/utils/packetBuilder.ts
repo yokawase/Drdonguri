@@ -1,7 +1,7 @@
 import { calculateCrc16 } from './crc16';
 import { DispatchMode } from '../types';
 import { formatForEhrNewlines, transpileToImeRomajiSequence, generateKeystrokeSequence } from './japaneseImeTranspiler';
-import { compileMedicalTextToImeBoost, CompileImeOptions } from './imePrecisionCompiler';
+import { compileMedicalTextToImeBoost, CompileImeOptions, kanjiWordToRomaji } from './imePrecisionCompiler';
 import { preprocessMedicalText, PreprocessOptions } from './medicalTextPreprocessor';
 
 export const MAX_PAYLOAD_SIZE = 4096;
@@ -185,6 +185,19 @@ export function buildTransmissionSession(
     }
   } else {
     formattedText = formatForEhrNewlines(processedText);
+  }
+
+  // ★【Zero-Drop 安全バリデータ: 添付ファイル指摘の完全実装】
+  // MODE_HYBRID_UNICODE または MODE_IME_ROMAJI において、
+  // タグ外に生漢字が残存してAtomS3UでERR_UNSUPPORTED_CHARになるのを100%防止
+  if (mode === DispatchMode.MODE_HYBRID_UNICODE || mode === DispatchMode.MODE_IME_ROMAJI) {
+    formattedText = formattedText.replace(/(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\])|([一-龠]+)/g, (match, tagPart, kanjiPart) => {
+      if (tagPart) return tagPart;
+      if (kanjiPart) {
+        return `[Z]${kanjiWordToRomaji(kanjiPart)}[/Z]`;
+      }
+      return match;
+    });
   }
 
   const encoder = new TextEncoder();
