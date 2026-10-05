@@ -1089,8 +1089,8 @@ bool dispatchSafeKeystrokes() {
       if (memcmp(&buf[i], "、", 3) == 0) { sendSafeChar(','); i += 3; continue; }
       if (memcmp(&buf[i], "。", 3) == 0) { sendSafeChar('.'); i += 3; continue; }
       if (memcmp(&buf[i], "・", 3) == 0) { sendSafeChar('/'); i += 3; continue; }
-      if (memcmp(&buf[i], "「", 3) == 0) { sendSafeChar('['); i += 3; continue; }
-      if (memcmp(&buf[i], "」", 3) == 0) { sendSafeChar(']'); i += 3; continue; }
+      if (memcmp(&buf[i], "「", 3) == 0 || memcmp(&buf[i], "【", 3) == 0) { sendSafeChar('['); i += 3; continue; }
+      if (memcmp(&buf[i], "」", 3) == 0 || memcmp(&buf[i], "】", 3) == 0) { sendSafeChar(']'); i += 3; continue; }
       if (memcmp(&buf[i], "（", 3) == 0) { sendSafeChar('('); i += 3; continue; }
       if (memcmp(&buf[i], "）", 3) == 0) { sendSafeChar(')'); i += 3; continue; }
       if (memcmp(&buf[i], "〜", 3) == 0) { sendSafeChar('~'); i += 3; continue; }

@@ -517,8 +517,43 @@ export const CHUNK_DECOMPOSITION_RULES: ChunkRule[] = [
   { composite: '低頻度だが存在した', chunks: ['低頻度だが', '存在した'], readings: ['teihinndodaga', 'sonnzaisita'] },
   { composite: '低頻度だが', chunks: ['低頻度だが'], readings: ['teihinndodaga'] },
   { composite: '低頻度', chunks: ['低頻度'], readings: ['teihinndo'] },
-  { composite: '存在した', chunks: ['存在した'], readings: ['sonnzaisita'] },
-  { composite: '存在', chunks: ['存在'], readings: ['sonnzai'] },
+  // ── 胃カメラ・超音波・ピロリ菌・生涯リスク・方針（誤変換5大原則完全防護） ──
+  { composite: '毎年胃カメラと超音波', chunks: ['毎年', '胃カメラ', 'と', '超音波'], readings: ['mainenn', 'ikamera', 'to', 'tyouonnpa'] },
+  { composite: '毎年胃カメラ', chunks: ['毎年', '胃カメラ'], readings: ['mainenn', 'ikamera'] },
+  { composite: '胃カメラと超音波', chunks: ['胃カメラ', 'と', '超音波'], readings: ['ikamera', 'to', 'tyouonnpa'] },
+  { composite: '超音波', chunks: ['超音波'], readings: ['tyouonnpa'] },
+  { composite: '胃カメラ', chunks: ['胃カメラ'], readings: ['ikamera'] },
+  { composite: '毎年', chunks: ['毎年'], readings: ['mainenn'] },
+  { composite: '38歳で胃がん', chunks: ['38', '歳で', '胃がん'], readings: ['38', 'saide', 'igann'] },
+  { composite: '歳で胃がん', chunks: ['歳で', '胃がん'], readings: ['saide', 'igann'] },
+  { composite: '胃がん', chunks: ['胃がん'], readings: ['igann'] },
+  { composite: '術後', chunks: ['術後'], readings: ['jyutugo'] },
+  { composite: '【方針】', chunks: ['【', '方針', '】'], readings: ['[H][[/H]', 'housinn', '[H]][/H]'] },
+  { composite: '胃内視鏡検査', chunks: ['胃内視鏡検査'], readings: ['inaistikyoukennsa'] },
+  { composite: '生涯リスク層別化・ハーム回避判定', chunks: ['生涯リスク', '層別化', '・', 'ハーム', '回避判定'], readings: ['syougairisuku', 'soubetuka', '/', 'ha-mu', 'kaihihanntei'] },
+  { composite: '生涯リスク層別化', chunks: ['生涯リスク', '層別化'], readings: ['syougairisuku', 'soubetuka'] },
+  { composite: '生涯リスク', chunks: ['生涯リスク'], readings: ['syougairisuku'] },
+  { composite: '生涯', chunks: ['生涯'], readings: ['syougai'] },
+  { composite: 'ハーム回避判定', chunks: ['ハーム', '回避判定'], readings: ['ha-mu', 'kaihihanntei'] },
+  { composite: 'ハーム', chunks: ['ハーム'], readings: ['ha-mu'] },
+  { composite: '回避判定', chunks: ['回避判定'], readings: ['kaihihanntei'] },
+  { composite: '(PMH連携):', chunks: ['(', 'PMH', '連携', '):'], readings: ['(', 'PMH', 'rennkei', '):'] },
+  { composite: '連携', chunks: ['連携'], readings: ['rennkei'] },
+  { composite: '内視鏡所見およびピロリ菌感染歴に応じた', chunks: ['内視鏡所見', 'および', 'ピロリ菌', '感染歴に', '応じた'], readings: ['naisikyousyokenn', '[H]oyobi[/H]', 'pirorikinn', 'kannsennrekini', 'ouzita'] },
+  { composite: '内視鏡所見および', chunks: ['内視鏡所見', 'および'], readings: ['naisikyousyokenn', '[H]oyobi[/H]'] },
+  { composite: '内視鏡所見', chunks: ['内視鏡所見'], readings: ['naisikyousyokenn'] },
+  { composite: 'ピロリ菌感染歴に', chunks: ['ピロリ菌', '感染歴に'], readings: ['pirorikinn', 'kannsennrekini'] },
+  { composite: 'ピロリ菌感染歴', chunks: ['ピロリ菌', '感染歴'], readings: ['pirorikinn', 'kannsennreki'] },
+  { composite: 'ピロリ菌', chunks: ['ピロリ菌'], readings: ['pirorikinn'] },
+  { composite: '感染歴に', chunks: ['感染歴に'], readings: ['kannsennrekini'] },
+  { composite: '感染歴', chunks: ['感染歴'], readings: ['kannsennreki'] },
+  { composite: '適切な間隔', chunks: ['適切な', '間隔'], readings: ['tekisetuna', 'kannkaku'] },
+  { composite: '適切な', chunks: ['適切な'], readings: ['tekisetuna'] },
+  { composite: '間隔', chunks: ['間隔'], readings: ['kannkaku'] },
+  { composite: '定期観察を推奨します', chunks: ['定期観察を', '推奨します'], readings: ['teikikannsatuwo', 'suisyousimasu'] },
+  { composite: '定期観察を', chunks: ['定期観察を'], readings: ['teikikannsatuwo'] },
+  { composite: '定期観察', chunks: ['定期観察'], readings: ['teikikannsatu'] },
+  { composite: '推奨します', chunks: ['推奨します'], readings: ['suisyousimasu'] },
 
   // ── 臨床分子疫学・消化器がん・EBM研究論文 (100% 誤変換防止ルール) ──
   { composite: '日本の無症候住民を対象に、', chunks: ['日本の', '無症候住民を', '対象に', '、'], readings: ['nihonno', 'musyoukoujyuuminnwo', 'taisyouni', ','] },
@@ -845,7 +880,20 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   'ベイズ統計': 'beizutoukei', '事前確率': 'jizennkakuritu', '的中率': 'tekityuuritu',
   '対象患者群': 'taisyoukannjyagunn', '対象患者': 'taisyoukannjya',
   '患者群': 'kannjyagunn', '転落するか': 'tennrakusuruka', '転落': 'tennraku',
-  '診断精度': 'sinndannseido', '定理': 'teiri', '評価します': 'hyoukasimasu'
+  '診断精度': 'sinndannseido', '定理': 'teiri', '評価します': 'hyoukasimasu',
+  // ── 胃カメラ・超音波・ピロリ菌・生涯リスク・方針・カルテ語彙 ──
+  '超音波': 'tyouonnpa', '超音波検査': 'tyouonnpakennsa', '音波': 'onnpa',
+  '生涯': 'syougai', '生涯リスク': 'syougairisuku', '生涯リスク層別化': 'syougairisukusoubetuka',
+  '胃カメラ': 'ikamera', '毎年胃カメラ': 'mainennikamera', '毎年': 'mainenn', '毎月': 'maituki', '毎日': 'mainiti',
+  '胃がん': 'igann', '胃癌': 'igann', '術後': 'jyutugo', '術前': 'jyutuzenn',
+  'ピロリ菌': 'pirorikinn', 'ピロリ菌感染歴': 'pirorikinnkannsennreki', '感染歴': 'kannsennreki', '感染': 'kannsenn',
+  'ハーム': 'ha-mu', 'ハーム回避判定': 'ha-mukaihihanntei', '回避判定': 'kaihihanntei', '回避': 'kaihi',
+  '胃内視鏡検査': 'inaistikyoukennsa', '胃内視鏡': 'inaistikyou',
+  '内視鏡所見': 'naisikyousyokenn', '所見': 'syokenn',
+  '定期観察': 'teikikannsatu', '推奨します': 'suisyousimasu', '推奨': 'suisyou',
+  '適切な間隔': 'tekisetunakannkaku', '適切な': 'tekisetuna', '適切': 'tekisetu', '間隔': 'kannkaku',
+  '方針': 'housinn', '連携': 'rennkei', '年後': 'nenngo',
+  '歳男': 'saiotoko', '歳女': 'saionnna'
 };
 
 // 汎用単漢字・頻出漢字 ➔ ローマ字読みテーブル（未登録語彙のフォールバック用）
@@ -860,7 +908,8 @@ export const COMMON_KANJI_ROMAJI: Record<string, string> = {
   '作': 'saku', '数': 'suu', '学': 'gaku', '手': 'te', '反': 'hann',
   '事': 'ji', '実': 'jissi', '推': 'sui', '定': 'tei', '現': 'genn',
   '標': 'hyou', '床': 'syou', '臨': 'rinn', '組': 'kumi', '織': 'siki',
-  '歳': 'sai', '女': 'jyo', '性': 'sei', '男': 'dan', '受': 'jyu', '診': 'sinn',
+  '歳': 'sai', '女': 'onnna', '性': 'sei', '男': 'otoko', '受': 'jyu', '診': 'sinn',
+  '音': 'onn', '波': 'ha', '涯': 'gai',
   '背': 'hai', '景': 'kei', '症': 'syou', '例': 'rei', '大': 'dai', '腸': 'tyou',
   '検': 'kenn', '査': 'sa', '産': 'sann', '生': 'sei', '菌': 'kinn', '陽': 'you',
   '陰': 'inn', '便': 'benn', '潜': 'senn', '血': 'ketu', '回': 'kai', '不': 'fu',
@@ -960,16 +1009,26 @@ export const COMMON_KANJI_ROMAJI: Record<string, string> = {
 };
 
 /**
+ * 撥音「ん（n）」の直後に母音・ヤ行が続く際の合体・ナ行化を100%防止するヘルパー
+ */
+function normalizeHatsuon(r: string): string {
+  if (r.endsWith('n') && !r.endsWith('nn')) {
+    return r + 'n';
+  }
+  return r;
+}
+
+/**
  * 任意の日本語単語・漢字熟語を安全なローマ字に変換
  * （※最長一致熟語辞書検索 ➔ 単漢字辞書フォールバック ➔ 音読みフォールバック）
  */
 export function kanjiWordToRomaji(word: string): string {
   if (!word) return '';
   if (MEDICAL_KANJI_ROMAJI_MAP[word]) {
-    return MEDICAL_KANJI_ROMAJI_MAP[word].trim();
+    return normalizeHatsuon(MEDICAL_KANJI_ROMAJI_MAP[word].trim());
   }
   if (CLINICAL_COMPOUND_MAP[word]) {
-    return CLINICAL_COMPOUND_MAP[word].trim();
+    return normalizeHatsuon(CLINICAL_COMPOUND_MAP[word].trim());
   }
 
   let out = '';
@@ -980,13 +1039,13 @@ export function kanjiWordToRomaji(word: string): string {
     for (let len = Math.min(8, word.length - i); len >= 2; len--) {
       const sub = word.slice(i, i + len);
       if (CLINICAL_COMPOUND_MAP[sub]) {
-        out += CLINICAL_COMPOUND_MAP[sub].trim();
+        out += normalizeHatsuon(CLINICAL_COMPOUND_MAP[sub].trim());
         i += len;
         matched = true;
         break;
       }
       if (MEDICAL_KANJI_ROMAJI_MAP[sub]) {
-        out += MEDICAL_KANJI_ROMAJI_MAP[sub].trim();
+        out += normalizeHatsuon(MEDICAL_KANJI_ROMAJI_MAP[sub].trim());
         i += len;
         matched = true;
         break;
@@ -995,32 +1054,29 @@ export function kanjiWordToRomaji(word: string): string {
     if (matched) continue;
 
     const ch = word[i];
+    let part = '';
     if (CLINICAL_COMPOUND_MAP[ch]) {
-      out += CLINICAL_COMPOUND_MAP[ch].trim();
+      part = CLINICAL_COMPOUND_MAP[ch].trim();
     } else if (COMMON_KANJI_ROMAJI[ch]) {
-      out += COMMON_KANJI_ROMAJI[ch];
+      part = COMMON_KANJI_ROMAJI[ch].trim();
     } else if (JIS_KANJI_ROMAJI[ch]) {
       // ★ JIS第1・第2水準＋常用漢字 全6,500字以上から即座に音読み解決
-      out += JIS_KANJI_ROMAJI[ch];
+      part = JIS_KANJI_ROMAJI[ch].trim();
     } else if (SINGLE_KANJI_MAP[ch]) {
-      out += SINGLE_KANJI_MAP[ch].trim();
+      part = SINGLE_KANJI_MAP[ch].trim();
     } else if (KANA_ROMAJI_MAP[ch]) {
-      out += KANA_ROMAJI_MAP[ch];
+      part = KANA_ROMAJI_MAP[ch].trim();
     } else {
       const k = kanaToRomaji(ch);
-      if (k) {
-        out += k;
-      } else {
-        // [U]コード化は絶対に禁止。安全に元の文字または空文字を保持
-        out += ch;
-      }
+      part = k || ch;
     }
+    out += normalizeHatsuon(part);
     i++;
   }
 
   // 万一漢字が残存した場合は、JIS全漢字テーブルで音読み解決する（[U]コード化は100%永久根絶）
   const sanitized = out.replace(/[\u4e00-\u9faf]/g, (match) => {
-    return JIS_KANJI_ROMAJI[match] || match;
+    return normalizeHatsuon(JIS_KANJI_ROMAJI[match] || match);
   }).trim();
 
   return sanitized;
@@ -1092,6 +1148,24 @@ export function compileMedicalTextToImeBoost(
       }
     }
   }
+
+  // ──【一般化形態素ルール①：年齢＋性別の分離（祭壇誤爆・キメラ化の完全防止）】──
+  text = text.replace(/(\d+)\s*歳\s*男(?!性)/g, '$1[Z]sai[/Z][Z]otoko[/Z]');
+  text = text.replace(/(\d+)\s*歳\s*女(?!性)/g, '$1[Z]sai[/Z][Z]onnna[/Z]');
+  text = text.replace(/(\d+)\s*歳\s*男性/g, '$1[Z]sai[/Z][Z]dannsei[/Z]');
+  text = text.replace(/(\d+)\s*歳\s*女性/g, '$1[Z]sai[/Z][Z]jyosei[/Z]');
+
+  // ──【一般化形態素ルール②：時間詞＋臓器・検査の分離（ナ行癒着「毎年に」等の根絶）】──
+  text = text.replace(/(毎年|毎月|毎日|毎回|毎朝|毎晩|昨夜|昨日|術後|術前)(胃|胸|腹|心|肺|肝|胆|膵|腎|頭|頸|眼|耳|喉|皮膚|関節|血管)(カメラ|内視鏡|検診|検査|エコー|CT|MRI)?/g, (m, time, organ, proc) => {
+    const organPart = proc ? `${organ}${proc}` : organ;
+    return `${time} ${organPart}`;
+  });
+
+  // ──【一般化形態素ルール③：病原体接尾辞＋病態の分離（金柑染歴等の誤爆根絶）】──
+  text = text.replace(/([ァ-ヴー]+菌)(感染歴|感染症|感染|既往|保菌)/g, '$1 $2');
+
+  // ──【一般化形態素ルール④：漢字直後の接続助詞の分離（及び等への勝手な漢字化防止）】──
+  text = text.replace(/([一-龠]+)(および|または|ならびに)(?=[^一-龠])/g, '$1[H]$2[/H]');
 
   // 2. 最小確実形態素（Chunk）分解の適用（最長一致ルール優先でソート）
   if (options.enableChunkDecomposition) {
@@ -1237,26 +1311,18 @@ export function compileMedicalTextToImeBoost(
         continue;
       }
 
-      // 見出し括弧 【主訴】 など
+      // 見出し括弧 【主訴】 【方針】 など（F5コード全廃・安全なJIS括弧＆熟語確定）
       if (token.startsWith('【') && token.endsWith('】')) {
         const inner = token.slice(1, -1);
-        let seq = `[ `;
-        for (const ch of inner) {
-          if (/[一-龠]/.test(ch)) {
-            const cp = ch.codePointAt(0);
-            seq += cp ? `${IME_TAG_UNICODE}${cp.toString(16).toUpperCase().padStart(4, '0')}${IME_TAG_UNICODE_END}` : ch;
-          } else {
-            seq += ch;
-          }
-        }
-        seq += ` ] `;
+        const innerRomaji = kanjiWordToRomaji(inner) || kanaToRomaji(inner);
+        const seq = `${IME_TAG_HIRAGANA}[${IME_TAG_HIRAGANA_END}${IME_TAG_KANJI}${innerRomaji}${IME_TAG_KANJI_END}${IME_TAG_HIRAGANA}]${IME_TAG_HIRAGANA_END}`;
         lineResult += seq;
         displayTokens.push({
           type: 'kanji',
           originalText: token,
-          actionTag: '[ ]',
+          actionTag: '[Z]',
           keystrokes: seq,
-          description: 'カルテ見出し括弧（JIS補正＋Unicode確定）',
+          description: `カルテ見出し【${inner}】確定`,
         });
         continue;
       }
@@ -1343,16 +1409,16 @@ export function compileMedicalTextToImeBoost(
         displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: ') ➔ [Enter]', description: '丸括弧「）」確定' });
         continue;
       }
-      if (token === '「') {
+      if (token === '「' || token === '【') {
         const seq = `${IME_TAG_HIRAGANA}[${IME_TAG_HIRAGANA_END}`;
         lineResult += seq;
-        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '[ ➔ [Enter]', description: '鉤括弧「「」確定' });
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '[ ➔ [Enter]', description: '括弧「「/【」確定' });
         continue;
       }
-      if (token === '」') {
+      if (token === '」' || token === '】') {
         const seq = `${IME_TAG_HIRAGANA}]${IME_TAG_HIRAGANA_END}`;
         lineResult += seq;
-        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '] ➔ [Enter]', description: '鉤括弧「」」確定' });
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '] ➔ [Enter]', description: '括弧「」/】」確定' });
         continue;
       }
       if (token === '–' || token === '—' || token === '−' || token === '―' || token === '〜' || token === '~') {
