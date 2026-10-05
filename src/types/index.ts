@@ -19,6 +19,12 @@ export enum DispatchMode {
   MODE_HYBRID_UNICODE = 2,   // ★ HYBRID Unicode 4層打鍵パイプライン（v14.0標準）
 }
 
+export enum EhrNewlineMode {
+  NORMAL_ENTER = 'enter',       // 標準改行 (Enter)
+  MICS_ALT_ENTER = 'alt_enter', // MICS Navigator等 (Alt + Enter: ペイン閉鎖防止)
+  CTRL_ENTER = 'ctrl_enter',    // 富士通EGMAIN等 (Ctrl + Enter)
+}
+
 export interface LedStatus {
   colorName: string;
   hex: string;

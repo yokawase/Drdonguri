@@ -1,5 +1,5 @@
 import { calculateCrc16 } from './crc16';
-import { DispatchMode } from '../types';
+import { DispatchMode, EhrNewlineMode } from '../types';
 import { formatForEhrNewlines, transpileToImeRomajiSequence, generateKeystrokeSequence } from './japaneseImeTranspiler';
 import { compileMedicalTextToImeBoost, CompileImeOptions, kanjiWordToRomaji } from './imePrecisionCompiler';
 import { preprocessMedicalText, PreprocessOptions } from './medicalTextPreprocessor';
@@ -119,6 +119,7 @@ export interface BuildSessionOptions {
   preprocessOptions?: PreprocessOptions;
   enableImeBoost?: boolean; // IME精度向上ハイブリッド・パイプライン有効化 (Fキー強制・最小Chunk分解・Unicode F5)
   compileOptions?: Partial<CompileImeOptions>;
+  newlineMode?: EhrNewlineMode; // 電子カルテ改行モード (Enter vs Alt+Enter)
   useMuhenkanCommand?: boolean;
   multipleEnterCount?: number;
 }
@@ -139,6 +140,7 @@ export function buildTransmissionSession(
 
   const enablePreprocessor = options.enablePreprocessor ?? true;
   const enableImeBoost = options.enableImeBoost ?? true;
+  const newlineMode = options.newlineMode ?? options.compileOptions?.newlineMode ?? EhrNewlineMode.NORMAL_ENTER;
 
   let processedText = text;
 
@@ -162,16 +164,11 @@ export function buildTransmissionSession(
   }
 
   // 3. 送信モード別のフォーマット処理
-  // ★【v15.0 4層タグ・安全打鍵パイプライン】
-  // [K]: カタカナ (F7 ➔ Enter)
-  // [H]: ひらがな・助詞 (Enter即時確定・Space禁止)
-  // [Z]: 漢字熟語 (Space変換 ➔ Enter確定)
-  // [A]: 半角ASCII直接
-  // ★【v16.4 安全ローマ字打鍵＆全語彙JIS辞書パイプライン】
+  // ★【v16.6 MICS Navigator Alt+Enter改行＆ASCII高速化対応】
   // [K]: カタカナ (F7 ➔ Enter)
   // [H]: ひらがな・助詞 (Enter確定・Space禁止)
   // [Z]: 漢字・熟語ローマ字 (Space変換 ➔ Enter確定: F5リロード誤爆0%)
-  // [A]: 半角ASCII直接（英文フレーズ・記号保護）
+  // [A]: 半角ASCII直接（高速直接打鍵・Enter禁止でペイン閉鎖防止）
   let formattedText = processedText;
   if (mode === DispatchMode.MODE_HYBRID_UNICODE || mode === DispatchMode.MODE_IME_ROMAJI) {
     if (enableImeBoost) {
@@ -181,14 +178,21 @@ export function buildTransmissionSession(
         enableUnicodeF5Assist: false,     // F5リロード誤爆防止のためF5アシストは完全無効化
         enableDoctorMacros: options.compileOptions?.enableDoctorMacros ?? true,
         doctorMacros: options.compileOptions?.doctorMacros,
+        newlineMode,
       });
       formattedText = compiled.compiledPayload;
     } else {
       const transpiled = generateKeystrokeSequence(processedText);
       formattedText = transpiled.sequence;
+      if (newlineMode === EhrNewlineMode.MICS_ALT_ENTER) {
+        formattedText = `<EHR_MICS>\n${formattedText}`;
+      }
     }
   } else {
     formattedText = formatForEhrNewlines(processedText);
+    if (newlineMode === EhrNewlineMode.MICS_ALT_ENTER) {
+      formattedText = `<EHR_MICS>\n${formattedText}`;
+    }
   }
 
   // ★【Zero-Drop＆Zero-Misconversion 保証バリデータ】

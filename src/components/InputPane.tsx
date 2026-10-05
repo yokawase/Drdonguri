@@ -20,7 +20,7 @@ import {
   ArrowRight,
   Info
 } from 'lucide-react';
-import { DispatchMode, SessionTransmissionStatus, MedicalTemplate } from '../types';
+import { DispatchMode, EhrNewlineMode, SessionTransmissionStatus, MedicalTemplate } from '../types';
 import { DEFAULT_PRESET_TEMPLATES } from './MedicalTemplates';
 import { transpileToImeRomajiSequence, generateKeystrokeSequence } from '../utils/japaneseImeTranspiler';
 import { buildTransmissionSession, PreparedSession } from '../utils/packetBuilder';
@@ -176,6 +176,19 @@ export const InputPane: React.FC<InputPaneProps> = ({
     };
   });
 
+  // 電子カルテ改行モード（MICS Alt+Enter vs 標準Enter）
+  const [newlineMode, setNewlineMode] = useState<EhrNewlineMode>(() => {
+    try {
+      const saved = localStorage.getItem('drvoice_ehr_newline_mode_v1');
+      if (saved && Object.values(EhrNewlineMode).includes(saved as EhrNewlineMode)) {
+        return saved as EhrNewlineMode;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return EhrNewlineMode.MICS_ALT_ENTER; // デフォルトでMICS Navigator Alt+Enter改行を有効化
+  });
+
   // 定型文管理
   const [templates, setTemplates] = useState<MedicalTemplate[]>(() => {
     try {
@@ -305,11 +318,12 @@ export const InputPane: React.FC<InputPaneProps> = ({
         preprocessOptions: preprocessOptions,
         enableImeBoost: dispatchMode === DispatchMode.MODE_HYBRID_UNICODE || dispatchMode === DispatchMode.MODE_IME_ROMAJI,
         compileOptions: imeBoostOptions,
+        newlineMode: newlineMode,
       });
     } catch {
       return null;
     }
-  }, [inputText, dispatchMode, enableAutoPreprocessor, preprocessOptions, imeBoostOptions]);
+  }, [inputText, dispatchMode, enableAutoPreprocessor, preprocessOptions, imeBoostOptions, newlineMode]);
 
   // スマートHVC（High Value Care: 高価値医療）スコア推論 (0〜100点)
   const hvcScore = React.useMemo(() => {
@@ -331,6 +345,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
         preprocessOptions: preprocessOptions,
         enableImeBoost: dispatchMode === DispatchMode.MODE_HYBRID_UNICODE || dispatchMode === DispatchMode.MODE_IME_ROMAJI,
         compileOptions: imeBoostOptions,
+        newlineMode: newlineMode,
       });
       await onSendSession(freshSession);
     } catch (e: any) {
@@ -614,6 +629,50 @@ export const InputPane: React.FC<InputPaneProps> = ({
                     }}
                   />
                   <span>直接 ASCII</span>
+                </label>
+              </div>
+
+              {/* カルテ改行制御: MICS Navigator (Alt+Enter) vs 標準 (Enter) */}
+              <div className="flex flex-wrap items-center gap-2 pl-2 border-l border-black">
+                <span className="font-bold text-neutral-700">カルテ改行:</span>
+                <label 
+                  className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 border border-black ${
+                    newlineMode === EhrNewlineMode.MICS_ALT_ENTER ? 'bg-amber-100 font-bold shadow-[1px_1px_0_#000]' : 'bg-white'
+                  }`}
+                  title="★ MICS電子カルテ Navigator推奨: Enterによるペイン閉鎖を100%防止し、Alt+Enterで安全に改行します"
+                >
+                  <input
+                    type="radio"
+                    name="newlineMode"
+                    className="mac-radio"
+                    checked={newlineMode === EhrNewlineMode.MICS_ALT_ENTER}
+                    onChange={() => {
+                      playMacBeep();
+                      setNewlineMode(EhrNewlineMode.MICS_ALT_ENTER);
+                      localStorage.setItem('drvoice_ehr_newline_mode_v1', EhrNewlineMode.MICS_ALT_ENTER);
+                    }}
+                  />
+                  <span className="text-black">★ MICS (Alt+Enter)</span>
+                </label>
+
+                <label 
+                  className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 border border-black ${
+                    newlineMode === EhrNewlineMode.NORMAL_ENTER ? 'bg-amber-100 font-bold shadow-[1px_1px_0_#000]' : 'bg-white'
+                  }`}
+                  title="標準Enterキーでの改行"
+                >
+                  <input
+                    type="radio"
+                    name="newlineMode"
+                    className="mac-radio"
+                    checked={newlineMode === EhrNewlineMode.NORMAL_ENTER}
+                    onChange={() => {
+                      playMacBeep();
+                      setNewlineMode(EhrNewlineMode.NORMAL_ENTER);
+                      localStorage.setItem('drvoice_ehr_newline_mode_v1', EhrNewlineMode.NORMAL_ENTER);
+                    }}
+                  />
+                  <span>標準 (Enter)</span>
                 </label>
               </div>
             </div>

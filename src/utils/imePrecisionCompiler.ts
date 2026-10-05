@@ -15,6 +15,7 @@
 
 import { MEDICAL_KANJI_ROMAJI_MAP, KANA_ROMAJI_MAP, SINGLE_KANJI_MAP } from './japaneseImeTranspiler';
 import { JIS_KANJI_ROMAJI } from '../data/jisKanjiRomajiTable';
+import { EhrNewlineMode } from '../types';
 
 // -----------------------------------------------------------------------------
 // 1. 制御タグ定義 (AtomS3U ファームウェア v8.0 と完全一致)
@@ -1034,6 +1035,7 @@ export interface CompileImeOptions {
   enableUnicodeF5Assist: boolean;    // 工夫④: Unicode F5変換
   enableDoctorMacros: boolean;       // 工夫⑤: 医師個人カスタム辞書
   doctorMacros?: DoctorCustomMacro[];
+  newlineMode?: EhrNewlineMode;      // 電子カルテ改行モード（Enter vs Alt+Enter）
 }
 
 export interface CompiledImeResult {
@@ -1395,9 +1397,10 @@ export function compileMedicalTextToImeBoost(
       }
 
       // 空白文字（半角スペース全角化防止）
+      // 空白文字（半角スペース全角化防止・タグ過剰生成抑制）
       if (/^\s+$/.test(token)) {
-        // 単独半角スペースを [A] [/A] で確実に送出
-        const spaceSeq = token.replace(/ /g, `${IME_TAG_ASCII} ${IME_TAG_ASCII_END}`);
+        // スペース連続を一括で1個の [A]...[/A] にまとめる（過剰なタグ分割を防止して爆速化）
+        const spaceSeq = `${IME_TAG_ASCII}${token}${IME_TAG_ASCII_END}`;
         lineResult += spaceSeq;
         continue;
       }
@@ -1423,7 +1426,12 @@ export function compileMedicalTextToImeBoost(
     });
   });
 
-  compiledPayload = sanitizedLines.join('\n');
+  // MICS Navigator電子カルテ向け改行モードの場合は、先頭に <EHR_MICS> タグを付与
+  if (options.newlineMode === EhrNewlineMode.MICS_ALT_ENTER) {
+    compiledPayload = `<EHR_MICS>\n${sanitizedLines.join('\n')}`;
+  } else {
+    compiledPayload = sanitizedLines.join('\n');
+  }
 
   return {
     compiledPayload,

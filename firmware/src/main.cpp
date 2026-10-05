@@ -331,92 +331,92 @@ void sendSafeChar(char c) {
     case '~': // JIS Shift + ^
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('=');
-      delay(4);
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '(': // JIS Shift + 8
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('8');
-      delay(4);
+      delay(2);
       Keyboard.releaseAll();
       break;
     case ')': // JIS Shift + 9
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('9');
-      delay(4);
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '=': // JIS Shift + -
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('-');
-      delay(4);
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '"': // JIS Shift + 2
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('2');
-      delay(4);
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '\'': // JIS Shift + 7
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('7');
-      delay(4);
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '&': // JIS Shift + 6
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('6');
-      delay(4);
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '{': // JIS Shift + [
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press(']');
-      delay(4);
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '}': // JIS Shift + ] (0x5C)
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press((char)0x5C);
-      delay(4);
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '<': // JIS Shift + ,
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press(',');
-      delay(4);
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '>': // JIS Shift + .
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('.');
-      delay(4);
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '?': // JIS Shift + /
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('/');
-      delay(4);
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '!': // JIS Shift + 1
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('1');
-      delay(4);
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '_': // JIS Shift + \ (ろ)
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press((char)0x5C);
-      delay(4);
+      delay(2);
       Keyboard.releaseAll();
       break;
     default:
       Keyboard.write(c);
       break;
   }
-  delay(10); // 電子カルテ取りこぼし防止インターキー遅延 (10ms)
+  delay(3); // 電子カルテ高速・確実インターキー遅延 (3ms: 従来の3倍以上高速化)
 }
 
 // ============================================================================
@@ -762,6 +762,7 @@ bool dispatchSafeKeystrokes() {
   size_t i = 0;
   size_t total = currentMsg.actualTotalBytes;
   const char* buf = currentMsg.assembledBuffer;
+  bool isMicsMode = false; // MICS Navigator電子カルテ向け Alt+Enter 改行フラグ
 
   // SPIFFS辞書ファイルのオープン（打鍵セッション中のみファイルハンドルを保持）
   File fYomi;
@@ -797,19 +798,44 @@ bool dispatchSafeKeystrokes() {
   while (i < total) {
     char c = buf[i];
 
+    // MICS Navigator電子カルテ専用モードタグの検出 (<EHR_MICS> / [EHR_MICS])
+    if (strncmp(&buf[i], "<EHR_MICS>", 10) == 0 || strncmp(&buf[i], "[EHR_MICS]", 10) == 0) {
+      isMicsMode = true;
+      i += 10;
+      continue;
+    }
+
     // ------------------------------------------------------------------------
-    // A. 改行処理 (CRLF / LF)
+    // A. 改行処理 (CRLF / LF) - MICS Navigatorでは Alt+Enter でペイン閉鎖を防止！
     // ------------------------------------------------------------------------
     if (c == '\r') {
       if (i + 1 < total && buf[i + 1] == '\n') i++;
-      Keyboard.write(KEY_RETURN);
-      delay(22);
+      if (isMicsMode) {
+        Keyboard.press(KEY_LEFT_ALT);
+        delay(10);
+        Keyboard.press(KEY_RETURN);
+        delay(15);
+        Keyboard.releaseAll();
+        delay(30);
+      } else {
+        Keyboard.write(KEY_RETURN);
+        delay(22);
+      }
       i++;
       continue;
     }
     if (c == '\n') {
-      Keyboard.write(KEY_RETURN);
-      delay(22);
+      if (isMicsMode) {
+        Keyboard.press(KEY_LEFT_ALT);
+        delay(10);
+        Keyboard.press(KEY_RETURN);
+        delay(15);
+        Keyboard.releaseAll();
+        delay(30);
+      } else {
+        Keyboard.write(KEY_RETURN);
+        delay(22);
+      }
       i++;
       continue;
     }
@@ -891,7 +917,7 @@ bool dispatchSafeKeystrokes() {
       continue;
     }
 
-    // 4. [A]...[/A] (半角ASCIIモード: F10強制 ➔ Enter確定)
+    // 4. [A]...[/A] (半角ASCII直接モード: 高速直接打鍵・Enter送出禁止でMICSペイン閉鎖防止)
     if (strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "<A>", 3) == 0) {
       i += 3;
       while (i < total) {
@@ -907,10 +933,7 @@ bool dispatchSafeKeystrokes() {
         sendSafeChar(buf[i]);
         i++;
       }
-      Keyboard.write(KEY_F10);
-      delay(20);
-      Keyboard.write(KEY_RETURN);
-      delay(40);
+      // ★ MICS等のEnterペイン閉鎖を完全防止し、かつ半角打鍵を大幅に高速化！
       continue;
     }
 
@@ -930,8 +953,28 @@ bool dispatchSafeKeystrokes() {
       continue;
     }
 
-    // 6. 閉じタグの安全消費および補助キーコード (<ENTER>, <SPACE>, [BS] 等)
+    // 6. 閉じタグの安全消費および補助キーコード (<ALT_ENTER>, <ENTER>, <SPACE>, [BS] 等)
     if (c == '<' || c == '[') {
+      if (strncmp(&buf[i], "<ALT_ENTER>", 11) == 0 || strncmp(&buf[i], "[ALT_ENTER]", 11) == 0) {
+        Keyboard.press(KEY_LEFT_ALT);
+        delay(10);
+        Keyboard.press(KEY_RETURN);
+        delay(15);
+        Keyboard.releaseAll();
+        delay(30);
+        i += 11;
+        continue;
+      }
+      if (strncmp(&buf[i], "<CTRL_ENTER>", 12) == 0 || strncmp(&buf[i], "[CTRL_ENTER]", 12) == 0) {
+        Keyboard.press(KEY_LEFT_CTRL);
+        delay(10);
+        Keyboard.press(KEY_RETURN);
+        delay(15);
+        Keyboard.releaseAll();
+        delay(30);
+        i += 12;
+        continue;
+      }
       if (strncmp(&buf[i], "[BS]", 4) == 0 || strncmp(&buf[i], "<BS>", 4) == 0) {
         Keyboard.write(KEY_BACKSPACE);
         delay(15);

@@ -1,9 +1,9 @@
 import mainCppRaw from '@/firmware/src/main.cpp?raw';
 import flashAtoms3uPs1Raw from '@/firmware/scripts/flash_atoms3u.ps1?raw';
 
-export const LATEST_FIRMWARE_VERSION = 'v16.5';
-export const FIRMWARE_RELEASE_DATE = '2026-10-04';
-export const FIRMWARE_RELEASE_TITLE = 'v16.5（JIS全漢字6,500字オンボード辞書kanji_yomi.bin搭載・16進Unicode完全根絶版）';
+export const LATEST_FIRMWARE_VERSION = 'v16.6';
+export const FIRMWARE_RELEASE_DATE = '2026-10-05';
+export const FIRMWARE_RELEASE_TITLE = 'v16.6（MICS電子カルテ Alt+Enter改行・ペイン閉鎖防止＆ASCII高速直接打鍵対応）';
 
 export const PARTITIONS_8MB_CSV_SOURCE = `# Name,   Type, SubType, Offset,   Size,     Flags
 nvs,      data, nvs,     0x9000,   0x5000,
