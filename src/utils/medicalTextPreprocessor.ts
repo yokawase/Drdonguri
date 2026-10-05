@@ -363,6 +363,58 @@ export const PREPROCESS_RULES: PreprocessRule[] = [
     exampleBefore: '0.77–1.41, 40–79歳',
     exampleAfter: '0.77-1.41, 40-79歳',
   },
+
+  // ── 7. Markdown・学術論文エスケープ解除＆タグ保護 ──
+  {
+    id: 'md-unescape-underscore',
+    name: 'Markdownエスケープ解除 (\\_ ➔ _)',
+    category: 'symbol',
+    pattern: /\\_/g,
+    replacement: '_',
+    description: 'Markdownエスケープされた識別子のアンダースコアを標準化',
+    exampleBefore: 'button\\_magic',
+    exampleAfter: 'button_magic',
+  },
+  {
+    id: 'md-unescape-dot',
+    name: 'Markdownエスケープ解除 (\\. ➔ .)',
+    category: 'symbol',
+    pattern: /\\\./g,
+    replacement: '.',
+    description: 'Markdownエスケープされた番号ピリオドを標準化',
+    exampleBefore: '1.1\\.',
+    exampleAfter: '1.1.',
+  },
+  {
+    id: 'md-citations',
+    name: '学術文献番号保護 [1] ➔ [A][1][/A]',
+    category: 'symbol',
+    pattern: /\[(\d+)\]/g,
+    replacement: '[A][$1][/A]',
+    description: '学術論文の引用番号が全角数字・ピリオドに化けるのを防止',
+    exampleBefore: '[1]',
+    exampleAfter: '[A][1][/A]',
+  },
+  {
+    id: 'md-headings',
+    name: 'Markdown見出し保護 (# ➔ [A]# [/A])',
+    category: 'heading',
+    pattern: /^(#{1,6}\s+)/gm,
+    replacement: '[A]$1[/A]',
+    description: '行頭のMarkdown見出し記号が全角スペース等に化けるのを防止',
+    exampleBefore: '# 見出し',
+    exampleAfter: '[A]# [/A]見出し',
+  },
+  {
+    id: 'md-italics',
+    name: 'Markdownイタリック英字学名保護 (*H. pylori* ➔ [A]*H. pylori*[/A])',
+    category: 'symbol',
+    pattern: /\*([a-zA-Z0-9_\-\s\.]+)\*/g,
+    replacement: '[A]*$1*[/A]',
+    description: '学名などのイタリックアスタリスク装飾と英単語を一体で保護',
+    exampleBefore: '*Helicobacter pylori*',
+    exampleAfter: '[A]*Helicobacter pylori*[/A]',
+  },
 ];
 
 /**

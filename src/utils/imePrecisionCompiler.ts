@@ -893,7 +893,65 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   '定期観察': 'teikikannsatu', '推奨します': 'suisyousimasu', '推奨': 'suisyou',
   '適切な間隔': 'tekisetunakannkaku', '適切な': 'tekisetuna', '適切': 'tekisetu', '間隔': 'kannkaku',
   '方針': 'housinn', '連携': 'rennkei', '年後': 'nenngo',
-  '歳男': 'saiotoko', '歳女': 'saionnna'
+  '歳男': 'saiotoko', '歳女': 'saionnna',
+  // ── 胃腺腫・胃癌・ピロリ菌除菌・管理戦略・病態専門熟語 ──
+  '胃腺腫': 'isensyu', '腺腫': 'sensyu',
+  '胃癌発生': 'iganhatusei', '胃癌予防': 'iganyobou', '胃癌': 'igann',
+  '管理戦略': 'kannrisenryaku', '戦略': 'senryaku',
+  '序論': 'jyoronn', '胃粘膜': 'inemmaku', '環境': 'kannkyou',
+  '変遷': 'hennsenn', '位置づけ': 'itiduke',
+  '主要な': 'syuyouna', '主要': 'syuyou',
+  '画期的な手段': 'kakkitekinasyudann', '画期的な': 'kakkitekina', '画期的': 'kakkiteki', '手段': 'syudann',
+  '高発生率地域': 'kouhatuseiritutiiki', '高発生率': 'kouhatuseiritu', '地域': 'tiiki',
+  '日本政府': 'nihonnseifu', '政府': 'seifu',
+  '慢性胃炎': 'mannseigienn', '胃炎': 'igienn',
+  '保険適用': 'hokenntekiyou', '適用': 'tekiyou',
+  '除菌成功例': 'jyokinnseikourei', '成功例': 'seikourei',
+  '累積数': 'ruisekisuu', '累積': 'ruiseki',
+  '一途': 'ittu',
+  '既存の': 'kisonnno', '既存': 'kisonn',
+  '前癌病変': 'zenngannbyouhenn', '前癌': 'zenngann',
+  '有効性': 'yuukousei', '限定的': 'gennteiteki', '認識': 'ninnsiki',
+  '推奨される': 'suisyousareru', '治療法': 'tiryouhou',
+  '臨床実践': 'rinnsyoujissenn', '実践': 'jissenn',
+  '萎縮': 'isyuku', '腸上皮化生': 'tyoujyouhikasei',
+  '慢性的な': 'mannseitekina', '構造的': 'kouzouteki', '機能的': 'kinouteki', '異常': 'ijyou',
+  '残存': 'zannzonn', '異時性胃癌': 'ijiseiigann', '異時性': 'ijisei',
+  '臨床課題': 'rinnsyoukadai', '最重要視': 'saijyuuyousi'
+};
+
+// 活用語・送り仮名付き動詞・形容詞・副詞テーブル（音読み誤爆完全根絶用）
+export const INFLECTED_WORD_MAP: Record<string, string> = {
+  '広く': 'hiroku', '広い': 'hiroi', '広がる': 'hirogaru',
+  '生じた': 'syoujita', '生じる': 'syoujiru', '生じ': 'syouji', '生じること': 'syoujirukoto',
+  '確かに': 'tasikani', '確か': 'tasika',
+  '認められているが': 'mitomerareteiruga', '認められている': 'mitomerareteiru',
+  '認められた': 'mitomerareta', '認められ': 'mitomerare', '認める': 'mitomeru',
+  '認めず': 'mitomezu', '認めない': 'mitomenai',
+  '辿っている': 'tadotteiru', '辿る': 'tadoru', '辿り': 'tadori',
+  '除去する': 'jyokyosuru', '除去し': 'jyokyosi', '除去': 'jyokyo',
+  '拡大して': 'kakudaisite', '拡大し': 'kakudaisi', '拡大': 'kakudai',
+  '以降': 'ikou',
+  '基づく': 'motoduku', '基づいた': 'motoduita', '基づき': 'motoduki', '基づいて': 'motoduite',
+  '解消されない': 'kaisousarenai', '解消する': 'kaisousuru', '解消': 'kaisou',
+  '最重要視されている': 'saijyuuyousisareteiru', '最重要視': 'saijyuuyousi',
+  '継続的な': 'keizokutekina', '継続的': 'keizokuteki',
+  '限定的であることも': 'gennteitekidearukotomo', '限定的': 'gennteiteki',
+  '認識されている': 'ninnsikisareteiru', '認識': 'ninnsiki',
+  '推奨される': 'suisyousareru', '推奨': 'suisyou'
+};
+
+// 熟語フォールバック用 音読み強制テーブル（訓読みキメラ連結を100%根絶）
+export const KANJI_ONYOMI_MAP: Record<string, string> = {
+  '予': 'yo', '防': 'bou', '主': 'syu', '要': 'you', '画': 'kaku', '期': 'ki',
+  '手': 'syu', '段': 'dann', '政': 'sei', '府': 'fu', '一': 'iti', '途': 'to',
+  '既': 'ki', '存': 'zonn', '残': 'zann', '異': 'i', '時': 'ji', '性': 'sei',
+  '広': 'kou', '生': 'sei', '認': 'ninn', '実': 'jitu', '践': 'senn', '腺': 'senn',
+  '腫': 'syu', '癌': 'gann', '発': 'hatsu', '策': 'saku', '略': 'ryaku', '積': 'seki',
+  '累': 'rui', '数': 'suu', '域': 'iki', '縮': 'syuku', '萎': 'i', '皮': 'hi',
+  '化': 'ka', '環': 'kann', '境': 'kyou', '遷': 'senn', '変': 'henn', '論': 'ronn',
+  '序': 'jyo', '適': 'teki', '規': 'ki', '範': 'hann', '模': 'mo', '構': 'kou',
+  '造': 'zou', '態': 'tai', '象': 'syou', '常': 'jyou'
 };
 
 // 汎用単漢字・頻出漢字 ➔ ローマ字読みテーブル（未登録語彙のフォールバック用）
@@ -1024,6 +1082,9 @@ function normalizeHatsuon(r: string): string {
  */
 export function kanjiWordToRomaji(word: string): string {
   if (!word) return '';
+  if (INFLECTED_WORD_MAP[word]) {
+    return normalizeHatsuon(INFLECTED_WORD_MAP[word].trim());
+  }
   if (MEDICAL_KANJI_ROMAJI_MAP[word]) {
     return normalizeHatsuon(MEDICAL_KANJI_ROMAJI_MAP[word].trim());
   }
@@ -1038,6 +1099,12 @@ export function kanjiWordToRomaji(word: string): string {
     // 8文字から2文字までの最長一致マッチング
     for (let len = Math.min(8, word.length - i); len >= 2; len--) {
       const sub = word.slice(i, i + len);
+      if (INFLECTED_WORD_MAP[sub]) {
+        out += normalizeHatsuon(INFLECTED_WORD_MAP[sub].trim());
+        i += len;
+        matched = true;
+        break;
+      }
       if (CLINICAL_COMPOUND_MAP[sub]) {
         out += normalizeHatsuon(CLINICAL_COMPOUND_MAP[sub].trim());
         i += len;
@@ -1055,7 +1122,10 @@ export function kanjiWordToRomaji(word: string): string {
 
     const ch = word[i];
     let part = '';
-    if (CLINICAL_COMPOUND_MAP[ch]) {
+    // ★ 熟語内の漢字であれば、訓読みキメラ化を絶対に防ぐため音読み専用テーブルを最優先
+    if (KANJI_ONYOMI_MAP[ch]) {
+      part = KANJI_ONYOMI_MAP[ch].trim();
+    } else if (CLINICAL_COMPOUND_MAP[ch]) {
       part = CLINICAL_COMPOUND_MAP[ch].trim();
     } else if (COMMON_KANJI_ROMAJI[ch]) {
       part = COMMON_KANJI_ROMAJI[ch].trim();
@@ -1074,9 +1144,9 @@ export function kanjiWordToRomaji(word: string): string {
     i++;
   }
 
-  // 万一漢字が残存した場合は、JIS全漢字テーブルで音読み解決する（[U]コード化は100%永久根絶）
+  // 万一漢字が残存した場合は、音読みテーブルまたはJIS全漢字テーブルで音読み解決する（[U]コード化は100%永久根絶）
   const sanitized = out.replace(/[\u4e00-\u9faf]/g, (match) => {
-    return normalizeHatsuon(JIS_KANJI_ROMAJI[match] || match);
+    return normalizeHatsuon(KANJI_ONYOMI_MAP[match] || JIS_KANJI_ROMAJI[match] || match);
   }).trim();
 
   return sanitized;
@@ -1166,6 +1236,23 @@ export function compileMedicalTextToImeBoost(
 
   // ──【一般化形態素ルール④：漢字直後の接続助詞の分離（及び等への勝手な漢字化防止）】──
   text = text.replace(/([一-龠]+)(および|または|ならびに)(?=[^一-龠])/g, '$1[H]$2[/H]');
+
+  // ──【一般化形態素ルール⑤：英数略語・記号と漢字の境界分離（大文字Shift引きずられ＆生ローマ字漏れの完全防止）】──
+  text = text.replace(/([a-zA-Z0-9_\-\.\:\/\+\(\)]+)([一-龠])/g, (m, asciiPart, kanjiPart) => {
+    if (asciiPart.startsWith('[') && asciiPart.endsWith(']')) return m;
+    return `[A]${asciiPart}[/A]${kanjiPart}`;
+  });
+  text = text.replace(/([一-龠])([a-zA-Z0-9_\-\.\:\/\+\(\)]+)/g, (m, kanjiPart, asciiPart) => {
+    if (asciiPart.startsWith('[') && asciiPart.endsWith(']')) return m;
+    return `${kanjiPart}[A]${asciiPart}[/A]`;
+  });
+
+  // ──【一般化形態素ルール⑥：専門複合語の最小安全チャンク分離（異選手・胃がん発性等の誤爆根絶）】──
+  text = text.replace(/胃腺腫/g, '[Z]i[/Z][Z]sensyu[/Z]');
+  text = text.replace(/胃癌発生/g, '[Z]igann[/Z][Z]hatusei[/Z]');
+  text = text.replace(/胃癌予防/g, '[Z]igann[/Z][Z]yobou[/Z]');
+  text = text.replace(/残存し(?!て)/g, '[Z]zannzonn[/Z][H]si[/H]');
+  text = text.replace(/異時性胃癌/g, '[Z]ijisei[/Z][Z]igann[/Z]');
 
   // 2. 最小確実形態素（Chunk）分解の適用（最長一致ルール優先でソート）
   if (options.enableChunkDecomposition) {
@@ -1274,11 +1361,20 @@ export function compileMedicalTextToImeBoost(
       continue;
     }
 
+    // 行頭Markdown見出し（#, ##, ### 等）の半角ASCII直接保護
+    let curLine = line;
+    const headingMatch = curLine.match(/^(#{1,6}\s+)/);
+    let headingPrefix = '';
+    if (headingMatch) {
+      headingPrefix = `${IME_TAG_ASCII}${headingMatch[1]}${IME_TAG_ASCII_END}`;
+      curLine = curLine.slice(headingMatch[1].length);
+    }
+
     // 既にタグが付与された部分（[K]...[/K], [H]...[/H], [Z]...[/Z], [A]...[/A], [U]...[/U]）やバックスペースを保持しつつパース
-    // ★英文・英数字フレーズ（例: Target Trial Emulation）はスペースを含めてひとまとまりでマッチさせて全角誤変換を完全防止
-    const tokenRegex = /(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\]|\[BS\]|[\x08]+|【[^】]+】|[ァ-ヴー]{2,}|\d+(?:\.\d+)?(?:[\-~–—−―]\d+(?:\.\d+)?)?(?:mg|g|kg|mL|mmHg|bpm|℃|\%|度|日分|錠|T)?|[a-zA-Z0-9_\-\.\:\/\+\(\)]+(?:\s+[a-zA-Z0-9_\-\.\:\/\+\(\)]+)*|[一-龠]+[ぁ-ん]*|[ぁ-ん]+|[、。・，．,.:;!?！？…~〜–—−―（）「」『』／/]|\s+)/g;
-    const tokens = line.match(tokenRegex) || [line];
-    let lineResult = '';
+    // ★英文・英数字フレーズ・Markdown記号はスペースを含めてひとまとまりでマッチさせて全角誤変換を完全防止
+    const tokenRegex = /(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\]|\[BS\]|[\x08]+|【[^】]+】|[ァ-ヴー]{2,}|\d+(?:\.\d+)?(?:[\-~–—−―]\d+(?:\.\d+)?)?(?:mg|g|kg|mL|mmHg|bpm|℃|\%|度|日分|錠|T)?|[a-zA-Z0-9_\-\.\:\/\+\(\)\#\*\=\!\[\]\{\}\<\>\?\\\`\'\"]+(?:\s+[a-zA-Z0-9_\-\.\:\/\+\(\)\#\*\=\!\[\]\{\}\<\>\?\\\`\'\"]+)*|[一-龠]+[ぁ-ん]*|[ぁ-ん]+|[、。・，．,.:;!?！？…~〜–—−―（）「」『』／/]|\s+|[^\s])/g;
+    const tokens = curLine.match(tokenRegex) || [curLine];
+    let lineResult = headingPrefix;
 
     for (const token of tokens) {
       if (!token) continue;
@@ -1342,9 +1438,9 @@ export function compileMedicalTextToImeBoost(
         continue;
       }
 
-      // 数値・単位・英字・英文フレーズ ➔ [A]...[/A] (半角ASCII直接モード)
+      // 数値・単位・英字・英文フレーズ・Markdown記号 ➔ [A]...[/A] (半角ASCII直接モード)
       const normToken = token.replace(/[–—−―]/g, '-');
-      if (/^[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$]+(?:\s+[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$]+)*$/.test(normToken)) {
+      if (/^[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$\*\=\!\[\]\{\}\<\>\?\\\`\'\"]+(?:\s+[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$\*\=\!\[\]\{\}\<\>\?\\\`\'\"]+)*$/.test(normToken)) {
         const seq = `${IME_TAG_ASCII}${normToken}${IME_TAG_ASCII_END}`;
         lineResult += seq;
         displayTokens.push({

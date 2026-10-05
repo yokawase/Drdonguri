@@ -1,9 +1,9 @@
 import mainCppRaw from '@/firmware/src/main.cpp?raw';
 import flashAtoms3uPs1Raw from '@/firmware/scripts/flash_atoms3u.ps1?raw';
 
-export const LATEST_FIRMWARE_VERSION = 'v16.7';
+export const LATEST_FIRMWARE_VERSION = 'v16.8';
 export const FIRMWARE_RELEASE_DATE = '2026-10-05';
-export const FIRMWARE_RELEASE_TITLE = 'v16.7（誤変換5大原則解消・形態素境界分離＆JIS全漢字撥音合体防止・キメラ読み根絶版）';
+export const FIRMWARE_RELEASE_TITLE = 'v16.8（英数F10自動確定＆Markdown・JIS記号完全補正＆熟語キメラ読み・送り仮名誤爆根絶版）';
 
 export const PARTITIONS_8MB_CSV_SOURCE = `# Name,   Type, SubType, Offset,   Size,     Flags
 nvs,      data, nvs,     0x9000,   0x5000,
