@@ -176,7 +176,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
     };
   });
 
-  // 電子カルテ改行モード（MICS Alt+Enter vs 標準Enter）
+  // 電子カルテ改行モード（標準Enter vs MICS Alt+Enter）
   const [newlineMode, setNewlineMode] = useState<EhrNewlineMode>(() => {
     try {
       const saved = localStorage.getItem('drvoice_ehr_newline_mode_v1');
@@ -186,7 +186,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
     } catch (e) {
       console.error(e);
     }
-    return EhrNewlineMode.MICS_ALT_ENTER; // デフォルトでMICS Navigator Alt+Enter改行を有効化
+    return EhrNewlineMode.NORMAL_ENTER; // 初期値として標準 (Enter) を自動選択
   });
 
   // 定型文管理
@@ -632,34 +632,14 @@ export const InputPane: React.FC<InputPaneProps> = ({
                 </label>
               </div>
 
-              {/* カルテ改行制御: MICS Navigator (Alt+Enter) vs 標準 (Enter) */}
+              {/* カルテ改行制御: 標準 (Enter) vs MICS Navigator (Alt+Enter) */}
               <div className="flex flex-wrap items-center gap-2 pl-2 border-l border-black">
                 <span className="font-bold text-neutral-700">カルテ改行:</span>
                 <label 
                   className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 border border-black ${
-                    newlineMode === EhrNewlineMode.MICS_ALT_ENTER ? 'bg-amber-100 font-bold shadow-[1px_1px_0_#000]' : 'bg-white'
-                  }`}
-                  title="★ MICS電子カルテ Navigator推奨: Enterによるペイン閉鎖を100%防止し、Alt+Enterで安全に改行します"
-                >
-                  <input
-                    type="radio"
-                    name="newlineMode"
-                    className="mac-radio"
-                    checked={newlineMode === EhrNewlineMode.MICS_ALT_ENTER}
-                    onChange={() => {
-                      playMacBeep();
-                      setNewlineMode(EhrNewlineMode.MICS_ALT_ENTER);
-                      localStorage.setItem('drvoice_ehr_newline_mode_v1', EhrNewlineMode.MICS_ALT_ENTER);
-                    }}
-                  />
-                  <span className="text-black">★ MICS (Alt+Enter)</span>
-                </label>
-
-                <label 
-                  className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 border border-black ${
                     newlineMode === EhrNewlineMode.NORMAL_ENTER ? 'bg-amber-100 font-bold shadow-[1px_1px_0_#000]' : 'bg-white'
                   }`}
-                  title="標準Enterキーでの改行"
+                  title="★ 標準的なEnterキーでの改行（一般的な電子カルテ・エディタ向け初期値）"
                 >
                   <input
                     type="radio"
@@ -673,6 +653,26 @@ export const InputPane: React.FC<InputPaneProps> = ({
                     }}
                   />
                   <span>標準 (Enter)</span>
+                </label>
+
+                <label 
+                  className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 border border-black ${
+                    newlineMode === EhrNewlineMode.MICS_ALT_ENTER ? 'bg-amber-100 font-bold shadow-[1px_1px_0_#000]' : 'bg-white'
+                  }`}
+                  title="MICS電子カルテ Navigator向け: Enterによるペイン閉鎖を防止し、Alt+Enterで安全にセル内改行します"
+                >
+                  <input
+                    type="radio"
+                    name="newlineMode"
+                    className="mac-radio"
+                    checked={newlineMode === EhrNewlineMode.MICS_ALT_ENTER}
+                    onChange={() => {
+                      playMacBeep();
+                      setNewlineMode(EhrNewlineMode.MICS_ALT_ENTER);
+                      localStorage.setItem('drvoice_ehr_newline_mode_v1', EhrNewlineMode.MICS_ALT_ENTER);
+                    }}
+                  />
+                  <span className="text-black">MICS (Alt+Enter)</span>
                 </label>
               </div>
             </div>
