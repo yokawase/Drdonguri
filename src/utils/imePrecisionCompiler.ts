@@ -1241,7 +1241,34 @@ export const INFLECTED_WORD_MAP: Record<string, string> = {
   '傷を': 'kizuwo', '傷': 'kizu',
   '発生させる': 'hatuseisaseru', '発生させ': 'hatuseisase', '発生し': 'hatuseisi', '発生': 'hatusei',
   '上昇させ': 'jyousousase', '上昇': 'jyousyou', '分裂': 'bunnretu',
-  '生じる': 'syoujiru', '生じて': 'syoujite', '分解されて': 'bunnkaisarete', '分解': 'bunnkai'
+  '生じる': 'syoujiru', '生じて': 'syoujite', '分解されて': 'bunnkaisarete', '分解': 'bunnkai',
+  // ── 学術論文・研究機関・プレスリリース・報道連語 ──
+  '日本人': 'nihonnjinn',
+  '細菌由来': 'saikinnyurai', '細菌': 'saikinn', '由来': 'yurai',
+  '若年発症': 'jyakunennhassyou', '発症': 'hassyou',
+  '変異痕跡': 'hennikonnseki', '変異': 'henni', '痕跡': 'konnseki',
+  '公表資料': 'kouhyousiryou', '公表': 'kouhyou',
+  '科学的証拠': 'kagakutekisyouko', '科学的': 'kagakuteki', '証拠': 'syouko',
+  '裏付けられた': 'uradukerareta', '裏付ける': 'uradukeru', '裏付け': 'uraduke',
+  '大阪大学': 'oosakadaigaku', '東京大学': 'toukyoudaigaku',
+  '医科学研究所': 'ikagakukennkyuusyo', '医科学': 'ikagaku',
+  '東京科学大学': 'toukyoukagakudaigaku', '東京工業大学': 'toukyoukougyoudaigaku',
+  '生命理工学院': 'seimeirikougakuinn', '理工学院': 'rikougakuinn',
+  '国立がん研究センター': 'kokuritugannkennkyu-senta-', '中央病院': 'tyuuoubyouinn',
+  '大腸外科': 'daityougeka', '内視鏡科': 'naisikyouka',
+  '国際学術誌': 'kokusaigakujyutusi', '学術誌': 'gakujyutusi', '国際': 'kokusai', '国立': 'kokuritu',
+  '二次配信日': 'nijihayshinnbi', '二次配信': 'nijihayshinn', '二次': 'niji',
+  'アーカイブ日': 'a-kaibubi', 'アーカイブ': 'a-kaibu',
+  '行われている': 'okonawareteiru', '行われる': 'okonawarete', '行う': 'okonau', '行い': 'okonai',
+  '通りである': 'tooridearu', '通り': 'toori',
+  '谷内田真一': 'yachidasinici', '谷内田': 'yachida',
+  '柴田龍弘': 'sibatatatuhiro', '柴田': 'sibata',
+  '山田拓司': 'yamadatakkuji', '山田': 'yamada',
+  '共同研究チーム': 'kyoudoukennkyu-ti-mu', '共同研究': 'kyoudoukennkyuu',
+  '公式プレスリリース': 'kousikipuresuriri-su', 'プレスリリース': 'puresuriri-su',
+  '対比検証': 'taihikennsyou', '原著学術論文': 'genntyogakujyuturonnbunn', '原著論文': 'genntyoronnbunn',
+  '参画各研究機関': 'sannkakukakukennkyuukikann', '参画': 'sannkaku',
+  '東大': 'toudai', '阪大': 'handai'
 };
 
 // 熟語フォールバック用 音読み強制テーブル（訓読みキメラ連結を100%根絶）
@@ -1498,6 +1525,12 @@ export const OKURIGANA_STEM_RULES: OkuriganaStemRule[] = [
   { kanji: '戻', nextKanaRegex: /^[るりれすせ]/, stemRomaji: 'modo' },     // 戻る、戻す
   { kanji: '優', nextKanaRegex: /^[れるたて]/, stemRomaji: 'sugure' },      // 優れる、優れて
   { kanji: '劣', nextKanaRegex: /^[るりれたて]/, stemRomaji: 'oto' },      // 劣る、劣って
+  { kanji: '行', nextKanaRegex: /^[わいうえおっなにぬねのれ]/, stemRomaji: 'okona' }, // 行う、行い、行われ、行って（こう ➔ 「こう割れている」誤爆根絶）
+  { kanji: '付', nextKanaRegex: /^[けきくい]/, stemRomaji: 'tuke' },                 // 付ける、付けられ、付き（「裏付き蹴られた」誤爆根絶）
+  { kanji: '通', nextKanaRegex: /^[りるれろ]/, stemRomaji: 'toori' },                // 通り、通る（「つ売」誤爆根絶）
+  { kanji: '頼', nextKanaRegex: /^[るりれ]/, stemRomaji: 'tayo' },                  // 頼る、頼り（「郵頼」誤爆根絶）
+  { kanji: '示', nextKanaRegex: /^[すせし]/, stemRomaji: 'simesi' },                // 示す、示し
+  { kanji: '照', nextKanaRegex: /^[らしすせ]/, stemRomaji: 'tera' },                // 照らす、照らし（照合）
   // 形容詞
   { kanji: '高', nextKanaRegex: /^[いくけ]/, stemRomaji: 'taka' },         // 高い、高く
   { kanji: '低', nextKanaRegex: /^[いくけ]/, stemRomaji: 'hiku' },         // 低い、低く

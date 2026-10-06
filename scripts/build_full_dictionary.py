@@ -296,6 +296,8 @@ def generate_inflected_forms(word: str, yomi: str, base_cost: int):
             forms.append((w_stem + 'ない', y_stem + 'ない', base_cost + 15))
             forms.append((w_stem + 'ます', y_stem + 'ます', base_cost + 15))
             forms.append((w_stem + 'られる', y_stem + 'られる', base_cost + 20))
+            forms.append((w_stem + 'られた', y_stem + 'られた', base_cost + 15))
+            forms.append((w_stem + 'られている', y_stem + 'られている', base_cost + 15))
         # 五段ラ行（関わる、減る、折る、戻る等）
         forms.append((w_stem + 'り', y_stem + 'り', base_cost + 10))
         forms.append((w_stem + 'って', y_stem + 'って', base_cost + 10))
@@ -330,11 +332,14 @@ def generate_inflected_forms(word: str, yomi: str, base_cost: int):
         forms.append((w_stem + 'んで', y_stem + 'んで', base_cost + 10))
         forms.append((w_stem + 'んだ', y_stem + 'んだ', base_cost + 10))
         forms.append((w_stem + 'まない', y_stem + 'まない', base_cost + 15))
-    elif last_w == 'う' and last_y == 'う':  # 五段ワ行（追う、伴う、疑う、補う）
+    elif last_w == 'う' and last_y == 'う':  # 五段ワ行（追う、伴う、疑う、補う、行う）
         forms.append((w_stem + 'い', y_stem + 'い', base_cost + 10))
         forms.append((w_stem + 'って', y_stem + 'って', base_cost + 10))
         forms.append((w_stem + 'った', y_stem + 'った', base_cost + 10))
         forms.append((w_stem + 'わない', y_stem + 'わない', base_cost + 15))
+        forms.append((w_stem + 'われる', y_stem + 'われる', base_cost + 15))
+        forms.append((w_stem + 'われている', y_stem + 'われている', base_cost + 15))
+        forms.append((w_stem + 'われた', y_stem + 'われた', base_cost + 15))
     elif last_w == 'ぶ' and last_y == 'ぶ':  # 五段バ行（選ぶ、並ぶ）
         forms.append((w_stem + 'び', y_stem + 'び', base_cost + 10))
         forms.append((w_stem + 'んで', y_stem + 'んで', base_cost + 10))

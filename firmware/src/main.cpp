@@ -1188,7 +1188,10 @@ bool dispatchSafeKeystrokes() {
       continue;
     }
 
-    // 【レベル3】: /kanji_yomi.bin 全JIS漢字（6,500字以上）オンボード音読み解決 ➔ Space変換 ➔ Enter確定
+    // 【レベル3】: /kanji_yomi.bin 未登録漢字塊（複合語・人名・動詞語幹）クラスタ一括変換エンジン
+    // ★【単漢字確定の完全撤廃】: 漢字1文字ごとにSpace+Enterを押すとMS-IMEが「国率」「東鏡」「高表」「消去」
+    // と誤爆するため、連続する未登録漢字（最大5文字）および後続送り仮名を未確定バッファとしてPCに連続送出し、
+    // クラスタ境界で一括して [Space] ➔ [Enter] を1回だけ送る！
     size_t uLen = getUtf8CharLen((uint8_t)buf[i]);
     if (uLen >= 3 && i + uLen <= total) {
       char utf8Single[5] = {0, 0, 0, 0, 0};
@@ -1196,17 +1199,98 @@ bool dispatchSafeKeystrokes() {
 
       char yomiRomaji[16] = {0};
       if (fYomi && yomiCount > 0 && lookupKanjiYomi(fYomi, yomiCount, utf8Single, yomiRomaji, sizeof(yomiRomaji))) {
-        // JIS漢字ヒット: 代表音読みローマ字を安全打鍵
-        for (size_t r = 0; yomiRomaji[r] != '\0'; r++) {
-          sendSafeChar(yomiRomaji[r]);
+        // 現在の文字から、未登録の漢字が何文字連続しているかをスキャン (最大5文字)
+        size_t clusterScan = i;
+        size_t kanjiCount = 0;
+
+        while (clusterScan < total && kanjiCount < 5) {
+          size_t curCharLen = getUtf8CharLen((uint8_t)buf[clusterScan]);
+          if (curCharLen < 3 || clusterScan + curCharLen > total) break;
+
+          char sc = buf[clusterScan];
+          if (sc == '[' || sc == '<' || sc == '\r' || sc == '\n' || (uint8_t)sc < 0x80) break;
+
+          char curUtf8[5] = {0};
+          memcpy(curUtf8, &buf[clusterScan], curCharLen);
+          char curYomi[16] = {0};
+
+          if (!lookupKanjiYomi(fYomi, yomiCount, curUtf8, curYomi, sizeof(curYomi))) {
+            break; // 漢字でなければ終了
+          }
+
+          // 2文字目以降で med_terms に合致する単語が見つかったら、そこから先はレベル2に任せる
+          if (kanjiCount > 0 && fTerms && termCount > 0) {
+            MedTermRecord checkRec;
+            if (lookupMedicalTerm(fTerms, termCount, &buf[clusterScan], curCharLen * 2, &checkRec)) {
+              break;
+            }
+          }
+
+          // この漢字の読みローマ字をPCに送出（確定キーは絶対に押さない！）
+          for (size_t r = 0; curYomi[r] != '\0'; r++) {
+            sendSafeChar(curYomi[r]);
+          }
+          clusterScan += curCharLen;
+          kanjiCount++;
         }
-        // Space漢字変換 ➔ Enter確定 (F5リロード誤爆ゼロ)
-        delay(20); // 候補パレット安定ウェイト
+
+        // 送り仮名（ひらがな）が直後に続いている場合（例: 「行われている」「裏付けられた」）
+        // 句読点・記号・空白に達するまで、ひらがなのローマ字も同一未確定バッファに連続送出
+        while (clusterScan < total && isUtf8Hiragana(&buf[clusterScan])) {
+          if (clusterScan + 3 <= total && (memcmp(&buf[clusterScan], "、", 3) == 0 || memcmp(&buf[clusterScan], "。", 3) == 0)) {
+            break;
+          }
+          // 促音「っ」
+          if (clusterScan + 3 <= total && (uint8_t)buf[clusterScan] == 0xE3 && (uint8_t)buf[clusterScan+1] == 0x81 && (uint8_t)buf[clusterScan+2] == 0xA3) {
+            if (clusterScan + 6 <= total && isUtf8Hiragana(&buf[clusterScan+3])) {
+              const char* nextDi = (clusterScan + 9 <= total) ? findDigraphRomaji(&buf[clusterScan+3]) : nullptr;
+              const char* nextMo = findMonoKanaRomaji(&buf[clusterScan+3]);
+              const char* nextRomaji = (nextDi != nullptr) ? nextDi : nextMo;
+              if (nextRomaji != nullptr && nextRomaji[0] != 'a' && nextRomaji[0] != 'i' && 
+                  nextRomaji[0] != 'u' && nextRomaji[0] != 'e' && nextRomaji[0] != 'o' && nextRomaji[0] != 'n') {
+                sendSafeChar(nextRomaji[0]);
+                clusterScan += 3;
+                continue;
+              }
+            }
+            sendSafeChar('l'); sendSafeChar('t'); sendSafeChar('u');
+            clusterScan += 3;
+            continue;
+          }
+          // 撥音「ん」
+          if (clusterScan + 3 <= total && (uint8_t)buf[clusterScan] == 0xE3 && (uint8_t)buf[clusterScan+1] == 0x82 && (uint8_t)buf[clusterScan+2] == 0x93) {
+            sendSafeChar('n'); sendSafeChar('n');
+            clusterScan += 3;
+            continue;
+          }
+          // ダイグラフ
+          if (clusterScan + 6 <= total) {
+            const char* di = findDigraphRomaji(&buf[clusterScan]);
+            if (di != nullptr) {
+              for (const char* p = di; *p != '\0'; p++) sendSafeChar(*p);
+              clusterScan += 6;
+              continue;
+            }
+          }
+          // モノかな
+          if (clusterScan + 3 <= total) {
+            const char* mo = findMonoKanaRomaji(&buf[clusterScan]);
+            if (mo != nullptr) {
+              for (const char* p = mo; *p != '\0'; p++) sendSafeChar(*p);
+              clusterScan += 3;
+              continue;
+            }
+          }
+          break;
+        }
+
+        // ★クラスタ末尾で一括 Space ➔ Enter 確定！
+        delay(20);
         safeWrite(' ');
-        delay(35); // 候補窓展開ウェイト
+        delay(35);
         safeWrite(KEY_RETURN);
         delay(40);
-        i += uLen;
+        i = clusterScan;
         continue;
       }
     }
