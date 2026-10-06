@@ -894,6 +894,9 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   '適切な間隔': 'tekisetunakannkaku', '適切な': 'tekisetuna', '適切': 'tekisetu', '間隔': 'kannkaku',
   '方針': 'housinn', '連携': 'rennkei', '年後': 'nenngo',
   '歳男': 'saiotoko', '歳女': 'saionnna',
+  'カルテ': 'karute', '電子カルテ': 'dennsikarute', '問診': 'monnsinn', '診察': 'sinnsatu',
+  '処方': 'syoho', '主訴': 'syuso', '現病歴': 'gemmbyoureki', '既往歴': 'kioureki',
+  'バイタル': 'baitaru', '血圧': 'ketuatu', '脈拍': 'myakuhaku', '体温': 'taionn',
   // ── 胃腺腫・胃癌・ピロリ菌除菌・管理戦略・病態専門熟語 ──
   '胃腺腫': 'isensyu', '腺腫': 'sensyu',
   '胃癌発生': 'iganhatusei', '胃癌予防': 'iganyobou', '胃癌': 'igann',
