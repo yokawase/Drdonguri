@@ -1373,6 +1373,151 @@ export const COMMON_KANJI_ROMAJI: Record<string, string> = {
   '胞': 'bou', '謝': 'sya', '損': 'sonn', '傷': 'kizu', '毒': 'doku', '鎖': 'sa', '阻': 'so', '因': 'inn'
 };
 
+// ──【法則1対策：熟語内2文字目以降の連濁（濁音化）マップ】──
+// 前の文字が漢字の場合、清音（hou, ha等）ではなく濁音（bou, ba等）を強制して同音異義語誤爆を根絶
+export const SUBSEQUENT_VOICING_MAP: Record<string, string> = {
+  '胞': 'bou',  // 細胞、卵胞、気胞（hou ➔ 「裁縫」誤爆防止）
+  '波': 'ba',   // 音波、電波、余波
+  '箱': 'bako', // 道具箱、ゴミ箱
+  '花': 'bana', // 火花
+  '風': 'buu',  // 痛風、強風
+  '皮': 'gawa', // 毛皮
+  '声': 'goe',  // 産声、大声
+  '話': 'banasi',
+  '病': 'byou',
+  '管': 'kann',
+};
+
+// ──【法則3対策：自立単漢字・助詞隣接時の訓読み強制マップ】──
+// 単独1文字、または直後に助詞が続く場合に音読み（syou, kotsu等）ではなく訓読み（kizu, hone等）を選択
+export const ISOLATED_KANJI_MAP: Record<string, string> = {
+  '傷': 'kizu',   // syou ➔ 「商」誤爆防止
+  '骨': 'hone',   // kotsu
+  '腹': 'hara',   // fuku
+  '胸': 'mune',   // kyou
+  '頭': 'atama',  // tou
+  '首': 'kubi',   // syu
+  '肩': 'kata',   // kenn
+  '腰': 'kosi',   // you
+  '足': 'asi',    // soku
+  '手': 'te',     // syu
+  '目': 'me',     // moku
+  '耳': 'mimi',   // ji
+  '鼻': 'hana',   // bi
+  '口': 'kuti',   // kou
+  '歯': 'ha',     // si
+  '舌': 'sita',   // zetu
+  '喉': 'nodo',   // kou
+  '皮': 'kawa',   // hi
+  '血': 'ti',     // ketu
+  '熱': 'netu',
+  '痰': 'tann',
+  '咳': 'seki',
+  '息': 'iki',    // soku
+  '脈': 'myaku',
+  '便': 'benn',
+  '尿': 'nyou',
+  '汗': 'ase',    // kann
+  '涙': 'namida', // rui
+  '声': 'koe',    // sei
+  '音': 'oto',    // onn
+  '光': 'hikari', // kou
+  '色': 'iro',    // siki
+  '味': 'aji',    // mi
+  '型': 'kata',   // kei
+  '幅': 'haba',   // fuku
+  '奥': 'oku',
+  '底': 'soko',   // tei
+  '枠': 'waku',
+  '角': 'kado',   // kaku
+  '端': 'hasi',   // tann
+  '側': 'gawa',   // soku
+  '裏': 'ura',    // ri
+  '表': 'omote',  // hyou
+  '皿': 'sara',
+  '針': 'hari',   // sinn
+  '糸': 'ito',    // si
+  '薬': 'kusuri', // yaku
+  '油': 'abura',  // yu
+};
+
+// ──【法則2対策：送り仮名検知による訓読み語幹強制ルール】──
+// 漢字の直後に特定のひらがなが連続する場合、音読みを禁止して動詞・形容詞の語幹ローマ字を採用
+export interface OkuriganaStemRule {
+  kanji: string;
+  nextKanaRegex: RegExp;
+  stemRomaji: string;
+}
+
+export const OKURIGANA_STEM_RULES: OkuriganaStemRule[] = [
+  // 頻出動詞・誤爆頻出動詞
+  { kanji: '関', nextKanaRegex: /^[わりるれろ]/, stemRomaji: 'kaka' },     // 関わる、関わって（kann ➔ 「緩和って」誤爆根絶）
+  { kanji: '防', nextKanaRegex: /^[がぎぐげごい]/, stemRomaji: 'fuse' },    // 防ぐ、防ぎ、防いだ（bou ➔ 「防具」誤爆根絶）
+  { kanji: '詳', nextKanaRegex: /^[しくいけ]/, stemRomaji: 'kuwa' },       // 詳しい、詳しく（syou ➔ 「少市区」誤爆根絶）
+  { kanji: '追', nextKanaRegex: /^[いうえおっ]/, stemRomaji: 'o' },         // 追う、追い、追って（tui ➔ 「ついい」誤爆根絶）
+  { kanji: '増', nextKanaRegex: /^[やしすせ]/, stemRomaji: 'faya' },       // 増やす、増やし、増やして（zou ➔ 「蔵や」誤爆根絶）
+  { kanji: '増', nextKanaRegex: /^[えるたて]/, stemRomaji: 'fu' },         // 増える、増えて
+  { kanji: '減', nextKanaRegex: /^[らしすせ]/, stemRomaji: 'he' },         // 減らす、減らし、減らして
+  { kanji: '減', nextKanaRegex: /^[るりれたて]/, stemRomaji: 'he' },       // 減る、減って
+  { kanji: '引', nextKanaRegex: /^[きくけこいっ]/, stemRomaji: 'hi' },      // 引く、引き、引いて
+  { kanji: '起', nextKanaRegex: /^[きくけこいっ]/, stemRomaji: 'oki' },     // 起きる、起こす
+  { kanji: '飲', nextKanaRegex: /^[まみむめも]/, stemRomaji: 'no' },       // 飲む、飲み、飲んで（in ➔ 「イン見方」誤爆根絶）
+  { kanji: '入', nextKanaRegex: /^[れるらり]/, stemRomaji: 'i' },          // 入れる、入る
+  { kanji: '出', nextKanaRegex: /^[しすせそ]/, stemRomaji: 'da' },         // 出す、出し、出して
+  { kanji: '出', nextKanaRegex: /^[るてた]/, stemRomaji: 'de' },           // 出る、出て、出た
+  { kanji: '込', nextKanaRegex: /^[まみむめも]/, stemRomaji: 'ko' },       // 込む、込み、込んで
+  { kanji: '届', nextKanaRegex: /^[かきくけこ]/, stemRomaji: 'todo' },     // 届く、届き、届いて
+  { kanji: '広', nextKanaRegex: /^[がぎぐげご]/, stemRomaji: 'hiro' },     // 広がる、広げて
+  { kanji: '落', nextKanaRegex: /^[ちつてと]/, stemRomaji: 'oti' },        // 落ちる、落とす
+  { kanji: '保', nextKanaRegex: /^[たちつてと]/, stemRomaji: 'tamo' },     // 保つ、保ち、保って
+  { kanji: '持', nextKanaRegex: /^[たちつてと]/, stemRomaji: 'mo' },       // 持つ、持ち、持って
+  { kanji: '生', nextKanaRegex: /^[じず]/, stemRomaji: 'syou' },           // 生じる、生じて
+  { kanji: '生', nextKanaRegex: /^[まみむ]/, stemRomaji: 'uma' },          // 生まれる
+  { kanji: '生', nextKanaRegex: /^[きくけ]/, stemRomaji: 'i' },            // 生きる、生きて
+  { kanji: '止', nextKanaRegex: /^[まみむめ]/, stemRomaji: 'toma' },       // 止まる、止まり
+  { kanji: '止', nextKanaRegex: /^[めるたて]/, stemRomaji: 'tome' },       // 止める、止めて
+  { kanji: '動', nextKanaRegex: /^[かきくけこ]/, stemRomaji: 'ugo' },     // 動く、動かす
+  { kanji: '変', nextKanaRegex: /^[わりるれろ]/, stemRomaji: 'kawa' },     // 変わる、変わり
+  { kanji: '変', nextKanaRegex: /^[えるたて]/, stemRomaji: 'ka' },         // 変える、変えて
+  { kanji: '現', nextKanaRegex: /^[れるたて]/, stemRomaji: 'arawa' },      // 現れる、現れて
+  { kanji: '伴', nextKanaRegex: /^[なにぬねの]/, stemRomaji: 'tomona' },    // 伴う、伴い、伴って
+  { kanji: '著', nextKanaRegex: /^[しくい]/, stemRomaji: 'itijiru' },      // 著しい、著しく
+  { kanji: '著', nextKanaRegex: /^[すせし]/, stemRomaji: 'arawa' },        // 著す
+  { kanji: '認', nextKanaRegex: /^[めるたて]/, stemRomaji: 'mitome' },      // 認める、認めて
+  { kanji: '疑', nextKanaRegex: /^[わいう]/, stemRomaji: 'utaga' },        // 疑う、疑わしい
+  { kanji: '整', nextKanaRegex: /^[えるたて]/, stemRomaji: 'totonoe' },    // 整える、整えて
+  { kanji: '用', nextKanaRegex: /^[いるたて]/, stemRomaji: 'moti' },       // 用いる、用いて
+  { kanji: '補', nextKanaRegex: /^[わいう]/, stemRomaji: 'ogina' },        // 補う、補って
+  { kanji: '見', nextKanaRegex: /^[るれろえたて]/, stemRomaji: 'mi' },     // 見る、見えて
+  { kanji: '聞', nextKanaRegex: /^[きくけこ]/, stemRomaji: 'ki' },         // 聞く、聞こえる
+  { kanji: '切', nextKanaRegex: /^[るれろりっ]/, stemRomaji: 'ki' },       // 切る、切って
+  { kanji: '割', nextKanaRegex: /^[るれろりっ]/, stemRomaji: 'wa' },       // 割る、割って
+  { kanji: '折', nextKanaRegex: /^[るれろりっ]/, stemRomaji: 'o' },        // 折る、折って
+  { kanji: '抜', nextKanaRegex: /^[きくけこ]/, stemRomaji: 'nuku' },       // 抜く、抜け
+  { kanji: '残', nextKanaRegex: /^[るりれすせ]/, stemRomaji: 'noko' },     // 残る、残す
+  { kanji: '戻', nextKanaRegex: /^[るりれすせ]/, stemRomaji: 'modo' },     // 戻る、戻す
+  { kanji: '優', nextKanaRegex: /^[れるたて]/, stemRomaji: 'sugure' },      // 優れる、優れて
+  { kanji: '劣', nextKanaRegex: /^[るりれたて]/, stemRomaji: 'oto' },      // 劣る、劣って
+  // 形容詞
+  { kanji: '高', nextKanaRegex: /^[いくけ]/, stemRomaji: 'taka' },         // 高い、高く
+  { kanji: '低', nextKanaRegex: /^[いくけ]/, stemRomaji: 'hiku' },         // 低い、低く
+  { kanji: '重', nextKanaRegex: /^[いくけ]/, stemRomaji: 'omo' },          // 重い、重く
+  { kanji: '軽', nextKanaRegex: /^[いくけ]/, stemRomaji: 'karu' },         // 軽い、軽く
+  { kanji: '深', nextKanaRegex: /^[いくけ]/, stemRomaji: 'fuka' },         // 深い、深く
+  { kanji: '浅', nextKanaRegex: /^[いくけ]/, stemRomaji: 'asa' },          // 浅い、浅く
+  { kanji: '早', nextKanaRegex: /^[いくけ]/, stemRomaji: 'haya' },         // 早い、早く
+  { kanji: '速', nextKanaRegex: /^[いくけ]/, stemRomaji: 'haya' },         // 速い、速く
+  { kanji: '遅', nextKanaRegex: /^[いくけ]/, stemRomaji: 'oso' },          // 遅い、遅く
+  { kanji: '悪', nextKanaRegex: /^[いくけ]/, stemRomaji: 'waru' },         // 悪い、悪く
+  { kanji: '良', nextKanaRegex: /^[いくけ]/, stemRomaji: 'yo' },           // 良い、良く
+  { kanji: '強', nextKanaRegex: /^[いくけ]/, stemRomaji: 'tuyo' },         // 強い、強く
+  { kanji: '弱', nextKanaRegex: /^[いくけ]/, stemRomaji: 'yowa' },         // 弱い、弱く
+  { kanji: '多', nextKanaRegex: /^[いくけ]/, stemRomaji: 'oo' },           // 多い、多く
+  { kanji: '少', nextKanaRegex: /^[なにぬねの]/, stemRomaji: 'suku' },      // 少ない、少なく
+  { kanji: '近', nextKanaRegex: /^[いくけ]/, stemRomaji: 'tika' },         // 近い、近く
+  { kanji: '遠', nextKanaRegex: /^[いくけ]/, stemRomaji: 'too' },          // 遠い、遠く
+];
+
 /**
  * 撥音「ん（n）」の直後に母音・ヤ行が続く際の合体・ナ行化を100%防止するヘルパー
  */
@@ -1429,23 +1574,48 @@ export function kanjiWordToRomaji(word: string): string {
 
     const ch = word[i];
     let part = '';
-    // ★ 熟語内の漢字であれば、訓読みキメラ化を絶対に防ぐため音読み専用テーブルを最優先
-    if (KANJI_ONYOMI_MAP[ch]) {
-      part = KANJI_ONYOMI_MAP[ch].trim();
-    } else if (CLINICAL_COMPOUND_MAP[ch]) {
-      part = CLINICAL_COMPOUND_MAP[ch].trim();
-    } else if (COMMON_KANJI_ROMAJI[ch]) {
-      part = COMMON_KANJI_ROMAJI[ch].trim();
-    } else if (JIS_KANJI_ROMAJI[ch]) {
-      // ★ JIS第1・第2水準＋常用漢字 全6,500字以上から即座に音読み解決
-      part = JIS_KANJI_ROMAJI[ch].trim();
-    } else if (SINGLE_KANJI_MAP[ch]) {
-      part = SINGLE_KANJI_MAP[ch].trim();
-    } else if (KANA_ROMAJI_MAP[ch]) {
-      part = KANA_ROMAJI_MAP[ch].trim();
-    } else {
-      const k = kanaToRomaji(ch);
-      part = k || ch;
+
+    // 【1. 法則2対策：直後にひらがな（送り仮名）が続く場合の語幹訓読み強制】
+    const remainingAfter = word.slice(i + 1);
+    let matchedStem = false;
+    if (remainingAfter.length > 0 && /^[ぁ-ん]/.test(remainingAfter)) {
+      for (const rule of OKURIGANA_STEM_RULES) {
+        if (rule.kanji === ch && rule.nextKanaRegex.test(remainingAfter)) {
+          part = rule.stemRomaji;
+          matchedStem = true;
+          break;
+        }
+      }
+    }
+
+    if (!matchedStem) {
+      // 【2. 法則1対策：熟語内の2文字目以降（直前が漢字）における連濁適用】
+      const prevIsKanji = i > 0 && /[一-龠]/.test(word[i - 1]);
+      if (prevIsKanji && SUBSEQUENT_VOICING_MAP[ch]) {
+        part = SUBSEQUENT_VOICING_MAP[ch];
+      }
+      // 【3. 法則3対策：単独1文字の自立訓読み適用】
+      else if (word.length === 1 && ISOLATED_KANJI_MAP[ch]) {
+        part = ISOLATED_KANJI_MAP[ch];
+      }
+      // 【4. 通常の熟語音読み・一般読みフォールバック】
+      else if (KANJI_ONYOMI_MAP[ch]) {
+        part = KANJI_ONYOMI_MAP[ch].trim();
+      } else if (CLINICAL_COMPOUND_MAP[ch]) {
+        part = CLINICAL_COMPOUND_MAP[ch].trim();
+      } else if (COMMON_KANJI_ROMAJI[ch]) {
+        part = COMMON_KANJI_ROMAJI[ch].trim();
+      } else if (JIS_KANJI_ROMAJI[ch]) {
+        // ★ JIS第1・第2水準＋常用漢字 全6,500字以上から即座に音読み解決
+        part = JIS_KANJI_ROMAJI[ch].trim();
+      } else if (SINGLE_KANJI_MAP[ch]) {
+        part = SINGLE_KANJI_MAP[ch].trim();
+      } else if (KANA_ROMAJI_MAP[ch]) {
+        part = KANA_ROMAJI_MAP[ch].trim();
+      } else {
+        const k = kanaToRomaji(ch);
+        part = k || ch;
+      }
     }
     out += normalizeHatsuon(part);
     i++;

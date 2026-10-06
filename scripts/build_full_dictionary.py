@@ -245,9 +245,104 @@ if drug_files:
     print(f"    医薬品エントリ登録: {count_y:,} 件 (累計: {len(term_dict):,} 件)")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 6. Mozc 公式辞書データの解析＆一般重要語彙の抽出
+# 6. Mozc 公式辞書データの解析＆一般重要語彙の抽出（活用形自動全展開エンジン搭載）
 # ─────────────────────────────────────────────────────────────────────────────
-print("=== [6] Mozc 公式辞書データの解析＆一般重要語彙の抽出 ===")
+print("=== [6] Mozc 公式辞書データの解析＆一般重要語彙の抽出（活用形全展開＆連濁優先） ===")
+
+def generate_inflected_forms(word: str, yomi: str, base_cost: int):
+    """
+    動詞・形容詞の基本形から、高頻度の活用形（連用形、テ形、タ形、未然形等）を自動生成。
+    語幹音読み分解によるキメラ語生成（関わって➔緩和って、詳しく➔少市区等）を根本根絶する。
+    """
+    forms = []
+    if len(word) < 2 or len(yomi) < 2:
+        return forms
+    
+    # 漢字を含んでいる単語のみ対象
+    if not any(0x4E00 <= ord(c) <= 0x9FFF for c in word):
+        return forms
+
+    # 1. 形容詞: 〜い (例: 詳しい、高い、低い、重い、浅い、近い)
+    if word.endswith('い') and yomi.endswith('い'):
+        w_stem, y_stem = word[:-1], yomi[:-1]
+        forms.append((w_stem + 'く', y_stem + 'く', base_cost + 5))      # 詳しく
+        forms.append((w_stem + 'かった', y_stem + 'かった', base_cost + 15))  # 詳しかった
+        forms.append((w_stem + 'くて', y_stem + 'くて', base_cost + 10))    # 詳しくて
+        forms.append((w_stem + 'ければ', y_stem + 'ければ', base_cost + 20))  # 詳しければ
+        forms.append((w_stem + 'さ', y_stem + 'さ', base_cost + 20))      # 詳しさ
+        return forms
+
+    # 2. サ変動詞: 〜する (例: 局在する、侵入する、発生する)
+    if word.endswith('する') and yomi.endswith('する'):
+        w_stem, y_stem = word[:-2], yomi[:-2]
+        forms.append((w_stem + 'し', y_stem + 'し', base_cost + 5))
+        forms.append((w_stem + 'して', y_stem + 'して', base_cost + 5))
+        forms.append((w_stem + 'した', y_stem + 'した', base_cost + 5))
+        forms.append((w_stem + 'しない', y_stem + 'しない', base_cost + 15))
+        forms.append((w_stem + 'される', y_stem + 'される', base_cost + 15))
+        forms.append((w_stem + 'させる', y_stem + 'させる', base_cost + 20))
+        return forms
+
+    # 3. 動詞: 語尾活用
+    last_w, last_y = word[-1], yomi[-1]
+    w_stem, y_stem = word[:-1], yomi[:-1]
+
+    if last_w == 'る' and last_y == 'る':
+        # 一段動詞（〜える、〜いる）の可能性判定
+        if len(yomi) >= 2 and yomi[-2] in 'いきしちにひみりぎじぢびぴえけせてねへめれげぜでべぺ':
+            forms.append((w_stem, y_stem, base_cost + 10))
+            forms.append((w_stem + 'て', y_stem + 'て', base_cost + 10))
+            forms.append((w_stem + 'た', y_stem + 'た', base_cost + 10))
+            forms.append((w_stem + 'ない', y_stem + 'ない', base_cost + 15))
+            forms.append((w_stem + 'ます', y_stem + 'ます', base_cost + 15))
+            forms.append((w_stem + 'られる', y_stem + 'られる', base_cost + 20))
+        # 五段ラ行（関わる、減る、折る、戻る等）
+        forms.append((w_stem + 'り', y_stem + 'り', base_cost + 10))
+        forms.append((w_stem + 'って', y_stem + 'って', base_cost + 10))
+        forms.append((w_stem + 'った', y_stem + 'った', base_cost + 10))
+        forms.append((w_stem + 'らない', y_stem + 'らない', base_cost + 15))
+        forms.append((w_stem + 'ります', y_stem + 'ります', base_cost + 15))
+    elif last_w == 'く' and last_y == 'く':  # 五段カ行（引く、抜く、聞く、届く、動く）
+        forms.append((w_stem + 'き', y_stem + 'き', base_cost + 10))
+        forms.append((w_stem + 'いて', y_stem + 'いて', base_cost + 10))
+        forms.append((w_stem + 'いた', y_stem + 'いた', base_cost + 10))
+        forms.append((w_stem + 'かない', y_stem + 'かない', base_cost + 15))
+        forms.append((w_stem + 'きます', y_stem + 'きます', base_cost + 15))
+    elif last_w == 'ぐ' and last_y == 'ぐ':  # 五段ガ行（防ぐ、注ぐ）
+        forms.append((w_stem + 'ぎ', y_stem + 'ぎ', base_cost + 10))
+        forms.append((w_stem + 'いで', y_stem + 'いで', base_cost + 10))
+        forms.append((w_stem + 'いだ', y_stem + 'いだ', base_cost + 10))
+        forms.append((w_stem + 'がない', y_stem + 'がない', base_cost + 15))
+        forms.append((w_stem + 'ぎます', y_stem + 'ぎます', base_cost + 15))
+    elif last_w == 'す' and last_y == 'す':  # 五段サ行（増やす、減らす、起こす、落とす、残す、治す）
+        forms.append((w_stem + 'し', y_stem + 'し', base_cost + 10))
+        forms.append((w_stem + 'して', y_stem + 'して', base_cost + 10))
+        forms.append((w_stem + 'した', y_stem + 'した', base_cost + 10))
+        forms.append((w_stem + 'さない', y_stem + 'さない', base_cost + 15))
+        forms.append((w_stem + 'します', y_stem + 'します', base_cost + 15))
+    elif last_w == 'つ' and last_y == 'つ':  # 五段タ行（保つ、待つ）
+        forms.append((w_stem + 'ち', y_stem + 'ち', base_cost + 10))
+        forms.append((w_stem + 'って', y_stem + 'って', base_cost + 10))
+        forms.append((w_stem + 'った', y_stem + 'った', base_cost + 10))
+        forms.append((w_stem + 'たない', y_stem + 'たない', base_cost + 15))
+    elif last_w == 'む' and last_y == 'む':  # 五段マ行（飲む、含む、進む、痛む）
+        forms.append((w_stem + 'み', y_stem + 'み', base_cost + 10))
+        forms.append((w_stem + 'んで', y_stem + 'んで', base_cost + 10))
+        forms.append((w_stem + 'んだ', y_stem + 'んだ', base_cost + 10))
+        forms.append((w_stem + 'まない', y_stem + 'まない', base_cost + 15))
+    elif last_w == 'う' and last_y == 'う':  # 五段ワ行（追う、伴う、疑う、補う）
+        forms.append((w_stem + 'い', y_stem + 'い', base_cost + 10))
+        forms.append((w_stem + 'って', y_stem + 'って', base_cost + 10))
+        forms.append((w_stem + 'った', y_stem + 'った', base_cost + 10))
+        forms.append((w_stem + 'わない', y_stem + 'わない', base_cost + 15))
+    elif last_w == 'ぶ' and last_y == 'ぶ':  # 五段バ行（選ぶ、並ぶ）
+        forms.append((w_stem + 'び', y_stem + 'び', base_cost + 10))
+        forms.append((w_stem + 'んで', y_stem + 'んで', base_cost + 10))
+        forms.append((w_stem + 'んだ', y_stem + 'んだ', base_cost + 10))
+        forms.append((w_stem + 'ばない', y_stem + 'ばない', base_cost + 15))
+
+    return forms
+
 mozc_files = []
 for i in range(10):
     fn = f"dictionary0{i}.txt"
@@ -269,13 +364,26 @@ for fp in mozc_files:
             if len(word) < 2 or len(word) > 20: continue
             if not any(ord(c) >= 0x3040 for c in word): continue
 
+            # ★【法則1対策：漢字2文字熟語の優先優遇ボーナス】
+            # 「細胞」「骨髄」「血栓」等の連濁語が単漢字分解されるのを防ぐため、コストを-1500優遇
+            if len(word) == 2 and all(0x4E00 <= ord(c) <= 0x9FFF for c in word):
+                cost -= 1500
+
             is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in word)
             mode = 2 if is_katakana else 1
 
             if word not in mozc_candidates or cost < mozc_candidates[word][0]:
                 mozc_candidates[word] = (cost, yomi, mode)
 
-print(f" -> Mozc ユニーク候補語彙: {len(mozc_candidates):,} 語")
+            # ★【法則2対策：動詞・形容詞の活用形全展開】
+            # 基本形が登録された場合、その連用形・テ形・タ形なども展開して候補プールに追加
+            inflected = generate_inflected_forms(word, yomi, cost)
+            for inf_w, inf_y, inf_c in inflected:
+                if len(inf_w) < 2 or len(inf_w) > 20: continue
+                if inf_w not in mozc_candidates or inf_c < mozc_candidates[inf_w][0]:
+                    mozc_candidates[inf_w] = (inf_c, inf_y, 1)
+
+print(f" -> Mozc ユニーク候補語彙（活用展開後）: {len(mozc_candidates):,} 語")
 
 # コスト順にソートして、上限件数まで追加
 # AtomS3U 8MB Flash (SPIFFS 5.8MB) の安全限界: 130,000語 (約 3.97 MB)
