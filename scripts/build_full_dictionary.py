@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-DrVoice どんぐり君！ 超高精度・統合日本語バイナリ辞書コンパイラ (v2.0)
-- CLINICAL_COMPOUND_MAP & INFLECTED_WORD_MAP (最優先)
-- 厚労省 医薬品マスター (y_20260930.csv) ＆ ベース薬品名抽出
-- 厚労省 傷病名マスター (b_20260601.txt)
-- Google Mozc OSS 一般日本語辞書 (dictionary00.txt 〜 dictionary09.txt)
+DrVoice どんぐり君！ 超高精度・統合日本語バイナリ辞書コンパイラ (v3.0)
+- [1] CLINICAL_COMPOUND_MAP & INFLECTED_WORD_MAP (最優先)
+- [2] 厚労省 医科診療行為マスター (s_*.csv) - 手術手技(K)・処置(J)・検査(D)・画像(E)
+- [3] ORCA / DMiME 医療辞書 (dmime_*.txt) - 解剖部位・身体所見・症状・臨床表現
+- [4] 厚労省 傷病名マスター (b_*.txt)
+- [5] 厚労省 医薬品マスター (y_*.csv) ＆ ベース薬品名抽出
+- [6] Google Mozc OSS 一般日本語辞書 (dictionary00.txt 〜 dictionary09.txt)
 から AtomS3U (8MB Flash / 5.8MB SPIFFS) 向け 32バイト固定長バイナリ辞書 med_terms.bin を生成
 """
 
@@ -63,8 +65,21 @@ def clean_drug_base_name(name: str) -> str:
     base = parts[0].strip(" 　・-")
     return base
 
+def clean_procedure_base_name(name: str) -> str:
+    n = unicodedata.normalize('NFKC', name)
+    n = re.sub(r"【.*?】", "", n)
+    n = re.sub(r"「.*?」", "", n)
+    n = re.sub(r"（.*?）", "", n)
+    n = re.sub(r"\(.*?\)", "", n)
+    parts = re.split(r"加算|注|減算|生活療養", n)
+    base = parts[0].strip(" 　・-")
+    return base
+
 term_dict = {}
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Webアプリ臨床推論辞書 (最優先・コスト0)
+# ─────────────────────────────────────────────────────────────────────────────
 print("=== [1] Webアプリ臨床辞書 (CLINICAL_COMPOUND_MAP, INFLECTED_WORD_MAP) の解析 ===")
 ts_path = os.path.join(BASE_DIR, "src", "utils", "imePrecisionCompiler.ts")
 if os.path.exists(ts_path):
@@ -95,10 +110,76 @@ if os.path.exists(ts_path):
             term_dict[h] = (w_norm, rom[:25], 1, 0)
         print(f" -> INFLECTED_WORD_MAP 登録: {len(pairs)} 件")
 
-print(f" -> 臨床辞書合計: {len(term_dict)} 件")
+print(f" -> 臨床推論辞書合計: {len(term_dict)} 件")
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. 厚労省 医科診療行為マスター (s_*.csv / txt)
+# ─────────────────────────────────────────────────────────────────────────────
+print("=== [2] 厚労省 医科診療行為マスター (s_*.csv / txt) の解析 ===")
+proc_files = [f for f in os.listdir(BASE_DIR) if f.lower().startswith('s_') and f.lower().endswith(('.csv', '.txt'))]
+if proc_files:
+    target = os.path.join(BASE_DIR, proc_files[0])
+    print(f" -> 医科診療行為マスター解析: {os.path.basename(target)}")
+    count_s = 0
+    with open(target, 'r', encoding='cp932', errors='replace') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if len(row) > 6:
+                name = unicodedata.normalize('NFKC', row[4].strip())
+                kana = unicodedata.normalize('NFKC', row[6].strip())
+                if not name or len(name) < 2 or name.startswith('＊＊'):
+                    continue
 
-print("=== [2] 厚労省 傷病名マスター (b_*.txt / csv) の解析 ===")
+                candidates = [(name, kana)]
+                base = clean_procedure_base_name(name)
+                if len(base) >= 2 and base != name:
+                    candidates.append((base, base))
+
+                for w, k in candidates:
+                    romaji = kana_to_romaji(k)[:25]
+                    if romaji:
+                        h = fnv1a_32(w)
+                        if h not in term_dict:
+                            is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in w)
+                            mode = 2 if is_katakana else 1
+                            term_dict[h] = (w, romaji, mode, 50)
+                            count_s += 1
+    print(f"    診療行為エントリ登録: {count_s:,} 件 (累計: {len(term_dict):,} 件)")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. ORCA / DMiME 医療辞書 (dmime_*.txt)
+# ─────────────────────────────────────────────────────────────────────────────
+print("=== [3] ORCA / DMiME 医療辞書 (dmime_*.txt) の解析 ===")
+dmime_files = [f for f in os.listdir(BASE_DIR) if 'dmime' in f.lower() and f.lower().endswith(('.txt', '.csv', '.tsv'))]
+if dmime_files:
+    target = os.path.join(BASE_DIR, dmime_files[0])
+    print(f" -> DMiME 医療辞書解析: {os.path.basename(target)}")
+    count_dm = 0
+    with open(target, 'r', encoding='utf-8', errors='replace') as f:
+        for line in f:
+            parts = line.strip().split(',')
+            if len(parts) >= 2:
+                yomi = unicodedata.normalize('NFKC', parts[0].strip())
+                word = unicodedata.normalize('NFKC', parts[1].strip())
+                if len(word) < 2 or word.startswith('＊＊'):
+                    continue
+                # 日本語文字を含むか
+                if not any(ord(c) >= 0x3040 for c in word):
+                    continue
+                romaji = kana_to_romaji(yomi)[:25]
+                if romaji:
+                    h = fnv1a_32(word)
+                    if h not in term_dict:
+                        is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in word)
+                        mode = 2 if is_katakana else 1
+                        term_dict[h] = (word, romaji, mode, 60)
+                        count_dm += 1
+    print(f"    DMiME エントリ登録: {count_dm:,} 件 (累計: {len(term_dict):,} 件)")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. 厚労省 傷病名マスター (b_*.txt / csv)
+# ─────────────────────────────────────────────────────────────────────────────
+print("=== [4] 厚労省 傷病名マスター (b_*.txt / csv) の解析 ===")
 disease_files = [f for f in os.listdir(BASE_DIR) if f.lower().startswith('b') and f.lower().endswith(('.csv', '.txt'))]
 if disease_files:
     target = os.path.join(BASE_DIR, disease_files[0])
@@ -110,22 +191,22 @@ if disease_files:
             if len(row) > 9:
                 name = unicodedata.normalize('NFKC', row[5].strip())
                 kana = unicodedata.normalize('NFKC', row[9].strip())
-                # 記号除去、未コード化等を除外
                 if not name or len(name) < 2 or '未コード化' in name or name.startswith('＊＊'):
                     continue
-                # ローマ字生成
                 romaji = kana_to_romaji(kana)[:25]
                 if romaji:
                     h = fnv1a_32(name)
                     if h not in term_dict:
                         is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in name)
                         mode = 2 if is_katakana else 1
-                        term_dict[h] = (name, romaji, mode, 100)
+                        term_dict[h] = (name, romaji, mode, 80)
                         count_d += 1
     print(f"    傷病名エントリ登録: {count_d:,} 件 (累計: {len(term_dict):,} 件)")
 
-
-print("=== [3] 厚労省 医薬品マスター (y_*.csv / txt) の解析 ===")
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. 厚労省 医薬品マスター (y_*.csv / txt)
+# ─────────────────────────────────────────────────────────────────────────────
+print("=== [5] 厚労省 医薬品マスター (y_*.csv / txt) の解析 ===")
 drug_files = [f for f in os.listdir(BASE_DIR) if f.lower().startswith('y') and f.lower().endswith(('.csv', '.txt'))]
 if drug_files:
     target = os.path.join(BASE_DIR, drug_files[0])
@@ -139,12 +220,10 @@ if drug_files:
                 kana = unicodedata.normalize('NFKC', row[6].strip())
                 gen_name = unicodedata.normalize('NFKC', row[37].strip()) if len(row) > 37 else ""
                 
-                # 1. 規格名そのもの
                 candidates = []
                 if name and len(name) >= 2:
                     candidates.append((name, kana))
                 
-                # 2. ベース薬品名 (例: 「ロキソニン」「アスピリン」「ガスター」「ファモチジン」)
                 base1 = clean_drug_base_name(name)
                 if len(base1) >= 2 and base1 != name:
                     candidates.append((base1, base1))
@@ -161,12 +240,14 @@ if drug_files:
                         if h not in term_dict:
                             is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in w)
                             mode = 2 if is_katakana else 1
-                            term_dict[h] = (w, romaji, mode, 100)
+                            term_dict[h] = (w, romaji, mode, 80)
                             count_y += 1
     print(f"    医薬品エントリ登録: {count_y:,} 件 (累計: {len(term_dict):,} 件)")
 
-
-print("=== [4] Mozc 公式辞書データの解析＆一般重要語彙の抽出 ===")
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. Mozc 公式辞書データの解析＆一般重要語彙の抽出
+# ─────────────────────────────────────────────────────────────────────────────
+print("=== [6] Mozc 公式辞書データの解析＆一般重要語彙の抽出 ===")
 mozc_files = []
 for i in range(10):
     fn = f"dictionary0{i}.txt"
@@ -186,7 +267,6 @@ for fp in mozc_files:
             word = parts[4]
 
             if len(word) < 2 or len(word) > 20: continue
-            # 日本語文字を含むか
             if not any(ord(c) >= 0x3040 for c in word): continue
 
             is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in word)
@@ -198,10 +278,10 @@ for fp in mozc_files:
 print(f" -> Mozc ユニーク候補語彙: {len(mozc_candidates):,} 語")
 
 # コスト順にソートして、上限件数まで追加
-# SPIFFSのオーバーヘッド（ブロック予備・メタデータ等）を考慮し、安全値 120,000語（約3.84MB）とする。
-target_total_words = 120000
+# AtomS3U 8MB Flash (SPIFFS 5.8MB) の安全限界: 130,000語 (約 3.97 MB)
+target_total_words = 130000
 needed_mozc = target_total_words - len(term_dict)
-print(f" -> Mozc から追加予定の語数: 約 {needed_mozc:,} 語")
+print(f" -> 目標総語彙数: {target_total_words:,} 語 (Mozc から追加予定: 約 {needed_mozc:,} 語)")
 
 sorted_mozc = sorted(mozc_candidates.items(), key=lambda x: x[1][0])
 added_mozc = 0
@@ -219,8 +299,10 @@ for word, (cost, yomi, mode) in sorted_mozc:
 print(f" -> Mozc 追加語数: {added_mozc:,} 件")
 print(f" === 辞書統合完了: 総登録語彙数 = {len(term_dict):,} 語 ===")
 
-
-print("=== [5] 固定長バイナリ辞書 (med_terms.bin) の生成 ===")
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. 固定長バイナリ辞書 (med_terms.bin) の生成
+# ─────────────────────────────────────────────────────────────────────────────
+print("=== [7] 固定長バイナリ辞書 (med_terms.bin) の生成 ===")
 sorted_records = sorted(term_dict.items(), key=lambda x: x[0])
 
 out_paths = [
@@ -238,4 +320,4 @@ for out_path in out_paths:
             f.write(struct.pack('<IBB26s', h, mode, len(romaji_b), romaji_pad))
     print(f" -> バイナリ出力: {out_path} ({len(sorted_records):,} 語, {os.path.getsize(out_path):,} bytes / {os.path.getsize(out_path)/1024/1024:.2f} MB)")
 
-print("=== 完了 ===")
+print("=== 全工程完了 ===")
