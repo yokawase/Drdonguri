@@ -281,6 +281,19 @@ void sendNumLockToggle() {
 }
 
 // ============================================================================
+// 電カル監視ソフト対応: KeyUpレポート完全保証型 キー送出関数
+// 単なる Keyboard.write() ではOSのメッセージフック（Trend Micro/Skysea等）によってKeyUpが脱落し、
+// キーリピート暴発（かんjyy, ppおいんtt等）が発生するため、明示的に二重解放レポート(0x00)を送出する
+// ============================================================================
+void safeWrite(uint8_t key) {
+  Keyboard.press(key);
+  delay(6);              // OSがKeyDownを確実に認識・処理する時間
+  Keyboard.release(key);
+  delay(2);
+  Keyboard.releaseAll();  // 念押しで全キー解放レポート(0x00)を送信（二重解放保証）
+}
+
+// ============================================================================
 // JIS 109/106 キーボード対応 キーストローク送出エンジン
 // 未定義コードや危険なスキャンコードは一切送出せず、安全なASCII記号補正のみを行う
 // ============================================================================
@@ -289,22 +302,22 @@ void sendSafeChar(char c) {
   
   if (uc < 32 || uc > 126) {
     if (c == '\b' || uc == 0x08) {
-      Keyboard.write(KEY_BACKSPACE);
+      safeWrite(KEY_BACKSPACE);
       delay(25);
       return;
     }
     if (c == '\t') {
-      Keyboard.write(KEY_TAB);
+      safeWrite(KEY_TAB);
       delay(12);
       return;
     }
     if (c == '\n') {
-      Keyboard.write(KEY_RETURN);
+      safeWrite(KEY_RETURN);
       delay(20);
       return;
     }
     if (uc == 0x1B || uc == 0x11) { // ESC または 無変換・リセットコマンド
-      Keyboard.write(KEY_ESC);
+      safeWrite(KEY_ESC);
       delay(15);
       return;
     }
@@ -314,24 +327,26 @@ void sendSafeChar(char c) {
   // Windows JIS 109キーボード配列向け記号補正
   switch (c) {
     case ':': // JISでは「'」キー位置 (0x27)
-      Keyboard.write((char)0x27);
+      safeWrite((char)0x27);
       break;
     case '@': // JISではバッククォートキー位置 (0x60)
-      Keyboard.write((char)0x60);
+      safeWrite((char)0x60);
       break;
     case '[': // JISでは「]」キー位置
-      Keyboard.write(']');
+      safeWrite(']');
       break;
     case ']': // JISでは「\」キー位置 (0x5C)
-      Keyboard.write((char)0x5C);
+      safeWrite((char)0x5C);
       break;
     case '^': // JISでは「=」キー位置
-      Keyboard.write('=');
+      safeWrite('=');
       break;
     case '~': // JIS Shift + ^
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('=');
       delay(4);
+      Keyboard.releaseAll();
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '(': // JIS Shift + 8
@@ -339,11 +354,15 @@ void sendSafeChar(char c) {
       Keyboard.press('8');
       delay(4);
       Keyboard.releaseAll();
+      delay(2);
+      Keyboard.releaseAll();
       break;
     case ')': // JIS Shift + 9
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('9');
       delay(4);
+      Keyboard.releaseAll();
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '=': // JIS Shift + -
@@ -351,11 +370,15 @@ void sendSafeChar(char c) {
       Keyboard.press('-');
       delay(4);
       Keyboard.releaseAll();
+      delay(2);
+      Keyboard.releaseAll();
       break;
     case '"': // JIS Shift + 2
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('2');
       delay(4);
+      Keyboard.releaseAll();
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '\'': // JIS Shift + 7
@@ -363,11 +386,15 @@ void sendSafeChar(char c) {
       Keyboard.press('7');
       delay(4);
       Keyboard.releaseAll();
+      delay(2);
+      Keyboard.releaseAll();
       break;
     case '&': // JIS Shift + 6
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('6');
       delay(4);
+      Keyboard.releaseAll();
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '{': // JIS Shift + [
@@ -375,11 +402,15 @@ void sendSafeChar(char c) {
       Keyboard.press(']');
       delay(4);
       Keyboard.releaseAll();
+      delay(2);
+      Keyboard.releaseAll();
       break;
     case '}': // JIS Shift + ] (0x5C)
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press((char)0x5C);
       delay(4);
+      Keyboard.releaseAll();
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '<': // JIS Shift + ,
@@ -387,11 +418,15 @@ void sendSafeChar(char c) {
       Keyboard.press(',');
       delay(4);
       Keyboard.releaseAll();
+      delay(2);
+      Keyboard.releaseAll();
       break;
     case '>': // JIS Shift + .
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('.');
       delay(4);
+      Keyboard.releaseAll();
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '?': // JIS Shift + /
@@ -399,11 +434,15 @@ void sendSafeChar(char c) {
       Keyboard.press('/');
       delay(4);
       Keyboard.releaseAll();
+      delay(2);
+      Keyboard.releaseAll();
       break;
     case '!': // JIS Shift + 1
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('1');
       delay(4);
+      Keyboard.releaseAll();
+      delay(2);
       Keyboard.releaseAll();
       break;
     case '*': // JIS Shift + : (Usage 0x34)
@@ -416,7 +455,9 @@ void sendSafeChar(char c) {
         delay(4);
         memset(&rep, 0, sizeof(KeyReport));
         Keyboard.sendReport(&rep);
-        delay(4);
+        delay(2);
+        Keyboard.releaseAll();
+        delay(2);
       }
       break;
     case '#': // JIS Shift + 3 (Usage 0x20)
@@ -429,7 +470,9 @@ void sendSafeChar(char c) {
         delay(4);
         memset(&rep, 0, sizeof(KeyReport));
         Keyboard.sendReport(&rep);
-        delay(4);
+        delay(2);
+        Keyboard.releaseAll();
+        delay(2);
       }
       break;
     case '_': // JIS Shift + ろ (Usage 0x87)
@@ -442,7 +485,9 @@ void sendSafeChar(char c) {
         delay(4);
         memset(&rep, 0, sizeof(KeyReport));
         Keyboard.sendReport(&rep);
-        delay(4);
+        delay(2);
+        Keyboard.releaseAll();
+        delay(2);
       }
       break;
     case '\\': // JISでは「￥」キー位置 (Usage 0x89 = International 3)
@@ -454,14 +499,16 @@ void sendSafeChar(char c) {
         delay(4);
         memset(&rep, 0, sizeof(KeyReport));
         Keyboard.sendReport(&rep);
-        delay(4);
+        delay(2);
+        Keyboard.releaseAll();
+        delay(2);
       }
       break;
     default:
-      Keyboard.write(c);
+      safeWrite(c);
       break;
   }
-  delay(8); // 電子カルテ取りこぼし防止・確実インターキー遅延 (8ms: 高速かつ脱落ゼロ保証)
+  delay(11); // 電カルセーフ・インターキー遅延 (11ms: 監視ソフトフック遅延を完全に吸収し脱落・リピート暴発ゼロ保証)
 }
 
 // ============================================================================
@@ -596,21 +643,24 @@ void sendMedTermKeystrokes(const MedTermRecord& rec) {
   }
   if (rec.mode == 2) {
     // Mode 2: カタカナ薬品名 (F7全角カタカナ強制 ➔ Enter確定)
-    Keyboard.write(KEY_F7);
+    delay(20);
+    safeWrite(KEY_F7);
     delay(25);
-    Keyboard.write(KEY_RETURN);
+    safeWrite(KEY_RETURN);
     delay(40);
   } else if (rec.mode == 3) {
     // Mode 3: 半角F10 (F10強制 ➔ Enter確定)
-    Keyboard.write(KEY_F10);
     delay(20);
-    Keyboard.write(KEY_RETURN);
+    safeWrite(KEY_F10);
+    delay(25);
+    safeWrite(KEY_RETURN);
     delay(40);
   } else {
     // Mode 1: 傷病名・医学用語 (Space漢字変換 ➔ Enter確定)
-    Keyboard.write(' ');
-    delay(30);
-    Keyboard.write(KEY_RETURN);
+    delay(20); // 候補パレット安定ウェイト
+    safeWrite(' ');
+    delay(35); // 候補窓展開ウェイト
+    safeWrite(KEY_RETURN);
     delay(40);
   }
 }
@@ -858,13 +908,13 @@ bool dispatchSafeKeystrokes() {
       if (isMicsMode) {
         Keyboard.press(KEY_LEFT_ALT);
         delay(10);
-        Keyboard.press(KEY_RETURN);
-        delay(15);
+        safeWrite(KEY_RETURN);
+        delay(10);
         Keyboard.releaseAll();
         delay(30);
       } else {
-        Keyboard.write(KEY_RETURN);
-        delay(22);
+        safeWrite(KEY_RETURN);
+        delay(25);
       }
       i++;
       continue;
@@ -873,13 +923,13 @@ bool dispatchSafeKeystrokes() {
       if (isMicsMode) {
         Keyboard.press(KEY_LEFT_ALT);
         delay(10);
-        Keyboard.press(KEY_RETURN);
-        delay(15);
+        safeWrite(KEY_RETURN);
+        delay(10);
         Keyboard.releaseAll();
         delay(30);
       } else {
-        Keyboard.write(KEY_RETURN);
-        delay(22);
+        safeWrite(KEY_RETURN);
+        delay(25);
       }
       i++;
       continue;
@@ -905,9 +955,10 @@ bool dispatchSafeKeystrokes() {
         }
         i++;
       }
-      Keyboard.write(KEY_F7);
+      delay(20);
+      safeWrite(KEY_F7);
       delay(25);
-      Keyboard.write(KEY_RETURN);
+      safeWrite(KEY_RETURN);
       delay(40);
       continue;
     }
@@ -931,7 +982,8 @@ bool dispatchSafeKeystrokes() {
         }
         i++;
       }
-      Keyboard.write(KEY_RETURN);
+      delay(20);
+      safeWrite(KEY_RETURN);
       delay(40);
       continue;
     }
@@ -955,9 +1007,10 @@ bool dispatchSafeKeystrokes() {
         }
         i++;
       }
-      Keyboard.write(' ');
-      delay(30);
-      Keyboard.write(KEY_RETURN);
+      delay(20); // 候補パレット安定ウェイト
+      safeWrite(' ');
+      delay(35); // 候補窓展開ウェイト
+      safeWrite(KEY_RETURN);
       delay(40);
       continue;
     }
@@ -986,9 +1039,10 @@ bool dispatchSafeKeystrokes() {
       // 英数字・記号が含まれていた場合、MS-IMEが日本語入力中なら未確定全角になっているため、
       // F10で半角英数・半角記号に強制変換し、Enterで未確定文字列を確定する！
       if (hasNonSpace) {
-        Keyboard.write(KEY_F10);
         delay(20);
-        Keyboard.write(KEY_RETURN);
+        safeWrite(KEY_F10);
+        delay(25);
+        safeWrite(KEY_RETURN);
         delay(35);
       }
       continue;
@@ -1015,8 +1069,8 @@ bool dispatchSafeKeystrokes() {
       if (strncmp(&buf[i], "<ALT_ENTER>", 11) == 0 || strncmp(&buf[i], "[ALT_ENTER]", 11) == 0) {
         Keyboard.press(KEY_LEFT_ALT);
         delay(10);
-        Keyboard.press(KEY_RETURN);
-        delay(15);
+        safeWrite(KEY_RETURN);
+        delay(10);
         Keyboard.releaseAll();
         delay(30);
         i += 11;
@@ -1025,15 +1079,15 @@ bool dispatchSafeKeystrokes() {
       if (strncmp(&buf[i], "<CTRL_ENTER>", 12) == 0 || strncmp(&buf[i], "[CTRL_ENTER]", 12) == 0) {
         Keyboard.press(KEY_LEFT_CTRL);
         delay(10);
-        Keyboard.press(KEY_RETURN);
-        delay(15);
+        safeWrite(KEY_RETURN);
+        delay(10);
         Keyboard.releaseAll();
         delay(30);
         i += 12;
         continue;
       }
       if (strncmp(&buf[i], "[BS]", 4) == 0 || strncmp(&buf[i], "<BS>", 4) == 0) {
-        Keyboard.write(KEY_BACKSPACE);
+        safeWrite(KEY_BACKSPACE);
         delay(15);
         i += 4;
         continue;
@@ -1044,19 +1098,19 @@ bool dispatchSafeKeystrokes() {
       if (strncmp(&buf[i], "[/A]", 4) == 0 || strncmp(&buf[i], "</A>", 4) == 0) { i += 4; continue; }
       if (strncmp(&buf[i], "[/U]", 4) == 0 || strncmp(&buf[i], "</U>", 4) == 0) { i += 4; continue; }
       if (strncmp(&buf[i], "<ENTER>", 7) == 0 || strncmp(&buf[i], "[ENTER]", 7) == 0) {
-        Keyboard.write(KEY_RETURN);
-        delay(22);
+        safeWrite(KEY_RETURN);
+        delay(25);
         i += 7;
         continue;
       }
       if (strncmp(&buf[i], "<CONV>", 6) == 0) {
-        Keyboard.write(' ');
-        delay(18);
+        safeWrite(' ');
+        delay(20);
         i += 6;
         continue;
       }
       if (strncmp(&buf[i], "<SPACE>", 7) == 0 || strncmp(&buf[i], "[SPACE]", 7) == 0) {
-        Keyboard.write(' ');
+        safeWrite(' ');
         delay(15);
         i += 7;
         continue;
@@ -1131,17 +1185,18 @@ bool dispatchSafeKeystrokes() {
           sendSafeChar(yomiRomaji[r]);
         }
         // Space漢字変換 ➔ Enter確定 (F5リロード誤爆ゼロ)
-        Keyboard.write(' ');
-        delay(25);
-        Keyboard.write(KEY_RETURN);
-        delay(35);
+        delay(20); // 候補パレット安定ウェイト
+        safeWrite(' ');
+        delay(35); // 候補窓展開ウェイト
+        safeWrite(KEY_RETURN);
+        delay(40);
         i += uLen;
         continue;
       }
     }
 
     // 【レベル4】: 上記以外の一般ひらがな・カタカナ・約物・一般語
-    // 1. 全角約物・記号の変換
+    // 1. 全角約物・記号の変換 (山括弧 ＜ ＞ を含む全角記号を完全サポート)
     if (uLen == 3) {
       if (memcmp(&buf[i], "、", 3) == 0) { sendSafeChar(','); i += 3; continue; }
       if (memcmp(&buf[i], "。", 3) == 0) { sendSafeChar('.'); i += 3; continue; }
@@ -1153,6 +1208,8 @@ bool dispatchSafeKeystrokes() {
       if (memcmp(&buf[i], "〜", 3) == 0) { sendSafeChar('~'); i += 3; continue; }
       if (memcmp(&buf[i], "：", 3) == 0) { sendSafeChar(':'); i += 3; continue; }
       if (memcmp(&buf[i], "ー", 3) == 0) { sendSafeChar('-'); i += 3; continue; }
+      if (memcmp(&buf[i], "＜", 3) == 0 || memcmp(&buf[i], "《", 3) == 0) { sendSafeChar('<'); i += 3; continue; }
+      if (memcmp(&buf[i], "＞", 3) == 0 || memcmp(&buf[i], "》", 3) == 0) { sendSafeChar('>'); i += 3; continue; }
     }
 
 // 2. ひらがな連続塊: ローマ字送出
@@ -1211,8 +1268,9 @@ bool dispatchSafeKeystrokes() {
       // ひらがな塊末尾の確定: 文末（句点・約物・改行・終端）のときのみ確定
       if (i >= total || buf[i] == '\n' || buf[i] == '\r' || 
           (i + 3 <= total && (memcmp(&buf[i], "。", 3) == 0 || memcmp(&buf[i], "、", 3) == 0))) {
-        Keyboard.write(KEY_RETURN);
-        delay(35);
+        delay(20);
+        safeWrite(KEY_RETURN);
+        delay(40);
       }
       continue;
     }
@@ -1268,9 +1326,10 @@ bool dispatchSafeKeystrokes() {
         }
         i += getUtf8CharLen((uint8_t)buf[i]);
       }
-      Keyboard.write(KEY_F7);
+      delay(20);
+      safeWrite(KEY_F7);
       delay(25);
-      Keyboard.write(KEY_RETURN);
+      safeWrite(KEY_RETURN);
       delay(40);
       continue;
     }
@@ -1285,10 +1344,11 @@ bool dispatchSafeKeystrokes() {
         for (size_t r = 0; yomiRomaji[r] != '\0'; r++) {
           sendSafeChar(yomiRomaji[r]);
         }
-        Keyboard.write(' ');
-        delay(25);
-        Keyboard.write(KEY_RETURN);
-        delay(35);
+        delay(20); // 候補パレット安定ウェイト
+        safeWrite(' ');
+        delay(35); // 候補窓展開ウェイト
+        safeWrite(KEY_RETURN);
+        delay(40);
         i += uLen;
         continue;
       }

@@ -254,6 +254,72 @@ export interface ChunkRule {
 }
 
 export const CHUNK_DECOMPOSITION_RULES: ChunkRule[] = [
+  // ── 実機検証フィードバック（DynaBook/電カル）誤変換根絶チャンクルール ──
+  { composite: '胃がん＜治療＞', chunks: ['胃がん', '＜', '治療', '＞'], readings: ['igann', '<', 'tiryou', '>'] },
+  { composite: '＜治療＞', chunks: ['＜', '治療', '＞'], readings: ['<', 'tiryou', '>'] },
+  { composite: '治療にも進歩', chunks: ['治療に', 'も', '進', '歩'], readings: ['tiryouyni', 'mo', 'sinn', 'po'] },
+  { composite: 'にも進歩', chunks: ['にも', '進', '歩'], readings: ['nimo', 'sinn', 'po'] },
+  { composite: '進歩', chunks: ['進', '歩'], readings: ['sinn', 'po'] },
+  { composite: '最も大きく変わると思う消化器がんは？', chunks: ['最も', '大きく', '変わる', 'と', '思う', '消化器', 'がんは', '？'], readings: ['mottomo', 'ookiku', 'kawaru', 'to', 'omou', 'syoukaki', 'gannha', '?'] },
+  { composite: '最も大きく変わると思う', chunks: ['最も', '大きく', '変わる', 'と', '思う'], readings: ['mottomo', 'ookiku', 'kawaru', 'to', 'omou'] },
+  { composite: '最も大きく', chunks: ['最も', '大きく'], readings: ['mottomo', 'ookiku'] },
+  { composite: '大きく変わる', chunks: ['大きく', '変わる'], readings: ['ookiku', 'kawaru'] },
+  { composite: '変わると思う', chunks: ['変わる', 'と', '思う'], readings: ['kawaru', 'to', 'omou'] },
+  { composite: '大きな変化になると予想する理由をお聞かせください。', chunks: ['大きな', '変化に', 'なると', '予想する', '理由を', 'お聞かせ', 'ください', '。'], readings: ['ookina', 'hennkani', 'naruto', 'yosousuru', 'riyuuwo', 'okikase', 'kudasai', '.'] },
+  { composite: '大きな変化になると予想する理由をお聞かせください', chunks: ['大きな', '変化に', 'なると', '予想する', '理由を', 'お聞かせ', 'ください'], readings: ['ookina', 'hennkani', 'naruto', 'yosousuru', 'riyuuwo', 'okikase', 'kudasai'] },
+  { composite: '大きな変化に', chunks: ['大きな', '変化に'], readings: ['ookina', 'hennkani'] },
+  { composite: '大きな変化', chunks: ['大きな', '変化'], readings: ['ookina', 'hennka'] },
+  { composite: '予想する理由を', chunks: ['予想する', '理由を'], readings: ['yosousuru', 'riyuuwo'] },
+  { composite: 'お聞かせください', chunks: ['お聞かせ', 'ください'], readings: ['okikase', 'kudasai'] },
+  { composite: '陽性者数減と除菌者数増加から', chunks: ['陽性者数', '減と', '除菌者数', '増加から'], readings: ['youseisyasuu', 'gennto', 'jyokinnsyasuu', 'zoukakarara'] },
+  { composite: '陽性者数減', chunks: ['陽性者数', '減'], readings: ['youseisyasuu', 'genn'] },
+  { composite: '除菌者数増加', chunks: ['除菌者数', '増加'], readings: ['jyokinnsyasuu', 'zouka'] },
+  { composite: '胃がん発見数の減少が著しく感じられる', chunks: ['胃がん', '発見数の', '減少が', '著しく', '感じられる'], readings: ['igann', 'hakkennsuuno', 'gensyouga', 'itizirusiku', 'kannjirareru'] },
+  { composite: '減少が著しく感じられる', chunks: ['減少が', '著しく', '感じられる'], readings: ['gensyouga', 'itizirusiku', 'kannjirareru'] },
+  { composite: '著しく感じられる', chunks: ['著しく', '感じられる'], readings: ['itizirusiku', 'kannjirareru'] },
+  { composite: '著しく', chunks: ['著しく'], readings: ['itizirusiku'] },
+  { composite: '当方麻酔科医ですが', chunks: ['当方', '麻酔科医', 'ですが'], readings: ['touhou', 'masuikai', 'desuga'] },
+  { composite: '当方', chunks: ['当方'], readings: ['touhou'] },
+  { composite: 'ほとんど無い', chunks: ['ほとんど', '無い'], readings: ['hotonndo', 'nai'] },
+  { composite: '麻酔科勤務医', chunks: ['麻酔科', '勤務', '医'], readings: ['masuika', 'kinnmu', 'i'] },
+  { composite: '消化器外科勤務医', chunks: ['消化器外科', '勤務', '医'], readings: ['syoukagigeka', 'kinnmu', 'i'] },
+  { composite: '外科勤務医', chunks: ['外科', '勤務', '医'], readings: ['geka', 'kinnmu', 'i'] },
+  { composite: '勤務医', chunks: ['勤務', '医'], readings: ['kinnmu', 'i'] },
+  { composite: '消化器内科開業医', chunks: ['消化器内科', '開業', '医'], readings: ['syoukaginaika', 'kaigyou', 'i'] },
+  { composite: '内科開業医', chunks: ['内科', '開業', '医'], readings: ['naika', 'kaigyou', 'i'] },
+  { composite: '開業医', chunks: ['開業', '医'], readings: ['kaigyou', 'i'] },
+  { composite: '大きく減少した', chunks: ['大きく', '減少した'], readings: ['ookiku', 'gensyousita'] },
+  { composite: '大きく減少', chunks: ['大きく', '減少'], readings: ['ookiku', 'gensyou'] },
+  { composite: '登場して化学療法の成績が改善した', chunks: ['登場して', '化学療法の', '成績が', '改善した'], readings: ['toujyousite', 'kagakuryouhouno', 'seisekiga', 'kaizensita'] },
+  { composite: '登場して', chunks: ['登場', 'して'], readings: ['toujyou', 'site'] },
+  { composite: 'ロボット手術が普及しつつある', chunks: ['ロボット手術が', '普及しつつある'], readings: ['robottosyujyutuga', 'hukyuusitutuaru'] },
+  { composite: '普及しつつある', chunks: ['普及', 'しつつある'], readings: ['hukyuu', 'situtuaru'] },
+  { composite: '胃がんを取り巻く環境は激変しています', chunks: ['胃がんを', '取り巻く', '環境は', '激変しています'], readings: ['igannwo', 'torimaku', 'kannkyouha', 'gekihennsiteimasu'] },
+  { composite: 'を取り巻く環境は', chunks: ['を', '取り巻く', '環境は'], readings: ['wo', 'torimaku', 'kannkyouha'] },
+  { composite: 'を取り巻く環境', chunks: ['を', '取り巻く', '環境'], readings: ['wo', 'torimaku', 'kannkyou'] },
+  { composite: '取り巻く環境', chunks: ['取り巻く', '環境'], readings: ['torimaku', 'kannkyou'] },
+  { composite: '取り巻く', chunks: ['取り巻く'], readings: ['torimaku'] },
+  { composite: '激変しています', chunks: ['激変', 'しています'], readings: ['gekihenn', 'siteimasu'] },
+  { composite: 'ピロリ菌除菌がかなり済んだので', chunks: ['ピロリ菌除菌が', 'かなり', '済んだので'], readings: ['pirorikinnjyokinnga', 'kanari', 'sunndanode'] },
+  { composite: 'かなり済んだので', chunks: ['かなり', '済んだので'], readings: ['kanari', 'sunndanode'] },
+  { composite: '済んだので', chunks: ['済んだ', 'ので'], readings: ['sunnda', 'node'] },
+  { composite: '人口が減るだろうと予想されます', chunks: ['人口が', '減るだろうと', '予想されます'], readings: ['jinnkouga', 'herudarouto', 'yosousaremasu'] },
+  { composite: '減るだろうと予想されます', chunks: ['減るだろうと', '予想されます'], readings: ['herudarouto', 'yosousaremasu'] },
+  { composite: '減るだろうと', chunks: ['減るだろう', 'と'], readings: ['herudarou', 'to'] },
+  { composite: '減るだろう', chunks: ['減る', 'だろう'], readings: ['heru', 'darou'] },
+  { composite: '進行がんが減ってきた', chunks: ['進行がんが', '減ってきた'], readings: ['sinkougannga', 'hettekita'] },
+  { composite: '減ってきた', chunks: ['減って', 'きた'], readings: ['hette', 'kita'] },
+  { composite: '減って', chunks: ['減って'], readings: ['hette'] },
+  { composite: 'HER2陰性進行がん（特に4型）に抗オックルーディン18.2抗体が早期から導入されるようになる、かもしれない', chunks: ['HER2', '陰性', '進行がん', '（', '特に', '4', '型', '）', 'に', '抗', 'オックルーディン', '18.2', '抗体が', '早期から', '導入される', 'ようになる', '、', 'かもしれない'], readings: ['HER2', 'innsei', 'sinkougann', '(', 'tokuni', '4', 'kei', ')', 'ni', 'kou', 'okku-rudhinn', '18.2', 'koutaiga', 'soukikara', 'dounyuusareru', 'youninaru', ',', 'kamoshirenai'] },
+  { composite: '特に4型', chunks: ['特に', '4', '型'], readings: ['tokuni', '4', 'kei'] },
+  { composite: '4型', chunks: ['4', '型'], readings: ['4', 'kei'] },
+  { composite: '抗オックルーディン18.2抗体が', chunks: ['抗', 'オックルーディン', '18.2', '抗体が'], readings: ['kou', 'okku-rudhinn', '18.2', 'koutaiga'] },
+  { composite: '抗オックルーディン18.2抗体', chunks: ['抗', 'オックルーディン', '18.2', '抗体'], readings: ['kou', 'okku-rudhinn', '18.2', 'koutai'] },
+  { composite: '抗オックルーディン', chunks: ['抗', 'オックルーディン'], readings: ['kou', 'okku-rudhinn'] },
+  { composite: '早期から導入されるようになる', chunks: ['早期から', '導入される', 'ようになる'], readings: ['soukikara', 'dounyuusareru', 'youninaru'] },
+  { composite: '導入されるようになる', chunks: ['導入される', 'ようになる'], readings: ['dounyuusareru', 'youninaru'] },
+  { composite: '導入される', chunks: ['導入', 'される'], readings: ['dounyuu', 'sareru'] },
+  { composite: 'ようになる、かもしれない', chunks: ['ようになる', '、', 'かもしれない'], readings: ['youninaru', ',', 'kamoshirenai'] },
   // ユーザー入力文・カルテ重要文節（MS-IME自然文節学習に準拠）
   { composite: '健診で低い', chunks: ['健診で', '低い'], readings: ['kennsinnde', 'hikui'] },
   { composite: 'コレステロール値', chunks: ['コレステロール', '値'], readings: ['koresutero-ru', 'atai'] },
@@ -923,7 +989,26 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   '慢性的な': 'mannseitekina', '構造的': 'kouzouteki', '機能的': 'kinouteki', '異常': 'ijyou',
   'フィールドキャンセリゼーション': 'fi-rudokyananserize-syonn',
   '残存し': 'zannzonnsi', '残存': 'zannzonn', '異時性胃癌': 'ijiseiigann', '異時性': 'ijisei',
-  '臨床課題': 'rinnsyoukadai', '最重要視': 'saijyuuyousi'
+  '臨床課題': 'rinnsyoukadai', '最重要視': 'saijyuuyousi',
+  // ── 実機検証フィードバック追加：誤変換根絶・高精度医療・日常カルテ語彙 ──
+  '進歩': 'sinnpo', '進行がん': 'sinkougann', '進行癌': 'sinkougan',
+  '勤務医': 'kinnmui', '開業医': 'kaigyoui',
+  '麻酔科勤務医': 'masuikakinnmui', '麻酔科医': 'masuikai', '麻酔科': 'masuika', '麻酔': 'masui',
+  '当方': 'touhou', '最近': 'saikinn',
+  '消化器外科勤務医': 'syoukagigekakinnmui', '消化器内科開業医': 'syoukaginaikakaigyoui',
+  '消化器内科': 'syoukaginaika', '消化器外科': 'syoukagigeka',
+  '外科勤務医': 'gekakinnmui', '内科開業医': 'naikakaigyoui', '外科': 'geka', '内科': 'naika',
+  '患者激減': 'kannjyagekigenn', '激減': 'gekigenn',
+  '陽性者数減': 'youseisyasuugenn', '陽性者数': 'youseisyasuu',
+  '除菌者数増加': 'jyokinnsyasuuzouka', '除菌者数': 'jyokinnsyasuu', '増加': 'zouka',
+  '発見数の減少': 'hakkennsuunogensyou', '発見数': 'hakkennsuu', '発見': 'hakkenn', '減少': 'gensyou',
+  '罹患数': 'rikannsuu', '罹患': 'rikann',
+  '免疫チェックポイント阻害薬': 'mennekityekkupoinntosogaiyaku', '阻害薬': 'sogaiyaku', '阻害': 'sogai',
+  '化学療法': 'kagakuryouhou', 'ロボット手術': 'robottosyujyutu', '手術': 'syujyutu',
+  '4型': '4kei', '型': 'kei',
+  '抗オックルーディン': 'kouokku-rudhinn', '抗オックルーディン18.2抗体': 'kouokku-rudhinn18.2koutai',
+  '抗体': 'koutai', '抗': 'kou',
+  '人口': 'jinnkou', '疾患': 'sikkann', '理由': 'riyuu', '変化': 'hennka', '成績': 'seiseki', '治療': 'tiryou'
 };
 
 // 活用語・送り仮名付き動詞・形容詞・副詞テーブル（音読み誤爆完全根絶用）
@@ -944,7 +1029,26 @@ export const INFLECTED_WORD_MAP: Record<string, string> = {
   '継続的な': 'keizokutekina', '継続的': 'keizokuteki',
   '限定的であることも': 'gennteitekidearukotomo', '限定的': 'gennteiteki',
   '認識されている': 'ninnsikisareteiru', '認識': 'ninnsiki',
-  '推奨される': 'suisyousareru', '推奨': 'suisyou'
+  '推奨される': 'suisyousareru', '推奨': 'suisyou',
+  // 実機検証フィードバック追加：自立語・動詞・形容詞・副詞
+  '済んだので': 'sunndanode', '済んだ': 'sunnda', '済む': 'sumu',
+  '減るだろう': 'herudarou', '減ってきた': 'hettekita', '減って': 'hette', '減り': 'heri', '減る': 'heru', '減った': 'hetta',
+  '最も大きく': 'mottomoookiku', '最も': 'mottomo',
+  '大きく': 'ookiku', '大きい': 'ookii', '大きな': 'ookina',
+  '小さく': 'tiisaku', '小さい': 'tiisai', '小さな': 'tiisana',
+  '変わると思う': 'kawarutoomou', '変わる': 'kawaru', '思う': 'omou',
+  'お聞かせください': 'okikasekudasai', 'お聞かせ': 'okikase', '聞かせ': 'kikase',
+  '著しく': 'itizirusiku', '著しい': 'itizirusii',
+  'ほとんど無い': 'hotonndonai', '無い': 'nai', 'ほとんど': 'hotonndo',
+  '登場して': 'toujyousite', '登場し': 'toujyousi', '登場': 'toujyou',
+  '取り巻く環境': 'torimakukannkyou', '取り巻く': 'torimaku',
+  '激変しています': 'gekihennsiteimasu', '激変して': 'gekihennsite', '激変': 'gekihenn',
+  '普及しつつある': 'hukyuusitutuaru', '普及し': 'hukyuusi', '普及': 'hukyuu',
+  '導入される': 'dounyuusareru', '導入され': 'dounyuusare', '導入': 'dounyuu',
+  '改善した': 'kaizennsita', '改善し': 'kaizennsi', '改善': 'kaizenn',
+  '予想されます': 'yosousaremasu', '予想する': 'yosousuru', '予想': 'yosou',
+  '選択した': 'senntakusita', '選択': 'senntaku',
+  '感じられる': 'kannjirareru', '感じる': 'kannjiru'
 };
 
 // 熟語フォールバック用 音読み強制テーブル（訓読みキメラ連結を100%根絶）
@@ -1253,36 +1357,8 @@ export function compileMedicalTextToImeBoost(
     return `${kanjiPart}[A]${asciiPart}[/A]`;
   });
 
-  // ──【一般化形態素ルール⑥：最長一致・臨床専門複合語＆活用語一括保護エンジン】──
-  // CLINICAL_COMPOUND_MAP および INFLECTED_WORD_MAP の登録語を文字数の長い順にソートし、
-  // カタカナ・漢字がトークナイザで分断されて「ピロリ金」「送別化」「頂上費火星」等の誤爆が発生するのを100%防止！
-  const mergedDict: Record<string, string> = { ...CLINICAL_COMPOUND_MAP, ...INFLECTED_WORD_MAP };
-  const sortedDictKeys = Object.keys(mergedDict).sort((a, b) => b.length - a.length);
-
-  for (const word of sortedDictKeys) {
-    if (word.length < 2) continue;
-    if (text.includes(word)) {
-      const rom = mergedDict[word];
-      const isAllKatakana = /^[ァ-ヴー・]+$/.test(word);
-      const isAllHiragana = /^[ぁ-んー]+$/.test(word);
-      const tagOpen = isAllKatakana ? IME_TAG_KATAKANA : isAllHiragana ? IME_TAG_HIRAGANA : IME_TAG_KANJI;
-      const tagClose = isAllKatakana ? IME_TAG_KATAKANA_END : isAllHiragana ? IME_TAG_HIRAGANA_END : IME_TAG_KANJI_END;
-      const tagSeq = `${tagOpen}${rom}${tagClose}`;
-
-      const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`(\\[[A-Z0-9]+\\][\\s\\S]*?\\[\\/[A-Z0-9]+\\])|(${escapedWord})`, 'g');
-      text = text.replace(regex, (match, tagPart, wordPart) => {
-        if (tagPart) return tagPart;
-        if (wordPart) return tagSeq;
-        return match;
-      });
-    }
-  }
-
-  // Markdown 文献番号参照 [1], [2] 等の半角ASCII保護
-  text = text.replace(/\[(\d+)\]/g, `${IME_TAG_ASCII}[$1]${IME_TAG_ASCII_END}`);
-
-  // 2. 最小確実形態素（Chunk）分解の適用（最長一致ルール優先でソート）
+  // 2. 最小確実形態素（Chunk）分解の最優先適用（最長一致ルール優先でソート）
+  // 複合語の過大一括変換や「新保」「勤勤胃」誤爆を最小自立語で確実に防ぐため、最優先で適用する
   if (options.enableChunkDecomposition) {
     const sortedRules = [...CHUNK_DECOMPOSITION_RULES].sort((a, b) => b.composite.length - a.composite.length);
     for (const rule of sortedRules) {
@@ -1299,6 +1375,12 @@ export function compileMedicalTextToImeBoost(
           }
           if (chunk === '」') {
             return `${IME_TAG_HIRAGANA}]${IME_TAG_HIRAGANA_END}`;
+          }
+          if (chunk === '＜' || chunk === '<' || chunk === '《') {
+            return `${IME_TAG_HIRAGANA}<${IME_TAG_HIRAGANA_END}`;
+          }
+          if (chunk === '＞' || chunk === '>' || chunk === '》') {
+            return `${IME_TAG_HIRAGANA}>${IME_TAG_HIRAGANA_END}`;
           }
           if (chunk === '：' || chunk === ':') {
             return `${IME_TAG_ASCII}:${IME_TAG_ASCII_END}`;
@@ -1333,6 +1415,35 @@ export function compileMedicalTextToImeBoost(
       }
     }
   }
+
+  // ──【一般化形態素ルール⑥：最長一致・臨床専門複合語＆活用語一括保護エンジン】──
+  // CLINICAL_COMPOUND_MAP および INFLECTED_WORD_MAP の登録語を文字数の長い順にソートし、
+  // カタカナ・漢字がトークナイザで分断されて「ピロリ金」「送別化」「頂上費火星」等の誤爆が発生するのを100%防止！
+  const mergedDict: Record<string, string> = { ...CLINICAL_COMPOUND_MAP, ...INFLECTED_WORD_MAP };
+  const sortedDictKeys = Object.keys(mergedDict).sort((a, b) => b.length - a.length);
+
+  for (const word of sortedDictKeys) {
+    if (word.length < 2) continue;
+    if (text.includes(word)) {
+      const rom = mergedDict[word];
+      const isAllKatakana = /^[ァ-ヴー・]+$/.test(word);
+      const isAllHiragana = /^[ぁ-んー]+$/.test(word);
+      const tagOpen = isAllKatakana ? IME_TAG_KATAKANA : isAllHiragana ? IME_TAG_HIRAGANA : IME_TAG_KANJI;
+      const tagClose = isAllKatakana ? IME_TAG_KATAKANA_END : isAllHiragana ? IME_TAG_HIRAGANA_END : IME_TAG_KANJI_END;
+      const tagSeq = `${tagOpen}${rom}${tagClose}`;
+
+      const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(\\[[A-Z0-9]+\\][\\s\\S]*?\\[\\/[A-Z0-9]+\\])|(${escapedWord})`, 'g');
+      text = text.replace(regex, (match, tagPart, wordPart) => {
+        if (tagPart) return tagPart;
+        if (wordPart) return tagSeq;
+        return match;
+      });
+    }
+  }
+
+  // Markdown 文献番号参照 [1], [2] 等の半角ASCII保護
+  text = text.replace(/\[(\d+)\]/g, `${IME_TAG_ASCII}[$1]${IME_TAG_ASCII_END}`);
 
   // 3. 難読専門漢字の処理 (F5キーはNotepad日付挿入事故の原因となるため廃止し、安全なローマ字漢字変換 [Z] を使用)
   if (options.enableUnicodeF5Assist) {
@@ -1400,7 +1511,7 @@ export function compileMedicalTextToImeBoost(
 
     // 既にタグが付与された部分（[K]...[/K], [H]...[/H], [Z]...[/Z], [A]...[/A], [U]...[/U]）やバックスペースを保持しつつパース
     // ★英文・英数字フレーズ・Markdown記号はスペースを含めてひとまとまりでマッチさせて全角誤変換を完全防止
-    const tokenRegex = /(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\]|\[BS\]|[\x08]+|【[^】]+】|[ァ-ヴー]{2,}|\d+(?:\.\d+)?(?:[\-~–—−―]\d+(?:\.\d+)?)?(?:mg|g|kg|mL|mmHg|bpm|℃|\%|度|日分|錠|T)?|[a-zA-Z0-9_\-\.\:\/\+\(\)\#\*\=\!\[\]\{\}\<\>\?\\\`\'\"]+(?:\s+[a-zA-Z0-9_\-\.\:\/\+\(\)\#\*\=\!\[\]\{\}\<\>\?\\\`\'\"]+)*|[一-龠]+[ぁ-ん]*|[ぁ-ん]+|[、。・，．,.:;!?！？…~〜–—−―（）「」『』／/]|\s+|[^\s])/g;
+    const tokenRegex = /(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\]|\[BS\]|[\x08]+|【[^】]+】|[ァ-ヴー]{2,}|\d+(?:\.\d+)?(?:[\-~–—−―]\d+(?:\.\d+)?)?(?:mg|g|kg|mL|mmHg|bpm|℃|\%|度|日分|錠|T)?|[a-zA-Z0-9_\-\.\:\/\+\(\)\#\*\=\!\[\]\{\}\?\`\'\"]+(?:\s+[a-zA-Z0-9_\-\.\:\/\+\(\)\#\*\=\!\[\]\{\}\?\`\'\"]+)*|[一-龠]+[ぁ-ん]*|[ぁ-ん]+|[、。・，．,.:;!?！？…~〜–—−―（）「」『』／/＜＞《》<>]|\s+|[^\s])/g;
     const tokens = curLine.match(tokenRegex) || [curLine];
     let lineResult = headingPrefix;
 
@@ -1468,7 +1579,7 @@ export function compileMedicalTextToImeBoost(
 
       // 数値・単位・英字・英文フレーズ・Markdown記号 ➔ [A]...[/A] (半角ASCII直接モード)
       const normToken = token.replace(/[–—−―]/g, '-');
-      if (/^[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$\*\=\!\[\]\{\}\<\>\?\\\`\'\"]+(?:\s+[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$\*\=\!\[\]\{\}\<\>\?\\\`\'\"]+)*$/.test(normToken)) {
+      if (/^[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$\*\=\!\[\]\{\}\?\`\'\"]+(?:\s+[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$\*\=\!\[\]\{\}\?\`\'\"]+)*$/.test(normToken)) {
         const seq = `${IME_TAG_ASCII}${normToken}${IME_TAG_ASCII_END}`;
         lineResult += seq;
         displayTokens.push({
@@ -1543,6 +1654,18 @@ export function compileMedicalTextToImeBoost(
         const seq = `${IME_TAG_HIRAGANA}]${IME_TAG_HIRAGANA_END}`;
         lineResult += seq;
         displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '] ➔ [Enter]', description: '括弧「」/】」確定' });
+        continue;
+      }
+      if (token === '＜' || token === '<' || token === '《') {
+        const seq = `${IME_TAG_HIRAGANA}<${IME_TAG_HIRAGANA_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '< ➔ [Enter]', description: '山括弧「＜」確定' });
+        continue;
+      }
+      if (token === '＞' || token === '>' || token === '》') {
+        const seq = `${IME_TAG_HIRAGANA}>${IME_TAG_HIRAGANA_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '> ➔ [Enter]', description: '山括弧「＞」確定' });
         continue;
       }
       if (token === '–' || token === '—' || token === '−' || token === '―' || token === '〜' || token === '~') {
