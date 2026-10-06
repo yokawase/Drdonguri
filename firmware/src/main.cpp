@@ -957,6 +957,7 @@ bool dispatchSafeKeystrokes() {
     // 1. [K]...[/K] (カタカナモード: F7 ➔ Enter)
     if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "<K>", 3) == 0) {
       i += 3;
+      bool sentAnyChar = false;
       while (i < total) {
         if (strncmp(&buf[i], "[/K]", 4) == 0 || strncmp(&buf[i], "</K>", 4) == 0) {
           i += 4;
@@ -967,21 +968,27 @@ bool dispatchSafeKeystrokes() {
         }
         char rc = buf[i];
         if (rc != ' ') {
-          sendSafeChar(rc);
+          if ((uint8_t)rc < 0x80) {
+            sendSafeChar(rc);
+            sentAnyChar = true;
+          }
         }
         i++;
       }
-      delay(20);
-      safeWrite(KEY_F7);
-      delay(25);
-      safeWrite(KEY_RETURN);
-      delay(40);
+      if (sentAnyChar) {
+        delay(20);
+        safeWrite(KEY_F7);
+        delay(25);
+        safeWrite(KEY_RETURN);
+        delay(40);
+      }
       continue;
     }
 
-    // 2. [H]...[/H] (ひらがな助詞モード: Enter即時確定、Space禁止)
+    // 2. [H]...[/H] (ひらがな助詞モード: Enter即時確定、Space禁止、二重防護)
     if (strncmp(&buf[i], "[H]", 3) == 0 || strncmp(&buf[i], "<H>", 3) == 0) {
       i += 3;
+      bool sentAnyChar = false;
       while (i < total) {
         if (strncmp(&buf[i], "[/H]", 4) == 0 || strncmp(&buf[i], "</H>", 4) == 0) {
           i += 4;
@@ -992,21 +999,67 @@ bool dispatchSafeKeystrokes() {
             strncmp(&buf[i], "[/", 2) == 0 || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
+
+        // 万一生UTF-8ひらがなが混入した場合の安全フォールバック（助詞脱落＆空Enter暴発防止）
+        if (isUtf8Hiragana(&buf[i])) {
+          // 促音「っ」
+          if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x81 && (uint8_t)buf[i+2] == 0xA3) {
+            sendSafeChar('l'); sendSafeChar('t'); sendSafeChar('u');
+            i += 3;
+            sentAnyChar = true;
+            continue;
+          }
+          // 撥音「ん」
+          if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x82 && (uint8_t)buf[i+2] == 0x93) {
+            sendSafeChar('n'); sendSafeChar('n');
+            i += 3;
+            sentAnyChar = true;
+            continue;
+          }
+          // ダイグラフ (きゃ, しゅ等: 6バイト)
+          if (i + 6 <= total) {
+            const char* di = findDigraphRomaji(&buf[i]);
+            if (di != nullptr) {
+              for (const char* p = di; *p != '\0'; p++) sendSafeChar(*p);
+              i += 6;
+              sentAnyChar = true;
+              continue;
+            }
+          }
+          // モノかな (3バイト)
+          if (i + 3 <= total) {
+            const char* mo = findMonoKanaRomaji(&buf[i]);
+            if (mo != nullptr) {
+              for (const char* p = mo; *p != '\0'; p++) sendSafeChar(*p);
+              i += 3;
+              sentAnyChar = true;
+              continue;
+            }
+          }
+        }
+
         char rc = buf[i];
         if (rc != ' ') {
-          sendSafeChar(rc);
+          if ((uint8_t)rc < 0x80) {
+            sendSafeChar(rc);
+            sentAnyChar = true;
+          }
         }
         i++;
       }
-      delay(20);
-      safeWrite(KEY_RETURN);
-      delay(40);
+      // ★文字が送出された場合のみ Enter で確定（空タグでの改行暴発を100%防止！）
+      if (sentAnyChar) {
+        delay(20);
+        safeWrite(KEY_RETURN);
+        delay(40);
+      }
       continue;
     }
 
     // 3. [Z]...[/Z] (漢字変換モード: Space変換 ➔ Enter確定)
     if (strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "<Z>", 3) == 0) {
       i += 3;
+      bool sentAnyChar = false;
       while (i < total) {
         if (strncmp(&buf[i], "[/Z]", 4) == 0 || strncmp(&buf[i], "</Z>", 4) == 0) {
           i += 4;
@@ -1019,15 +1072,20 @@ bool dispatchSafeKeystrokes() {
         }
         char rc = buf[i];
         if (rc != ' ') {
-          sendSafeChar(rc);
+          if ((uint8_t)rc < 0x80) {
+            sendSafeChar(rc);
+            sentAnyChar = true;
+          }
         }
         i++;
       }
-      delay(20); // 候補パレット安定ウェイト
-      safeWrite(' ');
-      delay(35); // 候補窓展開ウェイト
-      safeWrite(KEY_RETURN);
-      delay(40);
+      if (sentAnyChar) {
+        delay(20); // 候補パレット安定ウェイト
+        safeWrite(' ');
+        delay(35); // 候補窓展開ウェイト
+        safeWrite(KEY_RETURN);
+        delay(40);
+      }
       continue;
     }
 
@@ -1301,8 +1359,8 @@ bool dispatchSafeKeystrokes() {
       if (memcmp(&buf[i], "、", 3) == 0) { sendSafeChar(','); i += 3; continue; }
       if (memcmp(&buf[i], "。", 3) == 0) { sendSafeChar('.'); i += 3; continue; }
       if (memcmp(&buf[i], "・", 3) == 0) { sendSafeChar('/'); i += 3; continue; }
-      if (memcmp(&buf[i], "「", 3) == 0 || memcmp(&buf[i], "【", 3) == 0) { sendSafeChar('['); i += 3; continue; }
-      if (memcmp(&buf[i], "」", 3) == 0 || memcmp(&buf[i], "】", 3) == 0) { sendSafeChar(']'); i += 3; continue; }
+      if (memcmp(&buf[i], "「", 3) == 0 || memcmp(&buf[i], "【", 3) == 0 || memcmp(&buf[i], "『", 3) == 0) { sendSafeChar('['); i += 3; continue; }
+      if (memcmp(&buf[i], "」", 3) == 0 || memcmp(&buf[i], "】", 3) == 0 || memcmp(&buf[i], "』", 3) == 0) { sendSafeChar(']'); i += 3; continue; }
       if (memcmp(&buf[i], "（", 3) == 0) { sendSafeChar('('); i += 3; continue; }
       if (memcmp(&buf[i], "）", 3) == 0) { sendSafeChar(')'); i += 3; continue; }
       if (memcmp(&buf[i], "〜", 3) == 0) { sendSafeChar('~'); i += 3; continue; }

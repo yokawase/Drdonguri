@@ -952,6 +952,51 @@ export const CHUNK_DECOMPOSITION_RULES: ChunkRule[] = [
   { composite: '細胞の分裂', chunks: ['細胞の分裂'], readings: ['saibounobunnretu'] },
   { composite: '永久に停止', chunks: ['永久に', '停止'], readings: ['eikyuuni', 'teisi'] },
   { composite: '永久に', chunks: ['永久に'], readings: ['eikyuuni'] },
+
+  // ── 学術ニュース・研究発表（Nature Genetics/大腸がん・谷内田真一教授）誤変換根絶チャンクルール ──
+  { composite: '国立がん研究センター中央病院', chunks: ['国立', 'がん', '研究', 'センター', '中央病院'], readings: ['[Z]kokuritu[/Z]', '[H]gann[/H]', '[Z]kennkyuu[/Z]', '[K]senta-[/K]', '[Z]tyuuoubyouinn[/Z]'] },
+  { composite: '国立がん研究センター', chunks: ['国立', 'がん', '研究', 'センター'], readings: ['[Z]kokuritu[/Z]', '[H]gann[/H]', '[Z]kennkyuu[/Z]', '[K]senta-[/K]'] },
+  { composite: 'がん研究センター', chunks: ['がん', '研究', 'センター'], readings: ['[H]gann[/H]', '[Z]kennkyuu[/Z]', '[K]senta-[/K]'] },
+  { composite: 'がん研究', chunks: ['がん', '研究'], readings: ['[H]gann[/H]', '[Z]kennkyuu[/Z]'] },
+  { composite: '東京大学医科学研究所', chunks: ['東京', '大学', '医科学', '研究所'], readings: ['[Z]toukyou[/Z]', '[Z]daigaku[/Z]', '[Z]ikagaku[/Z]', '[Z]kennkyuujyo[/Z]'] },
+  { composite: '東京大学', chunks: ['東京', '大学'], readings: ['[Z]toukyou[/Z]', '[Z]daigaku[/Z]'] },
+  { composite: '医科学研究所', chunks: ['医科学', '研究所'], readings: ['[Z]ikagaku[/Z]', '[Z]kennkyuujyo[/Z]'] },
+  { composite: '東京科学大学', chunks: ['東京', '科学', '大学'], readings: ['[Z]toukyou[/Z]', '[Z]kagaku[/Z]', '[Z]daigaku[/Z]'] },
+  { composite: '東京工業大学', chunks: ['東京', '工業', '大学'], readings: ['[Z]toukyou[/Z]', '[Z]kougyou[/Z]', '[Z]daigaku[/Z]'] },
+  { composite: '大阪大学大学院医学系研究科', chunks: ['大阪', '大学', '大学院', '医学系', '研究科'], readings: ['[Z]oosaka[/Z]', '[Z]daigaku[/Z]', '[Z]daigakuinn[/Z]', '[Z]igakukei[/Z]', '[Z]kennkyuuka[/Z]'] },
+  { composite: '大阪大学', chunks: ['大阪', '大学'], readings: ['[Z]oosaka[/Z]', '[Z]daigaku[/Z]'] },
+  { composite: '医学系研究科', chunks: ['医学系', '研究科'], readings: ['[Z]igakukei[/Z]', '[Z]kennkyuuka[/Z]'] },
+  { composite: '生命理工学院', chunks: ['生命', '理工学院'], readings: ['[Z]seimei[/Z]', '[Z]rikougakuinn[/Z]'] },
+  { composite: '参画各研究機関', chunks: ['参画', '各', '研究機関'], readings: ['[Z]sannkakusya[/Z][BS]', '[Z]kaku[/Z]', '[Z]kennkyuukikann[/Z]'] },
+  { composite: '参画各', chunks: ['参画', '各'], readings: ['[Z]sannkakusya[/Z][BS]', '[Z]kaku[/Z]'] },
+  { composite: '参画', chunks: ['参画'], readings: ['[Z]sannkakusya[/Z][BS]'] },
+  { composite: '公表資料', chunks: ['公表', '資料'], readings: ['[Z]kouhyoukai[/Z][BS]', '[Z]siryou[/Z]'] },
+  { composite: '公表', chunks: ['公表'], readings: ['[Z]kouhyoukai[/Z][BS]'] },
+  { composite: '細菌由来', chunks: ['細菌', '由来'], readings: ['[Z]saikinngaku[/Z][BS]', '[Z]yurai[/Z]'] },
+  { composite: '細菌', chunks: ['細菌'], readings: ['[Z]saikinngaku[/Z][BS]'] },
+  { composite: '若年発症', chunks: ['若年', '発症'], readings: ['[Z]jyakunenn[/Z]', '[Z]hassyou[/Z]'] },
+  { composite: '変異痕跡', chunks: ['変異', '痕跡'], readings: ['[Z]henni[/Z]', '[Z]konnseki[/Z]'] },
+  { composite: '谷内田真一教授', chunks: ['谷', '内', '田', '真一', ' ', '教授'], readings: ['[Z]tani[/Z]', '[Z]uti[/Z]', '[Z]ta[/Z]', '[Z]sinniti[/Z]', ' ', '[Z]kyoujyu[/Z]'] },
+  { composite: '谷内田真一', chunks: ['谷', '内', '田', '真一'], readings: ['[Z]tani[/Z]', '[Z]uti[/Z]', '[Z]ta[/Z]', '[Z]sinniti[/Z]'] },
+  { composite: '谷内田', chunks: ['谷', '内', '田'], readings: ['[Z]tani[/Z]', '[Z]uti[/Z]', '[Z]ta[/Z]'] },
+  { composite: '柴田龍弘教授', chunks: ['柴田', '龍弘', ' ', '教授'], readings: ['[Z]sibata[/Z]', '[Z]tatuhiro[/Z]', ' ', '[Z]kyoujyu[/Z]'] },
+  { composite: '柴田龍弘', chunks: ['柴田', '龍弘'], readings: ['[Z]sibata[/Z]', '[Z]tatuhiro[/Z]'] },
+  { composite: '山田拓司教授', chunks: ['山田', '拓', '司', ' ', '教授'], readings: ['[Z]yamada[/Z]', '[Z]kaitaku[/Z][BS]', '[Z]tukasa[/Z]', ' ', '[Z]kyoujyu[/Z]'] },
+  { composite: '山田拓司', chunks: ['山田', '拓', '司'], readings: ['[Z]yamada[/Z]', '[Z]kaitaku[/Z][BS]', '[Z]tukasa[/Z]'] },
+  { composite: '内視鏡科・大腸外科グループ', chunks: ['内視鏡', '科', '・', '大腸', '外科', 'グループ'], readings: ['[Z]naisikyou[/Z]', '[Z]kagaku[/Z][BS]', '[H]/[/H]', '[Z]daityou[/Z]', '[Z]geka[/Z]', '[K]guru-pu[/K]'] },
+  { composite: '内視鏡科・大腸外科', chunks: ['内視鏡', '科', '・', '大腸', '外科'], readings: ['[Z]naisikyou[/Z]', '[Z]kagaku[/Z][BS]', '[H]/[/H]', '[Z]daityou[/Z]', '[Z]geka[/Z]'] },
+  { composite: '内視鏡科', chunks: ['内視鏡', '科'], readings: ['[Z]naisikyou[/Z]', '[Z]kagaku[/Z][BS]'] },
+  { composite: '共同研究チーム', chunks: ['共同研究', 'チーム'], readings: ['[Z]kyoudoukennkyuu[/Z]', '[K]ti-mu[/K]'] },
+  { composite: '二次配信日', chunks: ['二次', '配信', '日'], readings: ['[Z]nizi[/Z]', '[Z]haisinn[/Z]', '[Z]hi[/Z]'] },
+  { composite: '二次配信', chunks: ['二次', '配信'], readings: ['[Z]nizi[/Z]', '[Z]haisinn[/Z]'] },
+  { composite: '（旧・東京工業大学）', chunks: ['（', '旧', '・', '東京', '工業', '大学', '）'], readings: ['(', '[Z]kyuugata[/Z][BS]', '[H]/[/H]', '[Z]toukyou[/Z]', '[Z]kougyou[/Z]', '[Z]daigaku[/Z]', ')'] },
+  { composite: '旧・東京工業大学', chunks: ['旧', '・', '東京', '工業', '大学'], readings: ['[Z]kyuugata[/Z][BS]', '[H]/[/H]', '[Z]toukyou[/Z]', '[Z]kougyou[/Z]', '[Z]daigaku[/Z]'] },
+  { composite: '旧・', chunks: ['旧', '・'], readings: ['[Z]kyuugata[/Z][BS]', '[H]/[/H]'] },
+  { composite: '旧', chunks: ['旧'], readings: ['[Z]kyuugata[/Z][BS]'] },
+  { composite: '『Nature Genetics』', chunks: ['『', 'Nature', ' ', 'Genetics', '』'], readings: ['[H][[/H]', '[A]Nature[/A]', ' ', '[A]Genetics[/A]', '[H]][/H]'] },
+  { composite: 'Nature Genetics', chunks: ['Nature', ' ', 'Genetics'], readings: ['[A]Nature[/A]', ' ', '[A]Genetics[/A]'] },
+  { composite: 'QLifePro医療ニュース', chunks: ['QLifePro', '医療ニュース'], readings: ['[A]QLifePro[/A]', '[Z]iryou[/Z][K]nyu-su[/K]'] },
+  { composite: '科学的証拠によって裏付けられた正確な情報であることが確認された', chunks: ['科学的証拠', 'によって', '裏付けられた', '正確な', '情報である', 'ことが', '確認された'], readings: ['[Z]kagakutekisyouko[/Z]', '[H]niyotte[/H]', '[Z]uradukerareta[/Z]', '[Z]seikakuna[/Z]', '[Z]jyouhoudearu[/Z]', '[H]kotoga[/H]', '[Z]kakuninnsareta[/Z]'] },
 ];
 
 // カタカナ・外来語を検出する正規表現
@@ -1254,17 +1299,17 @@ export const INFLECTED_WORD_MAP: Record<string, string> = {
   '医科学研究所': 'ikagakukennkyuusyo', '医科学': 'ikagaku',
   '東京科学大学': 'toukyoukagakudaigaku', '東京工業大学': 'toukyoukougyoudaigaku',
   '生命理工学院': 'seimeirikougakuinn', '理工学院': 'rikougakuinn',
-  '国立がん研究センター': 'kokuritugannkennkyu-senta-', '中央病院': 'tyuuoubyouinn',
+  '国立がん研究センター': 'kokuritugannkennkyuusenta-', '中央病院': 'tyuuoubyouinn',
   '大腸外科': 'daityougeka', '内視鏡科': 'naisikyouka',
   '国際学術誌': 'kokusaigakujyutusi', '学術誌': 'gakujyutusi', '国際': 'kokusai', '国立': 'kokuritu',
-  '二次配信日': 'nijihayshinnbi', '二次配信': 'nijihayshinn', '二次': 'niji',
+  '二次配信日': 'nizihaisinnbi', '二次配信': 'nizihaisinn', '二次': 'niji',
   'アーカイブ日': 'a-kaibubi', 'アーカイブ': 'a-kaibu',
   '行われている': 'okonawareteiru', '行われる': 'okonawarete', '行う': 'okonau', '行い': 'okonai',
   '通りである': 'tooridearu', '通り': 'toori',
-  '谷内田真一': 'yachidasinici', '谷内田': 'yachida',
+  '谷内田真一': 'taniutidasinniti', '谷内田': 'taniutida',
   '柴田龍弘': 'sibatatatuhiro', '柴田': 'sibata',
-  '山田拓司': 'yamadatakkuji', '山田': 'yamada',
-  '共同研究チーム': 'kyoudoukennkyu-ti-mu', '共同研究': 'kyoudoukennkyuu',
+  '山田拓司': 'yamadatakuji', '山田': 'yamada',
+  '共同研究チーム': 'kyoudoukennkyuuti-mu', '共同研究': 'kyoudoukennkyuu',
   '公式プレスリリース': 'kousikipuresuriri-su', 'プレスリリース': 'puresuriri-su',
   '対比検証': 'taihikennsyou', '原著学術論文': 'genntyogakujyuturonnbunn', '原著論文': 'genntyoronnbunn',
   '参画各研究機関': 'sannkakukakukennkyuukikann', '参画': 'sannkaku',
@@ -1836,8 +1881,16 @@ export function compileMedicalTextToImeBoost(
   // ──【一般化形態素ルール③：病原体接尾辞＋病態の分離（金柑染歴等の誤爆根絶）】──
   text = text.replace(/([ァ-ヴー]+菌)(感染歴|感染症|感染|既往|保菌)/g, '$1 $2');
 
-  // ──【一般化形態素ルール④：漢字直後の接続助詞の分離（及び等への勝手な漢字化防止）】──
-  text = text.replace(/([一-龠]+)(および|または|ならびに)(?=[^一-龠])/g, '$1[H]$2[/H]');
+  // ──【一般化形態素ルール④：漢字直後の接続助詞の分離（及び等への勝手な漢字化防止＆ローマ字完全保証）】──
+  const CONNECTIVE_ROMAJI_MAP: Record<string, string> = {
+    'および': 'oyobi',
+    'または': 'matawa',
+    'ならびに': 'narabini',
+  };
+  text = text.replace(/([一-龠]+)(および|または|ならびに)(?=[^一-龠])/g, (m, kanjiPart, conn) => {
+    const romaji = CONNECTIVE_ROMAJI_MAP[conn] || kanaToRomaji(conn);
+    return `${kanjiPart}[H]${romaji}[/H]`;
+  });
 
   // ──【一般化形態素ルール⑤：英数略語・記号と漢字の境界分離（大文字Shift引きずられ＆生ローマ字漏れの完全防止）】──
   text = text.replace(/([a-zA-Z0-9_\-\.\:\/\+\(\)]+)([一-龠])/g, (m, asciiPart, kanjiPart) => {
@@ -1852,8 +1905,24 @@ export function compileMedicalTextToImeBoost(
   // ──【一般化形態素ルール⑥：役職・敬称接尾辞の分離（人名との癒着・キメラ化の完全防止）】──
   text = text.replace(/([一-龠]{2,4})(教授|准教授|講師|助教|医師|部長|科長|院長|センター長|室長)/g, '$1 $2');
 
-  // ──【一般化形態素ルール⑦：名詞・漢字直後の格助詞・副助詞の分離（過大文節化＆誤同音化の完全防止）】──
-  text = text.replace(/([一-龠]+(?:がん)?)(の|と|に|を|は|が|で|へ|より|から|まで)(?=[^ぁ-んー]|$|\s|[、。・「」『』（）])/g, '$1[H]$2[/H]');
+  // ──【一般化形態素ルール⑦：名詞・漢字直後の格助詞・副助詞の分離（過大文節化＆誤同音化＆改行暴発の完全防止）】──
+  const PARTICLE_ROMAJI_MAP: Record<string, string> = {
+    'の': 'no',
+    'と': 'to',
+    'に': 'ni',
+    'を': 'wo',
+    'は': 'wa',
+    'が': 'ga',
+    'で': 'de',
+    'へ': 'he',
+    'より': 'yori',
+    'から': 'kara',
+    'まで': 'made',
+  };
+  text = text.replace(/([一-龠]+(?:がん)?)(の|と|に|を|は|が|で|へ|より|から|まで)(?=[^ぁ-んー]|$|\s|[、。・「」『』（）])/g, (m, kanjiPart, particle) => {
+    const romaji = PARTICLE_ROMAJI_MAP[particle] || kanaToRomaji(particle);
+    return `${kanjiPart}[H]${romaji}[/H]`;
+  });
 
   // 2. 最小確実形態素（Chunk）分解の最優先適用（最長一致ルール優先でソート）
   // 複合語の過大一括変換や「新保」「勤勤胃」誤爆を最小自立語で確実に防ぐため、最優先で適用する
@@ -1868,10 +1937,10 @@ export function compileMedicalTextToImeBoost(
             return rawReading;
           }
           const r = (rawReading || kanaToRomaji(chunk)).trim();
-          if (chunk === '「') {
+          if (chunk === '「' || chunk === '『') {
             return `${IME_TAG_HIRAGANA}[${IME_TAG_HIRAGANA_END}`;
           }
-          if (chunk === '」') {
+          if (chunk === '」' || chunk === '』') {
             return `${IME_TAG_HIRAGANA}]${IME_TAG_HIRAGANA_END}`;
           }
           if (chunk === '＜' || chunk === '<' || chunk === '《') {
