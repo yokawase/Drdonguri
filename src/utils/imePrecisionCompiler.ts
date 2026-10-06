@@ -1662,6 +1662,67 @@ export function kanjiWordToRomaji(word: string): string {
   return sanitized;
 }
 
+/**
+ * 漢字熟語・長大複合語トークンを、MS-IMEが絶対にパンクしない
+ * 最適文節サイズ（2〜4文字）にスマート分割してタグ付きシーケンスを生成する
+ */
+export function compileKanjiTokenToImeSequence(token: string): string {
+  if (!token) return '';
+
+  // 1. 辞書に完全一致する語彙（または活用形）であれば、単一の [Z]...[/Z] で送出
+  if (INFLECTED_WORD_MAP[token]) {
+    return `${IME_TAG_KANJI}${normalizeHatsuon(INFLECTED_WORD_MAP[token].trim())}${IME_TAG_KANJI_END}`;
+  }
+  if (CLINICAL_COMPOUND_MAP[token]) {
+    return `${IME_TAG_KANJI}${normalizeHatsuon(CLINICAL_COMPOUND_MAP[token].trim())}${IME_TAG_KANJI_END}`;
+  }
+
+  // 2. 4文字以内の短い熟語であれば、kanjiWordToRomaji で安全に変換
+  const kanjiOnlyCount = (token.match(/[一-龠]/g) || []).length;
+  if (kanjiOnlyCount <= 4) {
+    const romaji = kanjiWordToRomaji(token);
+    return `${IME_TAG_KANJI}${romaji}${IME_TAG_KANJI_END}`;
+  }
+
+  // 3. 5文字以上の長大複合語（東京大学医科学研究所、参画各研究機関など）：
+  // 自立語境界（2〜4文字）で貪欲に最長一致切り出しを行い、複数の [Z]...[/Z] にスマート分割！
+  let result = '';
+  let i = 0;
+  while (i < token.length) {
+    let matchedChunk = false;
+    // 4文字から2文字までの最長一致切り出し
+    for (let len = Math.min(4, token.length - i); len >= 2; len--) {
+      const sub = token.slice(i, i + len);
+      if (CLINICAL_COMPOUND_MAP[sub] || INFLECTED_WORD_MAP[sub] || MEDICAL_KANJI_ROMAJI_MAP[sub]) {
+        const r = kanjiWordToRomaji(sub);
+        result += `${IME_TAG_KANJI}${r}${IME_TAG_KANJI_END}`;
+        i += len;
+        matchedChunk = true;
+        break;
+      }
+    }
+    if (matchedChunk) continue;
+
+    // 一致する熟語がない場合、2〜3文字の自然な文節で区切る
+    let chunkLen = 1;
+    if (/[一-龠]/.test(token[i])) {
+      while (chunkLen < 3 && (i + chunkLen) < token.length && /[一-龠]/.test(token[i + chunkLen])) {
+        chunkLen++;
+      }
+    }
+    const chunk = token.slice(i, i + chunkLen);
+    const r = kanjiWordToRomaji(chunk);
+    if (/^[ぁ-ん]+$/.test(chunk)) {
+      result += `${IME_TAG_HIRAGANA}${r}${IME_TAG_HIRAGANA_END}`;
+    } else {
+      result += `${IME_TAG_KANJI}${r}${IME_TAG_KANJI_END}`;
+    }
+    i += chunkLen;
+  }
+
+  return result;
+}
+
 // -----------------------------------------------------------------------------
 // 6. メイン機能：IME精度向上ハイブリッド・コンパイラ
 // -----------------------------------------------------------------------------
@@ -1787,6 +1848,12 @@ export function compileMedicalTextToImeBoost(
     if (asciiPart.startsWith('[') && asciiPart.endsWith(']')) return m;
     return `${kanjiPart}[A]${asciiPart}[/A]`;
   });
+
+  // ──【一般化形態素ルール⑥：役職・敬称接尾辞の分離（人名との癒着・キメラ化の完全防止）】──
+  text = text.replace(/([一-龠]{2,4})(教授|准教授|講師|助教|医師|部長|科長|院長|センター長|室長)/g, '$1 $2');
+
+  // ──【一般化形態素ルール⑦：名詞・漢字直後の格助詞・副助詞の分離（過大文節化＆誤同音化の完全防止）】──
+  text = text.replace(/([一-龠]+(?:がん)?)(の|と|に|を|は|が|で|へ|より|から|まで)(?=[^ぁ-んー]|$|\s|[、。・「」『』（）])/g, '$1[H]$2[/H]');
 
   // 2. 最小確実形態素（Chunk）分解の最優先適用（最長一致ルール優先でソート）
   // 複合語の過大一括変換や「新保」「勤勤胃」誤爆を最小自立語で確実に防ぐため、最優先で適用する
@@ -2115,20 +2182,20 @@ export function compileMedicalTextToImeBoost(
         continue;
       }
 
-      // ★【核心改修：ブラウザ再読み込み事故（F5暴発）を100%根絶】
+      // ★【核心改修：ブラウザ再読み込み事故（F5暴発）を100%根絶 ＆ スマート文節分割】
       // F5キーはChrome/Edge/カルテ画面で「ページリロード」を誘発し入力を破壊するため完全撤廃。
-      // 大幅拡充された常用熟語・単漢字辞書から正しい日本語ローマ字を生成し、[Z]（Space変換 ➔ Enter確定）で安全打鍵する。
+      // 大幅拡充された常用熟語・単漢字辞書から正しい日本語ローマ字を生成し、
+      // 5文字以上の長大複合語はMS-IMEがパンクしないよう2〜4文字の最適文節にスマート分割して安全打鍵する。
       if (/[一-龠]/.test(token)) {
-        const romaji = kanjiWordToRomaji(token);
-        if (romaji) {
-          const seq = `${IME_TAG_KANJI}${romaji}${IME_TAG_KANJI_END}`;
+        const seq = compileKanjiTokenToImeSequence(token);
+        if (seq) {
           lineResult += seq;
           displayTokens.push({
             type: 'kanji',
             originalText: token,
             actionTag: IME_TAG_KANJI,
-            keystrokes: `${romaji} ➔ [Space] ➔ [Enter]`,
-            description: `漢字・熟語安全変換「${token}」`,
+            keystrokes: `${seq}`,
+            description: `漢字・熟語安全スマート変換「${token}」`,
           });
           continue;
         }
