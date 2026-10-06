@@ -830,6 +830,75 @@ export const CHUNK_DECOMPOSITION_RULES: ChunkRule[] = [
   { composite: '縦断', chunks: ['縦断'], readings: ['jyuudann'] },
   { composite: '必要である。', chunks: ['必要である', '。'], readings: ['hituyoudearu', '.'] },
   { composite: '必要である', chunks: ['必要である'], readings: ['hituyoudearu'] },
+  // ── 消化器内科・大腸内視鏡・憩室出血・止血手技・循環器実機検証防護ルール ──
+  { composite: '再発性横行結腸憩室出血であり、', chunks: ['再発性', '横行結腸', '憩室出血', 'であり、'], readings: ['saihatusei', 'oukoukettyou', 'keisitutsyukketu', 'deari,'] },
+  { composite: '再発性横行結腸憩室出血であり', chunks: ['再発性', '横行結腸', '憩室出血', 'であり'], readings: ['saihatusei', 'oukoukettyou', 'keisitutsyukketu', 'deari'] },
+  { composite: '再発性横行結腸憩室出血', chunks: ['再発性', '横行結腸', '憩室出血'], readings: ['saihatusei', 'oukoukettyou', 'keisitutsyukketu'] },
+  { composite: '横行結腸憩室出血', chunks: ['横行結腸', '憩室出血'], readings: ['oukoukettyou', 'keisitutsyukketu'] },
+  { composite: '横行結腸切除術', chunks: ['横行結腸', '切除術'], readings: ['oukoukettyou', 'setujyojyutu'] },
+  { composite: '待機的横行結腸切除術', chunks: ['待機的', '横行結腸', '切除術'], readings: ['taikiteki', 'oukoukettyou', 'setujyojyutu'] },
+  { composite: '終身抗凝固療法（アピキサバン）を要するAF合併例のため、', chunks: ['終身', '抗凝固療法', '（', 'アピキサバン', '）', 'を', '要する', 'AF', '合併例', 'のため、'], readings: ['syuusinn', 'kougyoukoryouhou', '(', 'apikisabann', ')', 'wo', 'yousuru', 'AF', 'gappeirei', 'notame,'] },
+  { composite: '終身抗凝固療法', chunks: ['終身', '抗凝固療法'], readings: ['syuusinn', 'kougyoukoryouhou'] },
+  { composite: '抗凝固療法（アピキサバン）', chunks: ['抗凝固療法', '（', 'アピキサバン', '）'], readings: ['kougyoukoryouhou', '(', 'apikisabann', ')'] },
+  { composite: '要するAF合併例のため', chunks: ['要する', 'AF', '合併例', 'のため'], readings: ['yousuru', 'AF', 'gappeirei', 'notame'] },
+  { composite: 'AF合併例', chunks: ['AF', '合併例'], readings: ['AF', 'gappeirei'] },
+  { composite: '急性期止血＋寛解期に', chunks: ['急性期', '止血', '+', '寛解期に'], readings: ['kyuuseiki', 'siketu', '+', 'kannkaikini'] },
+  { composite: '急性期止血', chunks: ['急性期', '止血'], readings: ['kyuuseiki', 'siketu'] },
+  { composite: '寛解期に', chunks: ['寛解期に'], readings: ['kannkaikini'] },
+  { composite: '寛解期', chunks: ['寛解期'], readings: ['kannkaiki'] },
+  { composite: '検討すべき状況です。', chunks: ['検討すべき', '状況です', '。'], readings: ['kenntousubeki', 'jyoukyoudesu', '.'] },
+  { composite: '検討すべき状況です', chunks: ['検討すべき', '状況です'], readings: ['kenntousubeki', 'jyoukyoudesu'] },
+  { composite: '検討すべき状況', chunks: ['検討すべき', '状況'], readings: ['kenntousubeki', 'jyoukyou'] },
+  { composite: 'アピキサバンの一時中断', chunks: ['アピキサバンの', '一時中断'], readings: ['apikisabanno', 'itijityuudann'] },
+  { composite: '一時中断', chunks: ['一時中断'], readings: ['itijityuudann'] },
+  { composite: '活動性出血中は中断。', chunks: ['活動性出血中は', '中断', '。'], readings: ['katudouseisyukketuha', 'tyuudann', '.'] },
+  { composite: '活動性出血中は中断', chunks: ['活動性出血中は', '中断'], readings: ['katudouseisyukketuha', 'tyuudann'] },
+  { composite: '活動性出血中', chunks: ['活動性出血中'], readings: ['katudouseisyukketutyuu'] },
+  { composite: '活動性出血', chunks: ['活動性出血'], readings: ['katudouseisyukketu'] },
+  { composite: '効果は概ね消失。', chunks: ['効果は', '概ね', '消失', '。'], readings: ['koukaha', 'oomune', 'syousitu', '.'] },
+  { composite: '効果は概ね消失', chunks: ['効果は', '概ね', '消失'], readings: ['koukaha', 'oomune', 'syousitu'] },
+  { composite: '概ね消失', chunks: ['概ね', '消失'], readings: ['oomune', 'syousitu'] },
+  { composite: '脳卒中リスクが高い', chunks: ['脳卒中', 'リスクが', '高い'], readings: ['nousottyuu', 'risukuga', 'takai'] },
+  { composite: 'リスクが高い', chunks: ['リスクが', '高い'], readings: ['risukuga', 'takai'] },
+  { composite: '高スコア）場合、', chunks: ['高スコア', '）', '場合', '、'], readings: ['kousukoa', ')', 'baai', ','] },
+  { composite: '高スコア）場合', chunks: ['高スコア', '）', '場合'], readings: ['kousukoa', ')', 'baai'] },
+  { composite: '高スコア', chunks: ['高スコア'], readings: ['kousukoa'] },
+  { composite: 'ヘパリンブリッジの必要性を循環器内科と協議。', chunks: ['ヘパリンブリッジの', '必要性を', '循環器内科と', '[Z]kyougikai[/Z][BS]', '。'], readings: ['heparinnburijjino', 'hituyouseiwo', 'junnkannkinaikato', '[Z]kyougikai[/Z][BS]', '.'] },
+  { composite: 'ヘパリンブリッジの必要性を', chunks: ['ヘパリンブリッジの', '必要性を'], readings: ['heparinnburijjino', 'hituyouseiwo'] },
+  { composite: 'ヘパリンブリッジ', chunks: ['ヘパリンブリッジ'], readings: ['heparinnburijji'] },
+  { composite: '循環器内科と協議', chunks: ['循環器内科と', '[Z]kyougikai[/Z][BS]'], readings: ['junnkannkinaikato', '[Z]kyougikai[/Z][BS]'] },
+  { composite: '内視鏡的バンド結紮術（EBL）を優先：', chunks: ['内視鏡的', 'バンド結紮術', '（', 'EBL', '）', 'を', '優先', ':'], readings: ['naisikyouteki', 'banndokessatujyutu', '(', 'EBL', ')', 'wo', 'yuusenn', ':'] },
+  { composite: '内視鏡的バンド結紮術', chunks: ['内視鏡的', 'バンド結紮術'], readings: ['naisikyouteki', 'banndokessatujyutu'] },
+  { composite: 'バンド結紮術', chunks: ['バンド', '結紮術'], readings: ['banndo', 'kessatujyutu'] },
+  { composite: '結紮術', chunks: ['結紮術'], readings: ['kessatujyutu'] },
+  { composite: '再出血率が有意に低い', chunks: ['再出血率が', '有意に', '低い'], readings: ['saisyukketurituga', 'yuuini', 'hikui'] },
+  { composite: '有意に低い', chunks: ['有意に', '低い'], readings: ['yuuini', 'hikui'] },
+  { composite: 'ただし右側結腸（横行結腸含む）でのEBLは遅発性穿孔リスクに注意。', chunks: ['ただし', '右側結腸', '（', '横行結腸', '含む', '）', 'での', 'EBL', 'は', '遅発性穿孔', 'リスクに', '注意', '。'], readings: ['tadasisi', 'migigawakettyou', '(', 'oukoukettyou', 'hukumu', ')', 'deno', 'EBL', 'ha', 'tihatuseisennkou', 'risukuni', 'tyuui', '.'] },
+  { composite: '右側結腸（横行結腸含む）', chunks: ['右側結腸', '（', '横行結腸', '含む', '）'], readings: ['migigawakettyou', '(', 'oukoukettyou', 'hukumu', ')'] },
+  { composite: '右側結腸', chunks: ['右側結腸'], readings: ['migigawakettyou'] },
+  { composite: '遅発性穿孔リスクに注意', chunks: ['遅発性穿孔', 'リスクに', '注意'], readings: ['tihatuseisennkou', 'risukuni', 'tyuui'] },
+  { composite: '遅発性穿孔リスク', chunks: ['遅発性穿孔', 'リスク'], readings: ['tihatuseisennkou', 'risuku'] },
+  { composite: '遅発性穿孔', chunks: ['遅発性穿孔'], readings: ['tihatuseisennkou'] },
+  { composite: '右側病変ではEBLより安全性が高く、', chunks: ['右側病変では', 'EBLより', '安全性が', '高く', '、'], readings: ['migigawabyouhendeha', 'EBLyori', 'annzenseiga', 'takaku', ','] },
+  { composite: '右側病変では', chunks: ['右側病変では'], readings: ['migigawabyouhendeha'] },
+  { composite: '右側病変', chunks: ['右側病変'], readings: ['migigawabyouhenn'] },
+  { composite: '安全性が高く、', chunks: ['安全性が', '高く', '、'], readings: ['annzenseiga', 'takaku', ','] },
+  { composite: '安全性が高く', chunks: ['安全性が', '高く'], readings: ['annzenseiga', 'takaku'] },
+  { composite: '即時止血可能', chunks: ['即時止血', '可能'], readings: ['sokujisiketu', 'kanou'] },
+  { composite: '初期止血率は両者とも約100%だが、', chunks: ['初期止血率は', '両者とも', '[Z]yakusoku[/Z][BS]', '100%', 'だが', '、'], readings: ['syokisiketurituha', 'ryousyatomo', '[Z]yakusoku[/Z][BS]', '100%', 'daga', ','] },
+  { composite: '初期止血率は両者とも', chunks: ['初期止血率は', '両者とも'], readings: ['syokisiketurituha', 'ryousyatomo'] },
+  { composite: '初期止血率は', chunks: ['初期止血率は'], readings: ['syokisiketurituha'] },
+  { composite: '初期止血率', chunks: ['初期止血率'], readings: ['syokisiketuritu'] },
+  { composite: '長期再出血率はEBLが優れる', chunks: ['長期再出血率は', 'EBLが', '優れる'], readings: ['tyoukisaisyukketurituha', 'EBLga', 'sugureru'] },
+  { composite: '長期再出血率は', chunks: ['長期再出血率は'], readings: ['tyoukisaisyukketurituha'] },
+  { composite: '長期再出血率', chunks: ['長期再出血率'], readings: ['tyoukisaisyukketuritu'] },
+  { composite: 'エピネフリン局注（1:10,000〜1:20,000）を併用して視野確保後、機械的止血を追加。', chunks: ['エピネフリン局注', '（', '1:10,000-1:20,000', '）', 'を', '併用して', '視野確保後', '、', '機械的止血を', '追加', '。'], readings: ['epinefurinnkyokutyuu', '(', '1:10,000-1:20,000', ')', 'wo', 'heiyousite', 'siyakakuhogo', ',', 'kikaitekisiketuwo', 'tuika', '.'] },
+  { composite: 'エピネフリン局注', chunks: ['エピネフリン局注'], readings: ['epinefurinnkyokutyuu'] },
+  { composite: '視野確保後、機械的止血を追加', chunks: ['視野確保後', '、', '機械的止血を', '追加'], readings: ['siyakakuhogo', ',', 'kikaitekisiketuwo', 'tuika'] },
+  { composite: '視野確保後', chunks: ['視野確保後'], readings: ['siyakakuhogo'] },
+  { composite: '視野確保', chunks: ['視野確保'], readings: ['siyakakuho'] },
+  { composite: '機械的止血を追加', chunks: ['機械的止血を', '追加'], readings: ['kikaitekisiketuwo', 'tuika'] },
+  { composite: '機械的止血', chunks: ['機械的止血'], readings: ['kikaitekisiketu'] },
 ];
 
 // カタカナ・外来語を検出する正規表現
@@ -1008,7 +1077,33 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   '4型': '4kei', '型': 'kei',
   '抗オックルーディン': 'kouokku-rudhinn', '抗オックルーディン18.2抗体': 'kouokku-rudhinn18.2koutai',
   '抗体': 'koutai', '抗': 'kou',
-  '人口': 'jinnkou', '疾患': 'sikkann', '理由': 'riyuu', '変化': 'hennka', '成績': 'seiseki', '治療': 'tiryou'
+  '人口': 'jinnkou', '疾患': 'sikkann', '理由': 'riyuu', '変化': 'hennka', '成績': 'seiseki', '治療': 'tiryou',
+  // ── 消化器内科・大腸内視鏡・憩室出血・止血手技・循環器専門用語 ──
+  '横行結腸憩室出血': 'oukoukettyoukeisitutsyukketu', '横行結腸切除術': 'oukoukettyousetujyojyutu',
+  '横行結腸': 'oukoukettyou', '結腸憩室出血': 'kettyoukeisitutsyukketu', '結腸切除術': 'kettyousetujyojyutu',
+  '結腸': 'kettyou', '憩室出血': 'keisitutsyukketu', '憩室': 'keisitu', '再発性': 'saihatusei',
+  '活動性出血': 'katudouseisyukketu', '活動性': 'katudousei',
+  '内視鏡的バンド結紮術': 'naisikyoutekibanndokessatujyutu', 'バンド結紮術': 'banndokessatujyutu',
+  '結紮術': 'kessatujyutu', '結紮': 'kessatu', '切除術': 'setujyojyutu', '切除': 'setujyo',
+  '止血術': 'siketusyutu', '機械的止血': 'kikaitekisiketu', '初期止血率': 'syokisiketuritu',
+  '止血率': 'siketuritu', '止血': 'siketu',
+  'エピネフリン局注': 'epinefurinnkyokutyuu', 'エピネフリン': 'epinefurinn', '局注': 'kyokutyuu',
+  '遅発性穿孔': 'tihatuseisennkou', '遅発性': 'tihatusei', '穿孔': 'sennkou',
+  '右側結腸': 'migigawakettyou', '右側病変': 'migigawabyouhenn', '右側': 'migigawa',
+  '左側結腸': 'hidarigawakettyou', '左側病変': 'hidarigawabyouhenn', '左側': 'hidarigawa', '両側': 'ryougawa',
+  'クリッピング': 'kurippinngu', 'アピキサバン': 'apikisabann',
+  '抗凝固療法': 'kougyoukoryouhou', '終身抗凝固療法': 'syuusinnkougyoukoryouhou', '終身': 'syuusinn',
+  'ヘパリンブリッジ': 'heparinnburijji', 'ヘパリン': 'heparinn', 'ブリッジ': 'burijji',
+  '半減期': 'hanngennki', '最終内服': 'saisyuunaihuku', '内服': 'naihuku', '脳卒中': 'nousottyuu',
+  '循環器内科': 'junnkannkinaika', '循環器': 'junnkannki',
+  'AF合併例': 'AFgappeirei', '合併例': 'gappeirei', '合併症': 'gappeisyou', '合併': 'gappei',
+  '心房細動': 'sinnbousaidou', '心房': 'sinnbou', '細動': 'saidou',
+  '視野確保後': 'siyakakuhogo', '視野確保': 'siyakakuho', '視野': 'siya', '確保後': 'kakuhogo', '確保': 'kakuho',
+  '待機的': 'taikiteki', '待機': 'taiki', '寛解期': 'kannkaiki', '寛解': 'kannkai',
+  '急性期': 'kyuuseiki', '一時中断': 'itijityuudann', '中断': 'tyuudann',
+  '即時止血': 'sokujisiketu', '即時': 'sokuji',
+  '有意に低い': 'yuuinihikui', '有意に高い': 'yuuinitakai', '有意に': 'yuuini', '有意差': 'yuuisa', '有意': 'yuui',
+  '協議': 'kyougi'
 };
 
 // 活用語・送り仮名付き動詞・形容詞・副詞テーブル（音読み誤爆完全根絶用）
@@ -1048,7 +1143,20 @@ export const INFLECTED_WORD_MAP: Record<string, string> = {
   '改善した': 'kaizennsita', '改善し': 'kaizennsi', '改善': 'kaizenn',
   '予想されます': 'yosousaremasu', '予想する': 'yosousuru', '予想': 'yosou',
   '選択した': 'senntakusita', '選択': 'senntaku',
-  '感じられる': 'kannjirareru', '感じる': 'kannjiru'
+  '感じられる': 'kannjirareru', '感じる': 'kannjiru',
+  // 追加：形容詞・副詞・臨床文脈活用（音読み分解キメラ化完全防止）
+  '概ね': 'oomune',
+  '高い': 'takai', '高く': 'takaku', '高値': 'takane', '高スコア': 'kousukoa',
+  '低い': 'hikui', '低く': 'hikuku', '低値': 'teiti', '低スコア': 'teisukoa',
+  '強い': 'tuyoi', '強く': 'tuyoku', '弱い': 'yowai', '弱く': 'yowaku',
+  '多い': 'ooi', '多く': 'ooku', '少ない': 'sukunai', '少なく': 'sukunaku',
+  '重い': 'omoi', '重く': 'omoku', '軽い': 'karui', '軽く': 'karuku',
+  '良い': 'yoi', '良く': 'yoku', '悪い': 'warui', '悪く': 'waruku',
+  '早い': 'hayai', '早く': 'hayaku', '遅い': 'osoi', '遅く': 'osoku',
+  '深い': 'fukai', '深く': 'fukaku', '浅い': 'asai', '浅く': 'asaku',
+  '狭い': 'semai', '狭く': 'semaku',
+  '場合': 'baai', '場合は': 'baaiha', '場合も': 'baaimo', '場合に': 'baaini',
+  '状況です': 'jyoukyoudesu', '状況': 'jyoukyou', '検討すべき': 'kenntousubeki', '検討': 'renntou'
 };
 
 // 熟語フォールバック用 音読み強制テーブル（訓読みキメラ連結を100%根絶）
@@ -1103,14 +1211,14 @@ export const COMMON_KANJI_ROMAJI: Record<string, string> = {
   '覚': 'kaku', '数': 'suu', '値': 'ti', '像': 'zou', '網': 'mou', '羅': 'ra',
   '二': 'ni', '次': 'ji', '精': 'sei', '律': 'ritu', '実': 'jissi', '施': 'si',
   '費': 'hi', '膨': 'hukura', '低': 'tei', '療': 'ryou', '注': 'tyuu', '終': 'syuu',
-  '治': 'ti', '害': 'gai', '上': 'uwa', '結': 'kek', '果': 'ka',
+  '治': 'ti', '害': 'gai', '上': 'uwa', '結': 'ketu', '果': 'ka',
   // 追加：臨床推論・ガイドライン・EBM頻出漢字
   '未': 'mi', '踏': 'huma', '継': 'kei', '続': 'zoku', '鋸': 'kyo', '歯': 'si',
   '優': 'sugure', '鎮': 'tinn', '静': 'sei', '穿': 'senn', '孔': 'kou', '伴': 'tomona',
-  '示': 'sime', '般': 'pann', '親': 'sinn', '等': 'tou', '歴': 'reki', '疾': 'sik',
+  '示': 'sime', '般': 'pann', '親': 'sinn', '等': 'tou', '歴': 'reki', '疾': 'situ',
   '患': 'kann', '遺': 'i', '伝': 'denn', '貧': 'hinn', '減': 'genn', '通': 'tuu',
   '目': 'moku', '存': 'sonn', '在': 'zai', '頻': 'hinn', '度': 'do', '感': 'kann',
-  '能': 'nou', '常': 'jyou', '正': 'sei', '直': 'tyok', '近': 'kinn', '発': 'hat',
+  '能': 'nou', '常': 'jyou', '正': 'sei', '直': 'tyoku', '近': 'kinn', '発': 'hatu',
   '見': 'kenn', '少': 'syou', '腺': 'senn', '病': 'byou', '変': 'henn', '重': 'jyuu',
   '先': 'senn', '後': 'go', '平': 'hei', '均': 'kinn', '進': 'sinn', '量': 'ryou',
   '多': 'oo', '健': 'kenn', '康': 'kou', '食': 'syoku', '道': 'dou', '同': 'dou',
@@ -1173,7 +1281,10 @@ export const COMMON_KANJI_ROMAJI: Record<string, string> = {
   '縮': 'syuku', '肥': 'hi', '成': 'sei', '界': 'kai', '域': 'iki', '限': 'genn',
   '広': 'kou', '汎': 'hann', '身': 'sinn', '局': 'kyoku', '所': 'syo', '枢': 'suu',
   '末': 'matu', '梢': 'syou', '在': 'zai', '層': 'sou', '健': 'kenn', '康': 'kou',
-  '腹': 'fuku', '痛': 'tuu', '患': 'kann', '者': 'sya'
+  '腹': 'fuku', '痛': 'tuu', '患': 'kann', '者': 'sya',
+  // 追加：内視鏡・止血・循環器頻出漢字
+  '紮': 'satu', '憩': 'kei', '房': 'bou', '細': 'sai', '凝': 'gyou', '固': 'ko',
+  '野': 'ya', '併': 'hei', '概': 'gai', '塞': 'soku', '栓': 'senn'
 };
 
 /**
@@ -1329,6 +1440,37 @@ export function compileMedicalTextToImeBoost(
     }
   }
 
+  // ──【一般化前処理ルール⓪：特殊Unicode・丸数字・下付き文字・全角数学記号の安全正規化】──
+  // 丸数字（①〜⑳）➔ ASCII "(1) ", "(2) " 等に正規化（HID文字化け・脱落を物理的根絶）
+  const CIRCLED_NUM_MAP: Record<string, string> = {
+    '①': '(1) ', '②': '(2) ', '③': '(3) ', '④': '(4) ', '⑤': '(5) ',
+    '⑥': '(6) ', '⑦': '(7) ', '⑧': '(8) ', '⑨': '(9) ', '⑩': '(10) ',
+    '⑪': '(11) ', '⑫': '(12) ', '⑬': '(13) ', '⑭': '(14) ', '⑮': '(15) ',
+    '⑯': '(16) ', '⑰': '(17) ', '⑱': '(18) ', '⑲': '(19) ', '⑳': '(20) '
+  };
+  text = text.replace(/[①-⑳]/g, (ch) => CIRCLED_NUM_MAP[ch] || ch);
+
+  // 下付き文字（₀〜₉）➔ ASCII "0"〜"9"（CHA₂DS₂-VASc ➔ CHA2DS2-VASc 等・脱落ゼロ化）
+  const SUBSCRIPT_NUM_MAP: Record<string, string> = {
+    '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4',
+    '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9'
+  };
+  text = text.replace(/[₀-₉]/g, (ch) => SUBSCRIPT_NUM_MAP[ch] || ch);
+
+  // 上付き文字（⁰〜⁹）➔ ASCII "0"〜"9"
+  const SUPERSCRIPT_NUM_MAP: Record<string, string> = {
+    '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4',
+    '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9'
+  };
+  text = text.replace(/[⁰-⁹]/g, (ch) => SUPERSCRIPT_NUM_MAP[ch] || ch);
+
+  // 全角記号・数学記号の安全正規化（HIDスキャンコード脱落根絶）
+  text = text.replace(/＋/g, '+');
+  text = text.replace(/＝/g, '=');
+  text = text.replace(/±/g, '+/-');
+  text = text.replace(/％/g, '%');
+  text = text.replace(/[〜～–—−―]/g, '-');
+
   // ──【一般化形態素ルール①：年齢＋性別の分離（祭壇誤爆・キメラ化の完全防止）】──
   text = text.replace(/(\d+)\s*歳\s*男(?!性)/g, '$1[Z]sai[/Z][Z]otoko[/Z]');
   text = text.replace(/(\d+)\s*歳\s*女(?!性)/g, '$1[Z]sai[/Z][Z]onnna[/Z]');
@@ -1415,6 +1557,15 @@ export function compileMedicalTextToImeBoost(
       }
     }
   }
+
+  // ──【一般化形態素削り出しルール：同音異義語削り出し防護（約 ➔ 約束-BS, 協議 ➔ 協議会-BS）】──
+  // 「約12時間」「約100%」等で「役」「焼く」に化けるのを防ぐため、確実語「約束」から束を削る
+  text = text.replace(/約(?=\s*[\d０-９])/g, `${IME_TAG_KANJI}yakusoku${IME_TAG_KANJI_END}[BS]`);
+  text = text.replace(/(?<=[\s、。(（\[])約(?=[^\s、。)\]]|$)/g, `${IME_TAG_KANJI}yakusoku${IME_TAG_KANJI_END}[BS]`);
+  text = text.replace(/^約(?=[^\s、。)\]]|$)/gm, `${IME_TAG_KANJI}yakusoku${IME_TAG_KANJI_END}[BS]`);
+
+  // 「協議」➔「競技」誤爆を100%防ぐため、「協議会」から会を削る
+  text = text.replace(/協議(?=[、。となにをではが]|$)/g, `${IME_TAG_KANJI}kyougikai${IME_TAG_KANJI_END}[BS]`);
 
   // ──【一般化形態素ルール⑥：最長一致・臨床専門複合語＆活用語一括保護エンジン】──
   // CLINICAL_COMPOUND_MAP および INFLECTED_WORD_MAP の登録語を文字数の長い順にソートし、

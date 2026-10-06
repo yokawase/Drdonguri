@@ -373,6 +373,22 @@ void sendSafeChar(char c) {
       delay(2);
       Keyboard.releaseAll();
       break;
+    case '+': // JIS Shift + ;
+      Keyboard.press(KEY_LEFT_SHIFT);
+      Keyboard.press(';');
+      delay(4);
+      Keyboard.releaseAll();
+      delay(2);
+      Keyboard.releaseAll();
+      break;
+    case '%': // JIS Shift + 5
+      Keyboard.press(KEY_LEFT_SHIFT);
+      Keyboard.press('5');
+      delay(4);
+      Keyboard.releaseAll();
+      delay(2);
+      Keyboard.releaseAll();
+      break;
     case '"': // JIS Shift + 2
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('2');
@@ -1210,6 +1226,20 @@ bool dispatchSafeKeystrokes() {
       if (memcmp(&buf[i], "ー", 3) == 0) { sendSafeChar('-'); i += 3; continue; }
       if (memcmp(&buf[i], "＜", 3) == 0 || memcmp(&buf[i], "《", 3) == 0) { sendSafeChar('<'); i += 3; continue; }
       if (memcmp(&buf[i], "＞", 3) == 0 || memcmp(&buf[i], "》", 3) == 0) { sendSafeChar('>'); i += 3; continue; }
+      if (memcmp(&buf[i], "＋", 3) == 0) { sendSafeChar('+'); i += 3; continue; }
+      if (memcmp(&buf[i], "＝", 3) == 0) { sendSafeChar('='); i += 3; continue; }
+      if (memcmp(&buf[i], "％", 3) == 0) { sendSafeChar('%'); i += 3; continue; }
+      // 丸数字・囲み数字 (①〜⑩)
+      if (memcmp(&buf[i], "①", 3) == 0) { sendSafeChar('('); sendSafeChar('1'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "②", 3) == 0) { sendSafeChar('('); sendSafeChar('2'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "③", 3) == 0) { sendSafeChar('('); sendSafeChar('3'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "④", 3) == 0) { sendSafeChar('('); sendSafeChar('4'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "⑤", 3) == 0) { sendSafeChar('('); sendSafeChar('5'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "⑥", 3) == 0) { sendSafeChar('('); sendSafeChar('6'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "⑦", 3) == 0) { sendSafeChar('('); sendSafeChar('7'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "⑧", 3) == 0) { sendSafeChar('('); sendSafeChar('8'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "⑨", 3) == 0) { sendSafeChar('('); sendSafeChar('9'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "⑩", 3) == 0) { sendSafeChar('('); sendSafeChar('1'); sendSafeChar('0'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
     }
 
 // 2. ひらがな連続塊: ローマ字送出

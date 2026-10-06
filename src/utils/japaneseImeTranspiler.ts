@@ -1296,7 +1296,7 @@ export const SINGLE_KANJI_MAP: Record<string, string> = {
   '剰': 'jyou ', '是': 'ze ', '正': 'sei ', '禁': 'kinn ',
   '休': 'kyuu ', '歩': 'ho ', '事': 'ji ', '療': 'ryou ', '行': 'kou ',
   '物': 'butu ', '応': 'ou ', '価': 'ka ', '鏡': 'kyou ', '膜': 'maku ',
-  '逆': 'gyaku ', '流': 'ryuu ', '裂': 'rek ', '孔': 'kou ', '穹': 'kyuu ',
+  '逆': 'gyaku ', '流': 'ryuu ', '裂': 'retu ', '孔': 'kou ', '穹': 'kyuu ',
   '窿': 'ryou ', '底': 'tei ', '前': 'zenn ', '角': 'kaku ', '弯': 'wann ',
   '壁': 'peki ', '萎': 'isi ', '縮': 'kusei ', '幽': 'yuu ', '門': 'monn ',
   '輪': 'rinn ', '兆': 'tyou ', '候': 'kou ', '悪': 'aku ', '球': 'kyuu ',
