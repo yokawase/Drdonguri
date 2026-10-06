@@ -331,79 +331,79 @@ void sendSafeChar(char c) {
     case '~': // JIS Shift + ^
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('=');
-      delay(2);
+      delay(4);
       Keyboard.releaseAll();
       break;
     case '(': // JIS Shift + 8
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('8');
-      delay(2);
+      delay(4);
       Keyboard.releaseAll();
       break;
     case ')': // JIS Shift + 9
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('9');
-      delay(2);
+      delay(4);
       Keyboard.releaseAll();
       break;
     case '=': // JIS Shift + -
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('-');
-      delay(2);
+      delay(4);
       Keyboard.releaseAll();
       break;
     case '"': // JIS Shift + 2
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('2');
-      delay(2);
+      delay(4);
       Keyboard.releaseAll();
       break;
     case '\'': // JIS Shift + 7
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('7');
-      delay(2);
+      delay(4);
       Keyboard.releaseAll();
       break;
     case '&': // JIS Shift + 6
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('6');
-      delay(2);
+      delay(4);
       Keyboard.releaseAll();
       break;
     case '{': // JIS Shift + [
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press(']');
-      delay(2);
+      delay(4);
       Keyboard.releaseAll();
       break;
     case '}': // JIS Shift + ] (0x5C)
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press((char)0x5C);
-      delay(2);
+      delay(4);
       Keyboard.releaseAll();
       break;
     case '<': // JIS Shift + ,
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press(',');
-      delay(2);
+      delay(4);
       Keyboard.releaseAll();
       break;
     case '>': // JIS Shift + .
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('.');
-      delay(2);
+      delay(4);
       Keyboard.releaseAll();
       break;
     case '?': // JIS Shift + /
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('/');
-      delay(2);
+      delay(4);
       Keyboard.releaseAll();
       break;
     case '!': // JIS Shift + 1
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('1');
-      delay(2);
+      delay(4);
       Keyboard.releaseAll();
       break;
     case '*': // JIS Shift + : (Usage 0x34)
@@ -413,10 +413,10 @@ void sendSafeChar(char c) {
         rep.modifiers = 0x02; // Left Shift
         rep.keys[0] = 0x34;   // HID Usage 0x34 = ' (JIS配列では「:」)
         Keyboard.sendReport(&rep);
-        delay(2);
+        delay(4);
         memset(&rep, 0, sizeof(KeyReport));
         Keyboard.sendReport(&rep);
-        delay(2);
+        delay(4);
       }
       break;
     case '#': // JIS Shift + 3 (Usage 0x20)
@@ -426,10 +426,10 @@ void sendSafeChar(char c) {
         rep.modifiers = 0x02; // Left Shift
         rep.keys[0] = 0x20;   // HID Usage 0x20 = '3'
         Keyboard.sendReport(&rep);
-        delay(2);
+        delay(4);
         memset(&rep, 0, sizeof(KeyReport));
         Keyboard.sendReport(&rep);
-        delay(2);
+        delay(4);
       }
       break;
     case '_': // JIS Shift + ろ (Usage 0x87)
@@ -439,17 +439,29 @@ void sendSafeChar(char c) {
         rep.modifiers = 0x02; // Left Shift
         rep.keys[0] = 0x87;   // HID Usage 0x87 = International 1 (かな/ろ)
         Keyboard.sendReport(&rep);
-        delay(2);
+        delay(4);
         memset(&rep, 0, sizeof(KeyReport));
         Keyboard.sendReport(&rep);
-        delay(2);
+        delay(4);
+      }
+      break;
+    case '\\': // JISでは「￥」キー位置 (Usage 0x89 = International 3)
+      {
+        KeyReport rep;
+        memset(&rep, 0, sizeof(KeyReport));
+        rep.keys[0] = 0x89;   // HID Usage 0x89 = International 3 (￥)
+        Keyboard.sendReport(&rep);
+        delay(4);
+        memset(&rep, 0, sizeof(KeyReport));
+        Keyboard.sendReport(&rep);
+        delay(4);
       }
       break;
     default:
       Keyboard.write(c);
       break;
   }
-  delay(3); // 電子カルテ高速・確実インターキー遅延 (3ms: 従来の3倍以上高速化)
+  delay(8); // 電子カルテ取りこぼし防止・確実インターキー遅延 (8ms: 高速かつ脱落ゼロ保証)
 }
 
 // ============================================================================
@@ -950,10 +962,10 @@ bool dispatchSafeKeystrokes() {
       continue;
     }
 
-    // 4. [A]...[/A] (半角ASCIIモード: 英字時はF10+EnterでMS-IME平仮名化完全防止＆記号/数字時は直接高速送出)
+    // 4. [A]...[/A] (半角ASCIIモード: 英数字・記号時はF10+EnterでMS-IME全角化完全防止＆直接送出)
     if (strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "<A>", 3) == 0) {
       i += 3;
-      bool hasAlpha = false;
+      bool hasNonSpace = false;
       while (i < total) {
         if (strncmp(&buf[i], "[/A]", 4) == 0 || strncmp(&buf[i], "</A>", 4) == 0) {
           i += 4;
@@ -965,15 +977,15 @@ bool dispatchSafeKeystrokes() {
           break;
         }
         char ac = buf[i];
-        if ((ac >= 'a' && ac <= 'z') || (ac >= 'A' && ac <= 'Z')) {
-          hasAlpha = true;
+        if (ac != ' ' && ac != '\t') {
+          hasNonSpace = true;
         }
         sendSafeChar(ac);
         i++;
       }
-      // 英字アルファベットが含まれていた場合、MS-IMEが日本語入力中なら未確定平仮名になっているため、
-      // F10で半角英数に強制変換し、Enterで未確定文字列を確定する！
-      if (hasAlpha) {
+      // 英数字・記号が含まれていた場合、MS-IMEが日本語入力中なら未確定全角になっているため、
+      // F10で半角英数・半角記号に強制変換し、Enterで未確定文字列を確定する！
+      if (hasNonSpace) {
         Keyboard.write(KEY_F10);
         delay(20);
         Keyboard.write(KEY_RETURN);

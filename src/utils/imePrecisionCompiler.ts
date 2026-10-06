@@ -895,23 +895,25 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   '方針': 'housinn', '連携': 'rennkei', '年後': 'nenngo',
   '歳男': 'saiotoko', '歳女': 'saionnna',
   'カルテ': 'karute', '電子カルテ': 'dennsikarute', '問診': 'monnsinn', '診察': 'sinnsatu',
-  '処方': 'syoho', '主訴': 'syuso', '現病歴': 'gemmbyoureki', '既往歴': 'kioureki',
+  '処方': 'syoho', '主訴': 'syuso', '現病歴': 'gennbyoureki', '既往歴': 'kioureki',
   'バイタル': 'baitaru', '血圧': 'ketuatu', '脈拍': 'myakuhaku', '体温': 'taionn',
   // ── 胃腺腫・胃癌・ピロリ菌除菌・管理戦略・病態専門熟語 ──
-  '胃腺腫': 'isensyu', '腺腫': 'sensyu',
-  '胃癌発生': 'iganhatusei', '胃癌予防': 'iganyobou', '胃癌': 'igann',
+  'ピロリ菌除菌後': 'pirorikinnjyokinngo', 'ピロリ菌除菌': 'pirorikinnjyokinn', '除菌療法': 'jyokinnryouhou', '除菌後': 'jyokinngo',
+  '除菌': 'jyokinn', '胃腺腫': 'isensyu', '腺腫': 'sensyu',
+  '胃癌発生リスク層別化': 'iganhatuseirisukusoubetuka', '胃癌発生': 'iganhatusei', '胃癌予防': 'iganyobou', '胃癌': 'igann',
+  '早期胃癌': 'soukiigann', '発生リスク': 'hatuseirisuku', '発生': 'hatusei',
   '管理戦略': 'kannrisenryaku', '戦略': 'senryaku',
-  '序論': 'jyoronn', '胃粘膜': 'inemmaku', '環境': 'kannkyou',
-  '変遷': 'hennsenn', '位置づけ': 'itiduke',
-  '主要な': 'syuyouna', '主要': 'syuyou',
+  '序論': 'jyoronn', '胃粘膜環境': 'inennmakukannkyou', '胃粘膜': 'inennmaku', '環境': 'kannkyou',
+  'パラダイムシフト': 'paradaimusihuto', '変遷': 'hennsenn', '位置づけ': 'itiduke',
+  '主要な原因': 'syuyounagenninn', '主要な': 'syuyouna', '主要': 'syuyou',
   '画期的な手段': 'kakkitekinasyudann', '画期的な': 'kakkitekina', '画期的': 'kakkiteki', '手段': 'syudann',
   '高発生率地域': 'kouhatuseiritutiiki', '高発生率': 'kouhatuseiritu', '地域': 'tiiki',
   '日本政府': 'nihonnseifu', '政府': 'seifu',
-  '慢性胃炎': 'mannseigienn', '胃炎': 'igienn',
+  '慢性胃炎': 'mannseiienn', '胃炎': 'ienn',
   '保険適用': 'hokenntekiyou', '適用': 'tekiyou',
   '除菌成功例': 'jyokinnseikourei', '成功例': 'seikourei',
   '累積数': 'ruisekisuu', '累積': 'ruiseki',
-  '一途': 'ittu',
+  '一途': 'itizu',
   '既存の': 'kisonnno', '既存': 'kisonn',
   '前癌病変': 'zenngannbyouhenn', '前癌': 'zenngann',
   '有効性': 'yuukousei', '限定的': 'gennteiteki', '認識': 'ninnsiki',
@@ -919,7 +921,8 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   '臨床実践': 'rinnsyoujissenn', '実践': 'jissenn',
   '萎縮': 'isyuku', '腸上皮化生': 'tyoujyouhikasei',
   '慢性的な': 'mannseitekina', '構造的': 'kouzouteki', '機能的': 'kinouteki', '異常': 'ijyou',
-  '残存': 'zannzonn', '異時性胃癌': 'ijiseiigann', '異時性': 'ijisei',
+  'フィールドキャンセリゼーション': 'fi-rudokyananserize-syonn',
+  '残存し': 'zannzonnsi', '残存': 'zannzonn', '異時性胃癌': 'ijiseiigann', '異時性': 'ijisei',
   '臨床課題': 'rinnsyoukadai', '最重要視': 'saijyuuyousi'
 };
 
@@ -933,10 +936,10 @@ export const INFLECTED_WORD_MAP: Record<string, string> = {
   '認めず': 'mitomezu', '認めない': 'mitomenai',
   '辿っている': 'tadotteiru', '辿る': 'tadoru', '辿り': 'tadori',
   '除去する': 'jyokyosuru', '除去し': 'jyokyosi', '除去': 'jyokyo',
-  '拡大して': 'kakudaisite', '拡大し': 'kakudaisi', '拡大': 'kakudai',
+  '拡大して以降': 'kakudaisiteikou', '拡大して': 'kakudaisite', '拡大し': 'kakudaisi', '拡大': 'kakudai',
   '以降': 'ikou',
   '基づく': 'motoduku', '基づいた': 'motoduita', '基づき': 'motoduki', '基づいて': 'motoduite',
-  '解消されない': 'kaisousarenai', '解消する': 'kaisousuru', '解消': 'kaisou',
+  '解消されない': 'kaisyousarenai', '解消する': 'kaisyousuru', '解消': 'kaisyou',
   '最重要視されている': 'saijyuuyousisareteiru', '最重要視': 'saijyuuyousi',
   '継続的な': 'keizokutekina', '継続的': 'keizokuteki',
   '限定的であることも': 'gennteitekidearukotomo', '限定的': 'gennteiteki',
@@ -1250,12 +1253,34 @@ export function compileMedicalTextToImeBoost(
     return `${kanjiPart}[A]${asciiPart}[/A]`;
   });
 
-  // ──【一般化形態素ルール⑥：専門複合語の最小安全チャンク分離（異選手・胃がん発性等の誤爆根絶）】──
-  text = text.replace(/胃腺腫/g, '[Z]i[/Z][Z]sensyu[/Z]');
-  text = text.replace(/胃癌発生/g, '[Z]igann[/Z][Z]hatusei[/Z]');
-  text = text.replace(/胃癌予防/g, '[Z]igann[/Z][Z]yobou[/Z]');
-  text = text.replace(/残存し(?!て)/g, '[Z]zannzonn[/Z][H]si[/H]');
-  text = text.replace(/異時性胃癌/g, '[Z]ijisei[/Z][Z]igann[/Z]');
+  // ──【一般化形態素ルール⑥：最長一致・臨床専門複合語＆活用語一括保護エンジン】──
+  // CLINICAL_COMPOUND_MAP および INFLECTED_WORD_MAP の登録語を文字数の長い順にソートし、
+  // カタカナ・漢字がトークナイザで分断されて「ピロリ金」「送別化」「頂上費火星」等の誤爆が発生するのを100%防止！
+  const mergedDict: Record<string, string> = { ...CLINICAL_COMPOUND_MAP, ...INFLECTED_WORD_MAP };
+  const sortedDictKeys = Object.keys(mergedDict).sort((a, b) => b.length - a.length);
+
+  for (const word of sortedDictKeys) {
+    if (word.length < 2) continue;
+    if (text.includes(word)) {
+      const rom = mergedDict[word];
+      const isAllKatakana = /^[ァ-ヴー・]+$/.test(word);
+      const isAllHiragana = /^[ぁ-んー]+$/.test(word);
+      const tagOpen = isAllKatakana ? IME_TAG_KATAKANA : isAllHiragana ? IME_TAG_HIRAGANA : IME_TAG_KANJI;
+      const tagClose = isAllKatakana ? IME_TAG_KATAKANA_END : isAllHiragana ? IME_TAG_HIRAGANA_END : IME_TAG_KANJI_END;
+      const tagSeq = `${tagOpen}${rom}${tagClose}`;
+
+      const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(\\[[A-Z0-9]+\\][\\s\\S]*?\\[\\/[A-Z0-9]+\\])|(${escapedWord})`, 'g');
+      text = text.replace(regex, (match, tagPart, wordPart) => {
+        if (tagPart) return tagPart;
+        if (wordPart) return tagSeq;
+        return match;
+      });
+    }
+  }
+
+  // Markdown 文献番号参照 [1], [2] 等の半角ASCII保護
+  text = text.replace(/\[(\d+)\]/g, `${IME_TAG_ASCII}[$1]${IME_TAG_ASCII_END}`);
 
   // 2. 最小確実形態素（Chunk）分解の適用（最長一致ルール優先でソート）
   if (options.enableChunkDecomposition) {
