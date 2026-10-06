@@ -899,6 +899,59 @@ export const CHUNK_DECOMPOSITION_RULES: ChunkRule[] = [
   { composite: '視野確保', chunks: ['視野確保'], readings: ['siyakakuho'] },
   { composite: '機械的止血を追加', chunks: ['機械的止血を', '追加'], readings: ['kikaitekisiketuwo', 'tuika'] },
   { composite: '機械的止血', chunks: ['機械的止血'], readings: ['kikaitekisiketu'] },
+  // ── 生命科学・細胞老化・代謝・DNA損傷・シグナル伝達実機誤変換防護ルール ──
+  { composite: 'ゾンビ細胞（老化細胞）', chunks: ['ゾンビ細胞', '（', '老化細胞', '）'], readings: ['zonnbi-saibou', '(', 'roukasaibou', ')'] },
+  { composite: 'ゾンビ細胞', chunks: ['ゾンビ細胞'], readings: ['zonnbi-saibou'] },
+  { composite: '老化細胞', chunks: ['老化細胞'], readings: ['roukasaibou'] },
+  { composite: '増やしてしまう', chunks: ['増やしてしまう'], readings: ['huyasitesimau'] },
+  { composite: '代謝産物によるDNA損傷や分子シグナルの異常が深く関わっています。', chunks: ['代謝産物による', 'DNA損傷や', '分子シグナルの', '異常が', '深く', '関わっています', '。'], readings: ['taisyasannbutuniyoru', 'DNAsonsyouya', 'bunnnsisigunaruno', 'ijyouga', 'hukaku', 'kakawatteimasu', '.'] },
+  { composite: '代謝産物によるDNA損傷', chunks: ['代謝産物による', 'DNA損傷'], readings: ['taisyasannbutuniyoru', 'DNAsonsyou'] },
+  { composite: '代謝産物', chunks: ['代謝産物'], readings: ['taisyasannbutu'] },
+  { composite: '分子シグナルの異常が深く関わっています', chunks: ['分子シグナルの', '異常が', '深く', '関わっています'], readings: ['bunnnsisigunaruno', 'ijyouga', 'hukaku', 'kakawatteimasu'] },
+  { composite: '分子シグナルの異常', chunks: ['分子シグナルの', '異常'], readings: ['bunnnsisigunaruno', 'ijyou'] },
+  { composite: '深く関わっています', chunks: ['深く', '関わっています'], readings: ['hukaku', 'kakawatteimasu'] },
+  { composite: '関わっています', chunks: ['関わっています'], readings: ['kakawatteimasu'] },
+  { composite: '科学的知見に基づき', chunks: ['科学的知見に', '基づき'], readings: ['kagakutekitikennni', 'motoduki'] },
+  { composite: '科学的知見', chunks: ['科学的知見'], readings: ['kagakutekitikenn'] },
+  { composite: 'ゾンビ化させる仕組みと、', chunks: ['ゾンビ化させる', '仕組み', 'と、'], readings: ['zonnbi-kasaseru', 'sikumi', 'to,'] },
+  { composite: 'ゾンビ化させる仕組みと', chunks: ['ゾンビ化させる', '仕組み', 'と'], readings: ['zonnbi-kasaseru', 'sikumi', 'to'] },
+  { composite: 'ゾンビ化させる', chunks: ['ゾンビ化させる'], readings: ['zonnbi-kasaseru'] },
+  { composite: '仕組みと', chunks: ['仕組み', 'と'], readings: ['sikumi', 'to'] },
+  { composite: 'それを防ぐための摂取量・飲み方の基準、対策について詳しくまとめました。', chunks: ['それを', '防ぐための', '摂取量', '・', '飲み方の', '基準', '、', '対策について', '詳しく', 'まとめました', '。'], readings: ['sorewo', 'husegutameno', 'sessyuryou', '/', 'nomikatano', 'kijunn', ',', 'taisakunituite', 'kuwasiku', 'matomemasita', '.'] },
+  { composite: '防ぐための摂取量', chunks: ['防ぐための', '摂取量'], readings: ['husegutameno', 'sessyuryou'] },
+  { composite: '防ぐための', chunks: ['防ぐための'], readings: ['husegutameno'] },
+  { composite: '飲み方の基準', chunks: ['飲み方の', '基準'], readings: ['nomikatano', 'kijunn'] },
+  { composite: '飲み方の', chunks: ['飲み方の'], readings: ['nomikatano'] },
+  { composite: '対策について詳しくまとめました', chunks: ['対策について', '詳しく', 'まとめました'], readings: ['taisakunituite', 'kuwasiku', 'matomemasita'] },
+  { composite: '詳しくまとめました', chunks: ['詳しく', 'まとめました'], readings: ['kuwasiku', 'matomemasita'] },
+  { composite: '発生させる分子メカニズム', chunks: ['発生させる', '分子メカニズム'], readings: ['hatuseisaseru', 'bunnnsimekanizumu'] },
+  { composite: '発生させる', chunks: ['発生させる'], readings: ['hatuseisaseru'] },
+  { composite: '分子メカニズム', chunks: ['分子メカニズム'], readings: ['bunnnsimekanizumu'] },
+  { composite: 'その代謝物は', chunks: ['その', '代謝物は'], readings: ['sono', 'taisyabutuha'] },
+  { composite: '正常な細胞を不可逆的な細胞周期停止状態（ゾンビ細胞）へと追い込みます', chunks: ['正常な細胞を', '不可逆的な', '細胞周期停止状態', '（', 'ゾンビ細胞', '）', 'へと', '追い込みます'], readings: ['seijyounasaibouwo', 'hukagyakutekina', 'saibousyuukiteisijyoutai', '(', 'zonnbi-saibou', ')', 'heto', 'oikomimasu'] },
+  { composite: '細胞周期停止状態', chunks: ['細胞周期停止状態'], readings: ['saibousyuukiteisijyoutai'] },
+  { composite: '正常な細胞を', chunks: ['正常な細胞を'], readings: ['seijyounasaibouwo'] },
+  { composite: '正常な細胞', chunks: ['正常な細胞'], readings: ['seijyounasaibou'] },
+  { composite: '追い込みます', chunks: ['追い込みます'], readings: ['oikomimasu'] },
+  { composite: 'DNA損傷応答（DDR）の起動', chunks: ['DNA損傷応答', '（', 'DDR', '）', 'の', '起動'], readings: ['DNAsonsyououtou', '(', 'DDR', ')', 'no', 'kidou'] },
+  { composite: 'DNA損傷応答', chunks: ['DNA損傷応答'], readings: ['DNAsonsyououtou'] },
+  { composite: '強力な遺伝毒性物質であり、', chunks: ['強力な', '遺伝毒性物質', 'であり、'], readings: ['kyouryokuna', 'idenndokuseibussitu', 'deari,'] },
+  { composite: '遺伝毒性物質であり', chunks: ['遺伝毒性物質', 'であり'], readings: ['idenndokuseibussitu', 'deari'] },
+  { composite: '遺伝毒性物質', chunks: ['遺伝毒性物質'], readings: ['idenndokuseibussitu'] },
+  { composite: '切断や傷を引き起こします', chunks: ['切断や', '傷を', '引き起こします'], readings: ['setudannya', 'kizuwo', 'hikiokosimasu'] },
+  { composite: '傷を引き起こします', chunks: ['傷を', '引き起こします'], readings: ['kizuwo', 'hikiokosimasu'] },
+  { composite: '引き起こします', chunks: ['引き起こします'], readings: ['hikiokosimasu'] },
+  { composite: '傷を引き起こす', chunks: ['傷を', '引き起こす'], readings: ['kizuwo', 'hikiokosu'] },
+  { composite: '持続的なDNA損傷応答', chunks: ['持続的な', 'DNA損傷応答'], readings: ['jizokutekina', 'DNAsonsyououtou'] },
+  { composite: '細胞周期阻害因子であるp21やp16の発現を上昇させ、', chunks: ['細胞周期阻害因子', 'である', 'p21', 'や', 'p16', 'の', '発現を', '上昇させ', '、'], readings: ['saibousyuukisogaiinnsi', 'dearu', 'p21', 'ya', 'p16', 'no', 'hatugennwo', 'jyousousase', ','] },
+  { composite: '細胞周期阻害因子', chunks: ['細胞周期阻害因子'], readings: ['saibousyuukisogaiinnsi'] },
+  { composite: '発現を上昇させ', chunks: ['発現を', '上昇させ'], readings: ['hatugennwo', 'jyousousase'] },
+  { composite: '発現を', chunks: ['発現を'], readings: ['hatugennwo'] },
+  { composite: '細胞の分裂を永久に停止（ゾンビ化）させます', chunks: ['細胞の分裂を', '永久に', '停止', '（', 'ゾンビ化', '）', 'させます'], readings: ['saibounobunnretuwo', 'eikyuuni', 'teisi', '(', 'zonnbi-ka', ')', 'sasemasu'] },
+  { composite: '細胞の分裂を', chunks: ['細胞の分裂を'], readings: ['saibounobunnretuwo'] },
+  { composite: '細胞の分裂', chunks: ['細胞の分裂'], readings: ['saibounobunnretu'] },
+  { composite: '永久に停止', chunks: ['永久に', '停止'], readings: ['eikyuuni', 'teisi'] },
+  { composite: '永久に', chunks: ['永久に'], readings: ['eikyuuni'] },
 ];
 
 // カタカナ・外来語を検出する正規表現
@@ -1103,7 +1156,24 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   '急性期': 'kyuuseiki', '一時中断': 'itijityuudann', '中断': 'tyuudann',
   '即時止血': 'sokujisiketu', '即時': 'sokuji',
   '有意に低い': 'yuuinihikui', '有意に高い': 'yuuinitakai', '有意に': 'yuuini', '有意差': 'yuuisa', '有意': 'yuui',
-  '協議': 'kyougi'
+  '協議': 'kyougi',
+  // ── 細胞生物学・老化細胞・代謝産物・DNA損傷・シグナル伝達専門用語 ──
+  'ゾンビ細胞': 'zonnbi-saibou', '老化細胞': 'roukasaibou', '細胞周期停止状態': 'saibousyuukiteisijyoutai',
+  '細胞周期停止': 'saibousyuukiteisi', '細胞周期阻害因子': 'saibousyuukisogaiinnsi',
+  '細胞周期': 'saibousyuuki', '細胞分裂': 'saiboubunnretu', '細胞の分裂': 'saibounobunnretu',
+  '細胞': 'saibou', 'ゾンビ化': 'zonnbi-ka', 'ゾンビ': 'zonnbi',
+  '代謝産物': 'taisyasannbutu', '代謝物': 'taisyabutu', '代謝': 'taisya',
+  '分子シグナル': 'bunnnsisigunaru', '分子メカニズム': 'bunnnsimekanizumu', 'メカニズム': 'mekanizumu',
+  'シグナル': 'sigunaru', 'DNA損傷応答': 'DNAsonsyououtou', 'DNA損傷': 'DNAsonsyou',
+  '損傷応答': 'sonsyououtou', '損傷': 'sonsyou', '応答': 'outou',
+  'アセトアルデヒド': 'asetoarudehido', 'エタノール': 'etano-ru',
+  '遺伝毒性物質': 'idenndokuseibussitu', '遺伝毒性': 'idenndokusei', '毒性物質': 'dokuseibussitu',
+  '遺伝': 'idenn', '毒性': 'dokusei', '物質': 'bussitu',
+  'DNA鎖': 'DNAsa', '切断': 'setudann', '不可逆的': 'hukagyakuteki',
+  '停止状態': 'teisijyoutai', '停止': 'teisi', '科学的知見': 'kagakutekitikenn', '科学的': 'kagakuteki',
+  '知見': 'tikenn', '基準': 'kijunn', '対策': 'taisaku', '摂取量': 'sessyuryou',
+  '摂取': 'sessyu', '持続的': 'jizokuteki', '発現': 'hatugenn', '永久に': 'eikyuuni',
+  '永久': 'eikyuu', '老化': 'rouka', '異常': 'ijyou'
 };
 
 // 活用語・送り仮名付き動詞・形容詞・副詞テーブル（音読み誤爆完全根絶用）
@@ -1156,7 +1226,22 @@ export const INFLECTED_WORD_MAP: Record<string, string> = {
   '深い': 'fukai', '深く': 'fukaku', '浅い': 'asai', '浅く': 'asaku',
   '狭い': 'semai', '狭く': 'semaku',
   '場合': 'baai', '場合は': 'baaiha', '場合も': 'baaimo', '場合に': 'baaini',
-  '状況です': 'jyoukyoudesu', '状況': 'jyoukyou', '検討すべき': 'kenntousubeki', '検討': 'renntou'
+  '状況です': 'jyoukyoudesu', '状況': 'jyoukyou', '検討すべき': 'kenntousubeki', '検討': 'renntou',
+  // ── 送り仮名付き動詞・形容詞・訓読みキメラ化完全防止 ──
+  '関わっています': 'kakawatteimasu', '関わって': 'kakawatte', '関わる': 'kakawaru',
+  '関わり': 'kakawari', '関与': 'kannyo',
+  '防ぐための': 'husegutameno', '防ぐため': 'husegutame', '防ぐ': 'husegu', '防ぎ': 'husegi',
+  '詳しく': 'kuwasiku', '詳しい': 'kuwasii',
+  '追い込みます': 'oikomimasu', '追い込む': 'oikomu', '追い込み': 'oikomi',
+  '増やしてしまう': 'huyasitesimau', '増やして': 'huyasite', '増やす': 'huyasu',
+  '増える': 'hueru', '増え': 'hue',
+  '引き起こします': 'hikiokosimasu', '引き起こす': 'hikiokosu', '引き起こし': 'hikiokosi',
+  '飲み方の': 'nomikatano', '飲み方': 'nomikata', '飲む': 'nomu', '飲み': 'nomi',
+  '仕組みと': 'sikumito', '仕組み': 'sikumi',
+  '傷を': 'kizuwo', '傷': 'kizu',
+  '発生させる': 'hatuseisaseru', '発生させ': 'hatuseisase', '発生し': 'hatuseisi', '発生': 'hatusei',
+  '上昇させ': 'jyousousase', '上昇': 'jyousyou', '分裂': 'bunnretu',
+  '生じる': 'syoujiru', '生じて': 'syoujite', '分解されて': 'bunnkaisarete', '分解': 'bunnkai'
 };
 
 // 熟語フォールバック用 音読み強制テーブル（訓読みキメラ連結を100%根絶）
@@ -1282,9 +1367,10 @@ export const COMMON_KANJI_ROMAJI: Record<string, string> = {
   '広': 'kou', '汎': 'hann', '身': 'sinn', '局': 'kyoku', '所': 'syo', '枢': 'suu',
   '末': 'matu', '梢': 'syou', '在': 'zai', '層': 'sou', '健': 'kenn', '康': 'kou',
   '腹': 'fuku', '痛': 'tuu', '患': 'kann', '者': 'sya',
-  // 追加：内視鏡・止血・循環器頻出漢字
+  // 追加：内視鏡・止血・循環器・細胞生物学頻出漢字
   '紮': 'satu', '憩': 'kei', '房': 'bou', '細': 'sai', '凝': 'gyou', '固': 'ko',
-  '野': 'ya', '併': 'hei', '概': 'gai', '塞': 'soku', '栓': 'senn'
+  '野': 'ya', '併': 'hei', '概': 'gai', '塞': 'soku', '栓': 'senn',
+  '胞': 'bou', '謝': 'sya', '損': 'sonn', '傷': 'kizu', '毒': 'doku', '鎖': 'sa', '阻': 'so', '因': 'inn'
 };
 
 /**
