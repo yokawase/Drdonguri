@@ -909,6 +909,14 @@ bool dispatchSafeKeystrokes() {
   while (i < total) {
     char c = buf[i];
 
+    // Backspace文字 (\x08)
+    if (c == '\x08') {
+      safeWrite(KEY_BACKSPACE);
+      delay(20);
+      i++;
+      continue;
+    }
+
     // MICS Navigator電子カルテ専用モードタグの検出 (<EHR_MICS> / [EHR_MICS])
     if (strncmp(&buf[i], "<EHR_MICS>", 10) == 0 || strncmp(&buf[i], "[EHR_MICS]", 10) == 0) {
       isMicsMode = true;
@@ -1162,7 +1170,7 @@ bool dispatchSafeKeystrokes() {
       }
       if (strncmp(&buf[i], "[BS]", 4) == 0 || strncmp(&buf[i], "<BS>", 4) == 0) {
         safeWrite(KEY_BACKSPACE);
-        delay(15);
+        delay(20);
         i += 4;
         continue;
       }

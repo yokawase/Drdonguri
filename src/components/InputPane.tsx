@@ -18,7 +18,11 @@ import {
   HelpCircle,
   Activity,
   ArrowRight,
-  Info
+  Info,
+  Menu,
+  X,
+  Settings,
+  Check
 } from 'lucide-react';
 import { DispatchMode, EhrNewlineMode, SessionTransmissionStatus, MedicalTemplate } from '../types';
 import { DEFAULT_PRESET_TEMPLATES } from './MedicalTemplates';
@@ -110,6 +114,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
   const [templateModalTab, setTemplateModalTab] = useState<'list' | 'save'>('list');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isNumLockModalOpen, setIsNumLockModalOpen] = useState(false);
+  const [isSmartMenuOpen, setIsSmartMenuOpen] = useState(false);
 
   const handleNumUnlock = async () => {
     playMacBeep();
@@ -335,6 +340,17 @@ export const InputPane: React.FC<InputPaneProps> = ({
     return Math.min(100, Math.max(50, score));
   }, [inputText]);
 
+  // ★ 高度推論・キーストローク着弾リアルタイム解析
+  const compiledImeResult = React.useMemo(() => {
+    if (!inputText) return null;
+    try {
+      const textToCompile = enableAutoPreprocessor ? preprocessedResult.processedText : inputText;
+      return compileMedicalTextToImeBoost(textToCompile, imeBoostOptions);
+    } catch {
+      return null;
+    }
+  }, [inputText, enableAutoPreprocessor, preprocessedResult, imeBoostOptions]);
+
   // 送信ハンドラ
   const handleSend = async () => {
     if (!inputText.trim()) return;
@@ -364,184 +380,103 @@ export const InputPane: React.FC<InputPaneProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* ★ SYSTEM 7 メインウィンドウ: カルテ作成・送信 (SendText) */}
+      {/* ★ SYSTEM 7 メインウィンドウ: カルテ作成・送信 (SendText v17.0) */}
       {/* ========================================================================= */}
       <div className={`mac-window transition-all ${isWindowZoomed ? 'w-full' : 'w-full'}`}>
         {/* ウィンドウ タイトルバー (6本平行ストライプ) */}
-        <div className="h-6 mac-title-stripes border-b border-black flex items-center justify-between px-2 select-none">
-          {/* クローズボックス (左上四角ボタン) */}
-          <button
-            onClick={() => {
-              playMacBeep();
-              if (inputText.trim()) {
-                if (confirm('カルテ入力を消去してウィンドウを閉じますか？')) {
-                  setInputText('');
+        <div className="h-7 mac-title-stripes border-b border-black flex items-center justify-between px-2 select-none">
+          {/* 左側: クローズボックス ＆ タイトル ＆ 接続ステータス */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                playMacBeep();
+                if (inputText.trim()) {
+                  if (confirm('カルテ入力を消去してウィンドウを閉じますか？')) {
+                    setInputText('');
+                  }
                 }
-              }
-            }}
-            className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] active:bg-black cursor-pointer flex items-center justify-center shrink-0"
-            title="クローズボックス"
-          />
+              }}
+              className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] active:bg-black cursor-pointer flex items-center justify-center shrink-0"
+              title="クローズボックス"
+            />
 
-          {/* タイトル（白背景でストライプを遮断） */}
-          <div className="bg-white border border-black px-3 py-0.2 font-bold text-xs tracking-wider flex items-center gap-2">
-            <span>DrVoice SendText — カルテ送信</span>
-            {isSending && (
-              <span className="text-[10px] animate-pulse">⏳ 送信中...</span>
-            )}
-            {transmissionStatus?.status === 'waiting_button' && (
-              <span className="text-[10px] bg-black text-white px-1">ボタン押下待機</span>
-            )}
-          </div>
-
-          {/* ズームボックス (右上二重四角ボタン) */}
-          <button
-            onClick={() => {
-              playMacBeep();
-              setIsWindowZoomed(!isWindowZoomed);
-            }}
-            className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] active:bg-black cursor-pointer flex items-center justify-center shrink-0"
-            title="ズームボックス"
-          >
-            <div className="w-1.5 h-1.5 border border-black" />
-          </button>
-        </div>
-
-        {/* ウィンドウ内部コンテンツ */}
-        <div className="p-3 bg-white space-y-3">
-          {/* System 7 ツールバー */}
-          <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-black pb-2 text-xs">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                onClick={handleInsertSoapTemplate}
-                className="mac-btn"
-                title="SOAP標準形式を展開"
-              >
-                <span>📄 SOAP雛形</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  playMacBeep();
-                  setTemplateModalTab('list');
-                  setIsTemplateModalOpen(true);
-                }}
-                className="mac-btn"
-              >
-                <span>🔖 定型文 ({templates.length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  playMacBeep();
-                  setIsAiModalOpen(true);
-                }}
-                className="mac-btn"
-              >
-                <span>🤖 AI整形</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  playMacBeep();
-                  setIsCameraOcrOpen(true);
-                }}
-                className="mac-btn"
-              >
-                <span>📷 カメラOCR</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  playMacBeep();
-                  setIsImeBoostModalOpen(true);
-                }}
-                className="mac-btn"
-                title="IME精度ブースト・Fキー強制・同音異義語辞書"
-              >
-                <span>⚡ IMEブースト</span>
-                {misconversionWarnings.length > 0 && (
-                  <span className="bg-black text-white px-1 text-[10px] rounded-xs font-bold">
-                    {misconversionWarnings.length}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  playMacBeep();
-                  setIsE2eModalOpen(true);
-                }}
-                className="mac-btn"
-                title="E2E自動テスト"
-              >
-                <span>▶ E2E検証</span>
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {inputText.trim() && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    playSosumi();
-                    if (confirm('カルテ入力を消去しますか？')) {
-                      setInputText('');
-                      showToast('入力をクリアしました');
-                    }
-                  }}
-                  className="mac-btn"
-                  title="入力消去"
-                >
-                  <span>🗑️ 消去</span>
-                </button>
+            <div className="bg-white border border-black px-2 py-0.5 font-bold text-xs tracking-wider flex items-center gap-1.5 shadow-[1px_1px_0_#000]">
+              <span>DrVoice どんぐり君 v17.0</span>
+              {isBleConnected ? (
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1 border border-emerald-500 font-bold">BLE接続</span>
+              ) : isVirtualMode ? (
+                <span className="text-[10px] bg-amber-100 text-amber-800 px-1 border border-amber-500 font-bold">仮想</span>
+              ) : (
+                <span className="text-[10px] bg-red-100 text-red-800 px-1 border border-red-500 font-bold">未接続</span>
               )}
-
-              {isAutoSavedNotice && (
-                <span className="text-[10px] text-gray-700">💾 自動保存</span>
+              {isSending && (
+                <span className="text-[10px] animate-pulse font-bold text-blue-700">⏳ 送信中</span>
+              )}
+              {transmissionStatus?.status === 'waiting_button' && (
+                <span className="text-[10px] bg-black text-white px-1">ボタン待機</span>
               )}
             </div>
           </div>
 
-          {/* よく使う定型文ショートカット (1-bit ボタン列) */}
-          <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="font-bold text-[11px] mr-1">短縮定型:</span>
-            {templates.slice(0, 4).map((t) => (
+          {/* 右側: 消去 ＆ ツール・メニューボタン ＆ ズームボックス */}
+          <div className="flex items-center gap-1.5">
+            {inputText.trim() && (
               <button
-                key={t.id}
+                type="button"
                 onClick={() => {
-                  playMacBeep();
-                  if (inputText.trim()) {
-                    if (confirm(`【${t.title}】を展開しますか？\n[OK] 上書き置換 / [キャンセル] 末尾追記`)) {
-                      setInputText(t.content);
-                    } else {
-                      setInputText((prev) => `${prev}\n\n${t.content}`);
-                    }
-                  } else {
-                    setInputText(t.content);
+                  playSosumi();
+                  if (confirm('カルテ入力を消去しますか？')) {
+                    setInputText('');
+                    showToast('入力をクリアしました');
                   }
                 }}
-                className="mac-btn text-[11px] py-0.5"
-                title={t.description}
+                className="mac-btn text-[11px] py-0.5 px-2 bg-white"
+                title="入力消去"
               >
-                <span>• {t.title}</span>
+                <span>🗑️ クリア</span>
               </button>
-            ))}
-          </div>
+            )}
 
+            {/* ★ 画面上のボタンをすべて内包するメニューボタン */}
+            <button
+              type="button"
+              onClick={() => {
+                playMacBeep();
+                setIsSmartMenuOpen(true);
+              }}
+              className="mac-btn bg-black text-white hover:bg-neutral-800 font-bold text-[11px] py-0.5 px-2.5 flex items-center gap-1 shadow-[1px_1px_0_#000]"
+              title="SOAP雛形・定型文・AI整形・IME設定メニューを開く"
+            >
+              <Menu className="w-3.5 h-3.5" />
+              <span>メニュー</span>
+              {(misconversionWarnings.length > 0 || templates.length > 0) && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+              )}
+            </button>
+
+            {/* ズームボックス */}
+            <button
+              onClick={() => {
+                playMacBeep();
+                setIsWindowZoomed(!isWindowZoomed);
+              }}
+              className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] active:bg-black cursor-pointer flex items-center justify-center shrink-0"
+              title="ズームボックス"
+            >
+              <div className="w-1.5 h-1.5 border border-black" />
+            </button>
+          </div>
+        </div>
+
+        {/* ウィンドウ内部コンテンツ（シンプル・直感UI） */}
+        <div className="p-3 bg-white space-y-2.5">
           {/* Monaco / DotGothic16 プレーンテキスト入力欄 */}
           <div className="relative border border-black p-0.5 bg-white shadow-[inset_1px_1px_0_#000]">
             <textarea
               id="editor"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="ここにカルテ所見・診察メモを入力してください（キーストローク毎に自動保存）...&#13;&#10;Windows電子カルテ端末の選択カーソル位置へ、どんぐり君がJIS 109キーボードとして自動打鍵します。"
+              placeholder="ここにカルテ所見・診察メモを入力してください（自動保存）...&#13;&#10;スマホの高度推論コンパイラがキーストロークを解析し、AtomS3UがWindows電子カルテへ100%正確に自動打鍵します。&#13;&#10;（右上の「メニュー」ボタンからSOAP雛形や定型文を展開できます）"
               rows={isWindowZoomed ? 18 : 10}
               className="w-full text-xs sm:text-sm leading-relaxed p-2.5 bg-white border-0 focus:outline-none font-mono resize-y"
               style={{
@@ -551,10 +486,73 @@ export const InputPane: React.FC<InputPaneProps> = ({
             />
           </div>
 
+          {/* ★【高度推論・キーストローク着弾リアルタイム解析モニター】 */}
+          {inputText.trim() && compiledImeResult && (
+            <div className="border border-black bg-neutral-50 p-2 text-xs space-y-1.5 shadow-[1px_1px_0_#000]">
+              <div className="flex items-center justify-between flex-wrap gap-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold flex items-center gap-1 text-emerald-800">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    100% 確実打鍵推論
+                  </span>
+                  <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.2 font-bold rounded-xs">
+                    確実性: {compiledImeResult.accuracyConfidenceScore}%
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTranspileDetail(!showTranspileDetail)}
+                  className="text-[11px] underline cursor-pointer text-neutral-600 hover:text-black flex items-center gap-0.5"
+                >
+                  <span>{showTranspileDetail ? 'プレビューを閉じる ▲' : 'キーストローク詳細 ▼'}</span>
+                </button>
+              </div>
+
+              {/* 最適化タグのチップ一覧 */}
+              <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                {compiledImeResult.breakdownCounts.katakanaF7 > 0 && (
+                  <span className="bg-blue-100 text-blue-900 border border-blue-400 px-1 py-0.2 font-bold">
+                    F7全角カナ: {compiledImeResult.breakdownCounts.katakanaF7}語
+                  </span>
+                )}
+                {compiledImeResult.breakdownCounts.backspaceTrim > 0 && (
+                  <span className="bg-emerald-100 text-emerald-900 border border-emerald-400 px-1 py-0.2 font-bold">
+                    確実削り出し[BS]: {compiledImeResult.breakdownCounts.backspaceTrim}語
+                  </span>
+                )}
+                {compiledImeResult.breakdownCounts.asciiF10 > 0 && (
+                  <span className="bg-amber-100 text-amber-900 border border-amber-400 px-1 py-0.2 font-bold">
+                    半角ASCII直撃: {compiledImeResult.breakdownCounts.asciiF10}件
+                  </span>
+                )}
+                {compiledImeResult.breakdownCounts.chunkSplit > 0 && (
+                  <span className="bg-purple-100 text-purple-900 border border-purple-400 px-1 py-0.2">
+                    最小Chunk自立語: {compiledImeResult.breakdownCounts.chunkSplit}語
+                  </span>
+                )}
+                {compiledImeResult.breakdownCounts.hiraganaEnter > 0 && (
+                  <span className="bg-neutral-200 text-neutral-800 border border-neutral-400 px-1 py-0.2">
+                    ひらがなEnter確定: {compiledImeResult.breakdownCounts.hiraganaEnter}件
+                  </span>
+                )}
+              </div>
+
+              {/* 展開時: 詳細キーストロークプレビュー */}
+              {showTranspileDetail && (
+                <div className="mt-2 pt-2 border-t border-black/20 font-mono text-[11px] bg-white p-2 border border-black overflow-x-auto max-h-36">
+                  <div className="text-gray-500 text-[10px] mb-1">AtomS3U 送出タグ付きペイロード:</div>
+                  <div className="text-neutral-800 break-all leading-relaxed whitespace-pre-wrap">
+                    {compiledImeResult.compiledPayload}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* テキストエリア直下: ステータス ＆ 送信コントロール */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-black text-xs">
-            {/* 左側: 文字数 / パケット / モード選択 */}
-            <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-black text-xs">
+            {/* 左側: 文字数 / パケット / HVCスコア */}
+            <div className="flex flex-wrap items-center gap-2">
               <span className="font-bold">{inputText.length} 文字</span>
               {preparedSession && (
                 <>
@@ -577,130 +575,21 @@ export const InputPane: React.FC<InputPaneProps> = ({
                         ? 'bg-slate-100 text-black'
                         : 'bg-white text-black'
                     }`}
-                    title="高価値医療（HVC）スマートスコア（警告・禁止を排したポジティブ指標）"
+                    title="高価値医療（HVC）スマートスコア"
                   >
-                    HVC: {hvcScore}点 {hvcScore >= 85 ? '★ Excellent' : hvcScore >= 70 ? '● Good' : '▲ Review'}
+                    HVC: {hvcScore}点
                   </span>
                 </>
               )}
 
-              {/* ラジオボタン: 送信モード (v15.0 4層タグ・安全打鍵パイプライン) */}
-              <div className="flex flex-wrap items-center gap-3 pl-2 border-l border-black">
-                <label 
-                  className="flex items-center gap-1.5 cursor-pointer font-bold bg-amber-50 px-2 py-0.5 border border-black shadow-[1px_1px_0_#000]"
-                  title="★【v15.0】MS-IME F7カタカナ強制・Enter即時確定・最小Chunk漢字変換。NumLockおよびF5タイムスタンプ事故を100%根絶！"
-                >
-                  <input
-                    type="radio"
-                    name="dispatchMode"
-                    className="mac-radio"
-                    checked={dispatchMode === DispatchMode.MODE_HYBRID_UNICODE}
-                    onChange={() => {
-                      playMacBeep();
-                      setDispatchMode(DispatchMode.MODE_HYBRID_UNICODE);
-                    }}
-                  />
-                  <span className="text-black">★ v15.0 4層タグ変換 (誤変換・テンキー誤爆ゼロ)</span>
-                </label>
-
-                <label className="flex items-center gap-1.5 cursor-pointer" title="旧式: クライアント側でローマ字タグを生成して送信">
-                  <input
-                    type="radio"
-                    name="dispatchMode"
-                    className="mac-radio"
-                    checked={dispatchMode === DispatchMode.MODE_IME_ROMAJI}
-                    onChange={() => {
-                      playMacBeep();
-                      setDispatchMode(DispatchMode.MODE_IME_ROMAJI);
-                    }}
-                  />
-                  <span>旧式 ローマ字変換</span>
-                </label>
-
-                <label className="flex items-center gap-1.5 cursor-pointer" title="半角英数字・カルテID直接入力">
-                  <input
-                    type="radio"
-                    name="dispatchMode"
-                    className="mac-radio"
-                    checked={dispatchMode === DispatchMode.MODE_RAW_ASCII}
-                    onChange={() => {
-                      playMacBeep();
-                      setDispatchMode(DispatchMode.MODE_RAW_ASCII);
-                    }}
-                  />
-                  <span>直接 ASCII</span>
-                </label>
-              </div>
-
-              {/* カルテ改行制御: 標準 (Enter) vs MICS Navigator (Alt+Enter) */}
-              <div className="flex flex-wrap items-center gap-2 pl-2 border-l border-black">
-                <span className="font-bold text-neutral-700">カルテ改行:</span>
-                <label 
-                  className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 border border-black ${
-                    newlineMode === EhrNewlineMode.NORMAL_ENTER ? 'bg-amber-100 font-bold shadow-[1px_1px_0_#000]' : 'bg-white'
-                  }`}
-                  title="★ 標準的なEnterキーでの改行（一般的な電子カルテ・エディタ向け初期値）"
-                >
-                  <input
-                    type="radio"
-                    name="newlineMode"
-                    className="mac-radio"
-                    checked={newlineMode === EhrNewlineMode.NORMAL_ENTER}
-                    onChange={() => {
-                      playMacBeep();
-                      setNewlineMode(EhrNewlineMode.NORMAL_ENTER);
-                      localStorage.setItem('drvoice_ehr_newline_mode_v1', EhrNewlineMode.NORMAL_ENTER);
-                    }}
-                  />
-                  <span>標準 (Enter)</span>
-                </label>
-
-                <label 
-                  className={`flex items-center gap-1 cursor-pointer px-1.5 py-0.5 border border-black ${
-                    newlineMode === EhrNewlineMode.MICS_ALT_ENTER ? 'bg-amber-100 font-bold shadow-[1px_1px_0_#000]' : 'bg-white'
-                  }`}
-                  title="MICS電子カルテ Navigator向け: Enterによるペイン閉鎖を防止し、Alt+Enterで安全にセル内改行します"
-                >
-                  <input
-                    type="radio"
-                    name="newlineMode"
-                    className="mac-radio"
-                    checked={newlineMode === EhrNewlineMode.MICS_ALT_ENTER}
-                    onChange={() => {
-                      playMacBeep();
-                      setNewlineMode(EhrNewlineMode.MICS_ALT_ENTER);
-                      localStorage.setItem('drvoice_ehr_newline_mode_v1', EhrNewlineMode.MICS_ALT_ENTER);
-                    }}
-                  />
-                  <span className="text-black">MICS (Alt+Enter)</span>
-                </label>
-              </div>
+              {isAutoSavedNotice && (
+                <span className="text-[10px] text-gray-500 ml-1">💾 保存済</span>
+              )}
             </div>
 
-            {/* 右側: クラシック二重枠 送信ボタン ＆ 物理ボタン ＆ 緊急NumLock解除 */}
+            {/* 右側: 物理ボタン押下 ＆ メイン送信ボタン */}
             <div className="flex items-center gap-2">
-              {/* 緊急NumLock解除ボタン */}
-              <button
-                type="button"
-                onClick={handleNumUnlock}
-                className="mac-btn bg-red-50 text-red-900 border-red-800 hover:bg-red-100 flex items-center gap-1 font-bold text-[11px]"
-                title="ノートPCのKキーが2になるテンキー固定を解除します"
-              >
-                <span>🚨 テンキー固定解除</span>
-              </button>
-
-              {/* キーストローク解析プレビュー */}
-              {transpiled && (
-                <button
-                  type="button"
-                  onClick={() => setShowTranspileDetail(!showTranspileDetail)}
-                  className="mac-btn text-[11px]"
-                >
-                  <span>打鍵列プレビュー {showTranspileDetail ? '▲' : '▼'}</span>
-                </button>
-              )}
-
-              {/* どんぐり君正面ボタン押下 (仮想/実機トリガー) */}
+              {/* どんぐり君正面ボタン押下 (待機時のみ表示) */}
               {transmissionStatus?.status === 'waiting_button' && (
                 <button
                   type="button"
@@ -721,12 +610,12 @@ export const InputPane: React.FC<InputPaneProps> = ({
                   type="button"
                   onClick={handleSend}
                   disabled={!inputText.trim() || isSending || (!isBleConnected && !isVirtualMode)}
-                  className="mac-btn mac-btn-default px-5 py-1 text-xs font-bold"
+                  className="mac-btn mac-btn-default px-6 py-1.5 text-xs font-bold"
                 >
                   {isSending ? (
-                    <span>送信中...</span>
+                    <span className="animate-pulse">⏳ 送信中...</span>
                   ) : (
-                    <span>送信 (Transmit) ↩</span>
+                    <span>カルテへ送信 (SendText) ↩</span>
                   )}
                 </button>
               </div>
@@ -1019,6 +908,296 @@ export const InputPane: React.FC<InputPaneProps> = ({
             <div className="mt-4 pt-2 border-t border-black flex justify-end">
               <button
                 onClick={() => setIsNumLockModalOpen(false)}
+                className="mac-btn mac-btn-default px-6 py-1 font-bold"
+              >
+                閉じる (OK)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ★ スマート・ツール＆カルテ設定メニュー モーダル (画面上の全ボタンを内包) */}
+      {/* ========================================================================= */}
+      {isSmartMenuOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="mac-window max-w-lg w-full bg-white border-2 border-black p-4 shadow-[5px_5px_0_#000] my-auto">
+            {/* メニュー タイトルバー */}
+            <div className="flex items-center justify-between pb-2 border-b border-black mb-3 select-none">
+              <div className="flex items-center gap-2">
+                <Menu className="w-4 h-4 text-black" />
+                <span className="font-bold text-sm tracking-wide">
+                  ツール ＆ カルテ設定メニュー (v17.0)
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  playMacBeep();
+                  setIsSmartMenuOpen(false);
+                }}
+                className="w-5 h-5 border border-black text-xs font-bold hover:bg-black hover:text-white flex items-center justify-center"
+                title="閉じる"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs max-h-[75vh] overflow-y-auto pr-1">
+              {/* ── セクション1: 診療入力・定型文アシスト ── */}
+              <div className="border border-black p-2.5 bg-neutral-50 space-y-2">
+                <div className="font-bold text-black border-b border-black/20 pb-1 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>1. 診療入力 ＆ 定型文アシスト</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleInsertSoapTemplate();
+                      setIsSmartMenuOpen(false);
+                    }}
+                    className="mac-btn text-left p-2 flex items-center gap-1.5"
+                  >
+                    <span>📄</span>
+                    <div>
+                      <div className="font-bold">SOAP標準雛形</div>
+                      <div className="text-[10px] text-gray-600">主訴・所見・評価・方針</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playMacBeep();
+                      setTemplateModalTab('list');
+                      setIsTemplateModalOpen(true);
+                      setIsSmartMenuOpen(false);
+                    }}
+                    className="mac-btn text-left p-2 flex items-center gap-1.5"
+                  >
+                    <span>🔖</span>
+                    <div>
+                      <div className="font-bold">定型文ライブラリ</div>
+                      <div className="text-[10px] text-gray-600">登録数: {templates.length}件</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playMacBeep();
+                      setIsAiModalOpen(true);
+                      setIsSmartMenuOpen(false);
+                    }}
+                    className="mac-btn text-left p-2 flex items-center gap-1.5"
+                  >
+                    <span>🤖</span>
+                    <div>
+                      <div className="font-bold">AIスマート整形</div>
+                      <div className="text-[10px] text-gray-600">Gemini臨床推敲・要約</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playMacBeep();
+                      setIsCameraOcrOpen(true);
+                      setIsSmartMenuOpen(false);
+                    }}
+                    className="mac-btn text-left p-2 flex items-center gap-1.5"
+                  >
+                    <span>📷</span>
+                    <div>
+                      <div className="font-bold">カメラOCR</div>
+                      <div className="text-[10px] text-gray-600">処方箋・紹介状スキャン</div>
+                    </div>
+                  </button>
+                </div>
+
+                {/* 短縮定型ショートカット */}
+                {templates.length > 0 && (
+                  <div className="pt-1.5 border-t border-black/10">
+                    <div className="text-[11px] font-bold text-gray-700 mb-1">よく使う短縮定型:</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {templates.slice(0, 4).map((t) => (
+                        <button
+                          key={t.id}
+                          onClick={() => {
+                            playMacBeep();
+                            handleApplyTemplate(t.content, 'append');
+                            setIsSmartMenuOpen(false);
+                          }}
+                          className="mac-btn text-[11px] py-0.5 px-2 bg-white"
+                          title={t.description}
+                        >
+                          <span>• {t.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── セクション2: IME精度ブースト ＆ 検証 ── */}
+              <div className="border border-black p-2.5 bg-neutral-50 space-y-2">
+                <div className="font-bold text-black border-b border-black/20 pb-1 flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>2. IME精度ブースト ＆ 検証</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playMacBeep();
+                      setIsImeBoostModalOpen(true);
+                      setIsSmartMenuOpen(false);
+                    }}
+                    className="mac-btn text-left p-2 flex items-center gap-1.5"
+                  >
+                    <span>⚡</span>
+                    <div>
+                      <div className="font-bold">IME精度ブースト設定</div>
+                      <div className="text-[10px] text-gray-600">
+                        {misconversionWarnings.length > 0 ? `警告 ${misconversionWarnings.length}件あり` : '正常稼働中'}
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playMacBeep();
+                      setIsE2eModalOpen(true);
+                      setIsSmartMenuOpen(false);
+                    }}
+                    className="mac-btn text-left p-2 flex items-center gap-1.5"
+                  >
+                    <span>▶</span>
+                    <div>
+                      <div className="font-bold">E2E自動テスト検証</div>
+                      <div className="text-[10px] text-gray-600">打鍵シミュレーション</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleNumUnlock();
+                      setIsSmartMenuOpen(false);
+                    }}
+                    className="mac-btn text-left p-2 flex items-center gap-1.5 col-span-2 bg-red-50 border-red-800 text-red-900"
+                  >
+                    <span>🚨</span>
+                    <div>
+                      <div className="font-bold">ノートPC テンキー固定 (NumLock) 解除</div>
+                      <div className="text-[10px] text-red-700">「Kを押すと2が出る」現象を解除</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* ── セクション3: カルテ端末・送信設定 ── */}
+              <div className="border border-black p-2.5 bg-neutral-50 space-y-2.5">
+                <div className="font-bold text-black border-b border-black/20 pb-1 flex items-center gap-1.5">
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>3. カルテ端末 ＆ 送信設定</span>
+                </div>
+
+                {/* 送信モード */}
+                <div className="space-y-1">
+                  <div className="font-bold text-gray-800">打鍵モード:</div>
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-1.5 cursor-pointer bg-white p-1 border border-black shadow-[1px_1px_0_#000]">
+                      <input
+                        type="radio"
+                        name="menuDispatchMode"
+                        className="mac-radio"
+                        checked={dispatchMode === DispatchMode.MODE_HYBRID_UNICODE}
+                        onChange={() => {
+                          playMacBeep();
+                          setDispatchMode(DispatchMode.MODE_HYBRID_UNICODE);
+                        }}
+                      />
+                      <span className="font-bold text-black">★ v17.0 4層タグ変換 (誤変換ゼロ・推奨)</span>
+                    </label>
+
+                    <label className="flex items-center gap-1.5 cursor-pointer bg-white p-1 border border-black/30">
+                      <input
+                        type="radio"
+                        name="menuDispatchMode"
+                        className="mac-radio"
+                        checked={dispatchMode === DispatchMode.MODE_IME_ROMAJI}
+                        onChange={() => {
+                          playMacBeep();
+                          setDispatchMode(DispatchMode.MODE_IME_ROMAJI);
+                        }}
+                      />
+                      <span>旧式 ローマ字変換</span>
+                    </label>
+
+                    <label className="flex items-center gap-1.5 cursor-pointer bg-white p-1 border border-black/30">
+                      <input
+                        type="radio"
+                        name="menuDispatchMode"
+                        className="mac-radio"
+                        checked={dispatchMode === DispatchMode.MODE_RAW_ASCII}
+                        onChange={() => {
+                          playMacBeep();
+                          setDispatchMode(DispatchMode.MODE_RAW_ASCII);
+                        }}
+                      />
+                      <span>直接半角 ASCII 打鍵</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* カルテ改行形式 */}
+                <div className="space-y-1 pt-1 border-t border-black/10">
+                  <div className="font-bold text-gray-800">カルテ改行キー:</div>
+                  <div className="flex gap-2">
+                    <label className="flex-1 flex items-center gap-1.5 cursor-pointer bg-white p-1 border border-black">
+                      <input
+                        type="radio"
+                        name="menuNewlineMode"
+                        className="mac-radio"
+                        checked={newlineMode === EhrNewlineMode.NORMAL_ENTER}
+                        onChange={() => {
+                          playMacBeep();
+                          setNewlineMode(EhrNewlineMode.NORMAL_ENTER);
+                          localStorage.setItem('drvoice_ehr_newline_mode_v1', EhrNewlineMode.NORMAL_ENTER);
+                        }}
+                      />
+                      <span>標準 (Enter)</span>
+                    </label>
+
+                    <label className="flex-1 flex items-center gap-1.5 cursor-pointer bg-white p-1 border border-black">
+                      <input
+                        type="radio"
+                        name="menuNewlineMode"
+                        className="mac-radio"
+                        checked={newlineMode === EhrNewlineMode.MICS_ALT_ENTER}
+                        onChange={() => {
+                          playMacBeep();
+                          setNewlineMode(EhrNewlineMode.MICS_ALT_ENTER);
+                          localStorage.setItem('drvoice_ehr_newline_mode_v1', EhrNewlineMode.MICS_ALT_ENTER);
+                        }}
+                      />
+                      <span>MICS (Alt+Enter)</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* モーダル フッター */}
+            <div className="mt-4 pt-2 border-t border-black flex justify-end">
+              <button
+                onClick={() => {
+                  playMacBeep();
+                  setIsSmartMenuOpen(false);
+                }}
                 className="mac-btn mac-btn-default px-6 py-1 font-bold"
               >
                 閉じる (OK)
