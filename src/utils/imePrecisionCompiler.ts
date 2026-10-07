@@ -1052,6 +1052,39 @@ export function kanaToRomaji(kana: string): string {
 
 // 臨床・医学・頻出日本語熟語テーブル（形態素最長一致用）
 export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
+  // ── 神経変性疾患・感染・アミロイド・免疫・ワクチン臨床専門熟語 ──
+  '肺炎球菌ワクチン': 'haiennkyuukinnwakutinn', '肺炎球菌': 'haiennkyuukinn', '球菌': 'kyuukinn',
+  '帯状疱疹ワクチン': 'taijyouhousinnwakutinn', '帯状疱疹': 'taijyouhousinn',
+  'ワクチン接種群': 'wakutinnsesshugunn', 'ワクチン接種': 'wakutinnsesshu', 'ワクチン': 'wakutinn', '接種群': 'sesshugunn', '接種': 'sesshu',
+  '認知症リスク': 'nintisyourisuku', '認知症発症率': 'nintisyouhatusyouritu', '認知症発症': 'nintisyouhatusyou', '認知症': 'nintisyou', '発症率': 'hatusyouritu', '発症': 'hatusyou',
+  '病原体を': 'byougenntaiwo', '病原体': 'byougenntai',
+  '抗微生物ペプチド': 'koubiseibutupeputido', '抗微生物防御仮説': 'koubiseibutubougyokasetu', '抗微生物': 'koubiseibutu', 'ペプチド': 'peputido',
+  '防御仮説': 'bougyokasetu', '防御反応': 'bougyohannnou', '防御': 'bougyo',
+  '線維状に': 'sennjyouni', '線維状': 'sennijou', '線維': 'senni',
+  '過剰産生': 'kajyousannsei', '産生': 'sannsei', '過剰活性化': 'kajyoukasseika', '活性化': 'kasseika', '過剰': 'kajyou',
+  'アミロイド斑': 'amiroidohann', 'アミロイド': 'amiroido',
+  '自然実験的解析': 'sizennjikkenntekikaiseki', '自然実験的': 'sizennjikkennteki', '自然実験': 'sizennjikkenn', '実験的': 'jikkennteki', '実験': 'jikkenn', '解析': 'kaiseki',
+  'ミクログリア': 'mikuroguria', 'マイクログリア': 'maikuroguria',
+  'シナプス破壊': 'sinapusuhakai', 'シナプス可塑性': 'sinapusukasosei', 'シナプス除去': 'sinapusujyokyo', 'シナプス': 'sinapusu',
+  '補体系': 'hotuikei', '貪食して': 'donnsyokusite', '貪食': 'donnsyoku',
+  '炎症性サイトカイン': 'ennsyouseisaitokainn', 'サイトカイン': 'saitokainn', '炎症性': 'ennsyousei', '神経炎症': 'sinnkeiennsyou',
+  '国内外の': 'kokunaigaino', '国内外': 'kokunaigai', '一次資料': 'itijisiryou',
+  '不活化': 'hukatuka', '直接証拠': 'tyokusyutusyouko', '直接': 'tyokusyutu', '証拠': 'syouko',
+  '賛否が分かれている': 'sannpigawakareteiru', '賛否': 'sannpi', '分かれている': 'wakareteiru', '分かれて': 'wakarete',
+  '可塑性': 'kasosei', '神経機能': 'sinnkeikinou', '神経': 'sinnkei', '機能': 'kinou',
+  'マウスモデル': 'mausumoderu', '動物モデル': 'doubutumoderu', 'モデル': 'moderu',
+  '投与実験': 'touyojikkenn', '投与': 'touyo', '依存的': 'izonnteki', '依存': 'izonn',
+  '疫学研究': 'ekigakukennkyuu', '発症率低下': 'hatusyourituteika', '低下': 'teika',
+  '要約': 'youyaku', '本報告では': 'honnhoukokudewa', '本報告': 'honnhoukoku', '報告': 'houkoku',
+  '以下の項目': 'ikanokoumoku', '項目': 'koumoku', '検証・整理した': 'kennsyou/seirisita', '検証': 'kennsyou', '整理': 'seiri',
+  '近年': 'kinnnenn', '働く': 'hataraku', '働き': 'hataraki', '提唱され': 'teisousare', '提唱': 'teisou',
+  '凝集': 'gyousyuu', '守る': 'mamoru', '示唆されている': 'sisasareteiru', '示唆': 'sisa',
+  '副作用': 'hukusayou', '慢性化すると': 'mannseikasuruto', '慢性化': 'mannseika', '脳内で': 'nounaide', '脳内': 'nounai',
+  '促進する': 'sokusinnsuru', '促進': 'sokusinn', '提案されている': 'teiansareteiru', '提案': 'teiann',
+  '標識タグ': 'hyousikitagu', '標識': 'hyousiki', 'タグ': 'tagu', '正常シナプス': 'seijyousinapusu', '正常': 'seijyou',
+  '破壊する': 'hakaisuru', '破壊': 'hakai', '経路が': 'keiroga', '経路は': 'keiroha', '経路': 'keiro',
+  '実証されている': 'jissyousareteiru', '実証': 'jissyou', '同時に': 'doujini', '分泌され': 'bunnpitusare', '分泌': 'bunnpitu',
+  '損なう': 'sokonau', '立証され': 'rissyousare', '立証': 'rissyou',
   '日本の': 'nihonno', '日本': 'nihonn', '無症候住民': 'musyoukoujyuuminn', '無症候者': 'musyoukousya',
   '無症候': 'musyoukou', '住民': 'jyuuminn', '対象に': 'taisyouni', '対象': 'taisyou',
   '便検体': 'bennkenntai', 'スクリーニング': 'sukuri-ninngu', '大腸内視鏡': 'daityounaisikyou',
@@ -1341,12 +1374,13 @@ export const COMMON_KANJI_ROMAJI: Record<string, string> = {
   '疫': 'eki', '研': 'kenn', '究': 'kyuu', '法': 'hou', '論': 'ronn',
   '限': 'genn', '際': 'sai', '静': 'sei', '思': 'si', '係': 'kei',
   '作': 'saku', '数': 'suu', '学': 'gaku', '手': 'te', '反': 'hann',
-  '事': 'ji', '実': 'jissi', '推': 'sui', '定': 'tei', '現': 'genn',
+  '事': 'ji', '実': 'jitsu', '推': 'sui', '定': 'tei', '現': 'genn',
   '標': 'hyou', '床': 'syou', '臨': 'rinn', '組': 'kumi', '織': 'siki',
   '歳': 'sai', '女': 'onnna', '性': 'sei', '男': 'otoko', '受': 'jyu', '診': 'sinn',
   '音': 'onn', '波': 'ha', '涯': 'gai',
   '背': 'hai', '景': 'kei', '症': 'syou', '例': 'rei', '大': 'dai', '腸': 'tyou',
   '検': 'kenn', '査': 'sa', '産': 'sann', '生': 'sei', '菌': 'kinn', '陽': 'you',
+  '球': 'kyuu', '原': 'genn',
   '陰': 'inn', '便': 'benn', '潜': 'senn', '血': 'ketu', '回': 'kai', '不': 'fu',
   '安': 'ann', '希': 'ki', '望': 'bou', '評': 'hyou', '価': 'ka', '現': 'genn',
   '時': 'ji', '点': 'tenn', '中': 'tyuu', '単': 'tann', '測': 'soku', '定': 'tei',
@@ -1368,13 +1402,13 @@ export const COMMON_KANJI_ROMAJI: Record<string, string> = {
   '確': 'kaku', '去': 'kyo', '身': 'sinn', '体': 'tai', '経': 'kei', '済': 'zai',
   '負': 'hu', '担': 'tann', '抑': 'osae', '効': 'kou', '事': 'ji', '自': 'ji',
   '覚': 'kaku', '数': 'suu', '値': 'ti', '像': 'zou', '網': 'mou', '羅': 'ra',
-  '二': 'ni', '次': 'ji', '精': 'sei', '律': 'ritu', '実': 'jissi', '施': 'si',
+  '二': 'ni', '次': 'ji', '精': 'sei', '律': 'ritu', '実': 'jitsu', '施': 'si',
   '費': 'hi', '膨': 'hukura', '低': 'tei', '療': 'ryou', '注': 'tyuu', '終': 'syuu',
   '治': 'ti', '害': 'gai', '上': 'uwa', '結': 'ketu', '果': 'ka',
   // 追加：臨床推論・ガイドライン・EBM頻出漢字
   '未': 'mi', '踏': 'huma', '継': 'kei', '続': 'zoku', '鋸': 'kyo', '歯': 'si',
   '優': 'sugure', '鎮': 'tinn', '静': 'sei', '穿': 'senn', '孔': 'kou', '伴': 'tomona',
-  '示': 'sime', '般': 'pann', '親': 'sinn', '等': 'tou', '歴': 'reki', '疾': 'situ',
+  '示': 'si', '般': 'pann', '親': 'sinn', '等': 'tou', '歴': 'reki', '疾': 'situ',
   '患': 'kann', '遺': 'i', '伝': 'denn', '貧': 'hinn', '減': 'genn', '通': 'tuu',
   '目': 'moku', '存': 'sonn', '在': 'zai', '頻': 'hinn', '度': 'do', '感': 'kann',
   '能': 'nou', '常': 'jyou', '正': 'sei', '直': 'tyoku', '近': 'kinn', '発': 'hatu',
@@ -1578,6 +1612,12 @@ export const OKURIGANA_STEM_RULES: OkuriganaStemRule[] = [
   { kanji: '頼', nextKanaRegex: /^[るりれ]/, stemRomaji: 'tayo' },                  // 頼る、頼り（「郵頼」誤爆根絶）
   { kanji: '示', nextKanaRegex: /^[すせし]/, stemRomaji: 'simesi' },                // 示す、示し
   { kanji: '照', nextKanaRegex: /^[らしすせ]/, stemRomaji: 'tera' },                // 照らす、照らし（照合）
+  { kanji: '働', nextKanaRegex: /^[くきけい]/, stemRomaji: 'hatara' },              // 働く、働き、働いて（dou ➔ 「同区」「同期」誤爆根絶）
+  { kanji: '守', nextKanaRegex: /^[るりれっ]/, stemRomaji: 'mamo' },                // 守る、守り、守って（shu ➔ 「シュル」誤爆根絶）
+  { kanji: '考', nextKanaRegex: /^[え]/, stemRomaji: 'kanga' },                     // 考える、考えられ（kou ➔ 「こう得られ」誤爆根絶）
+  { kanji: '損', nextKanaRegex: /^[な]/, stemRomaji: 'soko' },                     // 損なう、損ない（sonn ➔ 「そんなう」誤爆根絶）
+  { kanji: '分', nextKanaRegex: /^[か]/, stemRomaji: 'wa' },                       // 分かれる、分かれ（bunn ➔ 「文化れる」誤爆根絶）
+  { kanji: '得', nextKanaRegex: /^[るれら]/, stemRomaji: 'e' },                     // 得る、得られる（toku ➔ 「得られ」誤爆根絶）
   // 形容詞
   { kanji: '高', nextKanaRegex: /^[いくけ]/, stemRomaji: 'taka' },         // 高い、高く
   { kanji: '低', nextKanaRegex: /^[いくけ]/, stemRomaji: 'hiku' },         // 低い、低く
@@ -1822,6 +1862,17 @@ export const AUTO_HOMOPHONE_TRIM_MAP: Record<string, HomophoneTrimDef> = {
   '細菌': { target: '細菌', safeCompound: '細菌学', safeReading: 'saikinngaku', backspaceCount: 1, reason: '「最近」への同音異義語劣後を「細菌学[BS]」で100%防止' },
   '科': { target: '科', safeCompound: '科学', safeReading: 'kagaku', backspaceCount: 1, reason: '「下」「課」への誤爆を「科学[BS]」で100%防止' },
   '拓': { target: '拓', safeCompound: '開拓', safeReading: 'kaitaku', backspaceCount: 1, reason: '人名「拓」の誤爆を「開拓[BS]」で100%防止' },
+  '線維': { target: '線維', safeCompound: '線維化', safeReading: 'sennika', backspaceCount: 1, reason: '「繊維」への同音異義語劣後を「線維化[BS]」で100%防止' },
+  '産生': { target: '産生', safeCompound: '産生能', safeReading: 'sannseinou', backspaceCount: 1, reason: '「賛成」への同音異義語劣後を「産生能[BS]」で100%防止' },
+  '斑': { target: '斑', safeCompound: '老人斑', safeReading: 'roujinnhann', backspaceCount: 1, reason: '「半」への同音異義語劣後を「老人斑[BS]」で100%防止' },
+  '要約': { target: '要約', safeCompound: '要約文', safeReading: 'youyakubunn', backspaceCount: 1, reason: '「ようやく」への同音異義語劣後を「要約文[BS]」で100%防止' },
+  '接種': { target: '接種', safeCompound: '接種券', safeReading: 'sesshukenn', backspaceCount: 1, reason: '「説種」への同音異義語劣後を「接種券[BS]」で100%防止' },
+  '経路': { target: '経路', safeCompound: '経路図', safeReading: 'keirozu', backspaceCount: 1, reason: '「軽道」への同音異義語劣後を「経路図[BS]」で100%防止' },
+  '防御': { target: '防御', safeCompound: '防御壁', safeReading: 'bougyoheki', backspaceCount: 1, reason: '「防汚」への同音異義語劣後を「防御壁[BS]」で100%防止' },
+  '特に': { target: '特に', safeCompound: '特別に', safeReading: 'tokubetsuni', backspaceCount: 1, reason: '「得に」への同音異義語劣後を「特別に[BS]」で100%防止' },
+  '抗': { target: '抗', safeCompound: '抗体', safeReading: 'koutai', backspaceCount: 1, reason: '「項」への同音異義語劣後を「抗体[BS]」で100%防止' },
+  '貪食': { target: '貪食', safeCompound: '貪食能', safeReading: 'donnsyokunou', backspaceCount: 1, reason: '「鈍色」等への誤爆を「貪食能[BS]」で100%防止' },
+  '分泌': { target: '分泌', safeCompound: '分泌物', safeReading: 'bunnpitsubutu', backspaceCount: 1, reason: '「文秘」への誤爆を「分泌物[BS]」で100%防止' },
 };
 
 /**
@@ -1905,6 +1956,36 @@ export function compileMedicalTextToImeBoost(
   text = text.replace(/％/g, '%');
   text = text.replace(/[〜～–—−―]/g, '-');
 
+  // ギリシャ文字のIME記号変換トランスパイル（HID送信でのUnicode脱落を完全根絶）
+  const GREEK_CHAR_MAP: Record<string, string> = {
+    'α': `${IME_TAG_KANJI}arufa${IME_TAG_KANJI_END}`,
+    'β': `${IME_TAG_KANJI}be-ta${IME_TAG_KANJI_END}`,
+    'γ': `${IME_TAG_KANJI}gannma${IME_TAG_KANJI_END}`,
+    'δ': `${IME_TAG_KANJI}deruta${IME_TAG_KANJI_END}`,
+    'ε': `${IME_TAG_KANJI}epusironn${IME_TAG_KANJI_END}`,
+    'θ': `${IME_TAG_KANJI}si-ta${IME_TAG_KANJI_END}`,
+    'κ': `${IME_TAG_KANJI}kappa${IME_TAG_KANJI_END}`,
+    'λ': `${IME_TAG_KANJI}ramuda${IME_TAG_KANJI_END}`,
+    'μ': `${IME_TAG_KANJI}myu-${IME_TAG_KANJI_END}`,
+    'π': `${IME_TAG_KANJI}pai${IME_TAG_KANJI_END}`,
+    'σ': `${IME_TAG_KANJI}siguma${IME_TAG_KANJI_END}`,
+    'τ': `${IME_TAG_KANJI}tau${IME_TAG_KANJI_END}`,
+    'φ': `${IME_TAG_KANJI}huai${IME_TAG_KANJI_END}`,
+    'ω': `${IME_TAG_KANJI}omega${IME_TAG_KANJI_END}`,
+  };
+  text = text.replace(/[αβγδεθκλμπστφω]/g, (ch) => GREEK_CHAR_MAP[ch] || ch);
+
+  // 矢印・特殊ポインタ記号のIME記号変換トランスパイル
+  const ARROW_CHAR_MAP: Record<string, string> = {
+    '→': `${IME_TAG_KANJI}yajirusi${IME_TAG_KANJI_END}`,
+    '←': `${IME_TAG_KANJI}hidariyajirusi${IME_TAG_KANJI_END}`,
+    '↑': `${IME_TAG_KANJI}ueyajirusi${IME_TAG_KANJI_END}`,
+    '↓': `${IME_TAG_KANJI}sitayajirusi${IME_TAG_KANJI_END}`,
+    '⇒': `${IME_TAG_KANJI}yajirusi${IME_TAG_KANJI_END}`,
+    '⇔': `${IME_TAG_KANJI}yajirusi${IME_TAG_KANJI_END}`,
+  };
+  text = text.replace(/[→←↑↓⇒⇔]/g, (ch) => ARROW_CHAR_MAP[ch] || ch);
+
   // ──【一般化形態素ルール①：年齢＋性別の分離（祭壇誤爆・キメラ化の完全防止）】──
   text = text.replace(/(\d+)\s*歳\s*男(?!性)/g, '$1[Z]sai[/Z][Z]otoko[/Z]');
   text = text.replace(/(\d+)\s*歳\s*女(?!性)/g, '$1[Z]sai[/Z][Z]onnna[/Z]');
@@ -1950,7 +2031,7 @@ export function compileMedicalTextToImeBoost(
     'と': 'to',
     'に': 'ni',
     'を': 'wo',
-    'は': 'wa',
+    'は': 'ha',
     'が': 'ga',
     'で': 'de',
     'へ': 'he',
@@ -2049,6 +2130,22 @@ export function compileMedicalTextToImeBoost(
 
       const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(`(\\[[A-Z0-9]+\\][\\s\\S]*?\\[\\/[A-Z0-9]+\\])|(${escapedWord})`, 'g');
+      text = text.replace(regex, (match, tagPart, wordPart) => {
+        if (tagPart) return tagPart;
+        if (wordPart) return tagSeq;
+        return match;
+      });
+    }
+  }
+
+  // ──【一般化形態素削り出しルール：AUTO_HOMOPHONE_TRIM_MAP（同音異義語確実削り出し）一括適用】──
+  const trimEntries = Object.values(AUTO_HOMOPHONE_TRIM_MAP).sort((a, b) => b.target.length - a.target.length);
+  for (const item of trimEntries) {
+    if (text.includes(item.target)) {
+      const bsSeq = '[BS]'.repeat(item.backspaceCount);
+      const tagSeq = `${IME_TAG_KANJI}${item.safeReading}${IME_TAG_KANJI_END}${bsSeq}`;
+      const escapedTarget = escapeRegExp(item.target);
+      const regex = new RegExp(`(\\[[A-Z0-9]+\\][\\s\\S]*?\\[\\/[A-Z0-9]+\\])|(${escapedTarget})`, 'g');
       text = text.replace(regex, (match, tagPart, wordPart) => {
         if (tagPart) return tagPart;
         if (wordPart) return tagSeq;
