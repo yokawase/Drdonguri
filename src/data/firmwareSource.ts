@@ -1,9 +1,9 @@
 import mainCppRaw from '@/firmware/src/main.cpp?raw';
 import flashAtoms3uPs1Raw from '@/firmware/scripts/flash_atoms3u.ps1?raw';
 
-export const LATEST_FIRMWARE_VERSION = 'v17.0';
-export const FIRMWARE_RELEASE_DATE = '2026-10-07';
-export const FIRMWARE_RELEASE_TITLE = 'v17.0（13万語SPIFFS＋スマホ高度推論コンパイラ＆キーストローク完全可視化 100%変換版）';
+export const LATEST_FIRMWARE_VERSION = 'v18.0';
+export const FIRMWARE_RELEASE_DATE = '2026-10-08';
+export const FIRMWARE_RELEASE_TITLE = 'v18.0（13万語SPIFFS＋助詞deha修正・ギリシャ文字[G]二重Space確定・臨床タイポ根絶版）';
 
 export const PARTITIONS_8MB_CSV_SOURCE = `# Name,   Type, SubType, Offset,   Size,     Flags
 nvs,      data, nvs,     0x9000,   0x5000,

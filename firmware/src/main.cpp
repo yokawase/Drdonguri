@@ -1074,8 +1074,9 @@ bool dispatchSafeKeystrokes() {
           break;
         }
         if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 || 
-            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[A]", 3) == 0 || 
-            strncmp(&buf[i], "[/", 2) == 0 || buf[i] == '\n' || buf[i] == '\r') {
+            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 || 
+            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[/", 2) == 0 || 
+            buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
         char rc = buf[i];
@@ -1092,6 +1093,42 @@ bool dispatchSafeKeystrokes() {
         safeWrite(' ');
         delay(35); // 候補窓展開ウェイト
         safeWrite(KEY_RETURN);
+        delay(40);
+      }
+      continue;
+    }
+
+    // 3.5 [G]...[/G] (ギリシャ文字変換モード: Space2回 ➔ Enterで第2候補記号α/βを直接物理確定！)
+    if (strncmp(&buf[i], "[G]", 3) == 0 || strncmp(&buf[i], "<G>", 3) == 0) {
+      i += 3;
+      bool sentAnyChar = false;
+      while (i < total) {
+        if (strncmp(&buf[i], "[/G]", 4) == 0 || strncmp(&buf[i], "</G>", 4) == 0) {
+          i += 4;
+          break;
+        }
+        if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 || 
+            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 || 
+            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[/", 2) == 0 || 
+            buf[i] == '\n' || buf[i] == '\r') {
+          break;
+        }
+        char rc = buf[i];
+        if (rc != ' ') {
+          if ((uint8_t)rc < 0x80) {
+            sendSafeChar(rc);
+            sentAnyChar = true;
+          }
+        }
+        i++;
+      }
+      if (sentAnyChar) {
+        delay(20);
+        safeWrite(' '); // 第1候補（カタカナ）
+        delay(30);
+        safeWrite(' '); // 第2候補（記号 α / β）
+        delay(35);
+        safeWrite(KEY_RETURN); // 確定
         delay(40);
       }
       continue;
@@ -1177,6 +1214,7 @@ bool dispatchSafeKeystrokes() {
       if (strncmp(&buf[i], "[/K]", 4) == 0 || strncmp(&buf[i], "</K>", 4) == 0) { i += 4; continue; }
       if (strncmp(&buf[i], "[/H]", 4) == 0 || strncmp(&buf[i], "</H>", 4) == 0) { i += 4; continue; }
       if (strncmp(&buf[i], "[/Z]", 4) == 0 || strncmp(&buf[i], "</Z>", 4) == 0) { i += 4; continue; }
+      if (strncmp(&buf[i], "[/G]", 4) == 0 || strncmp(&buf[i], "</G>", 4) == 0) { i += 4; continue; }
       if (strncmp(&buf[i], "[/A]", 4) == 0 || strncmp(&buf[i], "</A>", 4) == 0) { i += 4; continue; }
       if (strncmp(&buf[i], "[/U]", 4) == 0 || strncmp(&buf[i], "</U>", 4) == 0) { i += 4; continue; }
       if (strncmp(&buf[i], "<ENTER>", 7) == 0 || strncmp(&buf[i], "[ENTER]", 7) == 0) {
