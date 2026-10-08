@@ -1,7 +1,8 @@
 /**
- * DrVoice どんぐり君！ IME精度向上ハイブリッド・パイプライン (v18.0)
+ * DrVoice どんぐり君！ IME精度向上ハイブリッド・パイプライン (v18.1)
  * 
- * 電子カルテPC側のIME（MS-IME等）が医療辞書を持たない標準状態（一般語彙辞書のみ）である環境で、
+ * 電子カルテPC側のIME（Windows MS-IME / Linux Mint MOZC / macOS 日本語IM）が
+ * 医療辞書を持たない標準状態（一般語彙辞書のみ）である環境で、
  * スマホの圧倒的メモリ・CPU能力（高度な推論・シミュレーション・最適化コンパイラ）と
  * AtomS3Uの13万語SPIFFS（寸分の狂いもない高信頼性フィジカル打鍵エンジン）を協調させ、
  * ゼロインストール・単一HIDキーボードの制約下で日本語変換率100%を実現する。
@@ -9,11 +10,11 @@
  * 【7大革新機能】
  * 1. 文字種別「ファンクションキー強制ルーティング」 ([K]=F7全角カタカナ, [H]=F6/Enter確定, [A]=半角ASCII, [Z]=漢字Space, [G]=ギリシャ文字Space2回確定)
  * 2. 標準IME向け「最小確実形態素（Chunk）最適ラティス分割」
- * 3. 同音異義語劣後を打破する「確実語削り出し法（Backspaceトリム合成エンジン）」
- * 4. 仮想MS-IMEシミュレータ＆着弾キーストローク完全可視化
+ * 3. 危険な確定後Backspace削り出し全廃＆MS-IME/MOZC共通の自立語クラスタ直接確定
+ * 4. 仮想IMEシミュレータ＆着弾キーストローク完全可視化
  * 5. 13万語SPIFFSバイナリ辞書（二分探索）協調
- * 6. ファームウェア二重防護（sentAnyCharガード ＆ 生ひらがな救済フォールバック）
- * 7. ギリシャ文字（α, β）・医学数学記号（→）の二重Space物理確定
+ * 6. ファームウェア多重防護（タグ境界完全breakガード ＆ 生ひらがな救済フォールバック）
+ * 7. ギリシャ文字（α, β）・医学数学記号（→）の直接物理確定
  */
 
 import { MEDICAL_KANJI_ROMAJI_MAP, KANA_ROMAJI_MAP, SINGLE_KANJI_MAP } from './japaneseImeTranspiler';
@@ -21,7 +22,7 @@ import { JIS_KANJI_ROMAJI } from '../data/jisKanjiRomajiTable';
 import { EhrNewlineMode } from '../types';
 
 // -----------------------------------------------------------------------------
-// 1. 制御タグ定義 (AtomS3U ファームウェア v18.0 と完全一致)
+// 1. 制御タグ定義 (AtomS3U ファームウェア v18.1 と完全一致)
 // -----------------------------------------------------------------------------
 export const IME_TAG_KATAKANA = '[K]'; // F7強制（全角カタカナ）
 export const IME_TAG_KATAKANA_END = '[/K]';
@@ -1058,38 +1059,38 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   // ── 神経変性疾患・感染・アミロイド・免疫・ワクチン臨床専門熟語 ──
   '肺炎球菌ワクチン': 'haiennkyuukinnwakutinn', '肺炎球菌': 'haiennkyuukinn', '球菌': 'kyuukinn',
   '帯状疱疹ワクチン': 'taijyouhousinnwakutinn', '帯状疱疹': 'taijyouhousinn',
-  'ワクチン接種群': `${IME_TAG_KATAKANA}wakutinn${IME_TAG_KATAKANA_END}${IME_TAG_KANJI}sesshukenn${IME_TAG_KANJI_END}[BS]${IME_TAG_KANJI}gunnsei${IME_TAG_KANJI_END}[BS]`,
+  'ワクチン接種群': `${IME_TAG_KATAKANA}wakutinn${IME_TAG_KATAKANA_END}${IME_TAG_KANJI}sesshu${IME_TAG_KANJI_END}${IME_TAG_KANJI}gunn${IME_TAG_KANJI_END}`,
   'ワクチン接種': 'wakutinnsesshu', 'ワクチン': 'wakutinn',
-  '接種群': `${IME_TAG_KANJI}sesshukenn${IME_TAG_KANJI_END}[BS]${IME_TAG_KANJI}gunnsei${IME_TAG_KANJI_END}[BS]`,
-  '接種': `${IME_TAG_KANJI}sesshukenn${IME_TAG_KANJI_END}[BS]`,
+  '接種群': `${IME_TAG_KANJI}sesshu${IME_TAG_KANJI_END}${IME_TAG_KANJI}gunn${IME_TAG_KANJI_END}`,
+  '接種': 'sesshu',
   '認知症リスク': 'nintisyourisuku', '認知症発症率': 'nintisyouhassyouritu', '認知症発症': 'nintisyouhassyou', '認知症': 'nintisyou', '発症率': 'hassyouritu', '発症': 'hassyou',
   '病原体を': 'byougenntaiwo', '病原体': 'byougenntai',
-  '抗微生物ペプチド': `${IME_TAG_KANJI}koutai${IME_TAG_KANJI_END}[BS]${IME_TAG_KANJI}biseibutupeputido${IME_TAG_KANJI_END}`,
-  '抗微生物防御仮説': `${IME_TAG_KANJI}koutai${IME_TAG_KANJI_END}[BS]${IME_TAG_KANJI}biseibutubougyo${IME_TAG_KANJI_END}${IME_TAG_KANJI}kasetukenntei${IME_TAG_KANJI_END}[BS][BS]`,
-  '抗微生物': `${IME_TAG_KANJI}koutai${IME_TAG_KANJI_END}[BS]${IME_TAG_KANJI}biseibutu${IME_TAG_KANJI_END}`, 'ペプチド': 'peputido',
-  '防御仮説': `${IME_TAG_KANJI}bougyoheki${IME_TAG_KANJI_END}[BS]${IME_TAG_KANJI}kasetukenntei${IME_TAG_KANJI_END}[BS][BS]`,
-  '仮説には': `${IME_TAG_KANJI}kasetukenntei${IME_TAG_KANJI_END}[BS][BS][H]niha[/H]`,
-  '仮説': `${IME_TAG_KANJI}kasetukenntei${IME_TAG_KANJI_END}[BS][BS]`,
-  '防御反応': `${IME_TAG_KANJI}bougyoheki${IME_TAG_KANJI_END}[BS]${IME_TAG_KANJI}hannnou${IME_TAG_KANJI_END}`,
-  '防御': `${IME_TAG_KANJI}bougyoheki${IME_TAG_KANJI_END}[BS]`,
-  '線維状に': `${IME_TAG_KANJI}sennika${IME_TAG_KANJI_END}[BS]${IME_TAG_KANJI}jyou${IME_TAG_KANJI_END}[H]ni[/H]`,
-  '線維状': `${IME_TAG_KANJI}sennika${IME_TAG_KANJI_END}[BS]${IME_TAG_KANJI}jyou${IME_TAG_KANJI_END}`,
-  '線維': `${IME_TAG_KANJI}sennika${IME_TAG_KANJI_END}[BS]`,
-  '過剰産生は': `${IME_TAG_KANJI}kajyou${IME_TAG_KANJI_END}${IME_TAG_KANJI}sannseinou${IME_TAG_KANJI_END}[BS][H]ha[/H]`,
-  '過剰産生': `${IME_TAG_KANJI}kajyou${IME_TAG_KANJI_END}${IME_TAG_KANJI}sannseinou${IME_TAG_KANJI_END}[BS]`,
-  '産生は': `${IME_TAG_KANJI}sannseinou${IME_TAG_KANJI_END}[BS][H]ha[/H]`,
-  '産生': `${IME_TAG_KANJI}sannseinou${IME_TAG_KANJI_END}[BS]`,
+  '抗微生物ペプチド': `${IME_TAG_KANJI}koubiseibutu${IME_TAG_KANJI_END}${IME_TAG_KATAKANA}peputido${IME_TAG_KATAKANA_END}`,
+  '抗微生物防御仮説': `${IME_TAG_KANJI}koubiseibutubougyokasetu${IME_TAG_KANJI_END}`,
+  '抗微生物': `${IME_TAG_KANJI}koubiseibutu${IME_TAG_KANJI_END}`, 'ペプチド': 'peputido',
+  '防御仮説': `${IME_TAG_KANJI}bougyo${IME_TAG_KANJI_END}${IME_TAG_KANJI}kasetu${IME_TAG_KANJI_END}`,
+  '仮説には': `${IME_TAG_KANJI}kasetu${IME_TAG_KANJI_END}[H]niha[/H]`,
+  '仮説': 'kasetu',
+  '防御反応': `${IME_TAG_KANJI}bougyo${IME_TAG_KANJI_END}${IME_TAG_KANJI}hannnou${IME_TAG_KANJI_END}`,
+  '防御': 'bougyo',
+  '線維状に': `${IME_TAG_KANJI}senni${IME_TAG_KANJI_END}${IME_TAG_KANJI}jyou${IME_TAG_KANJI_END}[H]ni[/H]`,
+  '線維状': `${IME_TAG_KANJI}senni${IME_TAG_KANJI_END}${IME_TAG_KANJI}jyou${IME_TAG_KANJI_END}`,
+  '線維': 'senni',
+  '過剰産生は': `${IME_TAG_KANJI}kajyousannsei${IME_TAG_KANJI_END}[H]ha[/H]`,
+  '過剰産生': `${IME_TAG_KANJI}kajyousannsei${IME_TAG_KANJI_END}`,
+  '産生は': `${IME_TAG_KANJI}sannsei${IME_TAG_KANJI_END}[H]ha[/H]`,
+  '産生': 'sannsei',
   '過剰活性化': 'kajyoukasseika', '活性化': 'kasseika', '過剰': 'kajyou',
-  'アミロイド斑・': `${IME_TAG_KATAKANA}amiroido${IME_TAG_KATAKANA_END}${IME_TAG_KANJI}roujinnhann${IME_TAG_KANJI_END}[BS][H]/[/H]`,
-  'アミロイド斑': `${IME_TAG_KATAKANA}amiroido${IME_TAG_KATAKANA_END}${IME_TAG_KANJI}roujinnhann${IME_TAG_KANJI_END}[BS]`,
+  'アミロイド斑・': `${IME_TAG_KATAKANA}amiroido${IME_TAG_KATAKANA_END}${IME_TAG_KANJI}hann${IME_TAG_KANJI_END}[H]/[/H]`,
+  'アミロイド斑': `${IME_TAG_KATAKANA}amiroido${IME_TAG_KATAKANA_END}${IME_TAG_KANJI}hann${IME_TAG_KANJI_END}`,
   'アミロイド': 'amiroido',
   '自然実験的解析': 'sizennjikkenntekikaiseki', '自然実験的': 'sizennjikkennteki', '自然実験': 'sizennjikkenn', '実験的': 'jikkennteki', '実験': 'jikkenn', '解析': 'kaiseki',
   'ミクログリアの': 'mikuroguriano', 'ミクログリア': 'mikuroguria', 'マイクログリアが': 'maikuroguriaga', 'マイクログリア': 'maikuroguria',
   'シナプス破壊': 'sinapusuhakai', 'シナプス可塑性': 'sinapusukasosei', 'シナプス除去': 'sinapusujyokyo', 'シナプス': 'sinapusu',
-  '補体系': 'hotaikei',
-  'これを貪食して': `${IME_TAG_HIRAGANA}korewo${IME_TAG_HIRAGANA_END}${IME_TAG_KANJI}musaboru${IME_TAG_KANJI_END}[BS][BS]${IME_TAG_KANJI}syoku${IME_TAG_KANJI_END}${IME_TAG_HIRAGANA}site${IME_TAG_HIRAGANA_END}`,
-  '貪食して': `${IME_TAG_KANJI}musaboru${IME_TAG_KANJI_END}[BS][BS]${IME_TAG_KANJI}syoku${IME_TAG_KANJI_END}${IME_TAG_HIRAGANA}site${IME_TAG_HIRAGANA_END}`,
-  '貪食': `${IME_TAG_KANJI}musaboru${IME_TAG_KANJI_END}[BS][BS]${IME_TAG_KANJI}syoku${IME_TAG_KANJI_END}`,
+  '補体系': `${IME_TAG_KANJI}hotai${IME_TAG_KANJI_END}${IME_TAG_KANJI}kei${IME_TAG_KANJI_END}`,
+  'これを貪食して': `${IME_TAG_HIRAGANA}korewo${IME_TAG_HIRAGANA_END}${IME_TAG_KANJI}donnsyoku${IME_TAG_KANJI_END}${IME_TAG_HIRAGANA}site${IME_TAG_HIRAGANA_END}`,
+  '貪食して': `${IME_TAG_KANJI}donnsyoku${IME_TAG_KANJI_END}${IME_TAG_HIRAGANA}site${IME_TAG_HIRAGANA_END}`,
+  '貪食': `${IME_TAG_KANJI}donnsyoku${IME_TAG_KANJI_END}`,
   '炎症性サイトカイン': 'ennsyouseisaitokainn', 'サイトカイン': 'saitokainn', '炎症性': 'ennsyousei', '神経炎症': 'sinnkeiennsyou',
   '国内外の': 'kokunaigaino', '国内外': 'kokunaigai', '一次資料': 'itijisiryou',
   '不活化': 'hukatuka',
@@ -1099,7 +1100,7 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   'マウスモデル': 'mausumoderu', '動物モデル': 'doubutumoderu', 'モデル': 'moderu',
   '投与実験': 'touyojikkenn', '投与': 'touyo', '依存的': 'izonnteki', '依存': 'izonn',
   '疫学研究': 'ekigakukennkyuu', '発症率低下': 'hassyourituteika', '低下': 'teika',
-  '要約': `${IME_TAG_KANJI}youyakubunn${IME_TAG_KANJI_END}[BS]`,
+  '要約': 'youyaku',
   '本報告では、': 'honnhoukokudeha,', '本報告では': 'honnhoukokudeha', '本報告': 'honnhoukoku', '報告': 'houkoku',
   '以下の項目': 'ikanokoumoku', '項目': 'koumoku', '検証・整理した': 'kennsyou/seirisita', '検証': 'kennsyou', '整理': 'seiri',
   '近年': 'kinnnenn', '働く': 'hataraku', '働き': 'hataraki', '提唱され': 'teisyousare', '提唱': 'teisyou',
@@ -1897,17 +1898,7 @@ export const AUTO_HOMOPHONE_TRIM_MAP: Record<string, HomophoneTrimDef> = {
   '細菌': { target: '細菌', safeCompound: '細菌学', safeReading: 'saikinngaku', backspaceCount: 1, reason: '「最近」への同音異義語劣後を「細菌学[BS]」で100%防止' },
   '科': { target: '科', safeCompound: '科学', safeReading: 'kagaku', backspaceCount: 1, reason: '「下」「課」への誤爆を「科学[BS]」で100%防止' },
   '拓': { target: '拓', safeCompound: '開拓', safeReading: 'kaitaku', backspaceCount: 1, reason: '人名「拓」の誤爆を「開拓[BS]」で100%防止' },
-  '線維': { target: '線維', safeCompound: '線維化', safeReading: 'sennika', backspaceCount: 1, reason: '「繊維」への同音異義語劣後を「線維化[BS]」で100%防止' },
-  '産生': { target: '産生', safeCompound: '産生能', safeReading: 'sannseinou', backspaceCount: 1, reason: '「賛成」への同音異義語劣後を「産生能[BS]」で100%防止' },
   '斑': { target: '斑', safeCompound: '老人斑', safeReading: 'roujinnhann', backspaceCount: 1, reason: '「半」への同音異義語劣後を「老人斑[BS]」で100%防止' },
-  '要約': { target: '要約', safeCompound: '要約文', safeReading: 'youyakubunn', backspaceCount: 1, reason: '「ようやく」への同音異義語劣後を「要約文[BS]」で100%防止' },
-  '接種': { target: '接種', safeCompound: '接種券', safeReading: 'sesshukenn', backspaceCount: 1, reason: '「説種」への同音異義語劣後を「接種券[BS]」で100%防止' },
-  '経路': { target: '経路', safeCompound: '経路図', safeReading: 'keirozu', backspaceCount: 1, reason: '「軽道」への同音異義語劣後を「経路図[BS]」で100%防止' },
-  '防御': { target: '防御', safeCompound: '防御壁', safeReading: 'bougyoheki', backspaceCount: 1, reason: '「防汚」への同音異義語劣後を「防御壁[BS]」で100%防止' },
-  '特に': { target: '特に', safeCompound: '特別に', safeReading: 'tokubetsuni', backspaceCount: 1, reason: '「得に」への同音異義語劣後を「特別に[BS]」で100%防止' },
-  '抗': { target: '抗', safeCompound: '抗体', safeReading: 'koutai', backspaceCount: 1, reason: '「項」への同音異義語劣後を「抗体[BS]」で100%防止' },
-  '貪食': { target: '貪食', safeCompound: '貪食能', safeReading: 'donnsyokunou', backspaceCount: 1, reason: '「鈍色」等への誤爆を「貪食能[BS]」で100%防止' },
-  '分泌': { target: '分泌', safeCompound: '分泌物', safeReading: 'bunnpitsubutu', backspaceCount: 1, reason: '「文秘」への誤爆を「分泌物[BS]」で100%防止' },
 };
 
 /**
@@ -2010,14 +2001,22 @@ export function compileMedicalTextToImeBoost(
   };
   text = text.replace(/[αβγδεθκλμπστφω]/g, (ch) => GREEK_CHAR_MAP[ch] || ch);
 
-  // 矢印・特殊ポインタ記号のIME記号変換トランスパイル（MS-IMEで100%第1候補になる記号短縮打鍵）
+  // ★ギリシャ文字タグ [G]...[/G] と隣接する英数記号の完全分離（トークナイザ巻き込み完全防止）
+  text = text.replace(/([a-zA-Z0-9_\-]+)(\[G\][a-zA-Z\-]+\[\/G\])/g, (m, ascii, greek) => {
+    return `${IME_TAG_ASCII}${ascii}${IME_TAG_ASCII_END}${greek}`;
+  });
+  text = text.replace(/(\[G\][a-zA-Z\-]+\[\/G\])([a-zA-Z0-9_\-]+)/g, (m, greek, ascii) => {
+    return `${greek}${IME_TAG_ASCII}${ascii}${IME_TAG_ASCII_END}`;
+  });
+
+  // 矢印・特殊ポインタ記号のIME記号変換トランスパイル（MS-IME & MOZC 共通で100%「→」になる記号打鍵）
   const ARROW_CHAR_MAP: Record<string, string> = {
-    '→': `${IME_TAG_KANJI}->${IME_TAG_KANJI_END}`,
-    '←': `${IME_TAG_KANJI}<-${IME_TAG_KANJI_END}`,
-    '↑': `${IME_TAG_KANJI}^${IME_TAG_KANJI_END}`,
-    '↓': `${IME_TAG_KANJI}v${IME_TAG_KANJI_END}`,
-    '⇒': `${IME_TAG_KANJI}=>${IME_TAG_KANJI_END}`,
-    '⇔': `${IME_TAG_KANJI}<=>${IME_TAG_KANJI_END}`,
+    '→': `${IME_TAG_KANJI}yajirusi${IME_TAG_KANJI_END}`,
+    '←': `${IME_TAG_KANJI}hidari${IME_TAG_KANJI_END}`,
+    '↑': `${IME_TAG_KANJI}ue${IME_TAG_KANJI_END}`,
+    '↓': `${IME_TAG_KANJI}sita${IME_TAG_KANJI_END}`,
+    '⇒': `${IME_TAG_KANJI}yajirusi${IME_TAG_KANJI_END}`,
+    '⇔': `${IME_TAG_KANJI}yajirusi${IME_TAG_KANJI_END}`,
   };
   text = text.replace(/[→←↑↓⇒⇔]/g, (ch) => ARROW_CHAR_MAP[ch] || ch);
 
@@ -2262,9 +2261,9 @@ export function compileMedicalTextToImeBoost(
       curLine = curLine.slice(headingMatch[1].length);
     }
 
-    // 既にタグが付与された部分（[K]...[/K], [H]...[/H], [Z]...[/Z], [A]...[/A], [U]...[/U]）やバックスペースを保持しつつパース
-    // ★英文・英数字フレーズ・Markdown記号はスペースを含めてひとまとまりでマッチさせて全角誤変換を完全防止
-    const tokenRegex = /(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\]|\[BS\]|[\x08]+|【[^】]+】|[ァ-ヴー]{2,}|\d+(?:\.\d+)?(?:[\-~–—−―]\d+(?:\.\d+)?)?(?:mg|g|kg|mL|mmHg|bpm|℃|\%|度|日分|錠|T)?|[a-zA-Z0-9_\-\.\:\/\+\(\)\#\*\=\!\[\]\{\}\?\`\'\"]+(?:\s+[a-zA-Z0-9_\-\.\:\/\+\(\)\#\*\=\!\[\]\{\}\?\`\'\"]+)*|[一-龠]+[ぁ-ん]*|[ぁ-ん]+|[、。・，．,.:;!?！？…~〜–—−―（）「」『』／/＜＞《》<>]|\s+|[^\s])/g;
+    // 既にタグが付与された部分（[K]...[/K], [H]...[/H], [Z]...[/Z], [G]...[/G], [A]...[/A], [U]...[/U]）やバックスペースを保持しつつパース
+    // ★制御タグおよび角括弧・丸括弧を英数字クラスから厳密に除外し、タグの露出・二重ラップを100%防止
+    const tokenRegex = /(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\]|\[BS\]|[\x08]+|【[^】]+】|[ァ-ヴー]{2,}|\d+(?:\.\d+)?(?:[\-~–—−―]\d+(?:\.\d+)?)?(?:mg|g|kg|mL|mmHg|bpm|℃|\%|度|日分|錠|T)?|[a-zA-Z0-9_\-\.\:\/\+\#\*\=\!\?\`\'\"]+(?:\s+[a-zA-Z0-9_\-\.\:\/\+\#\*\=\!\?\`\'\"]+)*|[一-龠]+[ぁ-ん]*|[ぁ-ん]+|[、。・，．,.:;!?！？…~〜–—−―（）「」『』／/＜＞《》<>()\[\]{}]|\s+|[^\s])/g;
     const tokens = curLine.match(tokenRegex) || [curLine];
     let lineResult = headingPrefix;
 
@@ -2332,7 +2331,7 @@ export function compileMedicalTextToImeBoost(
 
       // 数値・単位・英字・英文フレーズ・Markdown記号 ➔ [A]...[/A] (半角ASCII直接モード)
       const normToken = token.replace(/[–—−―]/g, '-');
-      if (/^[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$\*\=\!\[\]\{\}\?\`\'\"]+(?:\s+[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$\*\=\!\[\]\{\}\?\`\'\"]+)*$/.test(normToken)) {
+      if (!normToken.includes('[') && !normToken.includes(']') && /^[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$\*\=\!\{\}\?\`\'\"]+(?:\s+[a-zA-Z0-9_\-\.\,\/\+\:\;\%\℃\(\)\#\&\$\*\=\!\{\}\?\`\'\"]+)*$/.test(normToken)) {
         const seq = `${IME_TAG_ASCII}${normToken}${IME_TAG_ASCII_END}`;
         lineResult += seq;
         displayTokens.push({

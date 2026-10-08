@@ -1003,7 +1003,8 @@ bool dispatchSafeKeystrokes() {
           break;
         }
         if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 || 
-            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[A]", 3) == 0 || 
+            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 || 
+            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 || 
             strncmp(&buf[i], "[/", 2) == 0 || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
@@ -1075,8 +1076,8 @@ bool dispatchSafeKeystrokes() {
         }
         if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 || 
             strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 || 
-            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[/", 2) == 0 || 
-            buf[i] == '\n' || buf[i] == '\r') {
+            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 || 
+            strncmp(&buf[i], "[/", 2) == 0 || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
         char rc = buf[i];
@@ -1109,8 +1110,8 @@ bool dispatchSafeKeystrokes() {
         }
         if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 || 
             strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 || 
-            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[/", 2) == 0 || 
-            buf[i] == '\n' || buf[i] == '\r') {
+            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 || 
+            strncmp(&buf[i], "[/", 2) == 0 || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
         char rc = buf[i];
@@ -1144,7 +1145,8 @@ bool dispatchSafeKeystrokes() {
           break;
         }
         if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 || 
-            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[A]", 3) == 0 || 
+            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 || 
+            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 || 
             strncmp(&buf[i], "[/", 2) == 0 || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
