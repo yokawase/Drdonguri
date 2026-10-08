@@ -19,6 +19,26 @@ export interface BleAckEvent {
 
 export type AckCallback = (event: BleAckEvent) => void;
 export type LogCallback = (direction: 'tx' | 'rx' | 'sys', tag: string, msg: string, hex?: string) => void;
+export type PrinterDataCallback = (chunk: string, totalReceivedBytes: number) => void;
+export type PrinterJobCompleteCallback = (fullText: string, totalBytes: number) => void;
+
+/**
+ * Windows Text Only / Shift-JIS / UTF-8 自動判別デコーダー
+ */
+export function decodePrinterBytes(bytes: Uint8Array): string {
+  try {
+    const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+    return utf8Decoder.decode(bytes);
+  } catch {
+    try {
+      const sjisDecoder = new TextDecoder('shift_jis');
+      return sjisDecoder.decode(bytes);
+    } catch {
+      const fallbackDecoder = new TextDecoder('utf-8');
+      return fallbackDecoder.decode(bytes);
+    }
+  }
+}
 
 export class BleDongleManager {
   private device: BluetoothDevice | null = null;
@@ -29,6 +49,11 @@ export class BleDongleManager {
   private onDisconnectListener: (() => void) | null = null;
   private isNotifyActive: boolean = false;
   private isWriting: boolean = false;
+
+  // 仮想プリンター吸い上げストリーミングバッファ
+  private printerBuffer: number[] = [];
+  private printerDataListeners: PrinterDataCallback[] = [];
+  private printerCompleteListeners: PrinterJobCompleteCallback[] = [];
 
   public isConnected(): boolean {
     return !!(this.server && this.server.connected && this.characteristic);
@@ -55,6 +80,24 @@ export class BleDongleManager {
     return () => {
       this.ackListeners = this.ackListeners.filter(l => l !== cb);
     };
+  }
+
+  public addPrinterDataListener(cb: PrinterDataCallback): () => void {
+    this.printerDataListeners.push(cb);
+    return () => {
+      this.printerDataListeners = this.printerDataListeners.filter(l => l !== cb);
+    };
+  }
+
+  public addPrinterCompleteListener(cb: PrinterJobCompleteCallback): () => void {
+    this.printerCompleteListeners.push(cb);
+    return () => {
+      this.printerCompleteListeners = this.printerCompleteListeners.filter(l => l !== cb);
+    };
+  }
+
+  public clearPrinterBuffer(): void {
+    this.printerBuffer = [];
   }
 
   private log(direction: 'tx' | 'rx' | 'sys', tag: string, msg: string, hex?: string) {
@@ -238,9 +281,43 @@ export class BleDongleManager {
   }
 
   /**
-   * 受信ACKメッセージの解析とディスパッチ
+   * 受信ACK / プリンター吸い上げメッセージの解析とディスパッチ
    */
   private handleIncomingAck(ackStr: string, rawBytes: Uint8Array): void {
+    // 1. 仮想プリンター印刷データストリーミング (PRN:...)
+    if (rawBytes.length >= 4 && rawBytes[0] === 0x50 && rawBytes[1] === 0x52 && rawBytes[2] === 0x4E && rawBytes[3] === 0x3A) { // "PRN:"
+      const payloadBytes = rawBytes.subarray(4);
+      for (let i = 0; i < payloadBytes.length; i++) {
+        this.printerBuffer.push(payloadBytes[i]);
+      }
+      const chunkText = decodePrinterBytes(payloadBytes);
+      this.log('rx', 'PRN_DATA', `カルテ生データ受信: ${payloadBytes.length}B (累計: ${this.printerBuffer.length}B)`, toHexDump(payloadBytes));
+      for (const cb of [...this.printerDataListeners]) {
+        try {
+          cb(chunkText, this.printerBuffer.length);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      return;
+    }
+
+    // 2. 仮想プリンター印刷ジョブ完了 (PRN_END:<totalBytes>)
+    if (ackStr.startsWith('PRN_END')) {
+      const fullBytes = new Uint8Array(this.printerBuffer);
+      const fullText = decodePrinterBytes(fullBytes);
+      this.log('rx', 'PRN_END', `電カル過去カルテ吸い上げ完了: 全 ${fullBytes.length} Bytes / ${fullText.length} 文字`);
+      for (const cb of [...this.printerCompleteListeners]) {
+        try {
+          cb(fullText, fullBytes.length);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      this.printerBuffer = [];
+      return;
+    }
+
     this.log('rx', 'ACK', ackStr, toHexDump(rawBytes));
 
     // フォーマット: "ACK:<sessionId>:<ackType>[:<detail>]"
@@ -266,6 +343,20 @@ export class BleDongleManager {
         }
       }
     }
+  }
+
+  /**
+   * 電カル過去カルテ吸い上げコマンド (Ctrl+P -> Enter) をドングルへ送信
+   */
+  public async triggerAutoPull(): Promise<boolean> {
+    if (!this.isConnected()) {
+      throw new Error('AtomS3U (どんぐり君) と未接続です。');
+    }
+    this.log('tx', 'CMD', '電カル自動吸い上げ (Ctrl+P -> Enter) コマンド送出');
+    const encoder = new TextEncoder();
+    const cmd = encoder.encode('CMD:AUTO_PULL');
+    await this.writeChunkWithLock(cmd);
+    return true;
   }
 
   /**

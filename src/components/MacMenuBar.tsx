@@ -15,6 +15,7 @@ interface MacMenuBarProps {
   onToggleVirtualMode: () => void;
   onNewChart: () => void;
   onInsertSoap: () => void;
+  onOpenCoprocessor?: () => void;
   onOpenTemplates: () => void;
   onOpenAiAssist: () => void;
   onOpenOcr: () => void;
@@ -44,6 +45,7 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
   onToggleVirtualMode,
   onNewChart,
   onInsertSoap,
+  onOpenCoprocessor,
   onOpenTemplates,
   onOpenAiAssist,
   onOpenOcr,
@@ -318,6 +320,18 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
           </button>
           {openMenu === 'chart' && (
             <div className="absolute top-6 left-0 min-w-[240px] bg-white border border-black shadow-[2px_2px_0_#000] py-1 z-50">
+              {onOpenCoprocessor && (
+                <button
+                  onClick={() => handleItemClick(onOpenCoprocessor)}
+                  className="w-full text-left px-3 py-1.5 hover:bg-black hover:text-white cursor-pointer flex items-center justify-between font-bold bg-yellow-50 border-b border-black/20"
+                >
+                  <span className="flex items-center gap-1">
+                    <span>📥</span>
+                    <span>医療双方向エッジコプロセッサ...</span>
+                  </span>
+                  <span className="text-[10px] bg-black text-white px-1 font-mono">v19.0</span>
+                </button>
+              )}
               <button
                 onClick={() => handleItemClick(onInsertSoap)}
                 className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer font-bold"

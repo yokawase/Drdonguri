@@ -8,6 +8,8 @@
 #include "FS.h"
 #include "SPIFFS.h"
 #include "freertos/queue.h"
+#include "esp32-hal-tinyusb.h"
+#include "device/usbd_pvt.h"
 
 // TinyUSB マウント監視API
 extern "C" bool tud_mounted(void);
@@ -158,6 +160,166 @@ struct MessageContext {
 };
 
 // ============================================================================
+// USB Composite 仮想プリンター (Class 07h) - 閉域網電カル双方向エッジコプロセッサ
+// ============================================================================
+#define IEEE1284_DEVICE_ID "MFG:Generic;MDL:Custom-Text-Only;CMD:TEXT;CLS:PRINTER;"
+#define PRINTER_REQ_GET_DEVICE_ID   0
+#define PRINTER_REQ_GET_PORT_STATUS 1
+#define PRINTER_REQ_SOFT_RESET      2
+#define PRINTER_DESC_LEN            (9 + 7 + 7)
+
+static uint8_t s_printer_itf_num = 1;
+static uint8_t s_printer_ep_out = 0;
+static uint8_t s_printer_ep_in = 0;
+static uint8_t s_printer_rx_buf[64];
+static volatile bool s_printer_open = false;
+
+struct PrinterChunkItem {
+  uint16_t length;
+  uint8_t  data[64];
+};
+#define PRINTER_QUEUE_SIZE 64
+static QueueHandle_t s_printer_queue = nullptr;
+static uint32_t s_last_printer_rx_ms = 0;
+static volatile bool s_printer_job_active = false;
+static uint32_t s_printer_total_bytes = 0;
+
+void onPrinterDataReceived(const uint8_t* data, uint16_t len) {
+  if (len == 0 || data == nullptr) return;
+  s_last_printer_rx_ms = millis();
+  s_printer_job_active = true;
+  s_printer_total_bytes += len;
+
+  if (s_printer_queue != nullptr) {
+    PrinterChunkItem item;
+    item.length = (len > 64) ? 64 : len;
+    memcpy(item.data, data, item.length);
+    xQueueSend(s_printer_queue, &item, 0);
+  }
+}
+
+static uint16_t printer_load_descriptor(uint8_t * dst, uint8_t * itf) {
+  s_printer_itf_num = *itf;
+  uint8_t str_index = tinyusb_add_string_descriptor("Generic Text Only Printer");
+  s_printer_ep_out = tinyusb_get_free_out_endpoint();
+  s_printer_ep_in = tinyusb_get_free_in_endpoint();
+
+  uint8_t descriptor[] = {
+    // 1. Interface Descriptor (9 bytes)
+    9, TUSB_DESC_INTERFACE, s_printer_itf_num, 0, 2, 0x07, 0x01, 0x02, str_index,
+    // 2. Endpoint Descriptor (Bulk OUT: PC -> Dongle, 7 bytes)
+    7, TUSB_DESC_ENDPOINT, s_printer_ep_out, TUSB_XFER_BULK, 0x40, 0x00, 0,
+    // 3. Endpoint Descriptor (Bulk IN: Dongle -> PC, 7 bytes)
+    7, TUSB_DESC_ENDPOINT, (uint8_t)(0x80 | s_printer_ep_in), TUSB_XFER_BULK, 0x40, 0x00, 0
+  };
+
+  *itf += 1;
+  memcpy(dst, descriptor, sizeof(descriptor));
+  return sizeof(descriptor);
+}
+
+static void printer_class_init(void) {}
+
+static void printer_class_reset(uint8_t rhport) {
+  (void)rhport;
+  s_printer_open = false;
+  s_printer_job_active = false;
+}
+
+static uint16_t printer_class_open(uint8_t rhport, tusb_desc_interface_t const * desc_intf, uint16_t max_len) {
+  if (desc_intf->bInterfaceClass != 0x07) return 0;
+
+  uint8_t const * p_desc = (uint8_t const *) desc_intf;
+  uint8_t const * p_desc_end = p_desc + max_len;
+  p_desc = tu_desc_next(p_desc);
+
+  for (int i = 0; i < desc_intf->bNumEndpoints; i++) {
+    if (p_desc >= p_desc_end) break;
+    tusb_desc_endpoint_t const * desc_ep = (tusb_desc_endpoint_t const *) p_desc;
+    if (desc_ep->bDescriptorType == TUSB_DESC_ENDPOINT) {
+      usbd_edpt_open(rhport, desc_ep);
+    }
+    p_desc = tu_desc_next(p_desc);
+  }
+
+  s_printer_open = true;
+
+  if (s_printer_ep_out != 0) {
+    usbd_edpt_xfer(rhport, s_printer_ep_out, s_printer_rx_buf, sizeof(s_printer_rx_buf));
+  }
+
+  return (uint16_t)(p_desc - (uint8_t const *)desc_intf);
+}
+
+static bool printer_class_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const * request) {
+  if (request->bmRequestType_bit.type == TUSB_REQ_TYPE_CLASS &&
+      request->bmRequestType_bit.recipient == TUSB_REQ_RCPT_INTERFACE &&
+      (request->wIndex & 0xFF) == s_printer_itf_num) {
+
+    if (stage == CONTROL_STAGE_SETUP) {
+      switch (request->bRequest) {
+        case PRINTER_REQ_GET_DEVICE_ID: {
+          static uint8_t dev_id_buf[128];
+          const char* dev_id = IEEE1284_DEVICE_ID;
+          uint16_t str_len = strlen(dev_id);
+          uint16_t total_len = str_len + 2;
+          dev_id_buf[0] = (uint8_t)(total_len >> 8);
+          dev_id_buf[1] = (uint8_t)(total_len & 0xFF);
+          memcpy(&dev_id_buf[2], dev_id, str_len);
+
+          uint16_t xfer_len = (request->wLength < total_len) ? request->wLength : total_len;
+          return tud_control_xfer(rhport, request, dev_id_buf, xfer_len);
+        }
+        case PRINTER_REQ_GET_PORT_STATUS: {
+          static uint8_t port_status = 0x18; // 0x18: Selected (0x10) + No Error (0x08)
+          return tud_control_xfer(rhport, request, &port_status, 1);
+        }
+        case PRINTER_REQ_SOFT_RESET: {
+          return tud_control_status(rhport, request);
+        }
+        default:
+          return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+static bool printer_class_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result, uint32_t xferred_bytes) {
+  if (ep_addr == s_printer_ep_out) {
+    if (result == XFER_RESULT_SUCCESS && xferred_bytes > 0) {
+      onPrinterDataReceived(s_printer_rx_buf, (uint16_t)xferred_bytes);
+    }
+    usbd_edpt_xfer(rhport, s_printer_ep_out, s_printer_rx_buf, sizeof(s_printer_rx_buf));
+    return true;
+  }
+  return true;
+}
+
+static const usbd_class_driver_t s_printer_driver = {
+#if CFG_TUSB_DEBUG >= CFG_TUD_LOG_LEVEL
+  .name = "PRINTER",
+#endif
+  .init = printer_class_init,
+  .reset = printer_class_reset,
+  .open = printer_class_open,
+  .control_xfer_cb = printer_class_control_xfer_cb,
+  .xfer_cb = printer_class_xfer_cb,
+  .sof = NULL
+};
+
+extern "C" usbd_class_driver_t const* usbd_app_driver_get_cb(uint8_t* driver_count) {
+  *driver_count = 1;
+  return &s_printer_driver;
+}
+
+void initPrinterInterface() {
+  s_printer_queue = xQueueCreate(PRINTER_QUEUE_SIZE, sizeof(PrinterChunkItem));
+  tinyusb_enable_interface(USB_INTERFACE_CUSTOM, PRINTER_DESC_LEN, printer_load_descriptor);
+}
+
+// ============================================================================
 // グローバル変数
 // ============================================================================
 USBHIDKeyboard Keyboard;
@@ -223,6 +385,24 @@ void setLedColor(uint8_t r, uint8_t g, uint8_t b) {
   if (r == curR && g == curG && b == curB) return;
   curR = r; curG = g; curB = b;
   neopixelWrite(RGB_LED_PIN, r, g, b);
+}
+
+// カルテ吸い上げ自動トリガー (Ctrl+P -> Enter)
+void executeAutoPullKeySequence() {
+  setLedColor(0, 64, 64); // シアン（電カル吸い上げ中）
+  Keyboard.press(KEY_LEFT_CTRL);
+  delay(50);
+  Keyboard.press('p');
+  delay(80);
+  Keyboard.releaseAll();
+  
+  // 印刷ダイアログ表示待機
+  delay(350);
+  
+  // Enterで印刷実行（仮想テキストプリンタへスプール）
+  Keyboard.write(KEY_RETURN);
+  delay(100);
+  setLedColor(0, 64, 0); // 復帰
 }
 
 // ============================================================================
@@ -1690,7 +1870,14 @@ void setup() {
   // SPIFFS初期化 (フォーマットフラグ: true)
   spiffsMounted = SPIFFS.begin(true);
 
+  // 仮想プリンター (Class 07h) インターフェースの有効化 (TinyUSB Composite)
+  initPrinterInterface();
+
   Keyboard.begin();
+  USB.VID(0x303A);
+  USB.PID(0x8025);
+  USB.productName("Donguri Medical Coprocessor");
+  USB.manufacturerName("MedArt");
   USB.begin();
 
   bleQueue = xQueueCreate(BLE_QUEUE_SIZE, sizeof(BleQueueItem));
@@ -1846,6 +2033,14 @@ void loop() {
           currentState, tud_mounted() ? "USB_OK" : "USB_NO", 
           currentMsg.receivedCount, currentMsg.totalPackets);
         sendBleAck("STATUS_RESP", currentMsg.sessionId, statusDetail);
+        continue;
+      }
+
+      // 7. 電カル自動吸い上げ (Ctrl+P -> Enter)
+      if (strcmp(cmdBuf, "CMD:AUTO_PULL") == 0 || strcmp(cmdBuf, "CMD:PULL") == 0) {
+        sendBleAck("AUTO_PULL_STARTING", 0);
+        executeAutoPullKeySequence();
+        sendBleAck("AUTO_PULL_TRIGGERED", 0);
         continue;
       }
     }
@@ -2004,6 +2199,35 @@ void loop() {
       currentState = isBleConnected ? STATE_BLE_CONNECTED : STATE_WAITING_BLE;
       setLedColor(0, isBleConnected ? 64 : 0, isBleConnected ? 0 : 64);
     }
+  }
+
+  // 6. 仮想プリンター受信データのBLEストリーミング転送
+  if (s_printer_queue != nullptr && isBleConnected && pTxRxCharacteristic != nullptr) {
+    PrinterChunkItem prnItem;
+    while (xQueueReceive(s_printer_queue, &prnItem, 0) == pdTRUE) {
+      // プレフィックス "PRN:" を付与してNotify
+      uint8_t notifyBuf[68];
+      notifyBuf[0] = 'P';
+      notifyBuf[1] = 'R';
+      notifyBuf[2] = 'N';
+      notifyBuf[3] = ':';
+      memcpy(&notifyBuf[4], prnItem.data, prnItem.length);
+      pTxRxCharacteristic->setValue(notifyBuf, prnItem.length + 4);
+      pTxRxCharacteristic->notify();
+      delay(4); // BLEスタック安定用
+    }
+  }
+
+  // 7. 電カル印刷吸い上げジョブの完了検知（400ms無通信）
+  if (s_printer_job_active && (millis() - s_last_printer_rx_ms > 400)) {
+    s_printer_job_active = false;
+    if (isBleConnected && pTxRxCharacteristic != nullptr) {
+      char endMsg[32];
+      snprintf(endMsg, sizeof(endMsg), "PRN_END:%u", s_printer_total_bytes);
+      pTxRxCharacteristic->setValue((uint8_t*)endMsg, strlen(endMsg));
+      pTxRxCharacteristic->notify();
+    }
+    s_printer_total_bytes = 0;
   }
 
   delay(10);

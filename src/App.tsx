@@ -98,6 +98,7 @@ export default function App() {
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isImeBoostModalOpen, setIsImeBoostModalOpen] = useState(false);
   const [isPreprocessorModalOpen, setIsPreprocessorModalOpen] = useState(false);
+  const [isCoprocessorModalOpen, setIsCoprocessorModalOpen] = useState(false);
 
   // 通知バナー
   const [bannerNotice, setBannerNotice] = useState<{
@@ -559,6 +560,7 @@ export default function App() {
         onToggleVirtualMode={handleToggleVirtualMode}
         onNewChart={handleNewChart}
         onInsertSoap={handleInsertSoap}
+        onOpenCoprocessor={() => { setActiveTab('input'); setIsCoprocessorModalOpen(true); }}
         onOpenTemplates={() => { setActiveTab('input'); setIsTemplateModalOpen(true); }}
         onOpenAiAssist={() => { setActiveTab('input'); setIsAiModalOpen(true); }}
         onOpenOcr={() => { setActiveTab('input'); setIsCameraOcrOpen(true); }}
@@ -586,6 +588,7 @@ export default function App() {
         onOpenInput={() => setActiveTab('input')}
         onOpenDongle={() => setActiveTab('dongle')}
         onOpenFirmware={() => setActiveTab('firmware')}
+        onOpenCoprocessor={() => { setActiveTab('input'); setIsCoprocessorModalOpen(true); }}
         onClearChart={handleEmptyTrash}
         hasChartContent={Boolean(inputText.trim())}
       />
@@ -628,6 +631,18 @@ export default function App() {
             className={`mac-btn ${activeTab === 'firmware' ? 'bg-black text-white font-bold' : ''}`}
           >
             <span>💾 FW {LATEST_FIRMWARE_VERSION}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              playMacBeep();
+              setIsCoprocessorModalOpen(true);
+            }}
+            className="mac-btn bg-yellow-100 hover:bg-yellow-200 border border-black font-bold flex items-center gap-1 text-xs shadow-[1px_1px_0_#000]"
+            title="閉域網電カルから過去カルテを吸い上げ、スマホAIで要約し、書き戻す"
+          >
+            <span>📥 双方向コプロセッサ</span>
+            <span className="text-[9px] bg-black text-white px-1 font-mono">v19.0</span>
           </button>
         </div>
 
@@ -696,6 +711,8 @@ export default function App() {
             setIsImeBoostModalOpen={setIsImeBoostModalOpen}
             isPreprocessorModalOpen={isPreprocessorModalOpen}
             setIsPreprocessorModalOpen={setIsPreprocessorModalOpen}
+            isCoprocessorModalOpen={isCoprocessorModalOpen}
+            setIsCoprocessorModalOpen={setIsCoprocessorModalOpen}
           />
         )}
 

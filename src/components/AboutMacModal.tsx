@@ -56,8 +56,8 @@ export const AboutMacModal: React.FC<AboutMacModalProps> = ({
             <span>512 KB</span>
           </div>
           <div className="flex justify-between border-b border-black/20 pb-1">
-            <span className="font-bold">USB-HIDモード:</span>
-            <span>完全ゼロインストール・単一HID (JIS 109)</span>
+            <span className="font-bold">USB動作構成:</span>
+            <span>USB Composite (HID打鍵 ＋ 仮想プリンター吸い上げ)</span>
           </div>
           <div className="flex justify-between">
             <span className="font-bold">稼働ステータス:</span>

@@ -35,6 +35,7 @@ import { E2eAutoTestModal } from './E2eAutoTestModal';
 import { CameraOcrModal } from './CameraOcrModal';
 import { ImePrecisionBoostModal } from './ImePrecisionBoostModal';
 import { MedicalPreprocessorModal } from './MedicalPreprocessorModal';
+import { MedicalCoprocessorModal } from './MedicalCoprocessorModal';
 import { ClinicalDecisionSupport } from './ClinicalDecisionSupport';
 import { 
   preprocessMedicalText, 
@@ -77,6 +78,8 @@ interface InputPaneProps {
   setIsImeBoostModalOpen?: (open: boolean) => void;
   isPreprocessorModalOpen?: boolean;
   setIsPreprocessorModalOpen?: (open: boolean) => void;
+  isCoprocessorModalOpen?: boolean;
+  setIsCoprocessorModalOpen?: (open: boolean) => void;
 }
 
 export const InputPane: React.FC<InputPaneProps> = ({
@@ -101,6 +104,8 @@ export const InputPane: React.FC<InputPaneProps> = ({
   setIsImeBoostModalOpen: propSetImeBoostOpen,
   isPreprocessorModalOpen: propPreprocessorOpen,
   setIsPreprocessorModalOpen: propSetPreprocessorOpen,
+  isCoprocessorModalOpen: propCoprocessorOpen,
+  setIsCoprocessorModalOpen: propSetCoprocessorOpen,
 }) => {
   const [showTranspileDetail, setShowTranspileDetail] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<'standard' | 'xml_tags'>('xml_tags');
@@ -144,7 +149,9 @@ export const InputPane: React.FC<InputPaneProps> = ({
   const setIsImeBoostModalOpen = propSetImeBoostOpen || setInternalImeBoostOpen;
 
   const isPreprocessorModalOpen = propPreprocessorOpen !== undefined ? propPreprocessorOpen : internalPreprocessorOpen;
-  const setIsPreprocessorModalOpen = propSetPreprocessorOpen || setInternalPreprocessorOpen;
+  const [internalCoprocessorOpen, setInternalCoprocessorOpen] = useState(false);
+  const isCoprocessorModalOpen = propCoprocessorOpen !== undefined ? propCoprocessorOpen : internalCoprocessorOpen;
+  const setIsCoprocessorModalOpen = propSetCoprocessorOpen || setInternalCoprocessorOpen;
   const [isWindowZoomed, setIsWindowZoomed] = useState(false);
   const [isAutoSavedNotice, setIsAutoSavedNotice] = useState(false);
 
@@ -401,7 +408,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
             />
 
             <div className="bg-white border border-black px-2 py-0.5 font-bold text-xs tracking-wider flex items-center gap-1.5 shadow-[1px_1px_0_#000]">
-              <span>DrVoice どんぐり君 v18.2</span>
+              <span>DrVoice どんぐり君 v19.0 (双方向コプロセッサ)</span>
               {isBleConnected ? (
                 <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1 border border-emerald-500 font-bold">BLE接続</span>
               ) : isVirtualMode ? (
@@ -604,6 +611,19 @@ export const InputPane: React.FC<InputPaneProps> = ({
                 </button>
               )}
 
+              {/* 医療双方向エッジコプロセッサ (吸い上げ ＆ 要約 ＆ 書き戻し) */}
+              <button
+                type="button"
+                onClick={() => {
+                  playMacBeep();
+                  setIsCoprocessorModalOpen(true);
+                }}
+                className="mac-btn bg-yellow-100 hover:bg-yellow-200 border-2 border-black font-bold flex items-center gap-1.5 text-xs px-3 py-1.5 shadow-[1px_1px_0_#000] active:translate-x-0.5 active:translate-y-0.5"
+                title="閉域網電カルから過去カルテを吸い上げ、スマホAIで要約し、書き戻す"
+              >
+                <span>📥 過去カルテ吸い上げ＆要約 (双方向)</span>
+              </button>
+
               {/* System 7 特有の太い二重枠デフォルトボタン [ 送信 ↩ ] */}
               <div className="mac-btn-default-wrapper">
                 <button
@@ -768,6 +788,17 @@ export const InputPane: React.FC<InputPaneProps> = ({
       />
 
       {/* モーダル群 (System 7 Desk Accessory ダイアログ) */}
+      <MedicalCoprocessorModal
+        isOpen={isCoprocessorModalOpen}
+        onClose={() => setIsCoprocessorModalOpen(false)}
+        isBleConnected={isBleConnected}
+        onWriteBackToChart={async (text: string) => {
+          setInputText(text);
+          const session = buildTransmissionSession(text, dispatchMode);
+          await onSendSession(session);
+        }}
+      />
+
       <AiAssistModal
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}
@@ -928,7 +959,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
               <div className="flex items-center gap-2">
                 <Menu className="w-4 h-4 text-black" />
                 <span className="font-bold text-sm tracking-wide">
-                  ツール ＆ カルテ設定メニュー (v18.2)
+                  ツール ＆ カルテ設定メニュー (v19.0)
                 </span>
               </div>
               <button
@@ -944,6 +975,32 @@ export const InputPane: React.FC<InputPaneProps> = ({
             </div>
 
             <div className="space-y-3.5 text-xs max-h-[75vh] overflow-y-auto pr-1">
+              {/* ── ★ 最重要新機能: 医療双方向エッジコプロセッサ ── */}
+              <div className="border-2 border-black p-2.5 bg-yellow-50 space-y-2 shadow-[2px_2px_0_#000]">
+                <div className="font-bold text-black border-b border-black/30 pb-1 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">📥</span>
+                    <span className="text-xs font-bold">医療双方向エッジコプロセッサ (v19.0)</span>
+                  </div>
+                  <span className="text-[10px] bg-black text-white px-1 font-mono">1チップ同時実現</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playMacBeep();
+                    setIsCoprocessorModalOpen(true);
+                    setIsSmartMenuOpen(false);
+                  }}
+                  className="w-full mac-btn text-left p-2.5 flex items-center gap-2 bg-yellow-100 hover:bg-yellow-200 border border-black font-bold"
+                >
+                  <span className="text-lg">⚡</span>
+                  <div>
+                    <div className="font-bold text-xs">過去カルテ吸い上げ ＆ スマホAI要約 ＆ 書き戻し</div>
+                    <div className="text-[10px] text-gray-700">USB仮想プリンター(Bulk OUT)で電カル吸い上げ ➔ SOAP構造化 ➔ HID打鍵書き戻し</div>
+                  </div>
+                </button>
+              </div>
+
               {/* ── セクション1: 診療入力・定型文アシスト ── */}
               <div className="border border-black p-2.5 bg-neutral-50 space-y-2">
                 <div className="font-bold text-black border-b border-black/20 pb-1 flex items-center gap-1.5">
@@ -1120,7 +1177,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
                           setDispatchMode(DispatchMode.MODE_HYBRID_UNICODE);
                         }}
                       />
-                      <span className="font-bold text-black">★ v18.2 4層タグ変換 (誤変換ゼロ・推奨)</span>
+                      <span className="font-bold text-black">★ v19.0 4層タグ変換 (誤変換ゼロ・双方向コプロセッサ推奨)</span>
                     </label>
 
                     <label className="flex items-center gap-1.5 cursor-pointer bg-white p-1 border border-black/30">

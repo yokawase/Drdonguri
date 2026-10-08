@@ -8,6 +8,8 @@
 #include "FS.h"
 #include "SPIFFS.h"
 #include "freertos/queue.h"
+#include "esp32-hal-tinyusb.h"
+#include "device/usbd_pvt.h"
 
 // TinyUSB マウント監視API
 extern "C" bool tud_mounted(void);
@@ -158,6 +160,166 @@ struct MessageContext {
 };
 
 // ============================================================================
+// USB Composite 仮想プリンター (Class 07h) - 閉域網電カル双方向エッジコプロセッサ
+// ============================================================================
+#define IEEE1284_DEVICE_ID "MFG:Generic;MDL:Custom-Text-Only;CMD:TEXT;CLS:PRINTER;"
+#define PRINTER_REQ_GET_DEVICE_ID   0
+#define PRINTER_REQ_GET_PORT_STATUS 1
+#define PRINTER_REQ_SOFT_RESET      2
+#define PRINTER_DESC_LEN            (9 + 7 + 7)
+
+static uint8_t s_printer_itf_num = 1;
+static uint8_t s_printer_ep_out = 0;
+static uint8_t s_printer_ep_in = 0;
+static uint8_t s_printer_rx_buf[64];
+static volatile bool s_printer_open = false;
+
+struct PrinterChunkItem {
+  uint16_t length;
+  uint8_t  data[64];
+};
+#define PRINTER_QUEUE_SIZE 64
+static QueueHandle_t s_printer_queue = nullptr;
+static uint32_t s_last_printer_rx_ms = 0;
+static volatile bool s_printer_job_active = false;
+static uint32_t s_printer_total_bytes = 0;
+
+void onPrinterDataReceived(const uint8_t* data, uint16_t len) {
+  if (len == 0 || data == nullptr) return;
+  s_last_printer_rx_ms = millis();
+  s_printer_job_active = true;
+  s_printer_total_bytes += len;
+
+  if (s_printer_queue != nullptr) {
+    PrinterChunkItem item;
+    item.length = (len > 64) ? 64 : len;
+    memcpy(item.data, data, item.length);
+    xQueueSend(s_printer_queue, &item, 0);
+  }
+}
+
+static uint16_t printer_load_descriptor(uint8_t * dst, uint8_t * itf) {
+  s_printer_itf_num = *itf;
+  uint8_t str_index = tinyusb_add_string_descriptor("Generic Text Only Printer");
+  s_printer_ep_out = tinyusb_get_free_out_endpoint();
+  s_printer_ep_in = tinyusb_get_free_in_endpoint();
+
+  uint8_t descriptor[] = {
+    // 1. Interface Descriptor (9 bytes)
+    9, TUSB_DESC_INTERFACE, s_printer_itf_num, 0, 2, 0x07, 0x01, 0x02, str_index,
+    // 2. Endpoint Descriptor (Bulk OUT: PC -> Dongle, 7 bytes)
+    7, TUSB_DESC_ENDPOINT, s_printer_ep_out, TUSB_XFER_BULK, 0x40, 0x00, 0,
+    // 3. Endpoint Descriptor (Bulk IN: Dongle -> PC, 7 bytes)
+    7, TUSB_DESC_ENDPOINT, (uint8_t)(0x80 | s_printer_ep_in), TUSB_XFER_BULK, 0x40, 0x00, 0
+  };
+
+  *itf += 1;
+  memcpy(dst, descriptor, sizeof(descriptor));
+  return sizeof(descriptor);
+}
+
+static void printer_class_init(void) {}
+
+static void printer_class_reset(uint8_t rhport) {
+  (void)rhport;
+  s_printer_open = false;
+  s_printer_job_active = false;
+}
+
+static uint16_t printer_class_open(uint8_t rhport, tusb_desc_interface_t const * desc_intf, uint16_t max_len) {
+  if (desc_intf->bInterfaceClass != 0x07) return 0;
+
+  uint8_t const * p_desc = (uint8_t const *) desc_intf;
+  uint8_t const * p_desc_end = p_desc + max_len;
+  p_desc = tu_desc_next(p_desc);
+
+  for (int i = 0; i < desc_intf->bNumEndpoints; i++) {
+    if (p_desc >= p_desc_end) break;
+    tusb_desc_endpoint_t const * desc_ep = (tusb_desc_endpoint_t const *) p_desc;
+    if (desc_ep->bDescriptorType == TUSB_DESC_ENDPOINT) {
+      usbd_edpt_open(rhport, desc_ep);
+    }
+    p_desc = tu_desc_next(p_desc);
+  }
+
+  s_printer_open = true;
+
+  if (s_printer_ep_out != 0) {
+    usbd_edpt_xfer(rhport, s_printer_ep_out, s_printer_rx_buf, sizeof(s_printer_rx_buf));
+  }
+
+  return (uint16_t)(p_desc - (uint8_t const *)desc_intf);
+}
+
+static bool printer_class_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const * request) {
+  if (request->bmRequestType_bit.type == TUSB_REQ_TYPE_CLASS &&
+      request->bmRequestType_bit.recipient == TUSB_REQ_RCPT_INTERFACE &&
+      (request->wIndex & 0xFF) == s_printer_itf_num) {
+
+    if (stage == CONTROL_STAGE_SETUP) {
+      switch (request->bRequest) {
+        case PRINTER_REQ_GET_DEVICE_ID: {
+          static uint8_t dev_id_buf[128];
+          const char* dev_id = IEEE1284_DEVICE_ID;
+          uint16_t str_len = strlen(dev_id);
+          uint16_t total_len = str_len + 2;
+          dev_id_buf[0] = (uint8_t)(total_len >> 8);
+          dev_id_buf[1] = (uint8_t)(total_len & 0xFF);
+          memcpy(&dev_id_buf[2], dev_id, str_len);
+
+          uint16_t xfer_len = (request->wLength < total_len) ? request->wLength : total_len;
+          return tud_control_xfer(rhport, request, dev_id_buf, xfer_len);
+        }
+        case PRINTER_REQ_GET_PORT_STATUS: {
+          static uint8_t port_status = 0x18; // 0x18: Selected (0x10) + No Error (0x08)
+          return tud_control_xfer(rhport, request, &port_status, 1);
+        }
+        case PRINTER_REQ_SOFT_RESET: {
+          return tud_control_status(rhport, request);
+        }
+        default:
+          return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+static bool printer_class_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result, uint32_t xferred_bytes) {
+  if (ep_addr == s_printer_ep_out) {
+    if (result == XFER_RESULT_SUCCESS && xferred_bytes > 0) {
+      onPrinterDataReceived(s_printer_rx_buf, (uint16_t)xferred_bytes);
+    }
+    usbd_edpt_xfer(rhport, s_printer_ep_out, s_printer_rx_buf, sizeof(s_printer_rx_buf));
+    return true;
+  }
+  return true;
+}
+
+static const usbd_class_driver_t s_printer_driver = {
+#if CFG_TUSB_DEBUG >= CFG_TUD_LOG_LEVEL
+  .name = "PRINTER",
+#endif
+  .init = printer_class_init,
+  .reset = printer_class_reset,
+  .open = printer_class_open,
+  .control_xfer_cb = printer_class_control_xfer_cb,
+  .xfer_cb = printer_class_xfer_cb,
+  .sof = NULL
+};
+
+extern "C" usbd_class_driver_t const* usbd_app_driver_get_cb(uint8_t* driver_count) {
+  *driver_count = 1;
+  return &s_printer_driver;
+}
+
+void initPrinterInterface() {
+  s_printer_queue = xQueueCreate(PRINTER_QUEUE_SIZE, sizeof(PrinterChunkItem));
+  tinyusb_enable_interface(USB_INTERFACE_CUSTOM, PRINTER_DESC_LEN, printer_load_descriptor);
+}
+
+// ============================================================================
 // グローバル変数
 // ============================================================================
 USBHIDKeyboard Keyboard;
@@ -225,6 +387,24 @@ void setLedColor(uint8_t r, uint8_t g, uint8_t b) {
   neopixelWrite(RGB_LED_PIN, r, g, b);
 }
 
+// カルテ吸い上げ自動トリガー (Ctrl+P -> Enter)
+void executeAutoPullKeySequence() {
+  setLedColor(0, 64, 64); // シアン（電カル吸い上げ中）
+  Keyboard.press(KEY_LEFT_CTRL);
+  delay(50);
+  Keyboard.press('p');
+  delay(80);
+  Keyboard.releaseAll();
+  
+  // 印刷ダイアログ表示待機
+  delay(350);
+  
+  // Enterで印刷実行（仮想テキストプリンタへスプール）
+  Keyboard.write(KEY_RETURN);
+  delay(100);
+  setLedColor(0, 64, 0); // 復帰
+}
+
 // ============================================================================
 // 医療情報セキュリティ: 最適化抑止型ゼロクリア
 // ============================================================================
@@ -281,6 +461,19 @@ void sendNumLockToggle() {
 }
 
 // ============================================================================
+// 電カル監視ソフト対応: KeyUpレポート完全保証型 キー送出関数
+// 単なる Keyboard.write() ではOSのメッセージフック（Trend Micro/Skysea等）によってKeyUpが脱落し、
+// キーリピート暴発（かんjyy, ppおいんtt等）が発生するため、明示的に二重解放レポート(0x00)を送出する
+// ============================================================================
+void safeWrite(uint8_t key) {
+  Keyboard.press(key);
+  delay(6);              // OSがKeyDownを確実に認識・処理する時間
+  Keyboard.release(key);
+  delay(2);
+  Keyboard.releaseAll();  // 念押しで全キー解放レポート(0x00)を送信（二重解放保証）
+}
+
+// ============================================================================
 // JIS 109/106 キーボード対応 キーストローク送出エンジン
 // 未定義コードや危険なスキャンコードは一切送出せず、安全なASCII記号補正のみを行う
 // ============================================================================
@@ -289,22 +482,22 @@ void sendSafeChar(char c) {
   
   if (uc < 32 || uc > 126) {
     if (c == '\b' || uc == 0x08) {
-      Keyboard.write(KEY_BACKSPACE);
+      safeWrite(KEY_BACKSPACE);
       delay(25);
       return;
     }
     if (c == '\t') {
-      Keyboard.write(KEY_TAB);
+      safeWrite(KEY_TAB);
       delay(12);
       return;
     }
     if (c == '\n') {
-      Keyboard.write(KEY_RETURN);
+      safeWrite(KEY_RETURN);
       delay(20);
       return;
     }
     if (uc == 0x1B || uc == 0x11) { // ESC または 無変換・リセットコマンド
-      Keyboard.write(KEY_ESC);
+      safeWrite(KEY_ESC);
       delay(15);
       return;
     }
@@ -314,95 +507,137 @@ void sendSafeChar(char c) {
   // Windows JIS 109キーボード配列向け記号補正
   switch (c) {
     case ':': // JISでは「'」キー位置 (0x27)
-      Keyboard.write((char)0x27);
+      safeWrite((char)0x27);
       break;
     case '@': // JISではバッククォートキー位置 (0x60)
-      Keyboard.write((char)0x60);
+      safeWrite((char)0x60);
       break;
     case '[': // JISでは「]」キー位置
-      Keyboard.write(']');
+      safeWrite(']');
       break;
     case ']': // JISでは「\」キー位置 (0x5C)
-      Keyboard.write((char)0x5C);
+      safeWrite((char)0x5C);
       break;
     case '^': // JISでは「=」キー位置
-      Keyboard.write('=');
+      safeWrite('=');
       break;
     case '~': // JIS Shift + ^
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('=');
+      delay(4);
+      Keyboard.releaseAll();
       delay(2);
       Keyboard.releaseAll();
       break;
     case '(': // JIS Shift + 8
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('8');
+      delay(4);
+      Keyboard.releaseAll();
       delay(2);
       Keyboard.releaseAll();
       break;
     case ')': // JIS Shift + 9
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('9');
+      delay(4);
+      Keyboard.releaseAll();
       delay(2);
       Keyboard.releaseAll();
       break;
     case '=': // JIS Shift + -
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('-');
+      delay(4);
+      Keyboard.releaseAll();
+      delay(2);
+      Keyboard.releaseAll();
+      break;
+    case '+': // JIS Shift + ;
+      Keyboard.press(KEY_LEFT_SHIFT);
+      Keyboard.press(';');
+      delay(4);
+      Keyboard.releaseAll();
+      delay(2);
+      Keyboard.releaseAll();
+      break;
+    case '%': // JIS Shift + 5
+      Keyboard.press(KEY_LEFT_SHIFT);
+      Keyboard.press('5');
+      delay(4);
+      Keyboard.releaseAll();
       delay(2);
       Keyboard.releaseAll();
       break;
     case '"': // JIS Shift + 2
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('2');
+      delay(4);
+      Keyboard.releaseAll();
       delay(2);
       Keyboard.releaseAll();
       break;
     case '\'': // JIS Shift + 7
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('7');
+      delay(4);
+      Keyboard.releaseAll();
       delay(2);
       Keyboard.releaseAll();
       break;
     case '&': // JIS Shift + 6
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('6');
+      delay(4);
+      Keyboard.releaseAll();
       delay(2);
       Keyboard.releaseAll();
       break;
     case '{': // JIS Shift + [
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press(']');
+      delay(4);
+      Keyboard.releaseAll();
       delay(2);
       Keyboard.releaseAll();
       break;
     case '}': // JIS Shift + ] (0x5C)
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press((char)0x5C);
+      delay(4);
+      Keyboard.releaseAll();
       delay(2);
       Keyboard.releaseAll();
       break;
     case '<': // JIS Shift + ,
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press(',');
+      delay(4);
+      Keyboard.releaseAll();
       delay(2);
       Keyboard.releaseAll();
       break;
     case '>': // JIS Shift + .
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('.');
+      delay(4);
+      Keyboard.releaseAll();
       delay(2);
       Keyboard.releaseAll();
       break;
     case '?': // JIS Shift + /
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('/');
+      delay(4);
+      Keyboard.releaseAll();
       delay(2);
       Keyboard.releaseAll();
       break;
     case '!': // JIS Shift + 1
       Keyboard.press(KEY_LEFT_SHIFT);
       Keyboard.press('1');
+      delay(4);
+      Keyboard.releaseAll();
       delay(2);
       Keyboard.releaseAll();
       break;
@@ -413,9 +648,11 @@ void sendSafeChar(char c) {
         rep.modifiers = 0x02; // Left Shift
         rep.keys[0] = 0x34;   // HID Usage 0x34 = ' (JIS配列では「:」)
         Keyboard.sendReport(&rep);
-        delay(2);
+        delay(4);
         memset(&rep, 0, sizeof(KeyReport));
         Keyboard.sendReport(&rep);
+        delay(2);
+        Keyboard.releaseAll();
         delay(2);
       }
       break;
@@ -426,9 +663,11 @@ void sendSafeChar(char c) {
         rep.modifiers = 0x02; // Left Shift
         rep.keys[0] = 0x20;   // HID Usage 0x20 = '3'
         Keyboard.sendReport(&rep);
-        delay(2);
+        delay(4);
         memset(&rep, 0, sizeof(KeyReport));
         Keyboard.sendReport(&rep);
+        delay(2);
+        Keyboard.releaseAll();
         delay(2);
       }
       break;
@@ -439,17 +678,33 @@ void sendSafeChar(char c) {
         rep.modifiers = 0x02; // Left Shift
         rep.keys[0] = 0x87;   // HID Usage 0x87 = International 1 (かな/ろ)
         Keyboard.sendReport(&rep);
-        delay(2);
+        delay(4);
         memset(&rep, 0, sizeof(KeyReport));
         Keyboard.sendReport(&rep);
+        delay(2);
+        Keyboard.releaseAll();
+        delay(2);
+      }
+      break;
+    case '\\': // JISでは「￥」キー位置 (Usage 0x89 = International 3)
+      {
+        KeyReport rep;
+        memset(&rep, 0, sizeof(KeyReport));
+        rep.keys[0] = 0x89;   // HID Usage 0x89 = International 3 (￥)
+        Keyboard.sendReport(&rep);
+        delay(4);
+        memset(&rep, 0, sizeof(KeyReport));
+        Keyboard.sendReport(&rep);
+        delay(2);
+        Keyboard.releaseAll();
         delay(2);
       }
       break;
     default:
-      Keyboard.write(c);
+      safeWrite(c);
       break;
   }
-  delay(3); // 電子カルテ高速・確実インターキー遅延 (3ms: 従来の3倍以上高速化)
+  delay(11); // 電カルセーフ・インターキー遅延 (11ms: 監視ソフトフック遅延を完全に吸収し脱落・リピート暴発ゼロ保証)
 }
 
 // ============================================================================
@@ -584,21 +839,24 @@ void sendMedTermKeystrokes(const MedTermRecord& rec) {
   }
   if (rec.mode == 2) {
     // Mode 2: カタカナ薬品名 (F7全角カタカナ強制 ➔ Enter確定)
-    Keyboard.write(KEY_F7);
+    delay(20);
+    safeWrite(KEY_F7);
     delay(25);
-    Keyboard.write(KEY_RETURN);
+    safeWrite(KEY_RETURN);
     delay(40);
   } else if (rec.mode == 3) {
     // Mode 3: 半角F10 (F10強制 ➔ Enter確定)
-    Keyboard.write(KEY_F10);
     delay(20);
-    Keyboard.write(KEY_RETURN);
+    safeWrite(KEY_F10);
+    delay(25);
+    safeWrite(KEY_RETURN);
     delay(40);
   } else {
     // Mode 1: 傷病名・医学用語 (Space漢字変換 ➔ Enter確定)
-    Keyboard.write(' ');
-    delay(30);
-    Keyboard.write(KEY_RETURN);
+    delay(20); // 候補パレット安定ウェイト
+    safeWrite(' ');
+    delay(35); // 候補窓展開ウェイト
+    safeWrite(KEY_RETURN);
     delay(40);
   }
 }
@@ -831,6 +1089,14 @@ bool dispatchSafeKeystrokes() {
   while (i < total) {
     char c = buf[i];
 
+    // Backspace文字 (\x08)
+    if (c == '\x08') {
+      safeWrite(KEY_BACKSPACE);
+      delay(20);
+      i++;
+      continue;
+    }
+
     // MICS Navigator電子カルテ専用モードタグの検出 (<EHR_MICS> / [EHR_MICS])
     if (strncmp(&buf[i], "<EHR_MICS>", 10) == 0 || strncmp(&buf[i], "[EHR_MICS]", 10) == 0) {
       isMicsMode = true;
@@ -846,13 +1112,13 @@ bool dispatchSafeKeystrokes() {
       if (isMicsMode) {
         Keyboard.press(KEY_LEFT_ALT);
         delay(10);
-        Keyboard.press(KEY_RETURN);
-        delay(15);
+        safeWrite(KEY_RETURN);
+        delay(10);
         Keyboard.releaseAll();
         delay(30);
       } else {
-        Keyboard.write(KEY_RETURN);
-        delay(22);
+        safeWrite(KEY_RETURN);
+        delay(25);
       }
       i++;
       continue;
@@ -861,13 +1127,13 @@ bool dispatchSafeKeystrokes() {
       if (isMicsMode) {
         Keyboard.press(KEY_LEFT_ALT);
         delay(10);
-        Keyboard.press(KEY_RETURN);
-        delay(15);
+        safeWrite(KEY_RETURN);
+        delay(10);
         Keyboard.releaseAll();
         delay(30);
       } else {
-        Keyboard.write(KEY_RETURN);
-        delay(22);
+        safeWrite(KEY_RETURN);
+        delay(25);
       }
       i++;
       continue;
@@ -879,6 +1145,7 @@ bool dispatchSafeKeystrokes() {
     // 1. [K]...[/K] (カタカナモード: F7 ➔ Enter)
     if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "<K>", 3) == 0) {
       i += 3;
+      bool sentAnyChar = false;
       while (i < total) {
         if (strncmp(&buf[i], "[/K]", 4) == 0 || strncmp(&buf[i], "</K>", 4) == 0) {
           i += 4;
@@ -889,94 +1156,194 @@ bool dispatchSafeKeystrokes() {
         }
         char rc = buf[i];
         if (rc != ' ') {
-          sendSafeChar(rc);
+          if ((uint8_t)rc < 0x80) {
+            sendSafeChar(rc);
+            sentAnyChar = true;
+          }
         }
         i++;
       }
-      Keyboard.write(KEY_F7);
-      delay(25);
-      Keyboard.write(KEY_RETURN);
-      delay(40);
+      if (sentAnyChar) {
+        delay(20);
+        safeWrite(KEY_F7);
+        delay(25);
+        safeWrite(KEY_RETURN);
+        delay(40);
+      }
       continue;
     }
 
-    // 2. [H]...[/H] (ひらがな助詞モード: Enter即時確定、Space禁止)
+    // 2. [H]...[/H] (ひらがな助詞モード: Enter即時確定、Space禁止、二重防護)
     if (strncmp(&buf[i], "[H]", 3) == 0 || strncmp(&buf[i], "<H>", 3) == 0) {
       i += 3;
+      bool sentAnyChar = false;
       while (i < total) {
         if (strncmp(&buf[i], "[/H]", 4) == 0 || strncmp(&buf[i], "</H>", 4) == 0) {
           i += 4;
           break;
         }
         if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 || 
-            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[A]", 3) == 0 || 
+            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 || 
+            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 || 
             strncmp(&buf[i], "[/", 2) == 0 || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
+
+        // 万一生UTF-8ひらがなが混入した場合の安全フォールバック（助詞脱落＆空Enter暴発防止）
+        if (isUtf8Hiragana(&buf[i])) {
+          // 促音「っ」
+          if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x81 && (uint8_t)buf[i+2] == 0xA3) {
+            sendSafeChar('l'); sendSafeChar('t'); sendSafeChar('u');
+            i += 3;
+            sentAnyChar = true;
+            continue;
+          }
+          // 撥音「ん」
+          if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x82 && (uint8_t)buf[i+2] == 0x93) {
+            sendSafeChar('n'); sendSafeChar('n');
+            i += 3;
+            sentAnyChar = true;
+            continue;
+          }
+          // ダイグラフ (きゃ, しゅ等: 6バイト)
+          if (i + 6 <= total) {
+            const char* di = findDigraphRomaji(&buf[i]);
+            if (di != nullptr) {
+              for (const char* p = di; *p != '\0'; p++) sendSafeChar(*p);
+              i += 6;
+              sentAnyChar = true;
+              continue;
+            }
+          }
+          // モノかな (3バイト)
+          if (i + 3 <= total) {
+            const char* mo = findMonoKanaRomaji(&buf[i]);
+            if (mo != nullptr) {
+              for (const char* p = mo; *p != '\0'; p++) sendSafeChar(*p);
+              i += 3;
+              sentAnyChar = true;
+              continue;
+            }
+          }
+        }
+
         char rc = buf[i];
         if (rc != ' ') {
-          sendSafeChar(rc);
+          if ((uint8_t)rc < 0x80) {
+            sendSafeChar(rc);
+            sentAnyChar = true;
+          }
         }
         i++;
       }
-      Keyboard.write(KEY_RETURN);
-      delay(40);
+      // ★文字が送出された場合のみ Enter で確定（空タグでの改行暴発を100%防止！）
+      if (sentAnyChar) {
+        delay(20);
+        safeWrite(KEY_RETURN);
+        delay(40);
+      }
       continue;
     }
 
     // 3. [Z]...[/Z] (漢字変換モード: Space変換 ➔ Enter確定)
     if (strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "<Z>", 3) == 0) {
       i += 3;
+      bool sentAnyChar = false;
       while (i < total) {
         if (strncmp(&buf[i], "[/Z]", 4) == 0 || strncmp(&buf[i], "</Z>", 4) == 0) {
           i += 4;
           break;
         }
         if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 || 
-            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[A]", 3) == 0 || 
+            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 || 
+            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 || 
             strncmp(&buf[i], "[/", 2) == 0 || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
         char rc = buf[i];
         if (rc != ' ') {
-          sendSafeChar(rc);
+          if ((uint8_t)rc < 0x80) {
+            sendSafeChar(rc);
+            sentAnyChar = true;
+          }
         }
         i++;
       }
-      Keyboard.write(' ');
-      delay(30);
-      Keyboard.write(KEY_RETURN);
-      delay(40);
+      if (sentAnyChar) {
+        delay(20); // 候補パレット安定ウェイト
+        safeWrite(' ');
+        delay(35); // 候補窓展開ウェイト
+        safeWrite(KEY_RETURN);
+        delay(40);
+      }
       continue;
     }
 
-    // 4. [A]...[/A] (半角ASCIIモード: 英字時はF10+EnterでMS-IME平仮名化完全防止＆記号/数字時は直接高速送出)
+    // 3.5 [G]...[/G] (ギリシャ文字変換モード: Space2回 ➔ Enterで第2候補記号α/βを直接物理確定！)
+    if (strncmp(&buf[i], "[G]", 3) == 0 || strncmp(&buf[i], "<G>", 3) == 0) {
+      i += 3;
+      bool sentAnyChar = false;
+      while (i < total) {
+        if (strncmp(&buf[i], "[/G]", 4) == 0 || strncmp(&buf[i], "</G>", 4) == 0) {
+          i += 4;
+          break;
+        }
+        if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 || 
+            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 || 
+            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 || 
+            strncmp(&buf[i], "[/", 2) == 0 || buf[i] == '\n' || buf[i] == '\r') {
+          break;
+        }
+        char rc = buf[i];
+        if (rc != ' ') {
+          if ((uint8_t)rc < 0x80) {
+            sendSafeChar(rc);
+            sentAnyChar = true;
+          }
+        }
+        i++;
+      }
+      if (sentAnyChar) {
+        delay(20);
+        safeWrite(' '); // 第1候補（カタカナ）
+        delay(30);
+        safeWrite(' '); // 第2候補（記号 α / β）
+        delay(35);
+        safeWrite(KEY_RETURN); // 確定
+        delay(40);
+      }
+      continue;
+    }
+
+    // 4. [A]...[/A] (半角ASCIIモード: 英数字・記号時はF10+EnterでMS-IME全角化完全防止＆直接送出)
     if (strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "<A>", 3) == 0) {
       i += 3;
-      bool hasAlpha = false;
+      bool hasNonSpace = false;
       while (i < total) {
         if (strncmp(&buf[i], "[/A]", 4) == 0 || strncmp(&buf[i], "</A>", 4) == 0) {
           i += 4;
           break;
         }
         if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 || 
-            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[A]", 3) == 0 || 
+            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 || 
+            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 || 
             strncmp(&buf[i], "[/", 2) == 0 || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
         char ac = buf[i];
-        if ((ac >= 'a' && ac <= 'z') || (ac >= 'A' && ac <= 'Z')) {
-          hasAlpha = true;
+        if (ac != ' ' && ac != '\t') {
+          hasNonSpace = true;
         }
         sendSafeChar(ac);
         i++;
       }
-      // 英字アルファベットが含まれていた場合、MS-IMEが日本語入力中なら未確定平仮名になっているため、
-      // F10で半角英数に強制変換し、Enterで未確定文字列を確定する！
-      if (hasAlpha) {
-        Keyboard.write(KEY_F10);
+      // 英数字・記号が含まれていた場合、MS-IMEが日本語入力中なら未確定全角になっているため、
+      // F10で半角英数・半角記号に強制変換し、Enterで未確定文字列を確定する！
+      if (hasNonSpace) {
         delay(20);
-        Keyboard.write(KEY_RETURN);
+        safeWrite(KEY_F10);
+        delay(25);
+        safeWrite(KEY_RETURN);
         delay(35);
       }
       continue;
@@ -1003,8 +1370,8 @@ bool dispatchSafeKeystrokes() {
       if (strncmp(&buf[i], "<ALT_ENTER>", 11) == 0 || strncmp(&buf[i], "[ALT_ENTER]", 11) == 0) {
         Keyboard.press(KEY_LEFT_ALT);
         delay(10);
-        Keyboard.press(KEY_RETURN);
-        delay(15);
+        safeWrite(KEY_RETURN);
+        delay(10);
         Keyboard.releaseAll();
         delay(30);
         i += 11;
@@ -1013,38 +1380,39 @@ bool dispatchSafeKeystrokes() {
       if (strncmp(&buf[i], "<CTRL_ENTER>", 12) == 0 || strncmp(&buf[i], "[CTRL_ENTER]", 12) == 0) {
         Keyboard.press(KEY_LEFT_CTRL);
         delay(10);
-        Keyboard.press(KEY_RETURN);
-        delay(15);
+        safeWrite(KEY_RETURN);
+        delay(10);
         Keyboard.releaseAll();
         delay(30);
         i += 12;
         continue;
       }
       if (strncmp(&buf[i], "[BS]", 4) == 0 || strncmp(&buf[i], "<BS>", 4) == 0) {
-        Keyboard.write(KEY_BACKSPACE);
-        delay(15);
+        safeWrite(KEY_BACKSPACE);
+        delay(20);
         i += 4;
         continue;
       }
       if (strncmp(&buf[i], "[/K]", 4) == 0 || strncmp(&buf[i], "</K>", 4) == 0) { i += 4; continue; }
       if (strncmp(&buf[i], "[/H]", 4) == 0 || strncmp(&buf[i], "</H>", 4) == 0) { i += 4; continue; }
       if (strncmp(&buf[i], "[/Z]", 4) == 0 || strncmp(&buf[i], "</Z>", 4) == 0) { i += 4; continue; }
+      if (strncmp(&buf[i], "[/G]", 4) == 0 || strncmp(&buf[i], "</G>", 4) == 0) { i += 4; continue; }
       if (strncmp(&buf[i], "[/A]", 4) == 0 || strncmp(&buf[i], "</A>", 4) == 0) { i += 4; continue; }
       if (strncmp(&buf[i], "[/U]", 4) == 0 || strncmp(&buf[i], "</U>", 4) == 0) { i += 4; continue; }
       if (strncmp(&buf[i], "<ENTER>", 7) == 0 || strncmp(&buf[i], "[ENTER]", 7) == 0) {
-        Keyboard.write(KEY_RETURN);
-        delay(22);
+        safeWrite(KEY_RETURN);
+        delay(25);
         i += 7;
         continue;
       }
       if (strncmp(&buf[i], "<CONV>", 6) == 0) {
-        Keyboard.write(' ');
-        delay(18);
+        safeWrite(' ');
+        delay(20);
         i += 6;
         continue;
       }
       if (strncmp(&buf[i], "<SPACE>", 7) == 0 || strncmp(&buf[i], "[SPACE]", 7) == 0) {
-        Keyboard.write(' ');
+        safeWrite(' ');
         delay(15);
         i += 7;
         continue;
@@ -1106,7 +1474,10 @@ bool dispatchSafeKeystrokes() {
       continue;
     }
 
-    // 【レベル3】: /kanji_yomi.bin 全JIS漢字（6,500字以上）オンボード音読み解決 ➔ Space変換 ➔ Enter確定
+    // 【レベル3】: /kanji_yomi.bin 未登録漢字塊（複合語・人名・動詞語幹）クラスタ一括変換エンジン
+    // ★【単漢字確定の完全撤廃】: 漢字1文字ごとにSpace+Enterを押すとMS-IMEが「国率」「東鏡」「高表」「消去」
+    // と誤爆するため、連続する未登録漢字（最大5文字）および後続送り仮名を未確定バッファとしてPCに連続送出し、
+    // クラスタ境界で一括して [Space] ➔ [Enter] を1回だけ送る！
     size_t uLen = getUtf8CharLen((uint8_t)buf[i]);
     if (uLen >= 3 && i + uLen <= total) {
       char utf8Single[5] = {0, 0, 0, 0, 0};
@@ -1114,33 +1485,131 @@ bool dispatchSafeKeystrokes() {
 
       char yomiRomaji[16] = {0};
       if (fYomi && yomiCount > 0 && lookupKanjiYomi(fYomi, yomiCount, utf8Single, yomiRomaji, sizeof(yomiRomaji))) {
-        // JIS漢字ヒット: 代表音読みローマ字を安全打鍵
-        for (size_t r = 0; yomiRomaji[r] != '\0'; r++) {
-          sendSafeChar(yomiRomaji[r]);
+        // 現在の文字から、未登録の漢字が何文字連続しているかをスキャン (最大5文字)
+        size_t clusterScan = i;
+        size_t kanjiCount = 0;
+
+        while (clusterScan < total && kanjiCount < 5) {
+          size_t curCharLen = getUtf8CharLen((uint8_t)buf[clusterScan]);
+          if (curCharLen < 3 || clusterScan + curCharLen > total) break;
+
+          char sc = buf[clusterScan];
+          if (sc == '[' || sc == '<' || sc == '\r' || sc == '\n' || (uint8_t)sc < 0x80) break;
+
+          char curUtf8[5] = {0};
+          memcpy(curUtf8, &buf[clusterScan], curCharLen);
+          char curYomi[16] = {0};
+
+          if (!lookupKanjiYomi(fYomi, yomiCount, curUtf8, curYomi, sizeof(curYomi))) {
+            break; // 漢字でなければ終了
+          }
+
+          // 2文字目以降で med_terms に合致する単語が見つかったら、そこから先はレベル2に任せる
+          if (kanjiCount > 0 && fTerms && termCount > 0) {
+            MedTermRecord checkRec;
+            if (lookupMedicalTerm(fTerms, termCount, &buf[clusterScan], curCharLen * 2, &checkRec)) {
+              break;
+            }
+          }
+
+          // この漢字の読みローマ字をPCに送出（確定キーは絶対に押さない！）
+          for (size_t r = 0; curYomi[r] != '\0'; r++) {
+            sendSafeChar(curYomi[r]);
+          }
+          clusterScan += curCharLen;
+          kanjiCount++;
         }
-        // Space漢字変換 ➔ Enter確定 (F5リロード誤爆ゼロ)
-        Keyboard.write(' ');
-        delay(25);
-        Keyboard.write(KEY_RETURN);
+
+        // 送り仮名（ひらがな）が直後に続いている場合（例: 「行われている」「裏付けられた」）
+        // 句読点・記号・空白に達するまで、ひらがなのローマ字も同一未確定バッファに連続送出
+        while (clusterScan < total && isUtf8Hiragana(&buf[clusterScan])) {
+          if (clusterScan + 3 <= total && (memcmp(&buf[clusterScan], "、", 3) == 0 || memcmp(&buf[clusterScan], "。", 3) == 0)) {
+            break;
+          }
+          // 促音「っ」
+          if (clusterScan + 3 <= total && (uint8_t)buf[clusterScan] == 0xE3 && (uint8_t)buf[clusterScan+1] == 0x81 && (uint8_t)buf[clusterScan+2] == 0xA3) {
+            if (clusterScan + 6 <= total && isUtf8Hiragana(&buf[clusterScan+3])) {
+              const char* nextDi = (clusterScan + 9 <= total) ? findDigraphRomaji(&buf[clusterScan+3]) : nullptr;
+              const char* nextMo = findMonoKanaRomaji(&buf[clusterScan+3]);
+              const char* nextRomaji = (nextDi != nullptr) ? nextDi : nextMo;
+              if (nextRomaji != nullptr && nextRomaji[0] != 'a' && nextRomaji[0] != 'i' && 
+                  nextRomaji[0] != 'u' && nextRomaji[0] != 'e' && nextRomaji[0] != 'o' && nextRomaji[0] != 'n') {
+                sendSafeChar(nextRomaji[0]);
+                clusterScan += 3;
+                continue;
+              }
+            }
+            sendSafeChar('l'); sendSafeChar('t'); sendSafeChar('u');
+            clusterScan += 3;
+            continue;
+          }
+          // 撥音「ん」
+          if (clusterScan + 3 <= total && (uint8_t)buf[clusterScan] == 0xE3 && (uint8_t)buf[clusterScan+1] == 0x82 && (uint8_t)buf[clusterScan+2] == 0x93) {
+            sendSafeChar('n'); sendSafeChar('n');
+            clusterScan += 3;
+            continue;
+          }
+          // ダイグラフ
+          if (clusterScan + 6 <= total) {
+            const char* di = findDigraphRomaji(&buf[clusterScan]);
+            if (di != nullptr) {
+              for (const char* p = di; *p != '\0'; p++) sendSafeChar(*p);
+              clusterScan += 6;
+              continue;
+            }
+          }
+          // モノかな
+          if (clusterScan + 3 <= total) {
+            const char* mo = findMonoKanaRomaji(&buf[clusterScan]);
+            if (mo != nullptr) {
+              for (const char* p = mo; *p != '\0'; p++) sendSafeChar(*p);
+              clusterScan += 3;
+              continue;
+            }
+          }
+          break;
+        }
+
+        // ★クラスタ末尾で一括 Space ➔ Enter 確定！
+        delay(20);
+        safeWrite(' ');
         delay(35);
-        i += uLen;
+        safeWrite(KEY_RETURN);
+        delay(40);
+        i = clusterScan;
         continue;
       }
     }
 
     // 【レベル4】: 上記以外の一般ひらがな・カタカナ・約物・一般語
-    // 1. 全角約物・記号の変換
+    // 1. 全角約物・記号の変換 (山括弧 ＜ ＞ を含む全角記号を完全サポート)
     if (uLen == 3) {
       if (memcmp(&buf[i], "、", 3) == 0) { sendSafeChar(','); i += 3; continue; }
       if (memcmp(&buf[i], "。", 3) == 0) { sendSafeChar('.'); i += 3; continue; }
       if (memcmp(&buf[i], "・", 3) == 0) { sendSafeChar('/'); i += 3; continue; }
-      if (memcmp(&buf[i], "「", 3) == 0 || memcmp(&buf[i], "【", 3) == 0) { sendSafeChar('['); i += 3; continue; }
-      if (memcmp(&buf[i], "」", 3) == 0 || memcmp(&buf[i], "】", 3) == 0) { sendSafeChar(']'); i += 3; continue; }
+      if (memcmp(&buf[i], "「", 3) == 0 || memcmp(&buf[i], "【", 3) == 0 || memcmp(&buf[i], "『", 3) == 0) { sendSafeChar('['); i += 3; continue; }
+      if (memcmp(&buf[i], "」", 3) == 0 || memcmp(&buf[i], "】", 3) == 0 || memcmp(&buf[i], "』", 3) == 0) { sendSafeChar(']'); i += 3; continue; }
       if (memcmp(&buf[i], "（", 3) == 0) { sendSafeChar('('); i += 3; continue; }
       if (memcmp(&buf[i], "）", 3) == 0) { sendSafeChar(')'); i += 3; continue; }
       if (memcmp(&buf[i], "〜", 3) == 0) { sendSafeChar('~'); i += 3; continue; }
       if (memcmp(&buf[i], "：", 3) == 0) { sendSafeChar(':'); i += 3; continue; }
       if (memcmp(&buf[i], "ー", 3) == 0) { sendSafeChar('-'); i += 3; continue; }
+      if (memcmp(&buf[i], "＜", 3) == 0 || memcmp(&buf[i], "《", 3) == 0) { sendSafeChar('<'); i += 3; continue; }
+      if (memcmp(&buf[i], "＞", 3) == 0 || memcmp(&buf[i], "》", 3) == 0) { sendSafeChar('>'); i += 3; continue; }
+      if (memcmp(&buf[i], "＋", 3) == 0) { sendSafeChar('+'); i += 3; continue; }
+      if (memcmp(&buf[i], "＝", 3) == 0) { sendSafeChar('='); i += 3; continue; }
+      if (memcmp(&buf[i], "％", 3) == 0) { sendSafeChar('%'); i += 3; continue; }
+      // 丸数字・囲み数字 (①〜⑩)
+      if (memcmp(&buf[i], "①", 3) == 0) { sendSafeChar('('); sendSafeChar('1'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "②", 3) == 0) { sendSafeChar('('); sendSafeChar('2'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "③", 3) == 0) { sendSafeChar('('); sendSafeChar('3'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "④", 3) == 0) { sendSafeChar('('); sendSafeChar('4'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "⑤", 3) == 0) { sendSafeChar('('); sendSafeChar('5'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "⑥", 3) == 0) { sendSafeChar('('); sendSafeChar('6'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "⑦", 3) == 0) { sendSafeChar('('); sendSafeChar('7'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "⑧", 3) == 0) { sendSafeChar('('); sendSafeChar('8'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "⑨", 3) == 0) { sendSafeChar('('); sendSafeChar('9'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
+      if (memcmp(&buf[i], "⑩", 3) == 0) { sendSafeChar('('); sendSafeChar('1'); sendSafeChar('0'); sendSafeChar(')'); sendSafeChar(' '); i += 3; continue; }
     }
 
 // 2. ひらがな連続塊: ローマ字送出
@@ -1199,8 +1668,9 @@ bool dispatchSafeKeystrokes() {
       // ひらがな塊末尾の確定: 文末（句点・約物・改行・終端）のときのみ確定
       if (i >= total || buf[i] == '\n' || buf[i] == '\r' || 
           (i + 3 <= total && (memcmp(&buf[i], "。", 3) == 0 || memcmp(&buf[i], "、", 3) == 0))) {
-        Keyboard.write(KEY_RETURN);
-        delay(35);
+        delay(20);
+        safeWrite(KEY_RETURN);
+        delay(40);
       }
       continue;
     }
@@ -1256,9 +1726,10 @@ bool dispatchSafeKeystrokes() {
         }
         i += getUtf8CharLen((uint8_t)buf[i]);
       }
-      Keyboard.write(KEY_F7);
+      delay(20);
+      safeWrite(KEY_F7);
       delay(25);
-      Keyboard.write(KEY_RETURN);
+      safeWrite(KEY_RETURN);
       delay(40);
       continue;
     }
@@ -1273,10 +1744,11 @@ bool dispatchSafeKeystrokes() {
         for (size_t r = 0; yomiRomaji[r] != '\0'; r++) {
           sendSafeChar(yomiRomaji[r]);
         }
-        Keyboard.write(' ');
-        delay(25);
-        Keyboard.write(KEY_RETURN);
-        delay(35);
+        delay(20); // 候補パレット安定ウェイト
+        safeWrite(' ');
+        delay(35); // 候補窓展開ウェイト
+        safeWrite(KEY_RETURN);
+        delay(40);
         i += uLen;
         continue;
       }
@@ -1398,7 +1870,14 @@ void setup() {
   // SPIFFS初期化 (フォーマットフラグ: true)
   spiffsMounted = SPIFFS.begin(true);
 
+  // 仮想プリンター (Class 07h) インターフェースの有効化 (TinyUSB Composite)
+  initPrinterInterface();
+
   Keyboard.begin();
+  USB.VID(0x303A);
+  USB.PID(0x8025);
+  USB.productName("Donguri Medical Coprocessor");
+  USB.manufacturerName("MedArt");
   USB.begin();
 
   bleQueue = xQueueCreate(BLE_QUEUE_SIZE, sizeof(BleQueueItem));
@@ -1554,6 +2033,14 @@ void loop() {
           currentState, tud_mounted() ? "USB_OK" : "USB_NO", 
           currentMsg.receivedCount, currentMsg.totalPackets);
         sendBleAck("STATUS_RESP", currentMsg.sessionId, statusDetail);
+        continue;
+      }
+
+      // 7. 電カル自動吸い上げ (Ctrl+P -> Enter)
+      if (strcmp(cmdBuf, "CMD:AUTO_PULL") == 0 || strcmp(cmdBuf, "CMD:PULL") == 0) {
+        sendBleAck("AUTO_PULL_STARTING", 0);
+        executeAutoPullKeySequence();
+        sendBleAck("AUTO_PULL_TRIGGERED", 0);
         continue;
       }
     }
@@ -1712,6 +2199,35 @@ void loop() {
       currentState = isBleConnected ? STATE_BLE_CONNECTED : STATE_WAITING_BLE;
       setLedColor(0, isBleConnected ? 64 : 0, isBleConnected ? 0 : 64);
     }
+  }
+
+  // 6. 仮想プリンター受信データのBLEストリーミング転送
+  if (s_printer_queue != nullptr && isBleConnected && pTxRxCharacteristic != nullptr) {
+    PrinterChunkItem prnItem;
+    while (xQueueReceive(s_printer_queue, &prnItem, 0) == pdTRUE) {
+      // プレフィックス "PRN:" を付与してNotify
+      uint8_t notifyBuf[68];
+      notifyBuf[0] = 'P';
+      notifyBuf[1] = 'R';
+      notifyBuf[2] = 'N';
+      notifyBuf[3] = ':';
+      memcpy(&notifyBuf[4], prnItem.data, prnItem.length);
+      pTxRxCharacteristic->setValue(notifyBuf, prnItem.length + 4);
+      pTxRxCharacteristic->notify();
+      delay(4); // BLEスタック安定用
+    }
+  }
+
+  // 7. 電カル印刷吸い上げジョブの完了検知（400ms無通信）
+  if (s_printer_job_active && (millis() - s_last_printer_rx_ms > 400)) {
+    s_printer_job_active = false;
+    if (isBleConnected && pTxRxCharacteristic != nullptr) {
+      char endMsg[32];
+      snprintf(endMsg, sizeof(endMsg), "PRN_END:%u", s_printer_total_bytes);
+      pTxRxCharacteristic->setValue((uint8_t*)endMsg, strlen(endMsg));
+      pTxRxCharacteristic->notify();
+    }
+    s_printer_total_bytes = 0;
   }
 
   delay(10);

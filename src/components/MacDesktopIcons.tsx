@@ -6,6 +6,7 @@ interface MacDesktopIconsProps {
   onOpenInput: () => void;
   onOpenDongle: () => void;
   onOpenFirmware: () => void;
+  onOpenCoprocessor?: () => void;
   onClearChart: () => void;
   hasChartContent: boolean;
 }
@@ -14,6 +15,7 @@ export const MacDesktopIcons: React.FC<MacDesktopIconsProps> = ({
   onOpenInput,
   onOpenDongle,
   onOpenFirmware,
+  onOpenCoprocessor,
   onClearChart,
   hasChartContent,
 }) => {
@@ -75,7 +77,26 @@ export const MacDesktopIcons: React.FC<MacDesktopIconsProps> = ({
         </span>
       </button>
 
-      {/* 4. ゴミ箱 (Trash) */}
+      {/* 4. 双方向エッジコプロセッサ (仮想プリンタ＋AI) */}
+      {onOpenCoprocessor && (
+        <button
+          onClick={() => {
+            playMacBeep();
+            onOpenCoprocessor();
+          }}
+          className="flex flex-col items-center gap-1 group cursor-pointer focus:outline-none"
+          title="医療双方向エッジコプロセッサ（カルテ吸い上げ＆要約）を開く"
+        >
+          <div className="w-11 h-11 border border-black bg-yellow-100 shadow-[1px_1px_0_#000] flex items-center justify-center text-xl group-active:bg-black group-active:text-white">
+            📥
+          </div>
+          <span className="bg-white border border-transparent px-1 group-hover:border-black group-active:bg-black group-active:text-white group-active:border-black text-center">
+            双方向AI
+          </span>
+        </button>
+      )}
+
+      {/* 5. ゴミ箱 (Trash) */}
       <button
         onClick={() => {
           playSosumi();
