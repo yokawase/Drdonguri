@@ -329,7 +329,7 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
                     <span>📥</span>
                     <span>医療双方向エッジコプロセッサ...</span>
                   </span>
-                  <span className="text-[10px] bg-black text-white px-1 font-mono">v19.0</span>
+                  <span className="text-[10px] bg-black text-white px-1 font-mono">v19.1</span>
                 </button>
               )}
               <button

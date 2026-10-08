@@ -408,7 +408,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
             />
 
             <div className="bg-white border border-black px-2 py-0.5 font-bold text-xs tracking-wider flex items-center gap-1.5 shadow-[1px_1px_0_#000]">
-              <span>DrVoice どんぐり君 v19.0 (双方向コプロセッサ)</span>
+              <span>DrVoice どんぐり君 v19.1 (双方向コプロセッサ)</span>
               {isBleConnected ? (
                 <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1 border border-emerald-500 font-bold">BLE接続</span>
               ) : isVirtualMode ? (
@@ -959,7 +959,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
               <div className="flex items-center gap-2">
                 <Menu className="w-4 h-4 text-black" />
                 <span className="font-bold text-sm tracking-wide">
-                  ツール ＆ カルテ設定メニュー (v19.0)
+                  ツール ＆ カルテ設定メニュー (v19.1)
                 </span>
               </div>
               <button
@@ -980,7 +980,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
                 <div className="font-bold text-black border-b border-black/30 pb-1 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm">📥</span>
-                    <span className="text-xs font-bold">医療双方向エッジコプロセッサ (v19.0)</span>
+                    <span className="text-xs font-bold">医療双方向エッジコプロセッサ (v19.1)</span>
                   </div>
                   <span className="text-[10px] bg-black text-white px-1 font-mono">1チップ同時実現</span>
                 </div>
@@ -1177,7 +1177,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
                           setDispatchMode(DispatchMode.MODE_HYBRID_UNICODE);
                         }}
                       />
-                      <span className="font-bold text-black">★ v19.0 4層タグ変換 (誤変換ゼロ・双方向コプロセッサ推奨)</span>
+                      <span className="font-bold text-black">★ v19.1 4層タグ変換 (誤変換ゼロ・双方向コプロセッサ推奨)</span>
                     </label>
 
                     <label className="flex items-center gap-1.5 cursor-pointer bg-white p-1 border border-black/30">

@@ -1,9 +1,9 @@
 import mainCppRaw from '@/firmware/src/main.cpp?raw';
 import flashAtoms3uPs1Raw from '@/firmware/scripts/flash_atoms3u.ps1?raw';
 
-export const LATEST_FIRMWARE_VERSION = 'v19.0';
+export const LATEST_FIRMWARE_VERSION = 'v19.1';
 export const FIRMWARE_RELEASE_DATE = '2026-10-08';
-export const FIRMWARE_RELEASE_TITLE = 'v19.0（世界初：完全自律型・医療双方向エッジコプロセッサ / USB Composite HID打鍵＋仮想プリンター吸い上げ同時実現版）';
+export const FIRMWARE_RELEASE_TITLE = 'v19.1（BLEシングルトン同期保証 ＆ USBプリンターDMAバッファ・LED可視化安定版）';
 
 export const PARTITIONS_8MB_CSV_SOURCE = `# Name,   Type, SubType, Offset,   Size,     Flags
 nvs,      data, nvs,     0x9000,   0x5000,

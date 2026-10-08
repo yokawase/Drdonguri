@@ -171,30 +171,38 @@ struct MessageContext {
 static uint8_t s_printer_itf_num = 1;
 static uint8_t s_printer_ep_out = 0;
 static uint8_t s_printer_ep_in = 0;
-static uint8_t s_printer_rx_buf[64];
+static CFG_TUSB_MEM_ALIGN uint8_t s_printer_rx_buf[64];
 static volatile bool s_printer_open = false;
 
 struct PrinterChunkItem {
   uint16_t length;
   uint8_t  data[64];
 };
-#define PRINTER_QUEUE_SIZE 64
+#define PRINTER_QUEUE_SIZE 128
 static QueueHandle_t s_printer_queue = nullptr;
 static uint32_t s_last_printer_rx_ms = 0;
 static volatile bool s_printer_job_active = false;
 static uint32_t s_printer_total_bytes = 0;
+
+void setLedColor(uint8_t r, uint8_t g, uint8_t b);
 
 void onPrinterDataReceived(const uint8_t* data, uint16_t len) {
   if (len == 0 || data == nullptr) return;
   s_last_printer_rx_ms = millis();
   s_printer_job_active = true;
   s_printer_total_bytes += len;
+  setLedColor(0, 64, 64); // シアン点灯 (電カル吸い上げ中)
 
   if (s_printer_queue != nullptr) {
     PrinterChunkItem item;
     item.length = (len > 64) ? 64 : len;
     memcpy(item.data, data, item.length);
-    xQueueSend(s_printer_queue, &item, 0);
+    if (xQueueSend(s_printer_queue, &item, 0) != pdTRUE) {
+      // キュー満杯時は最古アイテムを1つ捨てて最新を追加 (バッファスタック防止)
+      PrinterChunkItem dummy;
+      xQueueReceive(s_printer_queue, &dummy, 0);
+      xQueueSend(s_printer_queue, &item, 0);
+    }
   }
 }
 
@@ -238,6 +246,11 @@ static uint16_t printer_class_open(uint8_t rhport, tusb_desc_interface_t const *
     tusb_desc_endpoint_t const * desc_ep = (tusb_desc_endpoint_t const *) p_desc;
     if (desc_ep->bDescriptorType == TUSB_DESC_ENDPOINT) {
       usbd_edpt_open(rhport, desc_ep);
+      if (tu_edpt_dir(desc_ep->bEndpointAddress) == TUSB_DIR_OUT) {
+        s_printer_ep_out = desc_ep->bEndpointAddress;
+      } else {
+        s_printer_ep_in = desc_ep->bEndpointAddress;
+      }
     }
     p_desc = tu_desc_next(p_desc);
   }
@@ -2202,19 +2215,21 @@ void loop() {
   }
 
   // 6. 仮想プリンター受信データのBLEストリーミング転送
-  if (s_printer_queue != nullptr && isBleConnected && pTxRxCharacteristic != nullptr) {
+  if (s_printer_queue != nullptr) {
     PrinterChunkItem prnItem;
     while (xQueueReceive(s_printer_queue, &prnItem, 0) == pdTRUE) {
-      // プレフィックス "PRN:" を付与してNotify
-      uint8_t notifyBuf[68];
-      notifyBuf[0] = 'P';
-      notifyBuf[1] = 'R';
-      notifyBuf[2] = 'N';
-      notifyBuf[3] = ':';
-      memcpy(&notifyBuf[4], prnItem.data, prnItem.length);
-      pTxRxCharacteristic->setValue(notifyBuf, prnItem.length + 4);
-      pTxRxCharacteristic->notify();
-      delay(4); // BLEスタック安定用
+      if (isBleConnected && pTxRxCharacteristic != nullptr) {
+        // プレフィックス "PRN:" を付与してNotify
+        uint8_t notifyBuf[68];
+        notifyBuf[0] = 'P';
+        notifyBuf[1] = 'R';
+        notifyBuf[2] = 'N';
+        notifyBuf[3] = ':';
+        memcpy(&notifyBuf[4], prnItem.data, prnItem.length);
+        pTxRxCharacteristic->setValue(notifyBuf, prnItem.length + 4);
+        pTxRxCharacteristic->notify();
+        delay(4); // BLEスタック安定用
+      }
     }
   }
 
@@ -2226,6 +2241,9 @@ void loop() {
       snprintf(endMsg, sizeof(endMsg), "PRN_END:%u", s_printer_total_bytes);
       pTxRxCharacteristic->setValue((uint8_t*)endMsg, strlen(endMsg));
       pTxRxCharacteristic->notify();
+      setLedColor(0, 64, 0); // 吸い上げ完了・緑復帰
+    } else {
+      setLedColor(0, 0, 64);
     }
     s_printer_total_bytes = 0;
   }

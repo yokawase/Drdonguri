@@ -20,7 +20,7 @@ import { InputPane } from './components/InputPane';
 import { DongleConsole } from './components/DongleConsole';
 import { FirmwareHub } from './components/FirmwareHub';
 import { VirtualDongleSimulator, LED_DEFINITIONS } from './utils/virtualDongle';
-import { BleDongleManager } from './utils/webBluetooth';
+import { BleDongleManager, bleManager } from './utils/webBluetooth';
 import { buildTransmissionSession, PreparedSession } from './utils/packetBuilder';
 import { 
   SystemState, 
@@ -167,8 +167,8 @@ export default function App() {
     virtualDongleRef.current = sim;
     addLog('sys', 'INIT', `DrVoice 仮想 AtomS3U ドングル (${LATEST_FIRMWARE_VERSION} ファームウェア) 初期化完了`);
 
-    // 実機BLEマネージャー
-    const ble = new BleDongleManager();
+    // 実機BLEマネージャー (全モーダルと共有するシングルトン)
+    const ble = bleManager;
     ble.setLogListener((dir, tag, msg, hex) => {
       addLog(dir, tag, msg, hex);
     });
@@ -642,7 +642,7 @@ export default function App() {
             title="閉域網電カルから過去カルテを吸い上げ、スマホAIで要約し、書き戻す"
           >
             <span>📥 双方向コプロセッサ</span>
-            <span className="text-[9px] bg-black text-white px-1 font-mono">v19.0</span>
+            <span className="text-[9px] bg-black text-white px-1 font-mono">v19.1</span>
           </button>
         </div>
 

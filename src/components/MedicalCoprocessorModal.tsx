@@ -229,7 +229,7 @@ ${pPart}`;
             />
             <div className="bg-white border border-black px-2 py-0.5 font-bold text-xs tracking-wider flex items-center gap-1.5 shadow-[1px_1px_0_#000]">
               <Cpu className="w-3.5 h-3.5 text-black" />
-              <span>世界初：医療双方向エッジコプロセッサ (v19.0)</span>
+              <span>世界初：医療双方向エッジコプロセッサ (v19.1)</span>
             </div>
           </div>
           <div className="text-[10px] font-mono bg-white px-1.5 border border-black shadow-[1px_1px_0_#000]">
