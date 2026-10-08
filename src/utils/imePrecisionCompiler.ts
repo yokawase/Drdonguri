@@ -1,5 +1,5 @@
 /**
- * DrVoice どんぐり君！ IME精度向上ハイブリッド・パイプライン (v18.1)
+ * DrVoice どんぐり君！ IME精度向上ハイブリッド・パイプライン (v18.2)
  * 
  * 電子カルテPC側のIME（Windows MS-IME / Linux Mint MOZC / macOS 日本語IM）が
  * 医療辞書を持たない標準状態（一般語彙辞書のみ）である環境で、
@@ -10,7 +10,7 @@
  * 【7大革新機能】
  * 1. 文字種別「ファンクションキー強制ルーティング」 ([K]=F7全角カタカナ, [H]=F6/Enter確定, [A]=半角ASCII, [Z]=漢字Space, [G]=ギリシャ文字Space2回確定)
  * 2. 標準IME向け「最小確実形態素（Chunk）最適ラティス分割」
- * 3. 危険な確定後Backspace削り出し全廃＆MS-IME/MOZC共通の自立語クラスタ直接確定
+ * 3. 二重タグラップ完全根絶・孤立タグゼロ化＆MS-IME/MOZC共通の自立語クラスタ直接確定
  * 4. 仮想IMEシミュレータ＆着弾キーストローク完全可視化
  * 5. 13万語SPIFFSバイナリ辞書（二分探索）協調
  * 6. ファームウェア多重防護（タグ境界完全breakガード ＆ 生ひらがな救済フォールバック）
@@ -22,7 +22,7 @@ import { JIS_KANJI_ROMAJI } from '../data/jisKanjiRomajiTable';
 import { EhrNewlineMode } from '../types';
 
 // -----------------------------------------------------------------------------
-// 1. 制御タグ定義 (AtomS3U ファームウェア v18.1 と完全一致)
+// 1. 制御タグ定義 (AtomS3U ファームウェア v18.2 と完全一致)
 // -----------------------------------------------------------------------------
 export const IME_TAG_KATAKANA = '[K]'; // F7強制（全角カタカナ）
 export const IME_TAG_KATAKANA_END = '[/K]';
@@ -1059,25 +1059,25 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   // ── 神経変性疾患・感染・アミロイド・免疫・ワクチン臨床専門熟語 ──
   '肺炎球菌ワクチン': 'haiennkyuukinnwakutinn', '肺炎球菌': 'haiennkyuukinn', '球菌': 'kyuukinn',
   '帯状疱疹ワクチン': 'taijyouhousinnwakutinn', '帯状疱疹': 'taijyouhousinn',
-  'ワクチン接種群': `${IME_TAG_KATAKANA}wakutinn${IME_TAG_KATAKANA_END}${IME_TAG_KANJI}sesshu${IME_TAG_KANJI_END}${IME_TAG_KANJI}gunn${IME_TAG_KANJI_END}`,
+  'ワクチン接種群': 'wakutinnsesshugunn',
   'ワクチン接種': 'wakutinnsesshu', 'ワクチン': 'wakutinn',
-  '接種群': `${IME_TAG_KANJI}sesshu${IME_TAG_KANJI_END}${IME_TAG_KANJI}gunn${IME_TAG_KANJI_END}`,
+  '接種群': 'sesshugunn',
   '接種': 'sesshu',
   '認知症リスク': 'nintisyourisuku', '認知症発症率': 'nintisyouhassyouritu', '認知症発症': 'nintisyouhassyou', '認知症': 'nintisyou', '発症率': 'hassyouritu', '発症': 'hassyou',
   '病原体を': 'byougenntaiwo', '病原体': 'byougenntai',
   '抗微生物ペプチド': `${IME_TAG_KANJI}koubiseibutu${IME_TAG_KANJI_END}${IME_TAG_KATAKANA}peputido${IME_TAG_KATAKANA_END}`,
-  '抗微生物防御仮説': `${IME_TAG_KANJI}koubiseibutubougyokasetu${IME_TAG_KANJI_END}`,
-  '抗微生物': `${IME_TAG_KANJI}koubiseibutu${IME_TAG_KANJI_END}`, 'ペプチド': 'peputido',
-  '防御仮説': `${IME_TAG_KANJI}bougyo${IME_TAG_KANJI_END}${IME_TAG_KANJI}kasetu${IME_TAG_KANJI_END}`,
+  '抗微生物防御仮説': 'koubiseibutubougyokasetu',
+  '抗微生物': 'koubiseibutu', 'ペプチド': 'peputido',
+  '防御仮説': 'bougyokasetu',
   '仮説には': `${IME_TAG_KANJI}kasetu${IME_TAG_KANJI_END}[H]niha[/H]`,
   '仮説': 'kasetu',
-  '防御反応': `${IME_TAG_KANJI}bougyo${IME_TAG_KANJI_END}${IME_TAG_KANJI}hannnou${IME_TAG_KANJI_END}`,
+  '防御反応': 'bougyohannnou',
   '防御': 'bougyo',
-  '線維状に': `${IME_TAG_KANJI}senni${IME_TAG_KANJI_END}${IME_TAG_KANJI}jyou${IME_TAG_KANJI_END}[H]ni[/H]`,
-  '線維状': `${IME_TAG_KANJI}senni${IME_TAG_KANJI_END}${IME_TAG_KANJI}jyou${IME_TAG_KANJI_END}`,
+  '線維状に': 'sennijyouni',
+  '線維状': 'sennijyou',
   '線維': 'senni',
   '過剰産生は': `${IME_TAG_KANJI}kajyousannsei${IME_TAG_KANJI_END}[H]ha[/H]`,
-  '過剰産生': `${IME_TAG_KANJI}kajyousannsei${IME_TAG_KANJI_END}`,
+  '過剰産生': 'kajyousannsei',
   '産生は': `${IME_TAG_KANJI}sannsei${IME_TAG_KANJI_END}[H]ha[/H]`,
   '産生': 'sannsei',
   '過剰活性化': 'kajyoukasseika', '活性化': 'kasseika', '過剰': 'kajyou',
@@ -1087,10 +1087,10 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   '自然実験的解析': 'sizennjikkenntekikaiseki', '自然実験的': 'sizennjikkennteki', '自然実験': 'sizennjikkenn', '実験的': 'jikkennteki', '実験': 'jikkenn', '解析': 'kaiseki',
   'ミクログリアの': 'mikuroguriano', 'ミクログリア': 'mikuroguria', 'マイクログリアが': 'maikuroguriaga', 'マイクログリア': 'maikuroguria',
   'シナプス破壊': 'sinapusuhakai', 'シナプス可塑性': 'sinapusukasosei', 'シナプス除去': 'sinapusujyokyo', 'シナプス': 'sinapusu',
-  '補体系': `${IME_TAG_KANJI}hotai${IME_TAG_KANJI_END}${IME_TAG_KANJI}kei${IME_TAG_KANJI_END}`,
-  'これを貪食して': `${IME_TAG_HIRAGANA}korewo${IME_TAG_HIRAGANA_END}${IME_TAG_KANJI}donnsyoku${IME_TAG_KANJI_END}${IME_TAG_HIRAGANA}site${IME_TAG_HIRAGANA_END}`,
-  '貪食して': `${IME_TAG_KANJI}donnsyoku${IME_TAG_KANJI_END}${IME_TAG_HIRAGANA}site${IME_TAG_HIRAGANA_END}`,
-  '貪食': `${IME_TAG_KANJI}donnsyoku${IME_TAG_KANJI_END}`,
+  '補体系': 'hotaikei',
+  'これを貪食して': 'korewodonnsyokusite',
+  '貪食して': 'donnsyokusite',
+  '貪食': 'donnsyoku',
   '炎症性サイトカイン': 'ennsyouseisaitokainn', 'サイトカイン': 'saitokainn', '炎症性': 'ennsyousei', '神経炎症': 'sinnkeiennsyou',
   '国内外の': 'kokunaigaino', '国内外': 'kokunaigai', '一次資料': 'itijisiryou',
   '不活化': 'hukatuka',
@@ -2162,11 +2162,17 @@ export function compileMedicalTextToImeBoost(
     if (word.length < 2) continue;
     if (text.includes(word)) {
       const rom = mergedDict[word];
-      const isAllKatakana = /^[ァ-ヴー・]+$/.test(word);
-      const isAllHiragana = /^[ぁ-んー]+$/.test(word);
-      const tagOpen = isAllKatakana ? IME_TAG_KATAKANA : isAllHiragana ? IME_TAG_HIRAGANA : IME_TAG_KANJI;
-      const tagClose = isAllKatakana ? IME_TAG_KATAKANA_END : isAllHiragana ? IME_TAG_HIRAGANA_END : IME_TAG_KANJI_END;
-      const tagSeq = `${tagOpen}${rom}${tagClose}`;
+      // ★既にタグ（[K], [H], [Z], [G], [A], [U] 等）が含まれている定義の場合は、二重ラップを完全防止してそのまま展開！
+      let tagSeq: string;
+      if (rom.includes('[') && rom.includes(']')) {
+        tagSeq = rom;
+      } else {
+        const isAllKatakana = /^[ァ-ヴー・]+$/.test(word);
+        const isAllHiragana = /^[ぁ-んー]+$/.test(word);
+        const tagOpen = isAllKatakana ? IME_TAG_KATAKANA : isAllHiragana ? IME_TAG_HIRAGANA : IME_TAG_KANJI;
+        const tagClose = isAllKatakana ? IME_TAG_KATAKANA_END : isAllHiragana ? IME_TAG_HIRAGANA_END : IME_TAG_KANJI_END;
+        tagSeq = `${tagOpen}${rom}${tagClose}`;
+      }
 
       const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(`(\\[[A-Z0-9]+\\][\\s\\S]*?\\[\\/[A-Z0-9]+\\])|(${escapedWord})`, 'g');

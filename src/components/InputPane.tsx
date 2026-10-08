@@ -380,7 +380,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* ★ SYSTEM 7 メインウィンドウ: カルテ作成・送信 (SendText v18.1) */}
+      {/* ★ SYSTEM 7 メインウィンドウ: カルテ作成・送信 (SendText v18.2) */}
       {/* ========================================================================= */}
       <div className={`mac-window transition-all ${isWindowZoomed ? 'w-full' : 'w-full'}`}>
         {/* ウィンドウ タイトルバー (6本平行ストライプ) */}
@@ -401,7 +401,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
             />
 
             <div className="bg-white border border-black px-2 py-0.5 font-bold text-xs tracking-wider flex items-center gap-1.5 shadow-[1px_1px_0_#000]">
-              <span>DrVoice どんぐり君 v18.1</span>
+              <span>DrVoice どんぐり君 v18.2</span>
               {isBleConnected ? (
                 <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1 border border-emerald-500 font-bold">BLE接続</span>
               ) : isVirtualMode ? (
@@ -928,7 +928,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
               <div className="flex items-center gap-2">
                 <Menu className="w-4 h-4 text-black" />
                 <span className="font-bold text-sm tracking-wide">
-                  ツール ＆ カルテ設定メニュー (v18.1)
+                  ツール ＆ カルテ設定メニュー (v18.2)
                 </span>
               </div>
               <button
@@ -1120,7 +1120,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
                           setDispatchMode(DispatchMode.MODE_HYBRID_UNICODE);
                         }}
                       />
-                      <span className="font-bold text-black">★ v18.1 4層タグ変換 (誤変換ゼロ・推奨)</span>
+                      <span className="font-bold text-black">★ v18.2 4層タグ変換 (誤変換ゼロ・推奨)</span>
                     </label>
 
                     <label className="flex items-center gap-1.5 cursor-pointer bg-white p-1 border border-black/30">

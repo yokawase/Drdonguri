@@ -1,9 +1,9 @@
 import mainCppRaw from '@/firmware/src/main.cpp?raw';
 import flashAtoms3uPs1Raw from '@/firmware/scripts/flash_atoms3u.ps1?raw';
 
-export const LATEST_FIRMWARE_VERSION = 'v18.1';
+export const LATEST_FIRMWARE_VERSION = 'v18.2';
 export const FIRMWARE_RELEASE_DATE = '2026-10-08';
-export const FIRMWARE_RELEASE_TITLE = 'v18.1（Windows/MOZC完全両対応・タグ露出ゼロ・[BS]削り出し全廃＆自立語直結確定版）';
+export const FIRMWARE_RELEASE_TITLE = 'v18.2（二重タグラップ完全根絶・[/Z]露出ゼロ・MOZC/MS-IME高精度自立語一括確定版）';
 
 export const PARTITIONS_8MB_CSV_SOURCE = `# Name,   Type, SubType, Offset,   Size,     Flags
 nvs,      data, nvs,     0x9000,   0x5000,
