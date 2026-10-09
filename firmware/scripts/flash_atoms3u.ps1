@@ -15,8 +15,8 @@ $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "==============================================================================" -ForegroundColor Cyan
-Write-Host "  DrVoice どんぐり君！ AtomS3U (ESP32-S3 8MB) 書込スクリプト (v16.0)           " -ForegroundColor Cyan
-Write-Host "  Zero-RAM SPIFFS二分探索 (/kanji_f5.bin, /med_terms.bin) 物理打鍵エンジン     " -ForegroundColor Cyan
+Write-Host "  DrVoice どんぐり君！ AtomS3U (ESP32-S3 8MB) 書込スクリプト (v19.1)           " -ForegroundColor Cyan
+Write-Host "  Zero-RAM SPIFFS二分探索 (/kanji_yomi.bin, /med_terms.bin) 物理打鍵エンジン   " -ForegroundColor Cyan
 Write-Host "==============================================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -65,83 +65,15 @@ if (-not (Test-Path $DataDir)) {
     New-Item -ItemType Directory -Path $DataDir -Force | Out-Null
 }
 
-$KanjiBin = Join-Path $DataDir "kanji_f5.bin"
 $TermsBin = Join-Path $DataDir "med_terms.bin"
 
 function Generate-SeedDictionaries {
     param ([string]$DataPath)
-    Write-Host " -> シード辞書バイナリ (kanji_f5.bin / med_terms.bin) を直接生成中..." -ForegroundColor Yellow
+    Write-Host " -> シード辞書バイナリ (med_terms.bin) を直接生成中..." -ForegroundColor Yellow
 
-    # A. 難読漢字マスター (8バイト固定長)
-    $kanjiCatalog = @(
-        @{ Char = "嚥"; Unicode = 0x54BD },
-        @{ Char = "瘻"; Unicode = 0x763B },
-        @{ Char = "褥"; Unicode = 0x8925 },
-        @{ Char = "瘡"; Unicode = 0x7621 },
-        @{ Char = "瘢"; Unicode = 0x7622 },
-        @{ Char = "痕"; Unicode = 0x75D5 },
-        @{ Char = "痙"; Unicode = 0x7579 },
-        @{ Char = "攣"; Unicode = 0x65DE },
-        @{ Char = "掻"; Unicode = 0x63BB },
-        @{ Char = "爬"; Unicode = 0x722C },
-        @{ Char = "痺"; Unicode = 0x75FA },
-        @{ Char = "癌"; Unicode = 0x764C },
-        @{ Char = "瘤"; Unicode = 0x7624 },
-        @{ Char = "喀"; Unicode = 0x5580 },
-        @{ Char = "痰"; Unicode = 0x75F0 },
-        @{ Char = "嘔"; Unicode = 0x5614 },
-        @{ Char = "吐"; Unicode = 0x5410 },
-        @{ Char = "嗄"; Unicode = 0x55E4 },
-        @{ Char = "膿"; Unicode = 0x81BF },
-        @{ Char = "痂"; Unicode = 0x75C2 },
-        @{ Char = "吻"; Unicode = 0x543B },
-        @{ Char = "穿"; Unicode = 0x7A7F },
-        @{ Char = "腔"; Unicode = 0x8154 },
-        @{ Char = "塞"; Unicode = 0x585E },
-        @{ Char = "栓"; Unicode = 0x6813 },
-        @{ Char = "嚢"; Unicode = 0x56CA },
-        @{ Char = "胞"; Unicode = 0x80DE },
-        @{ Char = "潰"; Unicode = 0x6F70 },
-        @{ Char = "瘍"; Unicode = 0x760D },
-        @{ Char = "憩"; Unicode = 0x61A9 },
-        @{ Char = "盲"; Unicode = 0x76F2 },
-        @{ Char = "鞘"; Unicode = 0x9798 },
-        @{ Char = "齲"; Unicode = 0x9F44 },
-        @{ Char = "腱"; Unicode = 0x8171 },
-        @{ Char = "顆"; Unicode = 0x984E },
-        @{ Char = "篩"; Unicode = 0x7BE9 },
-        @{ Char = "錐"; Unicode = 0x9310 },
-        @{ Char = "嵌"; Unicode = 0x5嵌 },
-        @{ Char = "頓"; Unicode = 0x9813 }
-    )
-
-    # UTF-8バイト列ソート
     $utf8Enc = [System.Text.Encoding]::UTF8
-    $sortedKanji = $kanjiCatalog | Sort-Object {
-        $b = $utf8Enc.GetBytes($_.Char)
-        [System.BitConverter]::ToString($b)
-    }
 
-    $kStream = [System.IO.File]::Create((Join-Path $DataPath "kanji_f5.bin"))
-    $kWriter = New-Object System.IO.BinaryWriter($kStream)
-    # Header: KANJ (4B) + Count (2B) + RecLen (2B)
-    $kWriter.Write($utf8Enc.GetBytes("KANJ"))
-    $kWriter.Write([uint16]$sortedKanji.Count)
-    $kWriter.Write([uint16]8)
-
-    foreach ($item in $sortedKanji) {
-        $uBytes = $utf8Enc.GetBytes($item.Char)
-        $padBytes = New-Object byte[] 4
-        [System.Array]::Copy($uBytes, $padBytes, [System.Math]::Min(4, $uBytes.Length))
-        $kWriter.Write($padBytes)
-        $kWriter.Write([uint16]$item.Unicode)
-        $kWriter.Write([byte]1) # Flag (0x01: F5強制)
-        $kWriter.Write([byte]0) # Padding
-    }
-    $kWriter.Close()
-    $kStream.Close()
-
-    # B. 医療用語・薬品名マスター (32バイト固定長)
+    # 医療用語・薬品名マスター (32バイト固定長)
     function Fnv1a32([string]$str) {
         $hash = [uint32]0x811C9DC5
         $prime = [uint32]0x01000193
@@ -212,20 +144,21 @@ function Generate-SeedDictionaries {
     $tStream.Close()
 }
 
-if ((-not (Test-Path $KanjiBin)) -or (-not (Test-Path $TermsBin))) {
+if (-not (Test-Path $TermsBin)) {
     if (Test-Path "$ScriptDir\compile_pipeline.py") {
         try {
             python "$ScriptDir\compile_pipeline.py"
         } catch {}
     }
-    if ((-not (Test-Path $KanjiBin)) -or (-not (Test-Path $TermsBin))) {
+    if (-not (Test-Path $TermsBin)) {
         Generate-SeedDictionaries -DataPath $DataDir
     }
 }
 
-$kSize = (Get-Item $KanjiBin).Length
-$tSize = (Get-Item $TermsBin).Length
-Write-Host " -> 辞書バイナリ確認: kanji_f5.bin ($kSize B), med_terms.bin ($tSize B)" -ForegroundColor Green
+if (Test-Path $TermsBin) {
+    $tSize = (Get-Item $TermsBin).Length
+    Write-Host " -> 辞書バイナリ確認: med_terms.bin ($tSize B)" -ForegroundColor Green
+}
 
 # 4. COMポートの柔軟な検出＆入力解決
 Write-Host "[4/4] AtomS3U (ESP32-S3) シリアルポートの検出中..." -ForegroundColor Yellow

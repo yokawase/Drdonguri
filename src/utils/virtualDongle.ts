@@ -13,7 +13,7 @@ import {
   PreparedSession,
   PreparedSlotPacket 
 } from './packetBuilder';
-import { fnv1a32, PRESET_MEDICAL_TERMS, MEDICAL_RARE_KANJI_CATALOG } from './medicalDictCompiler';
+import { fnv1a32, PRESET_MEDICAL_TERMS } from './medicalDictCompiler';
 
 export interface VirtualDongleListener {
   onStateChange: (state: SystemState, led: LedStatus) => void;

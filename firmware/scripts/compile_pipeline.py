@@ -5,7 +5,7 @@ DrVoice どんぐり君！ 医療マスターバイナリコンパイラ
 厚労省 医薬品マスター (y.zip) & 傷病名マスター (b.zip) から
 AtomS3U (ESP32-S3 8MB Flash) 向け固定長バイナリ辞書を生成
 - med_terms.bin (32バイト固定長、FNV-1a 32bitハッシュ、ローマ字シーケンス、モード1/2)
-- kanji_f5.bin (8バイト固定長、UTF-8 4B, Unicode 2B, 属性 1B)
+※F5文字コード入力方式は誤爆防止のため廃止。難読漢字は音訓読みおよび確実削り出し法で対応
 """
 
 import os
@@ -115,45 +115,5 @@ def compile_terms():
             f.write(struct.pack('<IBB26s', h, mode, len(romaji_b), romaji_pad))
     print(f"     => 生成完了: {out_path} ({len(sorted_records):,} 語, {os.path.getsize(out_path):,} bytes)")
 
-def compile_kanji():
-    print(" -> [B] 医療難読漢字テーブルを抽出・コンパイル中 (kanji_f5.bin)...")
-    seen_kanji = set()
-    for root, _, files in os.walk(RAW_DIR):
-        for f in files:
-            if f.lower().endswith(('.csv', '.txt')) and not f.startswith('.'):
-                fpath = os.path.join(root, f)
-                with open(fpath, 'r', encoding='cp932', errors='replace') as fp:
-                    for line in fp:
-                        for char in line:
-                            if '\u4e00' <= char <= '\u9fff':
-                                seen_kanji.add(char)
-    priority_set = {
-        "嚥", "瘻", "褥", "瘡", "瘢", "痕", "攣", "爬", "掻", "痺",
-        "癌", "瘤", "喀", "痰", "嘔", "吐", "嗄", "膿", "痂", "吻",
-        "穿", "腔", "塞", "栓", "嚢", "胞", "潰", "瘍", "憩", "盲",
-        "痙", "攣", "鞘", "齲", "腱", "顆", "篩", "錐", "嵌", "頓",
-        "疥", "癬", "肋"
-    }
-
-    records = []
-    # 難読文字セットのみに限定（一般漢字へのF5乱射・タイムスタンプ誤挿入を根絶）
-    target_chars = seen_kanji.intersection(priority_set) if seen_kanji else priority_set
-    if not target_chars:
-        target_chars = priority_set
-
-    for char in sorted(list(target_chars)):
-        cp = ord(char)
-        utf8_b = char.encode('utf-8')[:4].ljust(4, b'\x00')
-        records.append((utf8_b, cp, 1))
-
-    records.sort(key=lambda x: x[0])
-    out_path = os.path.join(DATA_DIR, "kanji_f5.bin")
-    with open(out_path, 'wb') as f:
-        f.write(struct.pack('<4sHH', b'KANJ', len(records), 8))
-        for utf8_b, u_code, flag in records:
-            f.write(struct.pack('<4sHBx', utf8_b, u_code, flag))
-    print(f"     => 生成完了: {out_path} ({len(records):,} 文字, {os.path.getsize(out_path):,} bytes)")
-
 if __name__ == '__main__':
     compile_terms()
-    compile_kanji()

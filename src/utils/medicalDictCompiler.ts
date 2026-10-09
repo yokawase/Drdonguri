@@ -1,6 +1,7 @@
 // ============================================================================
-// DrVoice「どんぐり君！」医療マスター辞書 & 難読漢字F5 バイナリコンパイラ
-// 厚労省マスター (y.zip, b.zip) 互換 32B/8B 固定長レコード生成・二分探索エンジン
+// DrVoice「どんぐり君！」医療マスター辞書 バイナリコンパイラ
+// 厚労省マスター (y.zip, b.zip) 互換 32B 固定長レコード生成・二分探索エンジン
+// ※F5文字コード確定方式は誤爆防止のため廃止。音訓読み＋Space変換または確実削り出し法へ完全移行
 // ============================================================================
 
 // FNV-1a 32-bit Hash
@@ -24,19 +25,15 @@ export interface MedTermRecord {
   romaji: string;         // ヘボン式ローマ字 (最大25文字 + \0 = 26B)
 }
 
-// 2. 難読医療単漢字レコード (8バイト固定長)
-export interface KanjiF5Record {
+// 2. 難読医療単漢字レコード (情報カタログ)
+export interface MedicalRareKanjiInfo {
   char: string;           // 漢字1文字 (例: "嚥")
-  utf8Code: number;       // UTF-8 コードポイント (4B)
-  unicodeVal: number;     // Unicode (UCS-2) 16進値 (2B, 例: 0x54BD)
-  unicodeHex: string;     // 4桁16進文字列 (例: "54BD")
-  f5Keystroke: string;    // 打鍵シーケンス (例: "54BD[F5]")
   attr: number;           // 属性 (1 = 医療頻出難読, 2 = 常用外, 3 = 処方頻出) (1B)
   meaning: string;        // 用例・解説
 }
 
 // 代表的な医療難読漢字マスター (厚労省マスター全件抽出頻出文字)
-export const MEDICAL_RARE_KANJI_CATALOG: Omit<KanjiF5Record, 'utf8Code' | 'unicodeVal' | 'unicodeHex' | 'f5Keystroke'>[] = [
+export const MEDICAL_RARE_KANJI_CATALOG: MedicalRareKanjiInfo[] = [
   { char: '嚥', attr: 1, meaning: '嚥下（えんげ）困難、誤嚥性肺炎' },
   { char: '瘻', attr: 1, meaning: '胃瘻（いろう）、腸瘻、痔瘻' },
   { char: '褥', attr: 1, meaning: '褥瘡（じょくそう: 床ずれ）' },
@@ -69,22 +66,6 @@ export const MEDICAL_RARE_KANJI_CATALOG: Omit<KanjiF5Record, 'utf8Code' | 'unico
   { char: '篩', attr: 1, meaning: '篩骨（しこつ）、篩骨洞' }
 ];
 
-// 難読漢字 F5 レコード配列の完全構築
-export function buildKanjiF5Catalog(): KanjiF5Record[] {
-  return MEDICAL_RARE_KANJI_CATALOG.map((item) => {
-    const codePoint = item.char.codePointAt(0) || 0;
-    const hex = codePoint.toString(16).toUpperCase().padStart(4, '0');
-    return {
-      char: item.char,
-      utf8Code: codePoint,
-      unicodeVal: codePoint,
-      unicodeHex: hex,
-      f5Keystroke: `${hex}[F5]`,
-      attr: item.attr,
-      meaning: item.meaning,
-    };
-  }).sort((a, b) => a.utf8Code - b.utf8Code);
-}
 
 // 医療マスター代表プリセットレコード
 export const PRESET_MEDICAL_TERMS: Omit<MedTermRecord, 'hash' | 'len'>[] = [
@@ -117,22 +98,6 @@ export function buildMedTermsCatalog(): MedTermRecord[] {
       romaji: romajiTrimmed,
     };
   }).sort((a, b) => a.hash - b.hash);
-}
-
-// 8バイト kanji_f5.bin バイナリ生成
-export function generateKanjiF5Binary(records: KanjiF5Record[]): Uint8Array {
-  const buffer = new ArrayBuffer(records.length * 8);
-  const view = new DataView(buffer);
-
-  records.forEach((rec, idx) => {
-    const offset = idx * 8;
-    view.setUint32(offset, rec.utf8Code, true);      // 4B: UTF-8 code point LE
-    view.setUint16(offset + 4, rec.unicodeVal, true); // 2B: Unicode val LE
-    view.setUint8(offset + 6, rec.attr);              // 1B: attr
-    view.setUint8(offset + 7, 0);                     // 1B: reserved
-  });
-
-  return new Uint8Array(buffer);
 }
 
 // 32バイト med_terms.bin バイナリ生成

@@ -49,9 +49,7 @@ extern "C" bool tud_mounted(void);
 #ifndef KEY_LEFT_SHIFT
 #define KEY_LEFT_SHIFT 0x81
 #endif
-#ifndef KEY_F5
-#define KEY_F5 0xC6
-#endif
+// ※KEY_F5 (0xC6) は電カルでの日時スタンプ自動挿入・画面リロード誤爆防止のため完全排除
 #ifndef KEY_F6
 #define KEY_F6 0xC7
 #endif
@@ -1058,7 +1056,7 @@ int calculateHvcScore(const char* text, size_t len) {
 // ★【4層ハイブリッド打鍵ディスパッチャー (Zero-RAM SPIFFS二分探索統合版)】
 // レベル1: 半角ASCII（英数字・単位・数値・記号補正）➔ 無変換キー/直接打鍵
 // レベル2: /med_terms.bin 最長一致 ➔ 辞書Modeに応じたF7強制またはSpace変換
-// レベル3: /kanji_f5.bin 難読医療漢字 ➔ Unicode 4桁 + F5 + Enter
+// レベル3: /kanji_yomi.bin JIS全漢字音訓読み ➔ 代表読み+Space変換+Enter確定
 // レベル4: 一般ひらがな・熟語 ➔ ひらがな連続塊は即時Enter確定、一般語は最小形態素Space変換
 // 生HIDパルスを完全排除し、一般漢字へのF5乱射（日時スタンプ誤挿入バグ）を100%防止
 // ============================================================================

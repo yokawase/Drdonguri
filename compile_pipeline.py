@@ -5,21 +5,36 @@ DrVoice どんぐり君！ 医療マスターバイナリコンパイラ
 厚労省 医薬品マスター (y.zip) & 傷病名マスター (b.zip) から
 AtomS3U (ESP32-S3 8MB Flash) 向け固定長バイナリ辞書を生成
 - med_terms.bin (32バイト固定長、FNV-1a 32bitハッシュ、ローマ字シーケンス、モード1/2)
-- kanji_f5.bin (8バイト固定長、UTF-8 4B, Unicode 2B, 属性 1B)
+※F5文字コード入力方式は誤爆防止のため廃止。難読漢字は音訓読みおよび確実削り出し法で対応
 """
 
 import os
 import csv
 import struct
 import unicodedata
-import pykakasi
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if os.path.exists(os.path.join(SCRIPT_DIR, "..", "platformio.ini")):
+    BASE_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+elif os.path.exists(os.path.join(os.getcwd(), "platformio.ini")):
+    BASE_DIR = os.getcwd()
+else:
+    BASE_DIR = os.path.expanduser("~/drvoice-donguri")
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-RAW_DIR = BASE_DIR
-DATA_DIR = BASE_DIR
+RAW_DIR = os.path.join(BASE_DIR, "raw_data")
+DATA_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
-kks = pykakasi.kakasi()
+try:
+    import pykakasi
+    kks = pykakasi.kakasi()
+    def kana_to_romaji(kana_text: str) -> str:
+        result = kks.convert(kana_text)
+        romaji = "".join([item['hepburn'] for item in result])
+        return "".join([c for c in romaji if c.isalnum()]).lower()
+except ImportError:
+    kks = None
+    def kana_to_romaji(kana_text: str) -> str:
+        return ""
 
 def fnv1a_32(text: str) -> int:
     norm = unicodedata.normalize('NFKC', text).strip()
@@ -27,11 +42,6 @@ def fnv1a_32(text: str) -> int:
     for b in norm.encode('utf-8'):
         h = ((h ^ b) * 0x01000193) & 0xFFFFFFFF
     return h
-
-def kana_to_romaji(kana_text: str) -> str:
-    result = kks.convert(kana_text)
-    romaji = "".join([item['hepburn'] for item in result])
-    return "".join([c for c in romaji if c.isalnum()]).lower()
 
 def compile_terms():
     print(" -> [A] 医薬品 & 傷病名マスターをコンパイル中 (med_terms.bin)...")
@@ -75,13 +85,22 @@ def compile_terms():
         print(f"     傷病名エントリ登録数: {count_d:,} 件")
 
     if len(term_dict) < 50:
-        print("     [情報] シードデータを投入します...")
         seeds = [
             ("タケキャブ", "takekyabu", 2), ("アムロジピン", "amurojipin", 2),
             ("ロキソニン", "rokisonin", 2), ("カロナール", "karonaru", 2),
             ("ビオフェルミン", "bioferumin", 2), ("フォシーガ", "foshiga", 2),
+            ("スクリーニング", "sukuri-ninngu", 2), ("バイオマーカー", "baioma-ka-", 2),
+            ("コリバクチン", "koribakutinn", 2), ("オッズ比", "ozzuhi", 1),
             ("急性虫垂炎", "kyuseichusuien", 1), ("胃潰瘍", "ikaiyou", 1),
-            ("逆流性食道炎", "gyakuryuseishokudouen", 1), ("狭心症", "kyoushinshou", 1)
+            ("逆流性食道炎", "gyakuryuseishokudouen", 1), ("狭心症", "kyoushinshou", 1),
+            ("大腸内視鏡", "daityounaisikyou", 1), ("大腸腫瘍", "daityousyuu", 1),
+            ("大腸腺腫", "daityousensyu", 1), ("腺腫", "sensyu", 1),
+            ("信頼区間", "sinnraikukann", 1), ("有意差", "yuuisa", 1),
+            ("調整オッズ比", "tyouseiozzuhi", 1), ("無症候住民", "musyoukoujyuuminn", 1),
+            ("無症候者", "musyoukousya", 1), ("便免疫化学検査", "bennmennekikagakukennsa", 1),
+            ("便潜血検査", "bennsennketukennsa", 1), ("進行性腫瘍", "sinkouseisyuyou", 1),
+            ("リスク層別化", "risukusoubetuka", 1), ("症例対照研究", "syoureitaisyoukennkyuu", 1),
+            ("因果推論", "inngasuironn", 1), ("縦断研究", "jyuudannkennkyuu", 1)
         ]
         for t, r, m in seeds:
             term_dict[fnv1a_32(t)] = (t, r, m)
@@ -96,70 +115,5 @@ def compile_terms():
             f.write(struct.pack('<IBB26s', h, mode, len(romaji_b), romaji_pad))
     print(f"     => 生成完了: {out_path} ({len(sorted_records):,} 語, {os.path.getsize(out_path):,} bytes)")
 
-def compile_kanji():
-    print(" -> [B] 医療難読漢字テーブルを抽出・コンパイル中 (kanji_f5.bin)...")
-    seen_kanji = set()
-    for root, _, files in os.walk(RAW_DIR):
-        for f in files:
-            if f.lower().endswith(('.csv', '.txt')) and not f.startswith('.'):
-                fpath = os.path.join(root, f)
-                with open(fpath, 'r', encoding='cp932', errors='replace') as fp:
-                    for line in fp:
-                        for char in line:
-                            if '\u4e00' <= char <= '\u9fff':
-                                seen_kanji.add(char)
-    priority_set = {
-        "嚥", "瘻", "褥", "瘡", "瘢", "痕", "攣", "爬", "掻", "痺",
-        "癌", "瘤", "喀", "痰", "嘔", "吐", "嗄", "膿", "痂", "吻",
-        "穿", "腔", "塞", "栓", "嚢", "胞", "潰", "瘍", "憩", "盲",
-        "痙", "攣", "鞘", "齲", "腱", "顆", "篩", "錐", "嵌", "頓"
-    }
-
-    records = []
-    for char in sorted(list(seen_kanji)):
-        cp = ord(char)
-        if char in priority_set or cp >= 0x7000:
-            utf8_b = char.encode('utf-8')[:4].ljust(4, b'\x00')
-            records.append((utf8_b, cp, 1))
-
-    if not records:
-        for char in priority_set:
-            utf8_b = char.encode('utf-8')[:4].ljust(4, b'\x00')
-            records.append((utf8_b, ord(char), 1))
-
-def compile_kanji_yomi():
-    print(" -> [C] JIS全漢字音訓読み辞書をコンパイル中 (kanji_yomi.bin)...")
-    kanji_dict = {}
-    for cp in range(0x4E00, 0x9FA6):
-        ch = chr(cp)
-        res = kks.convert(ch)
-        if res and res[0]['hepburn'] and res[0]['hepburn'] != ch:
-            romaji = res[0]['hepburn'].lower()
-            romaji_clean = "".join([c for c in romaji if c.isalpha()])
-            if romaji_clean:
-                kanji_dict[ch] = romaji_clean
-
-    records = []
-    for ch, romaji in kanji_dict.items():
-        utf8_b = ch.encode('utf-8')[:4].ljust(4, b'\x00')
-        romaji_b = romaji.encode('ascii', errors='ignore')[:7].ljust(8, b'\x00')
-        records.append((utf8_b, romaji_b))
-
-    records.sort(key=lambda x: x[0])
-    bin_payload = bytearray()
-    bin_payload.extend(struct.pack('<4sHH4s', b'YOMI', len(records), 12, b'\x00'*4))
-    for utf8_b, romaji_b in records:
-        bin_payload.extend(utf8_b)
-        bin_payload.extend(romaji_b)
-
-    for out_d in [DATA_DIR, os.path.join(BASE_DIR, "firmware", "data")]:
-        os.makedirs(out_d, exist_ok=True)
-        out_bin = os.path.join(out_d, "kanji_yomi.bin")
-        with open(out_bin, 'wb') as f:
-            f.write(bin_payload)
-        print(f"     => 生成完了: {out_bin} ({len(records):,} 文字, {len(bin_payload):,} bytes)")
-
 if __name__ == '__main__':
     compile_terms()
-    compile_kanji()
-    compile_kanji_yomi()

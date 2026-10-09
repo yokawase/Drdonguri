@@ -209,48 +209,8 @@ def compile_terms():
             f.write(struct.pack('<IBB26s', h, mode, len(romaji_b), romaji_pad))
     print(f"     => 生成完了: {out_path} ({len(sorted_records):,} 語, {os.path.getsize(out_path):,} bytes)")
 
-def compile_kanji():
-    print(" -> [B] 医療難読漢字テーブルを抽出・コンパイル中 (kanji_f5.bin)...")
-    seen_kanji = set()
-    for root, _, files in os.walk(RAW_DIR):
-        for f in files:
-            if f.lower().endswith(('.csv', '.txt')) and not f.startswith('.'):
-                fpath = os.path.join(root, f)
-                with open(fpath, 'r', encoding='cp932', errors='replace') as fp:
-                    for line in fp:
-                        for char in line:
-                            if '\u4e00' <= char <= '\u9fff':
-                                seen_kanji.add(char)
-    priority_set = {
-        "嚥", "瘻", "褥", "瘡", "瘢", "痕", "攣", "爬", "掻", "痺",
-        "癌", "瘤", "喀", "痰", "嘔", "吐", "嗄", "膿", "痂", "吻",
-        "穿", "腔", "塞", "栓", "嚢", "胞", "潰", "瘍", "憩", "盲",
-        "痙", "攣", "鞘", "齲", "腱", "顆", "篩", "錐", "嵌", "頓"
-    }
-
-    records = []
-    for char in sorted(list(seen_kanji)):
-        cp = ord(char)
-        if char in priority_set or cp >= 0x7000:
-            utf8_b = char.encode('utf-8')[:4].ljust(4, b'\x00')
-            records.append((utf8_b, cp, 1))
-
-    if not records:
-        for char in priority_set:
-            utf8_b = char.encode('utf-8')[:4].ljust(4, b'\x00')
-            records.append((utf8_b, ord(char), 1))
-
-    records.sort(key=lambda x: x[0])
-    out_path = os.path.join(DATA_DIR, "kanji_f5.bin")
-    with open(out_path, 'wb') as f:
-        f.write(struct.pack('<4sHH', b'KANJ', len(records), 8))
-        for utf8_b, u_code, flag in records:
-            f.write(struct.pack('<4sHBx', utf8_b, u_code, flag))
-    print(f"     => 生成完了: {out_path} ({len(records):,} 文字, {os.path.getsize(out_path):,} bytes)")
-
 if __name__ == '__main__':
     compile_terms()
-    compile_kanji()
 PYEOF
 
 # ------------------------------------------------------------------------------
@@ -260,7 +220,7 @@ echo "[5/6] 辞書バイナリ生成の実行..."
 python3 "$BASE_DIR/compile_pipeline.py"
 echo ""
 echo "辞書バイナリ生成結果 ($DATA_DIR):"
-ls -lh "$DATA_DIR/med_terms.bin" "$DATA_DIR/kanji_f5.bin"
+ls -lh "$DATA_DIR/med_terms.bin" "$DATA_DIR/kanji_yomi.bin" 2>/dev/null || ls -lh "$DATA_DIR/med_terms.bin"
 
 # ------------------------------------------------------------------------------
 # STEP 6: PlatformIO SPIFFS ビルド & 書込

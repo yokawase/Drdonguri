@@ -41,6 +41,7 @@ fi
 # ------------------------------------------------------------------------------
 echo "[2/6] 8MB Flash パーティションおよび platformio.ini の同期..."
 
+# SPIFFS に約5.87MB (0x5E0000) を割り当てるパーティション定義
 cat << 'EOF_PART' > "$BASE_DIR/partitions_8MB.csv"
 # Name,   Type, SubType, Offset,   Size,     Flags
 nvs,      data, nvs,     0x9000,   0x5000,
@@ -50,6 +51,7 @@ spiffs,   data, spiffs,  0x210000, 0x5E0000,
 EOF_PART
 echo " -> partitions_8MB.csv (SPIFFS: 5.87MB) を同期しました。"
 
+# 手動配置された platformio.ini に partitions_8MB.csv 設定が含まれているか検査・更新
 NEED_INI_UPDATE=false
 if [ ! -f "$BASE_DIR/platformio.ini" ]; then
   NEED_INI_UPDATE=true
@@ -71,6 +73,7 @@ board = esp32-s3-devkitc-1
 framework = arduino
 monitor_speed = 115200
 
+; AtomS3U ハードウェア仕様 (8MB Flash, PSRAMなし, 大容量SPIFFS: 約5.87MB)
 board_build.mcu = esp32s3
 board_build.f_cpu = 240000000L
 board_build.f_flash = 80000000L
@@ -89,6 +92,7 @@ lib_deps =
 EOF_INI
 fi
 
+# 過去の容量不足エラー中間キャッシュをパージ
 if [ -d "$BASE_DIR/.pio/build/m5stack-atoms3u" ]; then
   rm -f "$BASE_DIR/.pio/build/m5stack-atoms3u/spiffs.bin"
 fi
@@ -111,20 +115,118 @@ if [ -n "$B_ZIP" ]; then
 fi
 
 # ------------------------------------------------------------------------------
-# STEP 4: 高速バイナリコンパイラ スクリプトの実行
+# STEP 4: 高速バイナリコンパイラ スクリプトの生成
 # ------------------------------------------------------------------------------
-echo "[4/6] バイナリコンパイル実行..."
-python3 "$BASE_DIR/compile_pipeline.py"
+echo "[4/6] 最適化バイナリコンパイラ スクリプトの準備..."
+cat << 'PYEOF' > "$BASE_DIR/compile_pipeline.py"
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+import os
+import csv
+import struct
+import unicodedata
+import pykakasi
 
+BASE_DIR = os.path.expanduser("~/drvoice-donguri")
+RAW_DIR = os.path.join(BASE_DIR, "raw_data")
+DATA_DIR = os.path.join(BASE_DIR, "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+
+kks = pykakasi.kakasi()
+
+def fnv1a_32(text: str) -> int:
+    norm = unicodedata.normalize('NFKC', text).strip()
+    h = 0x811C9DC5
+    for b in norm.encode('utf-8'):
+        h = ((h ^ b) * 0x01000193) & 0xFFFFFFFF
+    return h
+
+def kana_to_romaji(kana_text: str) -> str:
+    result = kks.convert(kana_text)
+    romaji = "".join([item['hepburn'] for item in result])
+    return "".join([c for c in romaji if c.isalnum()]).lower()
+
+def compile_terms():
+    print(" -> [A] 医薬品 & 傷病名マスターをコンパイル中 (med_terms.bin)...")
+    term_dict = {}
+    all_files = []
+    for root, _, files in os.walk(RAW_DIR):
+        for f in files:
+            all_files.append(os.path.join(root, f))
+    
+    drug_files = [f for f in all_files if os.path.basename(f).lower().startswith('y') and f.lower().endswith(('.csv', '.txt'))]
+    disease_files = [f for f in all_files if os.path.basename(f).lower().startswith('b') and f.lower().endswith(('.csv', '.txt'))]
+
+    if drug_files:
+        target = drug_files[0]
+        print(f"     医薬品マスター解析: {os.path.basename(target)}")
+        with open(target, 'r', encoding='cp932', errors='replace') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) >= 5:
+                    name = row[4].strip()
+                    kana = row[5].strip() if len(row) > 5 else name
+                    if name:
+                        romaji = kana_to_romaji(kana)[:25]
+                        term_dict[fnv1a_32(name)] = (name, romaji, 2)
+        print(f"     医薬品エントリ登録数: {len(term_dict):,} 件")
+
+    if disease_files:
+        target = disease_files[0]
+        print(f"     傷病名マスター解析: {os.path.basename(target)}")
+        count_d = 0
+        with open(target, 'r', encoding='cp932', errors='replace') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if len(row) >= 3:
+                    name = row[2].strip()
+                    kana = row[3].strip() if len(row) > 3 else name
+                    if name:
+                        romaji = kana_to_romaji(kana)[:25]
+                        term_dict[fnv1a_32(name)] = (name, romaji, 1)
+                        count_d += 1
+        print(f"     傷病名エントリ登録数: {count_d:,} 件")
+
+    if len(term_dict) < 50:
+        print("     [情報] シードデータを投入します...")
+        seeds = [
+            ("タケキャブ", "takekyabu", 2), ("アムロジピン", "amurojipin", 2),
+            ("ロキソニン", "rokisonin", 2), ("カロナール", "karonaru", 2),
+            ("ビオフェルミン", "bioferumin", 2), ("フォシーガ", "foshiga", 2),
+            ("急性虫垂炎", "kyuseichusuien", 1), ("胃潰瘍", "ikaiyou", 1),
+            ("逆流性食道炎", "gyakuryuseishokudouen", 1), ("狭心症", "kyoushinshou", 1)
+        ]
+        for t, r, m in seeds:
+            term_dict[fnv1a_32(t)] = (t, r, m)
+
+    sorted_records = sorted(term_dict.items(), key=lambda x: x[0])
+    out_path = os.path.join(DATA_DIR, "med_terms.bin")
+    with open(out_path, 'wb') as f:
+        f.write(struct.pack('<4sIH6s', b'TERM', len(sorted_records), 32, b'\x00'*6))
+        for h, (name, romaji, mode) in sorted_records:
+            romaji_b = romaji.encode('ascii', errors='ignore')[:25]
+            romaji_pad = romaji_b.ljust(26, b'\x00')
+            f.write(struct.pack('<IBB26s', h, mode, len(romaji_b), romaji_pad))
+    print(f"     => 生成完了: {out_path} ({len(sorted_records):,} 語, {os.path.getsize(out_path):,} bytes)")
+
+if __name__ == '__main__':
+    compile_terms()
+PYEOF
+
+# ------------------------------------------------------------------------------
+# STEP 5: 辞書バイナリの生成実行
+# ------------------------------------------------------------------------------
+echo "[5/6] 辞書バイナリ生成の実行..."
+python3 "$BASE_DIR/compile_pipeline.py"
 echo ""
 echo "辞書バイナリ生成結果 ($DATA_DIR):"
-ls -lh "$DATA_DIR/med_terms.bin" "$DATA_DIR/kanji_f5.bin"
+ls -lh "$DATA_DIR/med_terms.bin" "$DATA_DIR/kanji_yomi.bin" 2>/dev/null || ls -lh "$DATA_DIR/med_terms.bin"
 
 # ------------------------------------------------------------------------------
-# STEP 5: PlatformIO SPIFFS ビルド & 書込
+# STEP 6: PlatformIO SPIFFS ビルド & 書込
 # ------------------------------------------------------------------------------
 echo ""
-echo "[5/5] SPIFFS イメージ構築 & AtomS3U への書込..."
+echo "[6/6] SPIFFS イメージ構築 & AtomS3U への書込..."
 PIO_CMD=""
 if command -v pio &> /dev/null; then
   PIO_CMD="pio"
@@ -151,13 +253,22 @@ fi
 echo " -> 検出されたポート: $TARGET_PORT"
 sudo chmod 666 "$TARGET_PORT" || true
 
+echo ""
 read -r -p "AtomS3U ($TARGET_PORT) に SPIFFS とファームウェアを書き込みますか？ [Y/n]: " CONFIRM
 CONFIRM=${CONFIRM:-Y}
 if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
   cd "$BASE_DIR"
+  echo ""
   echo ">>> [A] SPIFFS (医療辞書バイナリ) の構築と書き込み..."
   $PIO_CMD run -e m5stack-atoms3u --target uploadfs --upload-port "$TARGET_PORT"
+  echo ""
   echo ">>> [B] ファームウェア本体のコンパイルと書き込み..."
   $PIO_CMD run -e m5stack-atoms3u --target upload --upload-port "$TARGET_PORT"
+
+  echo ""
+  echo "============================================================"
   echo "🎉 大容量辞書SPIFFSおよびファームウェアの書き込みが完了しました！"
+  echo "============================================================"
+else
+  echo "書き込みをスキップしました。"
 fi

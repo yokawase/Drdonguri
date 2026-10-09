@@ -4,8 +4,8 @@
 - **名称**: どんぐり君（Drdonguri / DrVoiceどんぐり君！）
 - **目的**: 音声認識やスマートフォンからのテキスト入力内容を、ESP32デバイス（AtomS3U）を経由して医療用電子カルテ端末にUSBキーボード（HID）として正確に自動転送・入力する。
 - **核心技術**:
-  - **AtomS3U (8MB Flash)** への医療用語ローマ字辞書 (`med_terms.bin`) および難漢字コード辞書 (`kanji_f5.bin`) の内蔵。
-  - **HYBRID Unicode送信アルゴリズム**: 電子カルテ側のIME機能（F7カタカナ変換、F5漢字コード変換）を活用した、確実・高速なテキスト送信。
+  - **AtomS3U (8MB Flash)** への医療用語ローマ字辞書 (`med_terms.bin`) およびJIS漢字音訓読み辞書 (`kanji_yomi.bin`) の内蔵。
+  - **HYBRID Unicode送信アルゴリズム**: 電子カルテ側のIME機能（F7カタカナ強制、確実削り出し[BS]、音訓読みSpace変換）を活用した、確実・高速なテキスト送信（※F5文字コード変換は誤爆防止のため廃止）。
 
 ---
 
@@ -14,25 +14,25 @@
 ### A. デバイス・ファームウェア
 - **ハードウェア**: M5Stack AtomS3U (ESP32-S3FN8 / 8MB Flash / PSRAM非搭載)
 - **開発環境**: PlatformIO / Arduino Framework (Espressif32)
-- **機能**: USB HID Keyboard, フラッシュメモリ直読み二分探索辞書検索, HYBRID Unicode キー送信 engine
+- **機能**: USB HID Keyboard + 仮想プリンター (Bulk OUT), フラッシュメモリ直読み二分探索辞書検索, HYBRID キー送信 engine
 
 ### B. 辞書コンパイルパイプライン
 - **言語**: Python 3 (`compile_pipeline.py`)
 - **入力ソース**: 厚労省医薬品マスター (`y_*.csv`), 傷病名マスター (`b_*.txt`)
 - **出力形式**:
   - `med_terms.bin`: 32バイト固定長 (FNV-1a ハッシュ / モード / ローマ字)
-  - `kanji_f5.bin`: 8バイト固定長 (難漢字 UTF-8 / Unicode / 属性)
+  - `kanji_yomi.bin`: 12バイト固定長 (JIS全漢字 UTF-8 / 音読みローマ字)
 
 ### C. Web & 音声認識インターフェース
-- **技術**: Node.js / Bun / TypeScript / Vite / Gemini API
-- **役割**: スマートフォン・PCブラウザからのリアルタイム音声認識、テキスト整形、AtomS3Uへの通信中継
+- **技術**: Node.js / TypeScript / Vite / WebLLM (Qwen2.5) / Tesseract.js (Local OCR)
+- **役割**: スマートフォン・PCブラウザからの完全ローカルテキスト整形、AtomS3Uへの通信中継
 
 ---
 
 ## 3. MVP（最小実用製品）の範囲
-1. 厚労省マスターから `med_terms.bin` および `kanji_f5.bin` のバイナリ辞書生成。
+1. 厚労省マスターから `med_terms.bin` のバイナリ辞書生成。
 2. AtomS3U への辞書バイナリ書き込み（8MB パーティション配置）。
-3. AtomS3U が受取った日本語文字列に対し、辞書検索を行ってローマ字＋F7/F5キー列の USB-HID 信号に変換し、電子カルテ端末へ安定送信。
+3. AtomS3U が受取った日本語文字列に対し、辞書検索を行ってローマ字＋F7/Space/Enterキー列の USB-HID 信号に変換し、電子カルテ端末へ安定送信。
 4. スマホ/ブラウザUIからのテキスト送信連携。
 
 ---
