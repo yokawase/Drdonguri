@@ -3,6 +3,7 @@ import {
   type MLCEngineInterface,
   type InitProgressReport,
 } from '@mlc-ai/web-llm';
+import type { MindsGuidelineDetail } from '../utils/mindsGuidelineCompiler';
 
 // 【超高速デフォルト】Qwen2.5-0.5B (約350MB, VRAM約550MB, 推論速度1.5B比3倍高速)
 export const FAST_WEBLLM_MODEL = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
@@ -257,5 +258,66 @@ export async function refineOcrChartWithWebLLM(
       max_tokens: 350,
     });
     return completion.choices[0]?.message?.content?.trim() || rawOcrText;
+  }
+}
+
+/**
+ * Minds ガイドライン詳細ナレッジ (32GB SDカード相当) を参照したローカルWebLLM臨床推論 (RAG)
+ */
+export async function consultGuidelineWithWebLLM(
+  soapText: string,
+  guideline: MindsGuidelineDetail,
+  onStream?: (accumulatedText: string) => void,
+  modelId: string = DEFAULT_WEBLLM_MODEL
+): Promise<string> {
+  const engine = await getWebLlmEngine(undefined, modelId);
+
+  const systemPrompt = `あなたは日本の臨床診療ガイドライン（Minds）に準拠した医療意思決定支援AIです。
+提供された公式エビデンスに基づき、医師のカルテ記載内容に対する臨床的アドバイス、注意すべき禁忌・漫然投与リスク、患者説明の要点を簡潔・明快に出力してください。`;
+
+  const userPrompt = `【Mindsガイドライン情報】
+疾患: ${guideline.diseaseName} (ICD-10: ${guideline.icd10})
+CQ: ${guideline.cqTitle}
+推奨: ${guideline.recommendation}
+背景・理由: ${guideline.detail.rational}
+実践要点: ${guideline.detail.practiceTip}
+
+【現在のカルテ記載】
+${soapText}
+
+ガイドライン準拠の臨床アドバイス:`;
+
+  try {
+    const stream = await engine.chat.completions.create({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.1,
+      max_tokens: 300,
+      stream: true,
+    });
+
+    let fullText = '';
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content || '';
+      fullText += delta;
+      if (onStream) {
+        onStream(fullText);
+      }
+    }
+
+    return fullText.trim();
+  } catch (err: any) {
+    console.warn('[WebLLM Minds RAG Stream Fallback]:', err);
+    const completion = await engine.chat.completions.create({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.1,
+      max_tokens: 300,
+    });
+    return completion.choices[0]?.message?.content?.trim() || guideline.recommendation;
   }
 }

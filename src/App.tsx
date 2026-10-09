@@ -437,8 +437,8 @@ export default function App() {
 
   const handleRequestDictInfo = async (): Promise<string> => {
     if (isVirtualMode) {
-      addLog('sys', 'DICT', '仮想 AtomS3U SPIFFS 辞書状態: med_terms.bin (48,920件) / kanji_yomi.bin (6,528文字) 正常マウント中');
-      return 'SPIFFS_OK: 医薬品・傷病名マスター約5万件 (med_terms.bin: 48,920件) / JIS全漢字音訓読み (kanji_yomi.bin: 6,528文字) 正常稼働中 (5.87MB領域)';
+      addLog('sys', 'DICT', '仮想 ドングル SPIFFS/Flash 辞書: med_terms.bin (48,920件) / kanji_yomi.bin (6,528文字) / minds_cds.bin (512B固定長 Mindsガイドライン) 正常マウント中');
+      return 'SPIFFS_OK: 医薬品・傷病名マスター (med_terms.bin: 48,920件) / JIS全漢字音訓読み (kanji_yomi.bin: 6,528文字) / Minds臨床ガイドライン (minds_cds.bin: 512B固定長)';
     }
     if (bleManagerRef.current) {
       const resp = await bleManagerRef.current.requestDictInfo();
