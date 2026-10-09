@@ -1150,7 +1150,23 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   '適切な': 'tekisetuna', '適切': 'tekisetu', '間隔': 'kannkaku', '方針': 'housinn',
   '連携': 'rennkei', '年後': 'nenngo', '歳男': 'saiotoko', '歳女': 'saionnna',
   'カルテ': 'karute', '電子カルテ': 'dennsikarute', '問診': 'monnsinn', '診察': 'sinnsatu',
-  '処方': 'syoho', '主訴': 'syuso', '現病歴': 'gennbyoureki', '既往歴': 'kioureki',
+  '処方希望': 'syohoukibou', '処方方針': 'syohouhousinn', '処方・方針': 'syohou/housinn', '処方': 'syohou', '主訴': 'syuso', '現病歴': 'gennbyoureki', '既往歴': 'kioureki',
+  '本態性高血圧症': 'honntaiseikouketuatusyou', '本態性': 'honntaisei', '高血圧症': 'kouketuatusyou', '高血圧': 'kouketuatu',
+  '家庭血圧': 'kateiketuatu', '家庭': 'katei', '外来血圧': 'gairaiketuatu', '外来': 'gairai',
+  '朝平均': 'asaheikinn', '夜平均': 'yoruheikinn', '推移良好': 'suiiryoukou', '推移': 'suii', '良好': 'ryoukou',
+  '服薬アドヒアランス良好': 'fukuyakuadohiarannsuryoukou', '服薬アドヒアランス': 'fukuyakuadohiarannsu', 'アドヒアランス': 'adohiarannsu', '服薬': 'fukuyaku',
+  '飲み忘れなし': 'nomiwasurenasi', '飲み忘れ': 'nomiwasure', '忘れなし': 'wasurenasi', '忘れ': 'wasure',
+  '胸部違和感なし': 'kyoubuiwakannnasi', '胸部違和感': 'kyoubuiwakann', '違和感なし': 'iwakannnasi', '違和感': 'iwakann', '胸部': 'kyoubu',
+  '頭痛': 'zutuu', 'ふらつき': 'furatuki', '手帳持参': 'tetyoujisann', '手帳': 'tetyou', '持参': 'jisann',
+  '心音純': 'sinnonnjunn', '心音': 'sinnonn', '雑音': 'zatuonn',
+  '両側肺野清': 'ryousokuhaiyasei', '肺野清': 'haiyasei', '肺野': 'haiya',
+  '両側下腿浮腫': 'ryousokukataihusyu', '下腿浮腫': 'kataihusyu', '下腿': 'katai', '浮腫': 'husyu',
+  'アムロジピン錠': 'amurojipinnjyou', 'テルミサルタン錠': 'terumisarutannjyou',
+  '朝食後': 'asasyokugo', '日分': 'nitibunn', '減塩': 'genenn', '食塩': 'syokuenn', '日未満': 'nitimimann',
+  '有酸素運動': 'yuusannsoundou', '適度な有酸素運動': 'tekidonayuusannsoundou', '継続指導': 'keizokusidou',
+  '次回3ヶ月後の定期採血': 'jikai3kagetugonoteikisaiketu', '次回3ヶ月後': 'jikai3kagetugo', '次回': 'jikai',
+  '3ヶ月後': '3kagetugo', '3ヶ月': '3kagetu', 'ヶ月後': 'kagetugo', 'ヶ月': 'kagetu', '定期採血': 'teikisaiketu',
+  '腎機能': 'jinnkinou', '電解質': 'dennkaisitu', '尿蛋白': 'nyoutannpaku', '予定': 'yotei', '確定': 'kakutei',
   'バイタル': 'baitaru', '血圧': 'ketuatu', '脈拍': 'myakuhaku', '体温': 'taionn',
   'ピロリ菌除菌後': 'pirorikinnjyokinngo', 'ピロリ菌除菌': 'pirorikinnjyokinn', '除菌療法': 'jyokinnryouhou', '除菌後': 'jyokinngo',
   '除菌': 'jyokinn', '胃腺腫': 'isensyu', '胃癌発生リスク層別化': 'iganhatuseirisukusoubetuka', '胃癌発生': 'iganhatusei',
@@ -1189,7 +1205,7 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   '止血率': 'siketuritu', '止血': 'siketu', 'エピネフリン局注': 'epinefurinnkyokutyuu', 'エピネフリン': 'epinefurinn',
   '局注': 'kyokutyuu', '遅発性穿孔': 'tihatuseisennkou', '遅発性': 'tihatusei', '穿孔': 'sennkou',
   '右側結腸': 'migigawakettyou', '右側病変': 'migigawabyouhenn', '右側': 'migigawa', '左側結腸': 'hidarigawakettyou',
-  '左側病変': 'hidarigawabyouhenn', '左側': 'hidarigawa', '両側': 'ryougawa', 'クリッピング': 'kurippinngu',
+  '左側病変': 'hidarigawabyouhenn', '左側': 'hidarigawa', '両側': 'ryousoku', 'クリッピング': 'kurippinngu',
   'アピキサバン': 'apikisabann', '抗凝固療法': 'kougyoukoryouhou', '終身抗凝固療法': 'syuusinnkougyoukoryouhou', '終身': 'syuusinn',
   'ヘパリンブリッジ': 'heparinnburijji', 'ヘパリン': 'heparinn', 'ブリッジ': 'burijji', '半減期': 'hanngennki',
   '最終内服': 'saisyuunaihuku', '内服': 'naihuku', '脳卒中': 'nousottyuu', '循環器内科': 'junnkannkinaika',
@@ -1760,7 +1776,10 @@ export const AUTO_HOMOPHONE_TRIM_MAP: Record<string, HomophoneTrimDef> = {
   '細菌': { target: '細菌', safeCompound: '細菌学', safeReading: 'saikinngaku', backspaceCount: 1, reason: '「最近」への同音異義語劣後を「細菌学[BS]」で100%防止' },
   '科': { target: '科', safeCompound: '科学', safeReading: 'kagaku', backspaceCount: 1, reason: '「下」「課」への誤爆を「科学[BS]」で100%防止' },
   '拓': { target: '拓', safeCompound: '開拓', safeReading: 'kaitaku', backspaceCount: 1, reason: '人名「拓」の誤爆を「開拓[BS]」で100%防止' },
-  '斑': { target: '斑', safeCompound: '老人斑', safeReading: 'roujinnhann', backspaceCount: 1, reason: '「半」への同音異義語劣後を「老人斑[BS]」で100%防止' },
+  '動悸': { target: '動悸', safeCompound: '動悸息切れ', safeReading: 'doukiikigire', backspaceCount: 3, reason: '「同期」への同音異義語劣後を「動悸息切れ[BS][BS][BS]」で100%防止' },
+  '整': { target: '整', safeCompound: '整理', safeReading: 'seiri', backspaceCount: 1, reason: '「セイ/せい」への誤爆を「整理[BS]」で100%防止' },
+  '純': { target: '純', safeCompound: '純粋', safeReading: 'junnsui', backspaceCount: 1, reason: '「順」への誤爆を「純粋[BS]」で100%防止' },
+  '錠': { target: '錠', safeCompound: '錠剤', safeReading: 'jyouzai', backspaceCount: 1, reason: '「条」「上」への誤爆を「錠剤[BS]」で100%防止' },
 };
 
 /**
@@ -2140,7 +2159,7 @@ export function compileMedicalTextToImeBoost(
 
     // 既にタグが付与された部分（[K]...[/K], [H]...[/H], [Z]...[/Z], [G]...[/G], [A]...[/A], [U]...[/U]）やバックスペースを保持しつつパース
     // ★制御タグおよび角括弧・丸括弧を英数字クラスから厳密に除外し、タグの露出・二重ラップを100%防止
-    const tokenRegex = /(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\]|\[BS\]|[\x08]+|【[^】]+】|[ァ-ヴー]{2,}|\d+(?:\.\d+)?(?:[\-~–—−―]\d+(?:\.\d+)?)?(?:mg|g|kg|mL|mmHg|bpm|℃|\%|度|日分|錠|T)?|[a-zA-Z0-9_\-\.\:\/\+\#\*\=\!\?\`\'\"]+(?:\s+[a-zA-Z0-9_\-\.\:\/\+\#\*\=\!\?\`\'\"]+)*|[一-龠]+[ぁ-ん]*|[ぁ-ん]+|[、。・，．,.:;!?！？…~〜–—−―（）「」『』／/＜＞《》<>()\[\]{}]|\s+|[^\s])/g;
+    const tokenRegex = /(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\]|\[BS\]|[\x08]+|[ァ-ヴー]{2,}|\d+(?:\.\d+)?(?:[\-~–—−―]\d+(?:\.\d+)?)?(?:mg|g|kg|mL|mmHg|bpm|℃|\%|度|日分|錠|T)?|[a-zA-Z0-9_\-\.\:\/\+\#\*\=\!\?\`\'\"]+(?:\s+[a-zA-Z0-9_\-\.\:\/\+\#\*\=\!\?\`\'\"]+)*|[一-龠]+[ぁ-ん]*|[ぁ-ん]+|[、。・，．,.:;!?！？…~〜–—−―（）「」『』／/＜＞《》<>()\[\]{}【】ヶヵ]|\s+|[^\s])/g;
     const tokens = curLine.match(tokenRegex) || [curLine];
     let lineResult = headingPrefix;
 
@@ -2171,22 +2190,6 @@ export function compileMedicalTextToImeBoost(
           actionTag: tag,
           keystrokes: tag === '[K]' ? `${inner} ➔ [F7] ➔ [Enter]` : tag === '[H]' ? `${inner} ➔ [Enter]` : tag === '[U]' ? `${inner} ➔ [F5] ➔ [Enter]` : tag === '[G]' ? `${inner} ➔ [Space]x2 ➔ [Enter]` : tag === '[Z]' ? `${inner} ➔ [Space] ➔ [Enter]` : inner,
           description: tag === '[K]' ? 'F7全角カタカナ強制確定' : tag === '[H]' ? 'ひらがな直接確定（Space禁止）' : tag === '[U]' ? 'Unicode F5直接着弾' : tag === '[G]' ? 'ギリシャ文字変換（Space2回）' : tag === '[Z]' ? '最小Chunk漢字変換' : 'ASCII直接打鍵',
-        });
-        continue;
-      }
-
-      // 見出し括弧 【主訴】 【方針】 など（F5コード全廃・安全なJIS括弧＆熟語確定）
-      if (token.startsWith('【') && token.endsWith('】')) {
-        const inner = token.slice(1, -1);
-        const innerRomaji = kanjiWordToRomaji(inner) || kanaToRomaji(inner);
-        const seq = `${IME_TAG_HIRAGANA}[${IME_TAG_HIRAGANA_END}${IME_TAG_KANJI}${innerRomaji}${IME_TAG_KANJI_END}${IME_TAG_HIRAGANA}]${IME_TAG_HIRAGANA_END}`;
-        lineResult += seq;
-        displayTokens.push({
-          type: 'kanji',
-          originalText: token,
-          actionTag: '[Z]',
-          keystrokes: seq,
-          description: `カルテ見出し【${inner}】確定`,
         });
         continue;
       }
@@ -2273,16 +2276,32 @@ export function compileMedicalTextToImeBoost(
         displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: ') ➔ [Enter]', description: '丸括弧「）」確定' });
         continue;
       }
-      if (token === '「' || token === '【') {
-        const seq = `${IME_TAG_HIRAGANA}[${IME_TAG_HIRAGANA_END}`;
-        lineResult += seq;
-        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '[ ➔ [Enter]', description: '括弧「「/【」確定' });
+      if (token === '【') {
+        lineResult += '【';
+        displayTokens.push({ type: 'kanji', originalText: token, actionTag: '[Z]', keystrokes: '【 ➔ [Space]x2 ➔ [Enter]', description: '隅付き括弧「【」確定' });
         continue;
       }
-      if (token === '」' || token === '】') {
+      if (token === '】') {
+        lineResult += '】';
+        displayTokens.push({ type: 'kanji', originalText: token, actionTag: '[Z]', keystrokes: '】 ➔ [Space]x2 ➔ [Enter]', description: '隅付き括弧「】」確定' });
+        continue;
+      }
+      if (token === '「') {
+        const seq = `${IME_TAG_HIRAGANA}[${IME_TAG_HIRAGANA_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '[ ➔ [Enter]', description: '括弧「「」確定' });
+        continue;
+      }
+      if (token === '」') {
         const seq = `${IME_TAG_HIRAGANA}]${IME_TAG_HIRAGANA_END}`;
         lineResult += seq;
-        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '] ➔ [Enter]', description: '括弧「」/】」確定' });
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '] ➔ [Enter]', description: '括弧「」」確定' });
+        continue;
+      }
+      if (token === 'ヶ' || token === 'ヵ') {
+        const seq = `${IME_TAG_KATAKANA}ke${IME_TAG_KATAKANA_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'katakana', originalText: token, actionTag: IME_TAG_KATAKANA, keystrokes: 'ke ➔ [F7] ➔ [Enter]', description: '小書きカタカナ強制確定' });
         continue;
       }
       if (token === '＜' || token === '<' || token === '《') {

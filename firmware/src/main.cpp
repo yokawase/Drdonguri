@@ -431,6 +431,21 @@ void updateTypingProgress(int pct) {
 #endif
 }
 
+// ============================================================================
+// モディファイアキー（Shift, Ctrl, Alt, GUI）完全全解放エンジン (Anti-Stuck Protection)
+// OS/メッセージフックによるKeyUp取りこぼしを100%防止し、ブラウザ誤爆（Ctrl+Shift+N/P, Ctrl+F）を完全根絶
+// ============================================================================
+void forceReleaseAllModifiers() {
+  KeyReport rep;
+  memset(&rep, 0, sizeof(KeyReport));
+  Keyboard.sendReport(&rep);
+  delay(4);
+  Keyboard.releaseAll();
+  delay(2);
+  Keyboard.sendReport(&rep);
+  delay(2);
+}
+
 // カルテ吸い上げ自動トリガー (Ctrl+P -> Enter)
 void executeAutoPullKeySequence() {
   setLedColor(0, 64, 64); // シアン（電カル吸い上げ中）
@@ -438,7 +453,7 @@ void executeAutoPullKeySequence() {
   delay(50);
   Keyboard.press('p');
   delay(80);
-  Keyboard.releaseAll();
+  forceReleaseAllModifiers();
   
   // 印刷ダイアログ表示待機
   delay(350);
@@ -446,6 +461,7 @@ void executeAutoPullKeySequence() {
   // Enterで印刷実行（仮想テキストプリンタへスプール）
   Keyboard.write(KEY_RETURN);
   delay(100);
+  forceReleaseAllModifiers();
   setLedColor(0, 64, 0); // 復帰
 }
 
@@ -514,7 +530,7 @@ void safeWrite(uint8_t key) {
   delay(6);              // OSがKeyDownを確実に認識・処理する時間
   Keyboard.release(key);
   delay(2);
-  Keyboard.releaseAll();  // 念押しで全キー解放レポート(0x00)を送信（二重解放保証）
+  forceReleaseAllModifiers(); // 念押しで全キー＆全モディファイア解放レポート(0x00)を送信
 }
 
 // ============================================================================
@@ -980,7 +996,8 @@ static const KanaTableEntry MONO_KANA_TABLE[] = {
   {"ワ", "wa"}, {"ヲ", "wo"}, {"ン", "nn"},
   {"ッ", "ltu"}, {"ャ", "xya"}, {"ュ", "xyu"}, {"ョ", "xyo"},
   {"ァ", "xa"},  {"ィ", "xi"},  {"ゥ", "xu"},  {"ェ", "xe"},  {"ォ", "xo"},
-  {"ヴ", "vu"},  {"ー", "-"}
+  {"ヴ", "vu"},  {"ー", "-"},
+  {"ヶ", "ke"}, {"ヵ", "ka"}
 };
 
 // UTF-8ひらがな判定 (U+3041〜U+3096)
@@ -1221,6 +1238,7 @@ bool dispatchSafeKeystrokes() {
         delay(25);
         safeWrite(KEY_RETURN);
         delay(40);
+        forceReleaseAllModifiers();
       }
       continue;
     }
@@ -1295,6 +1313,7 @@ bool dispatchSafeKeystrokes() {
         delay(20);
         safeWrite(KEY_RETURN);
         delay(40);
+        forceReleaseAllModifiers();
       }
       continue;
     }
@@ -1331,6 +1350,7 @@ bool dispatchSafeKeystrokes() {
         delay(35); // 候補窓展開ウェイト
         safeWrite(KEY_RETURN);
         delay(40);
+        forceReleaseAllModifiers();
       }
       continue;
     }
@@ -1369,6 +1389,7 @@ bool dispatchSafeKeystrokes() {
         delay(35);
         safeWrite(KEY_RETURN); // 確定
         delay(40);
+        forceReleaseAllModifiers();
       }
       continue;
     }
@@ -1405,6 +1426,7 @@ bool dispatchSafeKeystrokes() {
         delay(25);
         safeWrite(KEY_RETURN);
         delay(35);
+        forceReleaseAllModifiers();
       }
       continue;
     }
@@ -1646,9 +1668,34 @@ bool dispatchSafeKeystrokes() {
     if (uLen == 3) {
       if (memcmp(&buf[i], "、", 3) == 0) { sendSafeChar(','); i += 3; continue; }
       if (memcmp(&buf[i], "。", 3) == 0) { sendSafeChar('.'); i += 3; continue; }
-      if (memcmp(&buf[i], "・", 3) == 0) { sendSafeChar('/'); i += 3; continue; }
-      if (memcmp(&buf[i], "「", 3) == 0 || memcmp(&buf[i], "【", 3) == 0 || memcmp(&buf[i], "『", 3) == 0) { sendSafeChar('['); i += 3; continue; }
-      if (memcmp(&buf[i], "」", 3) == 0 || memcmp(&buf[i], "】", 3) == 0 || memcmp(&buf[i], "』", 3) == 0) { sendSafeChar(']'); i += 3; continue; }
+      if (memcmp(&buf[i], "【", 3) == 0) {
+        sendSafeChar('[');
+        delay(20);
+        safeWrite(' ');
+        delay(30);
+        safeWrite(' ');
+        delay(35);
+        safeWrite(KEY_RETURN);
+        delay(40);
+        forceReleaseAllModifiers();
+        i += 3;
+        continue;
+      }
+      if (memcmp(&buf[i], "】", 3) == 0) {
+        sendSafeChar(']');
+        delay(20);
+        safeWrite(' ');
+        delay(30);
+        safeWrite(' ');
+        delay(35);
+        safeWrite(KEY_RETURN);
+        delay(40);
+        forceReleaseAllModifiers();
+        i += 3;
+        continue;
+      }
+      if (memcmp(&buf[i], "「", 3) == 0 || memcmp(&buf[i], "『", 3) == 0) { sendSafeChar('['); i += 3; continue; }
+      if (memcmp(&buf[i], "」", 3) == 0 || memcmp(&buf[i], "』", 3) == 0) { sendSafeChar(']'); i += 3; continue; }
       if (memcmp(&buf[i], "（", 3) == 0) { sendSafeChar('('); i += 3; continue; }
       if (memcmp(&buf[i], "）", 3) == 0) { sendSafeChar(')'); i += 3; continue; }
       if (memcmp(&buf[i], "〜", 3) == 0) { sendSafeChar('~'); i += 3; continue; }
@@ -1737,6 +1784,7 @@ bool dispatchSafeKeystrokes() {
 
     // 3. カタカナ連続塊: ローマ字送出 ➔ F7全角カタカナ強制 ➔ Enter確定
     if (isUtf8Katakana(&buf[i])) {
+      bool sentAnyChar = false;
       while (i < total && isUtf8Katakana(&buf[i])) {
         // 促音「ッ」(0xE3 0x83 0x83) の処理
         if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x83 && (uint8_t)buf[i+2] == 0x83) {
@@ -1747,11 +1795,13 @@ bool dispatchSafeKeystrokes() {
             if (nextRomaji != nullptr && nextRomaji[0] != 'a' && nextRomaji[0] != 'i' && 
                 nextRomaji[0] != 'u' && nextRomaji[0] != 'e' && nextRomaji[0] != 'o' && nextRomaji[0] != 'n') {
               sendSafeChar(nextRomaji[0]);
+              sentAnyChar = true;
               i += 3;
               continue;
             }
           }
           sendSafeChar('l'); sendSafeChar('t'); sendSafeChar('u');
+          sentAnyChar = true;
           i += 3;
           continue;
         }
@@ -1760,6 +1810,7 @@ bool dispatchSafeKeystrokes() {
         if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x83 && (uint8_t)buf[i+2] == 0xB3) {
           sendSafeChar('n');
           sendSafeChar('n');
+          sentAnyChar = true;
           i += 3;
           continue;
         }
@@ -1770,6 +1821,7 @@ bool dispatchSafeKeystrokes() {
             for (const char* p = romajiDi; *p != '\0'; p++) {
               sendSafeChar(*p);
             }
+            sentAnyChar = true;
             i += 6;
             continue;
           }
@@ -1780,17 +1832,21 @@ bool dispatchSafeKeystrokes() {
             for (const char* p = romajiMo; *p != '\0'; p++) {
               sendSafeChar(*p);
             }
+            sentAnyChar = true;
             i += 3;
             continue;
           }
         }
         i += getUtf8CharLen((uint8_t)buf[i]);
       }
-      delay(20);
-      safeWrite(KEY_F7);
-      delay(25);
-      safeWrite(KEY_RETURN);
-      delay(40);
+      if (sentAnyChar) {
+        delay(20);
+        safeWrite(KEY_F7);
+        delay(25);
+        safeWrite(KEY_RETURN);
+        delay(40);
+        forceReleaseAllModifiers();
+      }
       continue;
     }
 
@@ -1844,8 +1900,8 @@ void dispatchOutput() {
   // 4層ハイブリッド安全キーストローク送出（SPIFFS二分探索 Zero-RAM ＆ ビット演算Unicode直接着弾）
   dispatchSafeKeystrokes();
 
-  // キーの完全開放
-  Keyboard.releaseAll();
+  // キーの完全開放（全モディファイア完全クリア）
+  forceReleaseAllModifiers();
 
   sendBleAck("USB_REPORTS_SENT", currentMsg.sessionId);
   delay(30);
