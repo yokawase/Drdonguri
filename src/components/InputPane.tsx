@@ -149,6 +149,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
   const setIsImeBoostModalOpen = propSetImeBoostOpen || setInternalImeBoostOpen;
 
   const isPreprocessorModalOpen = propPreprocessorOpen !== undefined ? propPreprocessorOpen : internalPreprocessorOpen;
+  const setIsPreprocessorModalOpen = propSetPreprocessorOpen || setInternalPreprocessorOpen;
   const [internalCoprocessorOpen, setInternalCoprocessorOpen] = useState(false);
   const isCoprocessorModalOpen = propCoprocessorOpen !== undefined ? propCoprocessorOpen : internalCoprocessorOpen;
   const setIsCoprocessorModalOpen = propSetCoprocessorOpen || setInternalCoprocessorOpen;

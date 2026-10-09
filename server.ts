@@ -110,6 +110,20 @@ async function startServer() {
   // AI Studio開発サーバーおよびiFrame通信はポート3000固定
   const PORT = 3000;
 
+  // CORS対応 (別ポートやスマホからの通信を許可)
+  app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+    if (req.url.startsWith('/api')) {
+      console.log(`[API ${req.method}] ${req.url}`);
+    }
+    next();
+  });
+
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -266,8 +280,8 @@ async function startServer() {
   // Gemini API クライアント初期化 (遅延初期化により起動時クラッシュを防止)
   const getAiClient = () => {
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEYが未設定です。AI StudioのSecretsで設定してください。');
+    if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+      throw new Error('GEMINI_API_KEYが未設定です。.envファイルにGEMINI_API_KEYを設定してください。');
     }
     return new GoogleGenAI({
       apiKey,
@@ -289,11 +303,13 @@ async function startServer() {
     }
   ) => {
     // 独立した別枠クォータを持つモデルを順に指定:
-    // 1. gemini-3.1-flash-lite: 高スループット・高速・別枠無料クォータ（即応性最優先）
-    // 2. gemini-3.8-flash: 標準モデル
+    // 1. gemini-2.5-flash: 高速・高品質・マルチモーダル対応
+    // 2. gemini-2.0-flash: 安定高速
+    // 3. gemini-1.5-flash: 実績のある標準モデル
     const models = options.candidateModels || [
-      'gemini-3.1-flash-lite',
-      'gemini-3.8-flash',
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
     ];
 
     let lastError: any = null;
@@ -377,8 +393,9 @@ async function startServer() {
           temperature: 0.2,
         },
         candidateModels: [
-          'gemini-3.1-flash-lite',
-          'gemini-3.8-flash',
+          'gemini-2.5-flash',
+          'gemini-2.0-flash',
+          'gemini-1.5-flash',
         ],
       });
 
@@ -453,8 +470,9 @@ async function startServer() {
           temperature: 0.0, // 決定論的・最高忠実度の文字起こし
         },
         candidateModels: [
-          'gemini-3.1-flash-lite',
-          'gemini-3.8-flash',
+          'gemini-2.5-flash',
+          'gemini-2.0-flash',
+          'gemini-1.5-flash',
         ],
       });
 
@@ -566,8 +584,9 @@ async function startServer() {
           responseMimeType: 'application/json',
         },
         candidateModels: [
-          'gemini-3.1-flash-lite',
-          'gemini-3.8-flash',
+          'gemini-2.5-flash',
+          'gemini-2.0-flash',
+          'gemini-1.5-flash',
         ],
       });
 

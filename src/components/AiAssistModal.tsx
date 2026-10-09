@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
 import { playMacBeep, playSosumi } from '../utils/macAudio';
+import {
+  formatMedicalChartWithWebLLM,
+  isWebGpuSupported,
+  isEngineLoaded,
+  type ModelLoadProgress,
+} from '../services/webLlmService';
 
 interface AiAssistModalProps {
   isOpen: boolean;
@@ -16,6 +22,8 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
 }) => {
   const [style, setStyle] = useState<'soap' | 'concise' | 'interview'>('soap');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadStatus, setLoadStatus] = useState<string>('');
+  const [progressPercent, setProgressPercent] = useState<number>(0);
   const [resultText, setResultText] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -24,39 +32,39 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
   const handleGenerate = async () => {
     setIsLoading(true);
     setError(null);
+    setLoadStatus('WebLLM 初期化中...');
+    setProgressPercent(10);
     playMacBeep();
 
-    const styleLabels = {
-      soap: '医療標準SOAP形式（S:主訴, O:客観的所見/バイタル, A:評価/病名, P:治療方針/処方）',
-      concise: '電子カルテ箇条書き（簡潔かつ要約された記録）',
-      interview: '問診票・現病歴要約形式',
-    };
+    if (!isWebGpuSupported()) {
+      setError('お使いのブラウザはWebGPUに対応していません。最新のChromeまたはEdgeをご使用ください。');
+      setIsLoading(false);
+      return;
+    }
 
     try {
-      const res = await fetch('/api/ai/format-chart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: originalText || '発熱 38.2度 喉が痛い 咳少し あり アセトアミノフェン 処方',
-          formatStyle: styleLabels[style],
-          mode: 'romaji_assist',
-        }),
-      });
+      const targetText =
+        originalText || '発熱 38.2度 喉が痛い 咳少し あり アセトアミノフェン 処方';
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'AI整形に失敗しました');
-      }
+      const formatted = await formatMedicalChartWithWebLLM(
+        targetText,
+        style,
+        (report: ModelLoadProgress) => {
+          setLoadStatus(report.text || '推論処理中...');
+          setProgressPercent(Math.round(report.progress * 100));
+        }
+      );
 
-      const data = await res.json();
-      setResultText(data.formattedText);
+      setResultText(formatted);
       playSosumi();
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || '通信エラーが発生しました');
+      console.error('[WebLLM Error]:', err);
+      setError(err.message || 'WebLLMでのカルテ整形に失敗しました');
       playSosumi();
     } finally {
       setIsLoading(false);
+      setLoadStatus('');
+      setProgressPercent(0);
     }
   };
 
@@ -76,8 +84,9 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
             className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] active:bg-black cursor-pointer"
             title="閉じる"
           />
-          <div className="bg-white border border-black px-2.5 py-0.2 font-bold text-xs tracking-wider">
-            AI カルテ校正 (Desk Accessory)
+          <div className="bg-white border border-black px-2.5 py-0.2 font-bold text-xs tracking-wider flex items-center gap-1.5">
+            <span>AI カルテ校正 (WebLLM Qwen2.5 1.5B)</span>
+            <span className="text-[10px] bg-black text-white px-1">ローカル完結</span>
           </div>
           <div className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] flex items-center justify-center">
             <div className="w-1.5 h-1.5 border border-black" />
@@ -88,7 +97,12 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
         <div className="p-3 space-y-3">
           {/* Format style selector */}
           <div className="border border-black p-2.5 bg-white space-y-1.5">
-            <div className="font-bold">整形スタイルを選択:</div>
+            <div className="flex justify-between items-center font-bold">
+              <span>整形スタイルを選択:</span>
+              <span className="text-[10px] text-gray-600 font-normal">
+                {isEngineLoaded() ? '● モデルロード済 (高速推論)' : '○ 初回のみ約1GBダウンロード'}
+              </span>
+            </div>
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
@@ -134,6 +148,25 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
             </div>
           </div>
 
+          {/* Progress / Loading UI */}
+          {isLoading && (
+            <div className="border-2 border-black p-2.5 bg-gray-50 space-y-1.5 animate-pulse">
+              <div className="flex justify-between text-[11px] font-bold">
+                <span>⚡ {loadStatus || 'WebLLM 処理中...'}</span>
+                <span>{progressPercent}%</span>
+              </div>
+              <div className="w-full bg-white border border-black h-3 p-0.5">
+                <div
+                  className="bg-black h-full transition-all duration-200"
+                  style={{ width: `${Math.max(5, progressPercent)}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-gray-500">
+                ※ブラウザ内のWebGPUで完全ローカル推論を行っています（外部サーバーへの送信なし）。
+              </p>
+            </div>
+          )}
+
           {/* Error notice */}
           {error && (
             <div className="border-2 border-black p-2 bg-white text-xs font-bold text-red-600">
@@ -144,7 +177,9 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
           {/* Result preview */}
           {resultText && (
             <div className="space-y-1">
-              <div className="font-bold text-[11px]">校正結果 (SOAP形式):</div>
+              <div className="font-bold text-[11px]">
+                校正結果 ({style === 'soap' ? 'SOAP形式' : style === 'concise' ? '箇条書き' : '問診形式'}):
+              </div>
               <textarea
                 value={resultText}
                 onChange={(e) => setResultText(e.target.value)}
@@ -170,9 +205,9 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
               <button
                 onClick={handleGenerate}
                 disabled={isLoading}
-                className="mac-btn font-bold"
+                className="mac-btn font-bold cursor-pointer"
               >
-                {isLoading ? 'AI校正中...' : 'AI校正を実行 ⚡'}
+                {isLoading ? 'ローカル推論中...' : 'WebLLM 校正実行 ⚡'}
               </button>
 
               {resultText && (
@@ -183,7 +218,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                       onApplyFormattedText(resultText);
                       onClose();
                     }}
-                    className="mac-btn mac-btn-default font-bold px-4"
+                    className="mac-btn mac-btn-default font-bold px-4 cursor-pointer"
                   >
                     カルテに反映 ↩
                   </button>

@@ -355,7 +355,7 @@ export class BleDongleManager {
     this.log('tx', 'CMD', '電カル自動吸い上げ (Ctrl+P -> Enter) コマンド送出');
     const encoder = new TextEncoder();
     const cmd = encoder.encode('CMD:AUTO_PULL');
-    await this.writeChunkWithLock(cmd);
+    await this.writeData(cmd);
     return true;
   }
 

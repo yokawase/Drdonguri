@@ -11,8 +11,10 @@ import {
   ScanLine,
   Image as ImageIcon,
   Smartphone,
-  ShieldCheck
+  ShieldCheck,
+  Cpu
 } from 'lucide-react';
+import { performLocalCameraOcr, type OcrProgressUpdate } from '../services/localOcrService';
 
 interface CameraOcrModalProps {
   isOpen: boolean;
@@ -29,21 +31,24 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
   const [ocrMode, setOcrMode] = useState<'chart' | 'soap' | 'prescription'>('chart');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [extractedText, setExtractedText] = useState<string>('');
+  const [rawOcrText, setRawOcrText] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [processingStatus, setProcessingStatus] = useState<string>('');
+  const [progressPercent, setProgressPercent] = useState<number>(0);
 
   // 端末のネイティブカメラ専用 input (capture="environment")
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   // フォトライブラリ・ファイル選択専用 input
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [processingStatus, setProcessingStatus] = useState<string>('');
-
   useEffect(() => {
     if (isOpen) {
       setCapturedImage(null);
       setExtractedText('');
+      setRawOcrText('');
       setErrorMessage(null);
       setProcessingStatus('');
+      setProgressPercent(0);
     }
   }, [isOpen]);
 
@@ -51,7 +56,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
 
   /**
    * 撮影された高解像度写真を、OCR認識精度を保ちながら
-   * 通信に適したサイズ（長辺最大2048px、JPEG品質0.85）にブラウザ内で高速自動圧縮
+   * 最適な解像度（長辺最大2048px、JPEG品質0.85）にブラウザ内で高速自動圧縮
    */
   const compressAndOptimizeImage = (fileOrDataUrl: File | string, maxDimension = 2048, quality = 0.85): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -77,12 +82,10 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
           return;
         }
 
-        // 高品質画像スムージング
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
 
-        // JPEG品質 0.85 で書き出し（OCRに最適でファイルサイズは数百KBに圧縮）
         const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
         resolve(compressedDataUrl);
       };
@@ -108,70 +111,50 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
   const handleImageFile = async (file?: File) => {
     if (!file) return;
 
-    // ファイルサイズ検証 (30MB以下)
     if (file.size > 30 * 1024 * 1024) {
       setErrorMessage('画像サイズが大きすぎます (30MB以下を選択してください)');
       return;
     }
 
     setIsProcessing(true);
-    setProcessingStatus('画像を医療OCR向けに最適化中...');
+    setProcessingStatus('画像を最適化中...');
+    setProgressPercent(5);
     setErrorMessage(null);
 
     try {
-      // ブラウザ内Canvasで高解像度写真をOCR最適解像度に自動圧縮 (数MB〜数十MB -> 数百KB)
       const optimizedDataUrl = await compressAndOptimizeImage(file, 2048, 0.85);
       setCapturedImage(optimizedDataUrl);
-      await runOcr(optimizedDataUrl, ocrMode);
+      await runLocalOcr(optimizedDataUrl, ocrMode);
     } catch (err: any) {
       console.error('Image compression error:', err);
       setErrorMessage(err.message || '画像の処理に失敗しました。');
       setIsProcessing(false);
       setProcessingStatus('');
+      setProgressPercent(0);
     }
   };
 
-  // Gemini OCR 実行
-  const runOcr = async (base64Img: string, mode: 'chart' | 'soap' | 'prescription') => {
+  // 完全ローカルOCR (Tesseract.js + WebLLM Qwen2.5 1.5B) 実行
+  const runLocalOcr = async (base64Img: string, mode: 'chart' | 'soap' | 'prescription') => {
     setIsProcessing(true);
-    setProcessingStatus('Gemini AIが医療用語・電子カルテテキストを高精度解析中...');
     setErrorMessage(null);
+    setProgressPercent(10);
 
     try {
-      const res = await fetch('/api/ai/ocr-chart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageBase64: base64Img,
-          mimeType: 'image/jpeg',
-          mode,
-        }),
-      });
-
-      // HTMLエラーページ等が返ってきた場合に備えて安全にテキストを取得・パース
-      const responseText = await res.text();
-      let data: any;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseErr) {
-        console.error('Non-JSON server response:', responseText.slice(0, 300));
-        if (res.status === 413) {
-          throw new Error('画像サイズがサーバーの上限を超えました。自動最適化された画像をお試しください。');
+      const result = await performLocalCameraOcr(
+        base64Img,
+        mode,
+        (update: OcrProgressUpdate) => {
+          setProcessingStatus(update.message);
+          setProgressPercent(Math.round(update.progress * 100));
         }
-        if (res.status === 503) {
-          throw new Error('AIモデルが現在混雑しています。数秒後に再度お試しください。');
-        }
-        throw new Error(`サーバーから予期しない応答が返されました (Status: ${res.status})。時間をおいて再試行してください。`);
-      }
+      );
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || `文字認識に失敗しました (Status: ${res.status})`);
-      }
-
-      setExtractedText(data.text || '');
+      setExtractedText(result.text);
+      setRawOcrText(result.rawOcrText);
     } catch (err: any) {
-      console.error('OCR Error:', err);
-      setErrorMessage(err.message || 'OCR処理中にエラーが発生しました');
+      console.error('[Local OCR Error]:', err);
+      setErrorMessage(err.message || '文字認識処理中にエラーが発生しました');
     } finally {
       setIsProcessing(false);
       setProcessingStatus('');
@@ -182,8 +165,10 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
   const handleReset = () => {
     setCapturedImage(null);
     setExtractedText('');
+    setRawOcrText('');
     setErrorMessage(null);
     setProcessingStatus('');
+    setProgressPercent(0);
     if (cameraInputRef.current) cameraInputRef.current.value = '';
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -198,39 +183,40 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
               <Camera className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="font-bold text-sm sm:text-base flex items-center gap-1.5">
-                <span>電カル画面・紹介状 カメラOCR取込</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-400/30 text-emerald-200 text-[10px] font-bold">
-                  Gemini AI
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm sm:text-base leading-tight">カメラカルテOCR</h3>
+                <span className="text-[10px] bg-white/20 text-white font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                  <Cpu className="w-2.5 h-2.5" />
+                  完全ローカルAI
                 </span>
-              </h3>
-              <p className="text-[11px] text-teal-100">
-                端末カメラで撮影した写真から高精度テキスト抽出 ➔ どんぐり君で即時打鍵
+              </div>
+              <p className="text-[11px] text-teal-100 mt-0.5">
+                Tesseract.js ＋ WebLLM (Qwen2.5 1.5B) による院内閉域文字認識
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5 text-white" />
+            <X className="w-4 h-4 text-white" />
           </button>
         </div>
 
-        {/* Mode Selector */}
-        <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 flex items-center justify-between gap-2 shrink-0">
-          <span className="text-[11px] font-bold text-slate-600">抽出モード:</span>
-          <div className="flex items-center gap-1.5 text-xs">
+        {/* OCR Mode Selectors */}
+        <div className="bg-slate-100 p-2 sm:px-4 flex items-center gap-2 border-b border-slate-200 text-xs shrink-0">
+          <span className="text-slate-500 font-semibold text-[11px] pl-1">抽出形式:</span>
+          <div className="flex gap-1.5 flex-1">
             <button
               type="button"
               onClick={() => {
                 setOcrMode('chart');
-                if (capturedImage) runOcr(capturedImage, 'chart');
+                if (capturedImage && !isProcessing) runLocalOcr(capturedImage, 'chart');
               }}
-              className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+              className={`flex-1 py-1 px-2 rounded-xl font-bold transition-all cursor-pointer ${
                 ocrMode === 'chart'
-                  ? 'bg-emerald-700 text-white shadow-2xs'
-                  : 'bg-white text-slate-700 hover:bg-slate-200/80 border border-slate-200'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
               }`}
             >
               標準カルテ
@@ -239,12 +225,12 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
               type="button"
               onClick={() => {
                 setOcrMode('soap');
-                if (capturedImage) runOcr(capturedImage, 'soap');
+                if (capturedImage && !isProcessing) runLocalOcr(capturedImage, 'soap');
               }}
-              className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+              className={`flex-1 py-1 px-2 rounded-xl font-bold transition-all cursor-pointer ${
                 ocrMode === 'soap'
-                  ? 'bg-emerald-700 text-white shadow-2xs'
-                  : 'bg-white text-slate-700 hover:bg-slate-200/80 border border-slate-200'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
               }`}
             >
               SOAP形式
@@ -253,21 +239,21 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
               type="button"
               onClick={() => {
                 setOcrMode('prescription');
-                if (capturedImage) runOcr(capturedImage, 'prescription');
+                if (capturedImage && !isProcessing) runLocalOcr(capturedImage, 'prescription');
               }}
-              className={`px-2.5 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+              className={`flex-1 py-1 px-2 rounded-xl font-bold transition-all cursor-pointer ${
                 ocrMode === 'prescription'
-                  ? 'bg-emerald-700 text-white shadow-2xs'
-                  : 'bg-white text-slate-700 hover:bg-slate-200/80 border border-slate-200'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
               }`}
             >
-              処方箋・薬品
+              処方箋・用法
             </button>
           </div>
         </div>
 
-        {/* Hidden File Inputs */}
-        {/* 1. 端末カメラ直接起動用 input */}
+        {/* 隠し input 要素 */}
+        {/* 1. 端末ネイティブカメラ専用 input */}
         <input
           ref={cameraInputRef}
           type="file"
@@ -302,7 +288,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                   電子カルテ画面、紙の紹介状、検査報告書を撮影してください
                 </p>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  OS標準のカメラアプリが高解像度・自動フォーカスで起動します
+                  患者の個人情報は外部送信されず、端末内（WebGPU）で安全に処理されます
                 </p>
               </div>
 
@@ -344,11 +330,9 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                     <ImageIcon className="w-5 h-5" />
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-slate-900">
-                      撮影済みの写真ファイルを選択
-                    </div>
-                    <p className="text-xs text-slate-500 font-normal">
-                      フォトライブラリまたはPC・端末内の画像からOCR実行
+                    <div className="text-sm font-bold">アルバムから画像を選択</div>
+                    <p className="text-xs text-slate-500 font-normal mt-0.5">
+                      保存済みのスクリーンショットや撮影済み写真を使用
                     </p>
                   </div>
                 </div>
@@ -360,7 +344,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
               <div className="p-3 bg-sky-50/70 border border-sky-200 rounded-xl text-[11px] text-sky-900 flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
                 <span>
-                  端末ネイティブカメラを使用するため、ブラウザの権限競合を起こさず確実に起動します。撮影した画像はOCR処理後に安全に破棄されます。
+                  【医療プライバシー保護】画像・テキストデータは一切外部サーバーへ送信されません。すべてブラウザ内の閉域メモリ上で安全に解析されます。
                 </span>
               </div>
             </div>
@@ -385,11 +369,25 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
             </div>
           )}
 
-          {/* Processing Indicator */}
+          {/* Processing Indicator with Progress Bar */}
           {isProcessing && (
-            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex items-center justify-center gap-3 text-emerald-800 text-xs font-bold animate-pulse">
-              <RefreshCw className="w-5 h-5 animate-spin text-emerald-600" />
-              <span>{processingStatus || 'Gemini AIが医療用語・電子カルテテキストを高精度解析中...'}</span>
+            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-2 animate-pulse">
+              <div className="flex items-center justify-between text-xs font-bold text-emerald-900">
+                <span className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-emerald-600" />
+                  <span>{processingStatus || '解析中...'}</span>
+                </span>
+                <span>{progressPercent}%</span>
+              </div>
+              <div className="w-full bg-emerald-100 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-emerald-600 h-full rounded-full transition-all duration-200"
+                  style={{ width: `${Math.max(5, progressPercent)}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-emerald-700">
+                ブラウザ内で Tesseract OCR ➔ WebLLM (Qwen2.5 1.5B) の2段階解析を実行中
+              </p>
             </div>
           )}
 
@@ -399,16 +397,16 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-slate-800 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>OCR認識結果 ({extractedText.length}文字)</span>
+                  <span>校正済みカルテテキスト ({extractedText.length}文字)</span>
                 </span>
-                <span className="text-[11px] text-slate-500">
-                  ※必要に応じて直接編集可能です
+                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                  Qwen2.5 補正済
                 </span>
               </div>
               <textarea
                 value={extractedText}
                 onChange={(e) => setExtractedText(e.target.value)}
-                rows={6}
+                rows={7}
                 className="w-full p-3 font-mono text-xs bg-slate-50 border border-slate-300 rounded-xl leading-relaxed focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 text-slate-900"
               />
             </div>
@@ -417,27 +415,28 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
 
         {/* Footer (Apply text buttons) */}
         {extractedText && (
-          <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-end gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                onApplyText(extractedText, 'append');
-                onClose();
-              }}
-              className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-            >
-              <span>現在の文章の末尾に追記</span>
-            </button>
+          <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row gap-2 shrink-0">
             <button
               type="button"
               onClick={() => {
                 onApplyText(extractedText, 'replace');
                 onClose();
               }}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+              className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer text-xs active:scale-98"
             >
               <Check className="w-4 h-4" />
-              <span>カルテ入力欄に反映して閉じる</span>
+              <span>カルテ欄を置き換える</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onApplyText(extractedText, 'append');
+                onClose();
+              }}
+              className="flex-1 py-3 px-4 bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-2xl border border-slate-300 flex items-center justify-center gap-2 transition-all cursor-pointer text-xs active:scale-98"
+            >
+              <FileText className="w-4 h-4 text-slate-500" />
+              <span>末尾に追記する</span>
             </button>
           </div>
         )}
