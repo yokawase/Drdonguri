@@ -34,13 +34,13 @@ public:
             cfg.pin_cs          = 4;   // TFT_CS
             cfg.pin_rst         = 1;   // TFT_RST
             cfg.pin_busy        = -1;
-            cfg.memory_width    = 80;  // 公式推奨: 80
-            cfg.memory_height   = 160; // 公式推奨: 160
+            cfg.memory_width    = 132; // ST7735S 物理RAM幅 (160x80回転時rowstart=26正立)
+            cfg.memory_height   = 162; // ST7735S 物理RAM高
             cfg.panel_width     = 80;
             cfg.panel_height    = 160;
             cfg.offset_x        = 26;  // IPSパネル水平オフセット
             cfg.offset_y        = 1;   // IPSパネル垂直オフセット
-            cfg.offset_rotation = 0;   // 回転基準オフセット0 (setRotationで制御)
+            cfg.offset_rotation = 0;   // 回転基準オフセット0
             cfg.invert          = true;  // IPSパネル色反転
             cfg.rgb_order       = false; // RGBカラーオーダー
             cfg.bus_shared      = true;
