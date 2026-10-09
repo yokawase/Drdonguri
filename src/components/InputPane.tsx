@@ -53,6 +53,8 @@ import {
   playSosumi 
 } from '../utils/macAudio';
 
+import { DeviceType } from '../hooks/useAdaptiveLayout';
+
 const STORAGE_KEY_TEMPLATES = 'drvoice_medical_custom_templates_v1';
 const STORAGE_KEY_BUFFER = 'drvoice_dispatcher_buf';
 
@@ -80,6 +82,8 @@ interface InputPaneProps {
   setIsPreprocessorModalOpen?: (open: boolean) => void;
   isCoprocessorModalOpen?: boolean;
   setIsCoprocessorModalOpen?: (open: boolean) => void;
+  deviceType?: DeviceType;
+  isLandscape?: boolean;
 }
 
 export const InputPane: React.FC<InputPaneProps> = ({
@@ -106,6 +110,8 @@ export const InputPane: React.FC<InputPaneProps> = ({
   setIsPreprocessorModalOpen: propSetPreprocessorOpen,
   isCoprocessorModalOpen: propCoprocessorOpen,
   setIsCoprocessorModalOpen: propSetCoprocessorOpen,
+  deviceType = 'desktop',
+  isLandscape = false,
 }) => {
   const [showTranspileDetail, setShowTranspileDetail] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<'standard' | 'xml_tags'>('xml_tags');
@@ -394,7 +400,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
         {/* ウィンドウ タイトルバー (6本平行ストライプ) */}
         <div className="h-7 mac-title-stripes border-b border-black flex items-center justify-between px-2 select-none">
           {/* 左側: クローズボックス ＆ タイトル ＆ 接続ステータス */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
             <button
               onClick={() => {
                 playMacBeep();
@@ -408,26 +414,33 @@ export const InputPane: React.FC<InputPaneProps> = ({
               title="クローズボックス"
             />
 
-            <div className="bg-white border border-black px-2 py-0.5 font-bold text-xs tracking-wider flex items-center gap-1.5 shadow-[1px_1px_0_#000]">
-              <span>DrVoice どんぐり君 v19.1 (双方向コプロセッサ)</span>
-              {isBleConnected ? (
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1 border border-emerald-500 font-bold">BLE接続</span>
-              ) : isVirtualMode ? (
-                <span className="text-[10px] bg-amber-100 text-amber-800 px-1 border border-amber-500 font-bold">仮想</span>
+            <div className="bg-white border border-black px-1.5 sm:px-2 py-0.5 font-bold text-xs tracking-wider flex items-center gap-1 sm:gap-1.5 shadow-[1px_1px_0_#000] truncate">
+              {deviceType === 'mobile' ? (
+                <span className="truncate">カルテ送信</span>
+              ) : deviceType === 'tablet' ? (
+                <span className="truncate">DrVoice カルテ (双方向AI)</span>
               ) : (
-                <span className="text-[10px] bg-red-100 text-red-800 px-1 border border-red-500 font-bold">未接続</span>
+                <span className="truncate">DrVoice どんぐり君 v19.1 (双方向コプロセッサ)</span>
+              )}
+
+              {isBleConnected ? (
+                <span className="text-[9px] sm:text-[10px] bg-emerald-100 text-emerald-800 px-1 border border-emerald-500 font-bold shrink-0">BLE</span>
+              ) : isVirtualMode ? (
+                <span className="text-[9px] sm:text-[10px] bg-amber-100 text-amber-800 px-1 border border-amber-500 font-bold shrink-0">仮想</span>
+              ) : (
+                <span className="text-[9px] sm:text-[10px] bg-red-100 text-red-800 px-1 border border-red-500 font-bold shrink-0">未接続</span>
               )}
               {isSending && (
-                <span className="text-[10px] animate-pulse font-bold text-blue-700">⏳ 送信中</span>
+                <span className="text-[9px] sm:text-[10px] font-bold text-blue-700 shrink-0">⏳ 送信中</span>
               )}
               {transmissionStatus?.status === 'waiting_button' && (
-                <span className="text-[10px] bg-black text-white px-1">ボタン待機</span>
+                <span className="text-[9px] sm:text-[10px] bg-black text-white px-1 shrink-0">待機中</span>
               )}
             </div>
           </div>
 
           {/* 右側: 消去 ＆ ツール・メニューボタン ＆ ズームボックス */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             {inputText.trim() && (
               <button
                 type="button"
@@ -438,10 +451,10 @@ export const InputPane: React.FC<InputPaneProps> = ({
                     showToast('入力をクリアしました');
                   }
                 }}
-                className="mac-btn text-[11px] py-0.5 px-2 bg-white"
+                className="mac-btn text-[10px] sm:text-[11px] py-0.5 px-1.5 sm:px-2 bg-white"
                 title="入力消去"
               >
-                <span>🗑️ クリア</span>
+                <span>🗑️{deviceType !== 'mobile' && ' クリア'}</span>
               </button>
             )}
 
@@ -452,10 +465,10 @@ export const InputPane: React.FC<InputPaneProps> = ({
                 playMacBeep();
                 setIsSmartMenuOpen(true);
               }}
-              className="mac-btn bg-black text-white hover:bg-neutral-800 font-bold text-[11px] py-0.5 px-2.5 flex items-center gap-1 shadow-[1px_1px_0_#000]"
+              className="mac-btn bg-black text-white hover:bg-neutral-800 font-bold text-[10px] sm:text-[11px] py-0.5 px-2 sm:px-2.5 flex items-center gap-1 shadow-[1px_1px_0_#000]"
               title="SOAP雛形・定型文・AI整形・IME設定メニューを開く"
             >
-              <Menu className="w-3.5 h-3.5" />
+              <Menu className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               <span>メニュー</span>
               {(misconversionWarnings.length > 0 || templates.length > 0) && (
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
@@ -477,7 +490,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
         </div>
 
         {/* ウィンドウ内部コンテンツ（シンプル・直感UI） */}
-        <div className="p-3 bg-white space-y-2.5">
+        <div className="p-2 sm:p-3 bg-white space-y-2.5">
           {/* Monaco / DotGothic16 プレーンテキスト入力欄 */}
           <div className="relative border border-black p-0.5 bg-white shadow-[inset_1px_1px_0_#000]">
             <textarea
@@ -485,8 +498,8 @@ export const InputPane: React.FC<InputPaneProps> = ({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="ここにカルテ所見・診察メモを入力してください（自動保存）...&#13;&#10;スマホの高度推論コンパイラがキーストロークを解析し、AtomS3UがWindows電子カルテへ100%正確に自動打鍵します。&#13;&#10;（右上の「メニュー」ボタンからSOAP雛形や定型文を展開できます）"
-              rows={isWindowZoomed ? 18 : 10}
-              className="w-full text-xs sm:text-sm leading-relaxed p-2.5 bg-white border-0 focus:outline-none font-mono resize-y"
+              rows={isWindowZoomed ? (deviceType === 'mobile' ? 14 : 18) : (deviceType === 'mobile' ? 7 : 10)}
+              className="w-full text-xs sm:text-sm leading-relaxed p-2 sm:p-2.5 bg-white border-0 focus:outline-none font-mono resize-y min-h-[140px]"
               style={{
                 fontFamily: "'Monaco', 'DotGothic16', 'Courier New', monospace",
                 lineHeight: '1.6',
@@ -496,10 +509,10 @@ export const InputPane: React.FC<InputPaneProps> = ({
 
           {/* ★【高度推論・キーストローク着弾リアルタイム解析モニター】 */}
           {inputText.trim() && compiledImeResult && (
-            <div className="border border-black bg-neutral-50 p-2 text-xs space-y-1.5 shadow-[1px_1px_0_#000]">
+            <div className="border border-black bg-neutral-50 p-1.5 sm:p-2 text-xs space-y-1.5 shadow-[1px_1px_0_#000]">
               <div className="flex items-center justify-between flex-wrap gap-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-bold flex items-center gap-1 text-emerald-800">
+                  <span className="font-bold flex items-center gap-1 text-emerald-800 text-[11px] sm:text-xs">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     100% 確実打鍵推論
                   </span>
@@ -510,14 +523,14 @@ export const InputPane: React.FC<InputPaneProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowTranspileDetail(!showTranspileDetail)}
-                  className="text-[11px] underline cursor-pointer text-neutral-600 hover:text-black flex items-center gap-0.5"
+                  className="text-[10px] sm:text-[11px] underline cursor-pointer text-neutral-600 hover:text-black flex items-center gap-0.5"
                 >
                   <span>{showTranspileDetail ? 'プレビューを閉じる ▲' : 'キーストローク詳細 ▼'}</span>
                 </button>
               </div>
 
               {/* 最適化タグのチップ一覧 */}
-              <div className="flex flex-wrap items-center gap-1 text-[11px]">
+              <div className="flex flex-wrap items-center gap-1 text-[10px] sm:text-[11px]">
                 {compiledImeResult.breakdownCounts.katakanaF7 > 0 && (
                   <span className="bg-blue-100 text-blue-900 border border-blue-400 px-1 py-0.2 font-bold">
                     F7全角カナ: {compiledImeResult.breakdownCounts.katakanaF7}語
@@ -557,47 +570,76 @@ export const InputPane: React.FC<InputPaneProps> = ({
             </div>
           )}
 
-          {/* テキストエリア直下: ステータス ＆ 送信コントロール */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-black text-xs">
-            {/* 左側: 文字数 / パケット / HVCスコア */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-bold">{inputText.length} 文字</span>
-              {preparedSession && (
-                <>
-                  <span>|</span>
-                  <span>{preparedSession.totalBytes} B</span>
-                  <span>|</span>
-                  <span>{preparedSession.totalPackets} パケット</span>
-                </>
-              )}
+          {/* ========================================================================= */}
+          {/* ★ アダプティブ コントロールバー (モバイル vs タブレット/PC) */}
+          {/* ========================================================================= */}
+          {deviceType === 'mobile' ? (
+            /* ── モバイル向け親指アクションバー ── */
+            <div className="space-y-2 pt-1 border-t border-black">
+              {/* ステータスバッジ（1行） */}
+              <div className="flex items-center justify-between text-[11px] text-gray-700">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold">{inputText.length} 文字</span>
+                  {preparedSession && (
+                    <>
+                      <span>|</span>
+                      <span>{preparedSession.totalPackets} PKT</span>
+                    </>
+                  )}
+                  {inputText.trim() && (
+                    <>
+                      <span>|</span>
+                      <span className="px-1 py-0.2 border border-black font-bold text-[10px]">
+                        HVC: {hvcScore}
+                      </span>
+                    </>
+                  )}
+                </div>
+                {isAutoSavedNotice && <span className="text-[10px] text-gray-500">💾 保存済</span>}
+              </div>
 
-              {/* スマートHVCスコア バッジ */}
-              {inputText.trim() && (
-                <>
-                  <span>|</span>
-                  <span
-                    className={`px-1.5 py-0.2 border border-black font-bold text-[11px] select-none ${
-                      hvcScore >= 85
-                        ? 'bg-black text-white'
-                        : hvcScore >= 70
-                        ? 'bg-slate-100 text-black'
-                        : 'bg-white text-black'
-                    }`}
-                    title="高価値医療（HVC）スマートスコア"
-                  >
-                    HVC: {hvcScore}点
-                  </span>
-                </>
-              )}
+              {/* モバイル クイックアクションボタン群 (親指で届くグリッド) */}
+              <div className="grid grid-cols-3 gap-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playMacBeep();
+                    setIsCameraOcrOpen(true);
+                  }}
+                  className="mac-btn py-2 flex items-center justify-center gap-1 font-bold bg-white"
+                  title="カメラOCRで処方箋や書類をスキャン"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>カメラOCR</span>
+                </button>
 
-              {isAutoSavedNotice && (
-                <span className="text-[10px] text-gray-500 ml-1">💾 保存済</span>
-              )}
-            </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playMacBeep();
+                    setIsAiModalOpen(true);
+                  }}
+                  className="mac-btn py-2 flex items-center justify-center gap-1 font-bold bg-white"
+                  title="WebLLMでカルテ所見を整形"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                  <span>AI整形</span>
+                </button>
 
-            {/* 右側: 物理ボタン押下 ＆ メイン送信ボタン */}
-            <div className="flex items-center gap-2">
-              {/* どんぐり君正面ボタン押下 (待機時のみ表示) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    playMacBeep();
+                    setIsCoprocessorModalOpen(true);
+                  }}
+                  className="mac-btn py-2 flex items-center justify-center gap-1 font-bold bg-yellow-100 hover:bg-yellow-200 border-black"
+                  title="過去カルテ吸い上げ＆要約"
+                >
+                  <span>📥 要約</span>
+                </button>
+              </div>
+
+              {/* 待機時ボタン押下 */}
               {transmissionStatus?.status === 'waiting_button' && (
                 <button
                   type="button"
@@ -605,33 +647,19 @@ export const InputPane: React.FC<InputPaneProps> = ({
                     playMacBeep();
                     if (onPressVirtualButton) onPressVirtualButton();
                   }}
-                  className="mac-btn bg-black text-white hover:bg-neutral-800 font-bold"
-                  title="AtomS3U正面ボタンを押して打鍵開始"
+                  className="w-full mac-btn bg-black text-white hover:bg-neutral-800 font-bold py-2.5 text-xs"
                 >
-                  <span>本体ボタン押下 🔘</span>
+                  <span>本体ボタン押下 🔘 (打鍵開始)</span>
                 </button>
               )}
 
-              {/* 医療双方向エッジコプロセッサ (吸い上げ ＆ 要約 ＆ 書き戻し) */}
-              <button
-                type="button"
-                onClick={() => {
-                  playMacBeep();
-                  setIsCoprocessorModalOpen(true);
-                }}
-                className="mac-btn bg-yellow-100 hover:bg-yellow-200 border-2 border-black font-bold flex items-center gap-1.5 text-xs px-3 py-1.5 shadow-[1px_1px_0_#000] active:translate-x-0.5 active:translate-y-0.5"
-                title="閉域網電カルから過去カルテを吸い上げ、スマホAIで要約し、書き戻す"
-              >
-                <span>📥 過去カルテ吸い上げ＆要約 (双方向)</span>
-              </button>
-
-              {/* System 7 特有の太い二重枠デフォルトボタン [ 送信 ↩ ] */}
-              <div className="mac-btn-default-wrapper">
+              {/* メイン送信ボタン (モバイル特大サイズ) */}
+              <div className="mac-btn-default-wrapper w-full">
                 <button
                   type="button"
                   onClick={handleSend}
                   disabled={!inputText.trim() || isSending || (!isBleConnected && !isVirtualMode)}
-                  className="mac-btn mac-btn-default px-6 py-1.5 text-xs font-bold"
+                  className="w-full mac-btn mac-btn-default py-2.5 text-xs font-bold"
                 >
                   {isSending ? (
                     <span className="animate-pulse">⏳ 送信中...</span>
@@ -641,7 +669,93 @@ export const InputPane: React.FC<InputPaneProps> = ({
                 </button>
               </div>
             </div>
-          </div>
+          ) : (
+            /* ── PC / タブレット向けコントロールバー ── */
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-black text-xs">
+              {/* 左側: 文字数 / パケット / HVCスコア */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold">{inputText.length} 文字</span>
+                {preparedSession && (
+                  <>
+                    <span>|</span>
+                    <span>{preparedSession.totalBytes} B</span>
+                    <span>|</span>
+                    <span>{preparedSession.totalPackets} パケット</span>
+                  </>
+                )}
+
+                {/* スマートHVCスコア バッジ */}
+                {inputText.trim() && (
+                  <>
+                    <span>|</span>
+                    <span
+                      className={`px-1.5 py-0.2 border border-black font-bold text-[11px] select-none ${
+                        hvcScore >= 85
+                          ? 'bg-black text-white'
+                          : hvcScore >= 70
+                          ? 'bg-slate-100 text-black'
+                          : 'bg-white text-black'
+                      }`}
+                      title="高価値医療（HVC）スマートスコア"
+                    >
+                      HVC: {hvcScore}点
+                    </span>
+                  </>
+                )}
+
+                {isAutoSavedNotice && (
+                  <span className="text-[10px] text-gray-500 ml-1">💾 保存済</span>
+                )}
+              </div>
+
+              {/* 右側: 物理ボタン押下 ＆ メイン送信ボタン */}
+              <div className="flex items-center gap-2">
+                {/* どんぐり君正面ボタン押下 (待機時のみ表示) */}
+                {transmissionStatus?.status === 'waiting_button' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playMacBeep();
+                      if (onPressVirtualButton) onPressVirtualButton();
+                    }}
+                    className="mac-btn bg-black text-white hover:bg-neutral-800 font-bold"
+                    title="AtomS3U正面ボタンを押して打鍵開始"
+                  >
+                    <span>本体ボタン押下 🔘</span>
+                  </button>
+                )}
+
+                {/* 医療双方向エッジコプロセッサ (吸い上げ ＆ 要約 ＆ 書き戻し) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    playMacBeep();
+                    setIsCoprocessorModalOpen(true);
+                  }}
+                  className="mac-btn bg-yellow-100 hover:bg-yellow-200 border-2 border-black font-bold flex items-center gap-1.5 text-xs px-3 py-1.5 shadow-[1px_1px_0_#000] active:translate-x-0.5 active:translate-y-0.5"
+                  title="閉域網電カルから過去カルテを吸い上げ、スマホAIで要約し、書き戻す"
+                >
+                  <span>📥 過去カルテ吸い上げ＆要約 (双方向)</span>
+                </button>
+
+                {/* System 7 特有の太い二重枠デフォルトボタン [ 送信 ↩ ] */}
+                <div className="mac-btn-default-wrapper">
+                  <button
+                    type="button"
+                    onClick={handleSend}
+                    disabled={!inputText.trim() || isSending || (!isBleConnected && !isVirtualMode)}
+                    className="mac-btn mac-btn-default px-6 py-1.5 text-xs font-bold"
+                  >
+                    {isSending ? (
+                      <span className="animate-pulse">⏳ 送信中...</span>
+                    ) : (
+                      <span>カルテへ送信 (SendText) ↩</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ★ 選択肢B【オンデバイス完結型】稼働情報バナー */}
           {dispatchMode === DispatchMode.MODE_ONDEVICE_SPIFFS && (

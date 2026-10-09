@@ -256,3 +256,17 @@
 .animate-led {
   animation: led-pulse 1.8s infinite ease-in-out;
 }
+
+/* モバイル横スクロール用スクロールバー非表示 */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* iOS Safe Area ユーティリティ */
+.safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+}

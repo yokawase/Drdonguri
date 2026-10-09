@@ -1,6 +1,7 @@
 import React from 'react';
 import { playMacBeep, playSosumi } from '../utils/macAudio';
 import { LATEST_FIRMWARE_VERSION } from '../data/firmwareSource';
+import { DeviceType } from '../hooks/useAdaptiveLayout';
 
 interface MacDesktopIconsProps {
   onOpenInput: () => void;
@@ -9,6 +10,7 @@ interface MacDesktopIconsProps {
   onOpenCoprocessor?: () => void;
   onClearChart: () => void;
   hasChartContent: boolean;
+  deviceType?: DeviceType;
 }
 
 export const MacDesktopIcons: React.FC<MacDesktopIconsProps> = ({
@@ -18,10 +20,16 @@ export const MacDesktopIcons: React.FC<MacDesktopIconsProps> = ({
   onOpenCoprocessor,
   onClearChart,
   hasChartContent,
+  deviceType = 'desktop',
 }) => {
+  // モバイル・タブレットではメインウィンドウとの重なりを防止するため非表示にする
+  if (deviceType !== 'desktop') {
+    return null;
+  }
+
   return (
     <div
-      className="hidden md:flex flex-col gap-6 fixed right-4 top-10 z-20 select-none text-xs"
+      className="hidden xl:flex flex-col gap-6 fixed right-4 top-10 z-20 select-none text-xs"
       style={{ fontFamily: "'DotGothic16', 'Monaco', monospace" }}
     >
       {/* 1. Macintosh HD (カルテ保存 / 送信メイン) */}
@@ -31,7 +39,7 @@ export const MacDesktopIcons: React.FC<MacDesktopIconsProps> = ({
           onOpenInput();
         }}
         className="flex flex-col items-center gap-1 group cursor-pointer focus:outline-none"
-        title="ダブルクリック / クリックでカルテ送信を開く"
+        title="クリックでカルテ送信を開く"
       >
         <div className="w-12 h-10 border border-black bg-white shadow-[1px_1px_0_#000] flex flex-col items-center justify-center p-1 group-active:bg-black group-active:text-white">
           <div className="w-8 h-4 border border-black bg-white group-active:bg-white group-active:border-white mb-0.5" />
@@ -99,21 +107,22 @@ export const MacDesktopIcons: React.FC<MacDesktopIconsProps> = ({
       {/* 5. ゴミ箱 (Trash) */}
       <button
         onClick={() => {
-          playSosumi();
-          onClearChart();
+          if (hasChartContent) {
+            onClearChart();
+          } else {
+            playSosumi();
+          }
         }}
-        className="flex flex-col items-center gap-1 group cursor-pointer focus:outline-none mt-4"
-        title={hasChartContent ? 'ゴミ箱をクリックしてカルテを全消去' : 'ゴミ箱（空）'}
+        className="flex flex-col items-center gap-1 group cursor-pointer focus:outline-none"
+        title={hasChartContent ? 'カルテテキストをゴミ箱に捨てる' : 'ゴミ箱（空）'}
       >
-        <div className="w-11 h-12 border border-black bg-white shadow-[1px_1px_0_#000] flex flex-col items-center justify-center p-1 group-active:bg-black group-active:text-white relative">
-          <div className="text-xl">
-            {hasChartContent ? '🗑️' : '🗑️'}
-          </div>
+        <div className="w-12 h-12 border border-black bg-white shadow-[1px_1px_0_#000] flex flex-col items-center justify-center p-1 group-active:bg-black group-active:text-white relative">
+          <div className="text-xl">🗑️</div>
           {hasChartContent && (
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-black rounded-full border border-white" />
+            <div className="absolute top-0 right-0 w-2 h-2 bg-black rounded-full" title="ゴミが入っています" />
           )}
         </div>
-        <span className="bg-white border border-transparent px-1 group-hover:border-black group-active:bg-black group-active:text-white group-active:border-black">
+        <span className="bg-white border border-transparent px-1 group-hover:border-black group-active:bg-black group-active:text-white group-active:border-black text-center">
           ゴミ箱
         </span>
       </button>

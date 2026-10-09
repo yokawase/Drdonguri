@@ -227,13 +227,13 @@ ${pPart}`;
               className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] active:bg-black cursor-pointer flex items-center justify-center shrink-0"
               title="閉じる"
             />
-            <div className="bg-white border border-black px-2 py-0.5 font-bold text-xs tracking-wider flex items-center gap-1.5 shadow-[1px_1px_0_#000]">
-              <Cpu className="w-3.5 h-3.5 text-black" />
-              <span>世界初：医療双方向エッジコプロセッサ (v19.1)</span>
+            <div className="bg-white border border-black px-2 py-0.5 font-bold text-xs tracking-wider flex items-center gap-1.5 shadow-[1px_1px_0_#000] truncate min-w-0">
+              <Cpu className="w-3.5 h-3.5 text-black shrink-0" />
+              <span className="truncate">医療双方向コプロセッサ (v19.1)</span>
             </div>
           </div>
-          <div className="text-[10px] font-mono bg-white px-1.5 border border-black shadow-[1px_1px_0_#000]">
-            USB HID打鍵 ＋ 仮想プリンター吸い上げ 1チップ同時駆動
+          <div className="text-[10px] font-mono bg-white px-1.5 border border-black shadow-[1px_1px_0_#000] hidden sm:block shrink-0">
+            USB HID打鍵 ＋ 仮想プリンター吸い上げ
           </div>
         </div>
 

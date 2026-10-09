@@ -78,8 +78,8 @@ export const FirmwareHub: React.FC<FirmwareHubProps> = ({
             title="閉じる"
           />
 
-          <div className="bg-white border border-black px-3 py-0.2 font-bold text-xs tracking-wider flex items-center gap-2">
-            <span>ファームウェア {LATEST_FIRMWARE_VERSION} (PlatformIO / Arduino)</span>
+          <div className="bg-white border border-black px-2 sm:px-3 py-0.2 font-bold text-xs tracking-wider flex items-center gap-1 sm:gap-2 truncate min-w-0">
+            <span className="truncate">ファームウェア {LATEST_FIRMWARE_VERSION}</span>
           </div>
 
           <div className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] flex items-center justify-center shrink-0">

@@ -81,13 +81,13 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-black/60 select-none overflow-y-auto">
       <div
-        className="mac-window max-w-xl w-full bg-white text-xs shadow-2xl border-2 border-black"
+        className="mac-window max-w-xl w-full bg-white text-xs shadow-2xl border-2 border-black max-h-[92vh] flex flex-col"
         style={{ fontFamily: "'DotGothic16', 'Monaco', monospace" }}
       >
         {/* Title Bar */}
-        <div className="h-6 mac-title-stripes border-b border-black flex items-center justify-between px-2">
+        <div className="h-6 mac-title-stripes border-b border-black flex items-center justify-between px-2 shrink-0">
           <button
             onClick={() => {
               playMacBeep();
@@ -96,17 +96,17 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
             className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] active:bg-black cursor-pointer"
             title="閉じる"
           />
-          <div className="bg-white border border-black px-2 py-0.2 font-bold text-xs tracking-wider flex items-center gap-1.5">
-            <span>AI カルテ校正 (WebLLM)</span>
-            <span className="text-[10px] bg-black text-white px-1">完全ローカル</span>
+          <div className="bg-white border border-black px-2 py-0.2 font-bold text-xs tracking-wider flex items-center gap-1.5 truncate min-w-0">
+            <span className="truncate">AI カルテ校正 (WebLLM)</span>
+            <span className="text-[10px] bg-black text-white px-1 shrink-0">完全ローカル</span>
           </div>
-          <div className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] flex items-center justify-center">
+          <div className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] flex items-center justify-center shrink-0">
             <div className="w-1.5 h-1.5 border border-black" />
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-3 space-y-3 bg-white">
+        <div className="p-3 space-y-3 bg-white overflow-y-auto flex-1">
           {/* Model Speed Selector */}
           <div className="border border-black p-2 bg-gray-50 flex items-center justify-between">
             <span className="font-bold text-[11px]">AIモデル速度:</span>

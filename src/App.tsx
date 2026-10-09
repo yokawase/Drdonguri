@@ -37,10 +37,22 @@ import {
   playStartupChime,
   playTrashSound
 } from './utils/macAudio';
+import { useAdaptiveLayout } from './hooks/useAdaptiveLayout';
 
 const STORAGE_KEY_BUFFER = 'drvoice_dispatcher_buf';
 
 export default function App() {
+  // アダプティブレイアウト自動判定 ＆ 手動切替
+  const {
+    mode: adaptiveMode,
+    deviceType,
+    setMode: setAdaptiveMode,
+    isLandscape,
+    isMobile,
+    isTablet,
+    isDesktop
+  } = useAdaptiveLayout();
+
   // ナビゲーションタブ: カルテ作成 / どんぐり君制御 / ファームウェア
   const [activeTab, setActiveTab] = useState<'input' | 'dongle' | 'firmware'>('input');
 
@@ -545,7 +557,7 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen ${isMonoClassic ? 'classic-desktop' : 'bg-slate-100'} flex flex-col pb-16 md:pb-6 select-none`}
+      className={`min-h-screen ${isMonoClassic ? 'classic-desktop' : 'bg-slate-100'} flex flex-col ${isMobile ? 'pb-20' : 'pb-16 md:pb-6'} select-none`}
       style={{ fontFamily: "'DotGothic16', 'Monaco', monospace" }}
     >
       {/* ======================================================================= */}
@@ -579,6 +591,9 @@ export default function App() {
         onEmptyTrash={handleEmptyTrash}
         isMonoClassic={isMonoClassic}
         setIsMonoClassic={setIsMonoClassic}
+        deviceType={deviceType}
+        adaptiveMode={adaptiveMode}
+        onSelectAdaptiveMode={setAdaptiveMode}
       />
 
       {/* ======================================================================= */}
@@ -591,22 +606,23 @@ export default function App() {
         onOpenCoprocessor={() => { setActiveTab('input'); setIsCoprocessorModalOpen(true); }}
         onClearChart={handleEmptyTrash}
         hasChartContent={Boolean(inputText.trim())}
+        deviceType={deviceType}
       />
 
       {/* ======================================================================= */}
       {/* 3. デスクトップ 作業領域 (メインウィンドウ) */}
       {/* ======================================================================= */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-2 sm:px-4 py-3 space-y-3">
-        {/* System 7 ウィンドウ切替タブ (Window Switcher) */}
-        <div className="flex items-center gap-1 border-b border-black pb-1 select-none text-xs">
+      <main className={`flex-1 ${isMobile ? 'w-full px-1.5 py-1.5' : isTablet ? 'max-w-3xl w-full mx-auto px-3 py-2' : 'max-w-4xl w-full mx-auto px-4 py-3'} space-y-2.5 sm:space-y-3`}>
+        {/* System 7 ウィンドウ切替タブ (Window Switcher - 横スクロール対応) */}
+        <div className="flex items-center gap-1 border-b border-black pb-1 select-none text-xs overflow-x-auto whitespace-nowrap scrollbar-none">
           <button
             onClick={() => {
               playMacBeep();
               setActiveTab('input');
             }}
-            className={`mac-btn ${activeTab === 'input' ? 'bg-black text-white font-bold' : ''}`}
+            className={`mac-btn shrink-0 ${activeTab === 'input' ? 'bg-black text-white font-bold' : ''}`}
           >
-            <span>📄 カルテ送信 (SendText)</span>
+            <span>📄 カルテ送信</span>
           </button>
 
           <button
@@ -614,9 +630,9 @@ export default function App() {
               playMacBeep();
               setActiveTab('dongle');
             }}
-            className={`mac-btn ${activeTab === 'dongle' ? 'bg-black text-white font-bold' : ''}`}
+            className={`mac-btn shrink-0 ${activeTab === 'dongle' ? 'bg-black text-white font-bold' : ''}`}
           >
-            <span>🌰 どんぐり君インスペクター</span>
+            <span>🌰 どんぐり君</span>
             <span
               className="w-2 h-2 rounded-full border border-black inline-block ml-1"
               style={{ backgroundColor: ledStatus.hex }}
@@ -628,7 +644,7 @@ export default function App() {
               playMacBeep();
               setActiveTab('firmware');
             }}
-            className={`mac-btn ${activeTab === 'firmware' ? 'bg-black text-white font-bold' : ''}`}
+            className={`mac-btn shrink-0 ${activeTab === 'firmware' ? 'bg-black text-white font-bold' : ''}`}
           >
             <span>💾 FW {LATEST_FIRMWARE_VERSION}</span>
           </button>
@@ -638,7 +654,7 @@ export default function App() {
               playMacBeep();
               setIsCoprocessorModalOpen(true);
             }}
-            className="mac-btn bg-yellow-100 hover:bg-yellow-200 border border-black font-bold flex items-center gap-1 text-xs shadow-[1px_1px_0_#000]"
+            className="mac-btn shrink-0 bg-yellow-100 hover:bg-yellow-200 border border-black font-bold flex items-center gap-1 text-xs shadow-[1px_1px_0_#000]"
             title="閉域網電カルから過去カルテを吸い上げ、スマホAIで要約し、書き戻す"
           >
             <span>📥 双方向コプロセッサ</span>
@@ -713,6 +729,8 @@ export default function App() {
             setIsPreprocessorModalOpen={setIsPreprocessorModalOpen}
             isCoprocessorModalOpen={isCoprocessorModalOpen}
             setIsCoprocessorModalOpen={setIsCoprocessorModalOpen}
+            deviceType={deviceType}
+            isLandscape={isLandscape}
           />
         )}
 
@@ -747,48 +765,73 @@ export default function App() {
       </main>
 
       {/* ======================================================================= */}
-      {/* 4. モバイル用 下部固定バー (Classic 1-bit Style) */}
+      {/* 4. モバイル用 下部固定バー (Adaptive Touch Navigation) */}
       {/* ======================================================================= */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-black grid grid-cols-3 items-center h-12 px-1 text-xs select-none shadow-[0_-1px_0_#000]">
-        <button
-          onClick={() => {
-            playMacBeep();
-            setActiveTab('input');
-          }}
-          className={`flex items-center justify-center gap-1 h-full cursor-pointer ${
-            activeTab === 'input' ? 'bg-black text-white font-bold' : 'hover:bg-gray-100'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5" />
-          <span>カルテ作成</span>
-        </button>
+      {isMobile && (
+        <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-black grid grid-cols-5 items-center h-12 pb-[env(safe-area-inset-bottom)] px-0.5 text-[10px] select-none shadow-[0_-1px_0_#000]">
+          <button
+            onClick={() => {
+              playMacBeep();
+              setActiveTab('input');
+            }}
+            className={`flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer ${
+              activeTab === 'input' ? 'bg-black text-white font-bold' : 'hover:bg-gray-100'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>カルテ</span>
+          </button>
 
-        <button
-          onClick={() => {
-            playMacBeep();
-            setActiveTab('dongle');
-          }}
-          className={`flex items-center justify-center gap-1 h-full cursor-pointer ${
-            activeTab === 'dongle' ? 'bg-black text-white font-bold' : 'hover:bg-gray-100'
-          }`}
-        >
-          <Cpu className="w-3.5 h-3.5" />
-          <span>どんぐり君</span>
-        </button>
+          <button
+            onClick={() => {
+              playMacBeep();
+              setActiveTab('input');
+              setIsAiModalOpen(true);
+            }}
+            className="flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer hover:bg-gray-100"
+          >
+            <span className="text-xs">🤖</span>
+            <span>AI整形</span>
+          </button>
 
-        <button
-          onClick={() => {
-            playMacBeep();
-            setActiveTab('firmware');
-          }}
-          className={`flex items-center justify-center gap-1 h-full cursor-pointer ${
-            activeTab === 'firmware' ? 'bg-black text-white font-bold' : 'hover:bg-gray-100'
-          }`}
-        >
-          <FileCode className="w-3.5 h-3.5" />
-          <span>FW {LATEST_FIRMWARE_VERSION}</span>
-        </button>
-      </nav>
+          <button
+            onClick={() => {
+              playMacBeep();
+              setActiveTab('input');
+              setIsCameraOcrOpen(true);
+            }}
+            className="flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer hover:bg-gray-100"
+          >
+            <span className="text-xs">📷</span>
+            <span>OCR</span>
+          </button>
+
+          <button
+            onClick={() => {
+              playMacBeep();
+              setActiveTab('input');
+              setIsCoprocessorModalOpen(true);
+            }}
+            className="flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer bg-yellow-50 hover:bg-yellow-100 font-bold"
+          >
+            <span className="text-xs">📥</span>
+            <span>要約</span>
+          </button>
+
+          <button
+            onClick={() => {
+              playMacBeep();
+              setActiveTab('dongle');
+            }}
+            className={`flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer ${
+              activeTab === 'dongle' ? 'bg-black text-white font-bold' : 'hover:bg-gray-100'
+            }`}
+          >
+            <Cpu className="w-3.5 h-3.5" />
+            <span>ドングル</span>
+          </button>
+        </nav>
+      )}
 
       {/* ======================================================================= */}
       {/* ======================================================================= */}

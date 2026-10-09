@@ -5,6 +5,9 @@ import {
   playSosumi 
 } from '../utils/macAudio';
 import { LATEST_FIRMWARE_VERSION } from '../data/firmwareSource';
+import { AdaptiveMode, DeviceType } from '../hooks/useAdaptiveLayout';
+import { AdaptiveModeSwitcher } from './AdaptiveModeSwitcher';
+import { Menu, X, Smartphone, Tablet, Monitor } from 'lucide-react';
 
 interface MacMenuBarProps {
   activeTab: 'input' | 'dongle' | 'firmware';
@@ -34,6 +37,9 @@ interface MacMenuBarProps {
   onEmptyTrash: () => void;
   isMonoClassic: boolean;
   setIsMonoClassic: (mono: boolean) => void;
+  deviceType?: DeviceType;
+  adaptiveMode?: AdaptiveMode;
+  onSelectAdaptiveMode?: (mode: AdaptiveMode) => void;
 }
 
 export const MacMenuBar: React.FC<MacMenuBarProps> = ({
@@ -64,9 +70,13 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
   onEmptyTrash,
   isMonoClassic,
   setIsMonoClassic,
+  deviceType = 'desktop',
+  adaptiveMode = 'auto',
+  onSelectAdaptiveMode,
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<string>('');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const menuBarRef = useRef<HTMLDivElement>(null);
 
   // 時計更新 (System 7 伝統の時刻表示)
@@ -103,17 +113,210 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
   const handleItemClick = (action: () => void) => {
     action();
     setOpenMenu(null);
+    setIsMobileMenuOpen(false);
   };
 
+  const isMobile = deviceType === 'mobile';
+  const isTablet = deviceType === 'tablet';
+
+  // =========================================================================
+  // モバイル用メニューバー (スリム＆タッチ最適化)
+  // =========================================================================
+  if (isMobile) {
+    return (
+      <>
+        <div
+          ref={menuBarRef}
+          className="sticky top-0 z-50 h-8 bg-white border-b border-black flex items-center justify-between px-2 text-xs select-none shadow-[0_1px_0_#000]"
+          style={{ fontFamily: "'DotGothic16', 'Monaco', monospace" }}
+        >
+          {/* 左:  ロゴ & アプリ名 */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                playMacBeep();
+                onOpenAbout();
+              }}
+              className="px-1 font-bold text-sm cursor-pointer hover:bg-black hover:text-white"
+              title="この Mac について..."
+            >
+              
+            </button>
+            <span className="font-bold text-xs">Dr.Dongly</span>
+            {/* 接続状態 */}
+            <span
+              className={`text-[9px] px-1 py-0.2 border border-black font-bold ${
+                isBleConnected
+                  ? 'bg-black text-white'
+                  : isVirtualMode
+                  ? 'bg-amber-100 text-amber-900'
+                  : 'bg-white text-gray-500'
+              }`}
+            >
+              {isBleConnected ? 'BLE' : isVirtualMode ? '仮想' : '未接続'}
+            </span>
+          </div>
+
+          {/* 右: アダプティブ切替 ＆ ハンバーガーメニュー */}
+          <div className="flex items-center gap-1.5">
+            {onSelectAdaptiveMode && (
+              <AdaptiveModeSwitcher
+                mode={adaptiveMode}
+                deviceType={deviceType}
+                onSelectMode={onSelectAdaptiveMode}
+                compact
+              />
+            )}
+
+            <button
+              onClick={() => {
+                playMacBeep();
+                setIsMobileMenuOpen(!isMobileMenuOpen);
+              }}
+              className="flex items-center gap-1 border border-black bg-white active:bg-black active:text-white px-2 py-0.5 shadow-[1px_1px_0_#000] font-bold text-xs cursor-pointer"
+              title="メニューを開く"
+            >
+              {isMobileMenuOpen ? <X className="w-3.5 h-3.5" /> : <Menu className="w-3.5 h-3.5" />}
+              <span>{isMobileMenuOpen ? '閉じる' : 'メニュー'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* モバイル用 フルスクリーンメニュー ドロワー */}
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 top-8 z-40 bg-black/60 backdrop-blur-none flex flex-col p-3 overflow-y-auto animate-in fade-in select-none">
+            <div className="mac-window bg-white border-2 border-black p-3 space-y-3 shadow-[4px_4px_0_#000] my-auto max-h-[85vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-black pb-1.5 font-bold text-xs">
+                <span> System 7 アダプティブメニュー</span>
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-2 py-0.2 border border-black text-xs hover:bg-black hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* クイックアクション */}
+              <div className="space-y-1">
+                <div className="text-[10px] text-gray-500 font-bold">📄 カルテ・入力操作</div>
+                <div className="grid grid-cols-2 gap-1.5 text-xs">
+                  <button
+                    onClick={() => handleItemClick(() => { setActiveTab('input'); onNewChart(); })}
+                    className="mac-btn text-left p-1.5 flex items-center gap-1"
+                  >
+                    <span>📄 新規カルテ</span>
+                  </button>
+                  <button
+                    onClick={() => handleItemClick(() => { setActiveTab('input'); onOpenTemplates(); })}
+                    className="mac-btn text-left p-1.5 flex items-center gap-1"
+                  >
+                    <span>🔖 テンプレート</span>
+                  </button>
+                  <button
+                    onClick={() => handleItemClick(() => { setActiveTab('input'); onOpenAiAssist(); })}
+                    className="mac-btn text-left p-1.5 flex items-center gap-1"
+                  >
+                    <span>🤖 AIスマート整形</span>
+                  </button>
+                  <button
+                    onClick={() => handleItemClick(() => { setActiveTab('input'); onOpenOcr(); })}
+                    className="mac-btn text-left p-1.5 flex items-center gap-1"
+                  >
+                    <span>📷 カメラOCR</span>
+                  </button>
+                  <button
+                    onClick={() => handleItemClick(() => { setActiveTab('input'); onTransmit(); })}
+                    className="mac-btn text-left p-1.5 flex items-center gap-1 col-span-2 bg-black text-white font-bold"
+                  >
+                    <span>⚡ カルテへ送信 (Transmit)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* ドングル・通信制御 */}
+              <div className="space-y-1 border-t border-black/20 pt-2">
+                <div className="text-[10px] text-gray-500 font-bold">🌰 どんぐり君 (AtomS3U) 制御</div>
+                <div className="grid grid-cols-2 gap-1.5 text-xs">
+                  <button
+                    onClick={() => handleItemClick(onConnectBle)}
+                    className="mac-btn text-left p-1.5 font-bold"
+                  >
+                    <span>{isBleConnected ? '● BLE 切断' : '○ BLE 接続'}</span>
+                  </button>
+                  <button
+                    onClick={() => handleItemClick(onToggleVirtualMode)}
+                    className="mac-btn text-left p-1.5"
+                  >
+                    <span>仮想: {isVirtualMode ? 'ON' : 'OFF'}</span>
+                  </button>
+                  <button
+                    onClick={() => handleItemClick(onPressDongleBtn)}
+                    className="mac-btn text-left p-1.5 col-span-2 bg-yellow-50 border-black font-bold"
+                  >
+                    <span>🔘 本体正面ボタン押下</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* System 7 デスクアクセサリ */}
+              <div className="space-y-1 border-t border-black/20 pt-2">
+                <div className="text-[10px] text-gray-500 font-bold"> デスクアクセサリ (DA)</div>
+                <div className="grid grid-cols-2 gap-1.5 text-xs">
+                  <button
+                    onClick={() => handleItemClick(onOpenCalculator)}
+                    className="mac-btn text-left p-1.5"
+                  >
+                    <span>🧮 計算機 (eGFR)</span>
+                  </button>
+                  <button
+                    onClick={() => handleItemClick(onOpenScrapbook)}
+                    className="mac-btn text-left p-1.5"
+                  >
+                    <span>📋 スクラップ</span>
+                  </button>
+                  <button
+                    onClick={() => handleItemClick(onOpenAbout)}
+                    className="mac-btn text-left p-1.5"
+                  >
+                    <span>ℹ️ このMacについて</span>
+                  </button>
+                  <button
+                    onClick={() => handleItemClick(onOpenBombAlert)}
+                    className="mac-btn text-left p-1.5 text-red-700"
+                  >
+                    <span>💣 爆弾アラート</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-t border-black/20 pt-2 flex items-center justify-between text-[10px] text-gray-500">
+                <span>時計: {currentTime}</span>
+                <button
+                  onClick={() => handleItemClick(() => setIsMonoClassic(!isMonoClassic))}
+                  className="underline hover:text-black"
+                >
+                  {isMonoClassic ? '白黒 1bit' : 'カラー表示'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // =========================================================================
+  // PC / タブレット用メニューバー (Classic System 7 フルメニュー)
+  // =========================================================================
   return (
     <div
       ref={menuBarRef}
-      className="sticky top-0 z-50 h-6 bg-white border-b border-black flex items-center justify-between px-2 text-xs select-none shadow-[0_1px_0_#000]"
+      className={`sticky top-0 z-50 ${isTablet ? 'h-7' : 'h-6'} bg-white border-b border-black flex items-center justify-between px-2 text-xs select-none shadow-[0_1px_0_#000]`}
       style={{ fontFamily: "'DotGothic16', 'Monaco', monospace" }}
     >
       {/* 左側: メニュー項目一覧 */}
       <div className="flex items-center gap-0">
-        {/*  Apple / どんぐり マーク */}
+        {/*  Apple マーク */}
         <div className="relative">
           <button
             onClick={() => toggleMenu('apple')}
@@ -260,49 +463,26 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
             編集
           </button>
           {openMenu === 'edit' && (
-            <div className="absolute top-6 left-0 min-w-[180px] bg-white border border-black shadow-[2px_2px_0_#000] py-1 z-50">
+            <div className="absolute top-6 left-0 min-w-[190px] bg-white border border-black shadow-[2px_2px_0_#000] py-1 z-50">
               <button
-                onClick={() => handleItemClick(() => document.execCommand('undo'))}
-                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer flex justify-between"
+                onClick={() => handleItemClick(onInsertSoap)}
+                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer flex justify-between font-bold"
               >
-                <span>元に戻す</span>
-                <span className="text-[10px]">⌘Z</span>
-              </button>
-              <div className="border-b border-black my-1 border-dotted" />
-              <button
-                onClick={() => handleItemClick(() => document.execCommand('cut'))}
-                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer flex justify-between"
-              >
-                <span>カット</span>
-                <span className="text-[10px]">⌘X</span>
+                <span>SOAP雛形を挿入</span>
+                <span className="text-[10px]">⌘S</span>
               </button>
               <button
-                onClick={() => handleItemClick(() => document.execCommand('copy'))}
-                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer flex justify-between"
+                onClick={() => handleItemClick(onOpenTemplates)}
+                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer"
               >
-                <span>コピー</span>
-                <span className="text-[10px]">⌘C</span>
-              </button>
-              <button
-                onClick={() => handleItemClick(() => document.execCommand('paste'))}
-                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer flex justify-between"
-              >
-                <span>ペースト</span>
-                <span className="text-[10px]">⌘V</span>
-              </button>
-              <button
-                onClick={() => handleItemClick(() => document.execCommand('selectAll'))}
-                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer flex justify-between"
-              >
-                <span>すべて選択</span>
-                <span className="text-[10px]">⌘A</span>
+                定型文ライブラリ...
               </button>
               <div className="border-b border-black my-1 border-dotted" />
               <button
                 onClick={() => handleItemClick(onEmptyTrash)}
-                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer"
+                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer text-red-600"
               >
-                カルテ全消去 (Clear)
+                全選択消去 (Clear All)
               </button>
             </div>
           )}
@@ -319,58 +499,42 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
             カルテ
           </button>
           {openMenu === 'chart' && (
-            <div className="absolute top-6 left-0 min-w-[240px] bg-white border border-black shadow-[2px_2px_0_#000] py-1 z-50">
-              {onOpenCoprocessor && (
-                <button
-                  onClick={() => handleItemClick(onOpenCoprocessor)}
-                  className="w-full text-left px-3 py-1.5 hover:bg-black hover:text-white cursor-pointer flex items-center justify-between font-bold bg-yellow-50 border-b border-black/20"
-                >
-                  <span className="flex items-center gap-1">
-                    <span>📥</span>
-                    <span>医療双方向エッジコプロセッサ...</span>
-                  </span>
-                  <span className="text-[10px] bg-black text-white px-1 font-mono">v19.1</span>
-                </button>
-              )}
-              <button
-                onClick={() => handleItemClick(onInsertSoap)}
-                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer font-bold"
-              >
-                SOAP形式雛形を挿入
-              </button>
+            <div className="absolute top-6 left-0 min-w-[260px] bg-white border border-black shadow-[2px_2px_0_#000] py-1 z-50">
               <button
                 onClick={() => handleItemClick(onOpenAiAssist)}
-                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer flex items-center justify-between"
+                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer font-bold flex justify-between"
               >
-                <span>AI カルテ校正 (Desk Accessory)</span>
-                <span className="text-[10px] bg-black text-white px-1">AI</span>
+                <span>🤖 AIスマート推敲・要約 (WebLLM)</span>
+                <span className="text-[10px]">Qwen</span>
               </button>
               <button
                 onClick={() => handleItemClick(onOpenOcr)}
-                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer flex items-center justify-between"
+                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer flex justify-between"
               >
-                <span>カメラ OCR 読取 (Desk Accessory)</span>
-                <span className="text-[10px]">📷</span>
+                <span>📷 カメラOCR (処方箋スキャン)</span>
+                <span className="text-[10px]">Local</span>
               </button>
-              <button
-                onClick={() => handleItemClick(onOpenCds)}
-                className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer flex items-center justify-between"
-              >
-                <span>臨床判断支援 CDS (High Value Care)</span>
-                <span className="text-[10px]">⚖</span>
-              </button>
+              {onOpenCoprocessor && (
+                <button
+                  onClick={() => handleItemClick(onOpenCoprocessor)}
+                  className="w-full text-left px-3 py-1 bg-yellow-50 hover:bg-black hover:text-white cursor-pointer font-bold flex justify-between border-y border-yellow-300/40 my-0.5"
+                >
+                  <span>📥 医療双方向エッジコプロセッサ</span>
+                  <span className="text-[10px] bg-black text-white px-1">v19.1</span>
+                </button>
+              )}
               <div className="border-b border-black my-1 border-dotted" />
               <button
                 onClick={() => handleItemClick(onOpenImeBoost)}
                 className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer"
               >
-                IME 高精度コンパイラ設定...
+                IME打鍵精度ブースト設定...
               </button>
               <button
                 onClick={() => handleItemClick(onOpenPreprocessor)}
                 className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer"
               >
-                医療用語・処方プリプロセッサ...
+                医学用語前処理フィルター...
               </button>
             </div>
           )}
@@ -488,8 +652,17 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
         </div>
       </div>
 
-      {/* 右側: アプリ名 ＆ 時計 ＆ BLEステータス */}
-      <div className="flex items-center gap-3">
+      {/* 右側: アダプティブ切替 ＆ アプリ名 ＆ 時計 ＆ BLEステータス */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* アダプティブモード切替スイッチ */}
+        {onSelectAdaptiveMode && (
+          <AdaptiveModeSwitcher
+            mode={adaptiveMode}
+            deviceType={deviceType}
+            onSelectMode={onSelectAdaptiveMode}
+          />
+        )}
+
         {/* 実機BLE接続インジケータ (1-bit Mac style) */}
         <div className="hidden sm:flex items-center gap-1.5 border border-black px-1.5 py-0.2 bg-white">
           <span className="text-[10px]">
@@ -503,8 +676,8 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
         </div>
 
         {/* アクティブアプリ (Macintosh右上アイコン) */}
-        <div className="flex items-center gap-1">
-          <span className="font-bold hidden md:inline">DrVoice</span>
+        <div className="hidden md:flex items-center gap-1">
+          <span className="font-bold">Dr.Dongly</span>
           <span className="text-sm">🌰</span>
         </div>
 
