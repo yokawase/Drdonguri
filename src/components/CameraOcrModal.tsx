@@ -12,7 +12,8 @@ import {
   Image as ImageIcon,
   Smartphone,
   ShieldCheck,
-  Cpu
+  Cpu,
+  FastForward
 } from 'lucide-react';
 import { performLocalCameraOcr, type OcrProgressUpdate } from '../services/localOcrService';
 
@@ -32,6 +33,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [extractedText, setExtractedText] = useState<string>('');
   const [rawOcrText, setRawOcrText] = useState<string>('');
+  const [isRefinedByLlm, setIsRefinedByLlm] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [processingStatus, setProcessingStatus] = useState<string>('');
   const [progressPercent, setProgressPercent] = useState<number>(0);
@@ -46,6 +48,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
       setCapturedImage(null);
       setExtractedText('');
       setRawOcrText('');
+      setIsRefinedByLlm(false);
       setErrorMessage(null);
       setProcessingStatus('');
       setProgressPercent(0);
@@ -139,19 +142,32 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
     setIsProcessing(true);
     setErrorMessage(null);
     setProgressPercent(10);
+    setIsRefinedByLlm(false);
 
     try {
       const result = await performLocalCameraOcr(
         base64Img,
         mode,
+        // 進捗コールバック
         (update: OcrProgressUpdate) => {
           setProcessingStatus(update.message);
           setProgressPercent(Math.round(update.progress * 100));
+        },
+        // ★ Tesseract OCR 完了時点で即座に Raw テキストを表示（待ち時間ゼロ化）
+        (rawText: string) => {
+          setRawOcrText(rawText);
+          setExtractedText(rawText);
+        },
+        // ★ WebLLM ストリーミング出力（リアルタイムにテキストが流れる）
+        (streamedText: string) => {
+          setExtractedText(streamedText);
+          setIsRefinedByLlm(true);
         }
       );
 
       setExtractedText(result.text);
       setRawOcrText(result.rawOcrText);
+      setIsRefinedByLlm(result.text !== result.rawOcrText);
     } catch (err: any) {
       console.error('[Local OCR Error]:', err);
       setErrorMessage(err.message || '文字認識処理中にエラーが発生しました');
@@ -166,11 +182,18 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
     setCapturedImage(null);
     setExtractedText('');
     setRawOcrText('');
+    setIsRefinedByLlm(false);
     setErrorMessage(null);
     setProcessingStatus('');
     setProgressPercent(0);
     if (cameraInputRef.current) cameraInputRef.current.value = '';
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // AI整形完了を待たずに、現在抽出できているRawテキストで即座に確定する
+  const handleUseCurrentTextNow = () => {
+    setIsProcessing(false);
+    setProcessingStatus('');
   };
 
   return (
@@ -369,38 +392,62 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
             </div>
           )}
 
-          {/* Processing Indicator with Progress Bar */}
+          {/* Processing Indicator (フラッシュ点滅を廃止し、滑らかなプログレス表示に改善) */}
           {isProcessing && (
-            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-2 animate-pulse">
+            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-2.5 transition-all">
               <div className="flex items-center justify-between text-xs font-bold text-emerald-900">
                 <span className="flex items-center gap-2">
                   <RefreshCw className="w-4 h-4 animate-spin text-emerald-600" />
                   <span>{processingStatus || '解析中...'}</span>
                 </span>
-                <span>{progressPercent}%</span>
+                <span className="font-mono text-emerald-700">{progressPercent}%</span>
               </div>
-              <div className="w-full bg-emerald-100 rounded-full h-2 overflow-hidden">
+
+              {/* スムーズなプログレスバー */}
+              <div className="w-full bg-emerald-100 rounded-full h-2.5 overflow-hidden">
                 <div
-                  className="bg-emerald-600 h-full rounded-full transition-all duration-200"
+                  className="bg-emerald-600 h-full rounded-full transition-all duration-300"
                   style={{ width: `${Math.max(5, progressPercent)}%` }}
                 />
               </div>
-              <p className="text-[10px] text-emerald-700">
-                ブラウザ内で Tesseract OCR ➔ WebLLM (Qwen2.5 1.5B) の2段階解析を実行中
-              </p>
+
+              <div className="flex items-center justify-between pt-1">
+                <p className="text-[10px] text-emerald-700">
+                  {extractedText ? '● テキスト認識完了 ➔ AIカルテ校正中' : '● Tesseract OCR で画像を文字起こし中'}
+                </p>
+
+                {/* 待ちたくない場合はRawテキストで即時採用できるボタン */}
+                {extractedText && (
+                  <button
+                    type="button"
+                    onClick={handleUseCurrentTextNow}
+                    className="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-lg font-bold hover:bg-emerald-700 transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <FastForward className="w-3 h-3" />
+                    <span>このテキストで確定</span>
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
-          {/* OCR Result textarea */}
+          {/* OCR Result textarea (Tesseract 完了時点で即座に表示され、WebLLM がストリーミングで追記・整形) */}
           {extractedText && (
             <div className="space-y-2 animate-in fade-in">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-slate-800 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>校正済みカルテテキスト ({extractedText.length}文字)</span>
+                  <span>
+                    {isRefinedByLlm ? 'AI校正済みカルテテキスト' : '認識テキスト (OCR結果)'}
+                    {' '}({extractedText.length}文字)
+                  </span>
                 </span>
-                <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  Qwen2.5 補正済
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  isRefinedByLlm
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                    : 'text-amber-700 bg-amber-50 border-amber-200'
+                }`}>
+                  {isRefinedByLlm ? 'Qwen2.5 校正完了' : isProcessing ? 'AI校正中...' : '生OCRテキスト'}
                 </span>
               </div>
               <textarea

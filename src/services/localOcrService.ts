@@ -7,40 +7,22 @@ export interface OcrProgressUpdate {
   progress: number; // 0.0 ~ 1.0
 }
 
-let cachedTesseractWorker: any = null;
-
 /**
- * Tesseract.js ワーカーの初期化（キャッシュして再利用）
- */
-async function getTesseractWorker(onProgress?: (progress: number, status: string) => void) {
-  if (cachedTesseractWorker) {
-    return cachedTesseractWorker;
-  }
-
-  const worker = await createWorker(['jpn', 'eng'], 1, {
-    logger: (m: LoggerMessage) => {
-      if (onProgress && typeof m.progress === 'number') {
-        onProgress(m.progress, m.status);
-      }
-    },
-  });
-
-  cachedTesseractWorker = worker;
-  return worker;
-}
-
-/**
- * 完全ローカル・2段階OCR＆カルテ化パイプライン
+ * 完全ローカル・2段階OCR＆カルテ化パイプライン (メモリ効率・低遅延最適化版)
  * 1. Tesseract.js で画像から日本語・英数字を文字起こし（Raw OCR）
- * 2. WebLLM (Qwen2.5 1.5B) で医療用語・数値単位の補正とSOAP構造化（Refine）
+ *    ➔ 即座に Raw テキストを UI に展開してユーザーの待ち時間をゼロ化！
+ * 2. Tesseract のワーカーを破棄してメモリを解放
+ * 3. WebLLM (Qwen2.5 1.5B) でリアルタイムストリーミング医療補正
  */
 export async function performLocalCameraOcr(
   imageSource: string | File,
   mode: 'chart' | 'soap' | 'prescription' = 'chart',
-  onProgress?: (update: OcrProgressUpdate) => void
+  onProgress?: (update: OcrProgressUpdate) => void,
+  onRawTextAvailable?: (rawText: string) => void,
+  onStreamUpdate?: (streamedText: string) => void
 ): Promise<{ text: string; rawOcrText: string }> {
   // -------------------------------------------------------------
-  // Step 1: ブラウザ内 Tesseract.js で粗い文字起こし (Raw OCR)
+  // Step 1: ブラウザ内 Tesseract.js で文字起こし (Raw OCR)
   // -------------------------------------------------------------
   if (onProgress) {
     onProgress({
@@ -50,21 +32,43 @@ export async function performLocalCameraOcr(
     });
   }
 
-  const worker = await getTesseractWorker((p, status) => {
-    if (onProgress) {
-      onProgress({
-        stage: 'ocr',
-        message: `OCR認識中 (${Math.round(p * 100)}%): ${status}`,
-        progress: 0.1 + p * 0.4, // 全体の 10% 〜 50%
-      });
-    }
-  });
+  let worker: any = null;
+  let rawOcrText = '';
 
-  const ocrResult = await worker.recognize(imageSource);
-  const rawOcrText = ocrResult?.data?.text?.trim() || '';
+  try {
+    worker = await createWorker(['jpn', 'eng'], 1, {
+      logger: (m: LoggerMessage) => {
+        if (onProgress && typeof m.progress === 'number') {
+          onProgress({
+            stage: 'ocr',
+            message: `OCR文字認識中 (${Math.round(m.progress * 100)}%): ${m.status}`,
+            progress: 0.1 + m.progress * 0.45, // 10% 〜 55%
+          });
+        }
+      },
+    });
+
+    const ocrResult = await worker.recognize(imageSource);
+    rawOcrText = ocrResult?.data?.text?.trim() || '';
+  } finally {
+    // ★【重要】Tesseract ワーカーを即時破棄して、WebGPU 推論にスマホの全メモリを明け渡す
+    if (worker) {
+      try {
+        await worker.terminate();
+      } catch (e) {
+        console.warn('Worker terminate warning:', e);
+      }
+      worker = null;
+    }
+  }
 
   if (!rawOcrText) {
     throw new Error('画像から文字を検出できませんでした。より鮮明に撮影するか、文字部分を拡大してお試しください。');
+  }
+
+  // ★ Rawテキストが抽出できた時点で即座にコールバック発火
+  if (onRawTextAvailable) {
+    onRawTextAvailable(rawOcrText);
   }
 
   // -------------------------------------------------------------
@@ -72,46 +76,68 @@ export async function performLocalCameraOcr(
   // -------------------------------------------------------------
   if (onProgress) {
     onProgress({
-      stage: 'llm_refining',
-      message: 'WebLLM (Qwen2.5 1.5B) が医療用語・数値を校正中...',
+      stage: 'llm_loading',
+      message: 'WebLLM (Qwen2.5) を準備中...',
       progress: 0.6,
     });
   }
 
-  const refinedText = await refineOcrChartWithWebLLM(
-    rawOcrText,
-    mode,
-    (llmProgress: ModelLoadProgress) => {
-      if (onProgress) {
-        onProgress({
-          stage: llmProgress.progress < 1.0 ? 'llm_loading' : 'llm_refining',
-          message: llmProgress.text || 'WebLLMモデル準備中...',
-          progress: 0.6 + llmProgress.progress * 0.35, // 全体の 60% 〜 95%
-        });
+  try {
+    // スマホ環境でのハング防止のため、25秒のセーフティタイムアウトを設定
+    const llmPromise = refineOcrChartWithWebLLM(
+      rawOcrText,
+      mode,
+      (llmProgress: ModelLoadProgress) => {
+        if (onProgress) {
+          const isModelReady = llmProgress.progress >= 1.0;
+          onProgress({
+            stage: isModelReady ? 'llm_refining' : 'llm_loading',
+            message: isModelReady
+              ? '医療用語・SOAP形式へAI校正中...'
+              : (llmProgress.text || 'モデルロード中...'),
+            progress: isModelReady ? 0.96 : (0.6 + llmProgress.progress * 0.35),
+          });
+        }
+      },
+      (streamedText: string) => {
+        if (onStreamUpdate) {
+          onStreamUpdate(streamedText);
+        }
       }
-    }
-  );
+    );
 
-  if (onProgress) {
-    onProgress({
-      stage: 'llm_refining',
-      message: 'カルテ生成完了！',
-      progress: 1.0,
+    const timeoutPromise = new Promise<string>((_, reject) => {
+      setTimeout(() => reject(new Error('LLM_TIMEOUT')), 25000);
     });
-  }
 
-  return {
-    text: refinedText,
-    rawOcrText,
-  };
-}
+    const refinedText = await Promise.race([llmPromise, timeoutPromise]);
 
-/**
- * Tesseract ワーカーを終了・メモリ解放
- */
-export async function terminateLocalOcrWorker(): Promise<void> {
-  if (cachedTesseractWorker) {
-    await cachedTesseractWorker.terminate();
-    cachedTesseractWorker = null;
+    if (onProgress) {
+      onProgress({
+        stage: 'llm_refining',
+        message: 'カルテ生成完了！',
+        progress: 1.0,
+      });
+    }
+
+    return {
+      text: refinedText,
+      rawOcrText,
+    };
+  } catch (llmErr: any) {
+    console.warn('[WebLLM Skip/Fallback]:', llmErr);
+    // タイムアウトやWebGPU未対応・メモリ不足時は、認識済みの Rawテキストを採用して安全に完了
+    if (onProgress) {
+      onProgress({
+        stage: 'llm_refining',
+        message: 'OCR抽出テキストを適用しました (AI補正スキップ)',
+        progress: 1.0,
+      });
+    }
+
+    return {
+      text: rawOcrText,
+      rawOcrText,
+    };
   }
 }
