@@ -30,6 +30,7 @@ import {
   CommunicationLogEntry 
 } from './types';
 import { MAIN_CPP_SOURCE, PLATFORMIO_INI_SOURCE, LATEST_FIRMWARE_VERSION } from './data/firmwareSource';
+import { APP_NAME, APP_VERSION, FULL_VERSION_LABEL, getFormattedBuildDate } from './version';
 import { 
   triggerMacScreenFlash, 
   playMacBeep, 
@@ -177,7 +178,7 @@ export default function App() {
     });
 
     virtualDongleRef.current = sim;
-    addLog('sys', 'INIT', `DrVoice 仮想 AtomS3U ドングル (${LATEST_FIRMWARE_VERSION} ファームウェア) 初期化完了`);
+    addLog('sys', 'INIT', `${FULL_VERSION_LABEL} 仮想 AtomS3U ドングル初期化完了 (Build: ${getFormattedBuildDate()})`);
 
     // 実機BLEマネージャー (全モーダルと共有するシングルトン)
     const ble = bleManager;
@@ -831,6 +832,32 @@ export default function App() {
             <span>ドングル</span>
           </button>
         </nav>
+      )}
+
+      {/* 常設フッター・バージョンステータスバー (デスクトップ/タブレット) */}
+      {!isMobile && (
+        <footer className="fixed bottom-0 left-0 right-0 h-6 bg-slate-200/95 border-t border-slate-300 backdrop-blur-xs px-3 flex items-center justify-between text-[11px] text-slate-600 select-none z-30">
+          <div className="flex items-center gap-3">
+            <span className="font-bold text-slate-800">{FULL_VERSION_LABEL}</span>
+            <span className="text-slate-400">|</span>
+            <span>ビルド: {getFormattedBuildDate()}</span>
+            <span className="text-slate-400">|</span>
+            <span>AI: WebLLM (Qwen2.5) / 完全ローカルOCR</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5">
+              <span
+                className="w-2 h-2 rounded-full inline-block border border-slate-400"
+                style={{ backgroundColor: ledStatus.hex }}
+              />
+              <span className="font-medium text-slate-700">
+                {isBleConnected ? '実機BLE接続' : isVirtualMode ? '仮想ドングル' : 'BLE待機中'}
+              </span>
+            </span>
+            <span className="text-slate-400">|</span>
+            <span>AtomS3U 8MB (Zero-RAM SPIFFS)</span>
+          </div>
+        </footer>
       )}
 
       {/* ======================================================================= */}

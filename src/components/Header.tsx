@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Bluetooth, BluetoothConnected, Cpu } from 'lucide-react';
 import { LATEST_FIRMWARE_VERSION } from '../data/firmwareSource';
+import { APP_VERSION } from '../version';
 import { bleManager } from '../utils/webBluetooth';
 
 interface HeaderProps {
@@ -35,6 +36,9 @@ export const Header: React.FC<HeaderProps> = ({
               Dr
             </span>
             <span>DrVoice どんぐり君！</span>
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-300/60 shadow-xs">
+              v{APP_VERSION}
+            </span>
           </a>
         </div>
 

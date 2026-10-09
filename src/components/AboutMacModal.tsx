@@ -1,6 +1,12 @@
 import React from 'react';
 import { playMacBeep } from '../utils/macAudio';
-import { LATEST_FIRMWARE_VERSION } from '../data/firmwareSource';
+import { 
+  APP_NAME, 
+  APP_VERSION, 
+  LATEST_FIRMWARE_VERSION, 
+  getFormattedBuildDate,
+  AI_ENGINE_INFO
+} from '../version';
 
 interface AboutMacModalProps {
   isOpen: boolean;
@@ -31,13 +37,14 @@ export const AboutMacModal: React.FC<AboutMacModalProps> = ({
               🌰
             </div>
             <div>
-              <div className="font-bold text-sm">DrVoice どんぐり君！</div>
-              <div className="text-[11px] text-gray-700">Macintosh Classic II Edition (System 7.1)</div>
+              <div className="font-bold text-sm">DrVoice どんぐり君！ ({APP_NAME})</div>
+              <div className="text-[11px] text-gray-700">App v{APP_VERSION} (Build: {getFormattedBuildDate()})</div>
             </div>
           </div>
           <div className="text-right text-[10px]">
-            <div>Version {LATEST_FIRMWARE_VERSION}</div>
-            <div>© 1991-2026 Apple / DrVoice DX</div>
+            <div className="font-bold">FW {LATEST_FIRMWARE_VERSION}</div>
+            <div className="text-gray-600">AI: {AI_ENGINE_INFO}</div>
+            <div>© 1991-2026 DrVoice DX</div>
           </div>
         </div>
 

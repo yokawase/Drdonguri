@@ -1,9 +1,17 @@
 import mainCppRaw from '@/firmware/src/main.cpp?raw';
 import flashAtoms3uPs1Raw from '@/firmware/scripts/flash_atoms3u.ps1?raw';
 
-export const LATEST_FIRMWARE_VERSION = 'v19.1';
-export const FIRMWARE_RELEASE_DATE = '2026-10-08';
-export const FIRMWARE_RELEASE_TITLE = 'v19.1（BLEシングルトン同期保証 ＆ USBプリンターDMAバッファ・LED可視化安定版）';
+import {
+  LATEST_FIRMWARE_VERSION,
+  FIRMWARE_RELEASE_DATE,
+  FIRMWARE_RELEASE_TITLE,
+} from '../version';
+
+export {
+  LATEST_FIRMWARE_VERSION,
+  FIRMWARE_RELEASE_DATE,
+  FIRMWARE_RELEASE_TITLE,
+};
 
 export const PARTITIONS_8MB_CSV_SOURCE = `# Name,   Type, SubType, Offset,   Size,     Flags
 nvs,      data, nvs,     0x9000,   0x5000,

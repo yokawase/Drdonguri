@@ -402,7 +402,7 @@ async function startServer() {
       const formattedText = result.text?.trim() || text;
       res.json({ success: true, formattedText, model: result.usedModel });
     } catch (err: any) {
-      console.error('Gemini API Error:', err);
+      console.error('AI Service Error:', err);
       const isQuotaExhausted = String(err?.message || '').includes('Quota exceeded') || String(err?.message || '').includes('RESOURCE_EXHAUSTED');
       const is503 = String(err?.message || '').includes('503') || String(err?.message || '').includes('high demand');
       const message = isQuotaExhausted
@@ -479,7 +479,7 @@ async function startServer() {
       const extractedText = result.text?.trim() || '';
       res.json({ success: true, text: extractedText, model: result.usedModel });
     } catch (err: any) {
-      console.error('Gemini OCR API Error:', err);
+      console.error('AI OCR API Error:', err);
       const isQuotaExhausted = String(err?.message || '').includes('Quota exceeded') || String(err?.message || '').includes('RESOURCE_EXHAUSTED');
       const is503 = String(err?.message || '').includes('503') || String(err?.message || '').includes('high demand');
       const message = isQuotaExhausted
@@ -612,7 +612,7 @@ async function startServer() {
         model: result.usedModel
       });
     } catch (err: any) {
-      console.error('Gemini Clinical CDS Error:', err);
+      console.error('AI Clinical CDS Error:', err);
       res.status(500).json({
         error: err.message || '臨床判断支援のAI解析に失敗しました'
       });

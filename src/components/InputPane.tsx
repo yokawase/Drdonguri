@@ -1167,7 +1167,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
                     <span>🤖</span>
                     <div>
                       <div className="font-bold">AIスマート整形</div>
-                      <div className="text-[10px] text-gray-600">Gemini臨床推敲・要約</div>
+                      <div className="text-[10px] text-gray-600">WebLLM ローカル推敲・要約</div>
                     </div>
                   </button>
 

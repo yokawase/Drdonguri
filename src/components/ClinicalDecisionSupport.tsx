@@ -80,7 +80,7 @@ export interface ClinicalDecisionSupportResult {
   scores: ClinicalScore[];
   alerts: SafetyAlert[];
   analyzedAt: number;
-  engine: 'hybrid-ai' | 'offline-rule';
+  engine: 'hybrid-ai' | 'offline-rule' | 'local-webllm';
 }
 
 // ============================================================================
@@ -718,8 +718,12 @@ export const ClinicalDecisionSupport: React.FC<ClinicalDecisionSupportProps> = (
       });
     } catch (err: any) {
       console.warn('AI CDS fetch failed, falling back to local audit engine:', err);
-      setAiError('Gemini API通信に失敗したため、ドングル内蔵と同等の高速オフライン医学辞書で解析しました。');
-      setCdsResult(offlineResult);
+      setAiError('AI深層解析が未接続またはオフラインのため、内蔵の完全オフライン医学ルール（MEDIS病名マスター・学会指針HVC）により自動解析しました。');
+      setCdsResult({
+        ...offlineResult,
+        analyzedAt: Date.now(),
+        engine: 'offline-rule'
+      });
     } finally {
       setIsAiLoading(false);
     }
@@ -793,9 +797,15 @@ export const ClinicalDecisionSupport: React.FC<ClinicalDecisionSupportProps> = (
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
                 cdsResult.engine === 'hybrid-ai'
                   ? 'bg-purple-500/20 text-purple-200 border-purple-400/40'
+                  : cdsResult.engine === 'local-webllm'
+                  ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/40'
                   : 'bg-teal-500/20 text-teal-200 border-teal-400/40'
               }`}>
-                {cdsResult.engine === 'hybrid-ai' ? 'Gemini 3 Flash AI' : 'エッジ即時ルールエンジン'}
+                {cdsResult.engine === 'hybrid-ai' 
+                  ? 'AI深層構造化解析 (HVC)' 
+                  : cdsResult.engine === 'local-webllm'
+                  ? 'ローカルWebLLM (Qwen2.5)'
+                  : 'エッジ即時ルールエンジン (完全オフライン)'}
               </span>
             </div>
             <p className="text-xs text-slate-300/80 mt-0.5">
