@@ -4,6 +4,8 @@ import {
   formatMedicalChartWithWebLLM,
   isWebGpuSupported,
   isEngineLoaded,
+  FAST_WEBLLM_MODEL,
+  PRECISE_WEBLLM_MODEL,
   type ModelLoadProgress,
 } from '../services/webLlmService';
 
@@ -21,6 +23,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
   onApplyFormattedText,
 }) => {
   const [style, setStyle] = useState<'soap' | 'concise' | 'interview'>('soap');
+  const [modelType, setModelType] = useState<'fast' | 'precise'>('fast');
   const [isLoading, setIsLoading] = useState(false);
   const [loadStatus, setLoadStatus] = useState<string>('');
   const [progressPercent, setProgressPercent] = useState<number>(0);
@@ -32,8 +35,9 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
   const handleGenerate = async () => {
     setIsLoading(true);
     setError(null);
+    setResultText(''); // 前回の結果をクリアしてストリーミングに備える
     setLoadStatus('WebLLM 初期化中...');
-    setProgressPercent(10);
+    setProgressPercent(15);
     playMacBeep();
 
     if (!isWebGpuSupported()) {
@@ -41,6 +45,8 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
       setIsLoading(false);
       return;
     }
+
+    const selectedModelId = modelType === 'fast' ? FAST_WEBLLM_MODEL : PRECISE_WEBLLM_MODEL;
 
     try {
       const targetText =
@@ -52,7 +58,13 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
         (report: ModelLoadProgress) => {
           setLoadStatus(report.text || '推論処理中...');
           setProgressPercent(Math.round(report.progress * 100));
-        }
+        },
+        // ★ リアルタイムストリーミング更新
+        (streamedText: string) => {
+          setResultText(streamedText);
+          setLoadStatus('テキスト出力中...');
+        },
+        selectedModelId
       );
 
       setResultText(formatted);
@@ -69,9 +81,9 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/30 backdrop-blur-[1px]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 select-none">
       <div
-        className="mac-window max-w-xl w-full bg-white text-xs select-none"
+        className="mac-window max-w-xl w-full bg-white text-xs shadow-2xl border-2 border-black"
         style={{ fontFamily: "'DotGothic16', 'Monaco', monospace" }}
       >
         {/* Title Bar */}
@@ -84,9 +96,9 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
             className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] active:bg-black cursor-pointer"
             title="閉じる"
           />
-          <div className="bg-white border border-black px-2.5 py-0.2 font-bold text-xs tracking-wider flex items-center gap-1.5">
-            <span>AI カルテ校正 (WebLLM Qwen2.5 1.5B)</span>
-            <span className="text-[10px] bg-black text-white px-1">ローカル完結</span>
+          <div className="bg-white border border-black px-2 py-0.2 font-bold text-xs tracking-wider flex items-center gap-1.5">
+            <span>AI カルテ校正 (WebLLM)</span>
+            <span className="text-[10px] bg-black text-white px-1">完全ローカル</span>
           </div>
           <div className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] flex items-center justify-center">
             <div className="w-1.5 h-1.5 border border-black" />
@@ -94,13 +106,38 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-3 space-y-3">
+        <div className="p-3 space-y-3 bg-white">
+          {/* Model Speed Selector */}
+          <div className="border border-black p-2 bg-gray-50 flex items-center justify-between">
+            <span className="font-bold text-[11px]">AIモデル速度:</span>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => setModelType('fast')}
+                className={`px-2 py-0.5 border border-black text-[10px] font-bold cursor-pointer transition-colors ${
+                  modelType === 'fast' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+                }`}
+              >
+                ⚡ 超高速 (0.5B 約3秒)
+              </button>
+              <button
+                type="button"
+                onClick={() => setModelType('precise')}
+                className={`px-2 py-0.5 border border-black text-[10px] font-bold cursor-pointer transition-colors ${
+                  modelType === 'precise' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+                }`}
+              >
+                🎯 高精度 (1.5B)
+              </button>
+            </div>
+          </div>
+
           {/* Format style selector */}
           <div className="border border-black p-2.5 bg-white space-y-1.5">
             <div className="flex justify-between items-center font-bold">
               <span>整形スタイルを選択:</span>
               <span className="text-[10px] text-gray-600 font-normal">
-                {isEngineLoaded() ? '● モデルロード済 (高速推論)' : '○ 初回のみ約1GBダウンロード'}
+                {isEngineLoaded() ? '● ロード済 (即時推論)' : '○ 初回のみ高速ダウンロード'}
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -143,26 +180,26 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
               <span>元テキスト:</span>
               <span>{originalText.length} 文字</span>
             </div>
-            <div className="border border-black p-2 bg-white max-h-24 overflow-y-auto font-mono text-[11px] leading-relaxed shadow-[inset_1px_1px_0_#000]">
+            <div className="border border-black p-2 bg-white max-h-20 overflow-y-auto font-mono text-[11px] leading-relaxed shadow-[inset_1px_1px_0_#000]">
               {originalText || <span className="text-gray-400">（テキスト未入力：サンプルテキストで実行します）</span>}
             </div>
           </div>
 
-          {/* Progress / Loading UI */}
+          {/* Progress / Loading UI (フラッシュ点滅を完全撤廃し、安定したMac風プログレス表示) */}
           {isLoading && (
-            <div className="border-2 border-black p-2.5 bg-gray-50 space-y-1.5 animate-pulse">
+            <div className="border-2 border-black p-2.5 bg-gray-100 space-y-1.5">
               <div className="flex justify-between text-[11px] font-bold">
                 <span>⚡ {loadStatus || 'WebLLM 処理中...'}</span>
                 <span>{progressPercent}%</span>
               </div>
-              <div className="w-full bg-white border border-black h-3 p-0.5">
+              <div className="w-full bg-white border border-black h-3.5 p-0.5">
                 <div
-                  className="bg-black h-full transition-all duration-200"
+                  className="bg-black h-full transition-all duration-150"
                   style={{ width: `${Math.max(5, progressPercent)}%` }}
                 />
               </div>
-              <p className="text-[10px] text-gray-500">
-                ※ブラウザ内のWebGPUで完全ローカル推論を行っています（外部サーバーへの送信なし）。
+              <p className="text-[10px] text-gray-600">
+                ※端末内WebGPUで完全ローカル推論中。外部通信なし・個人情報保護
               </p>
             </div>
           )}
@@ -174,15 +211,19 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
             </div>
           )}
 
-          {/* Result preview */}
-          {resultText && (
+          {/* Result preview (ストリーミング中はリアルタイムに文字が追加される) */}
+          {(resultText || isLoading) && (
             <div className="space-y-1">
-              <div className="font-bold text-[11px]">
-                校正結果 ({style === 'soap' ? 'SOAP形式' : style === 'concise' ? '箇条書き' : '問診形式'}):
+              <div className="flex justify-between items-center font-bold text-[11px]">
+                <span>
+                  校正結果 ({style === 'soap' ? 'SOAP形式' : style === 'concise' ? '箇条書き' : '問診形式'}):
+                </span>
+                {isLoading && <span className="text-[10px] text-emerald-700 animate-pulse">● リアルタイム生成中</span>}
               </div>
               <textarea
                 value={resultText}
                 onChange={(e) => setResultText(e.target.value)}
+                placeholder="AIがリアルタイムに校正テキストを出力します..."
                 rows={6}
                 className="w-full border border-black p-2 bg-white font-mono text-xs leading-relaxed focus:outline-none shadow-[inset_1px_1px_0_#000]"
               />
@@ -196,9 +237,9 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                 playMacBeep();
                 onClose();
               }}
-              className="mac-btn"
+              className="mac-btn cursor-pointer"
             >
-              キャンセル
+              閉じる
             </button>
 
             <div className="flex items-center gap-2">
@@ -207,7 +248,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                 disabled={isLoading}
                 className="mac-btn font-bold cursor-pointer"
               >
-                {isLoading ? 'ローカル推論中...' : 'WebLLM 校正実行 ⚡'}
+                {isLoading ? '高速推論中...' : 'WebLLM 校正実行 ⚡'}
               </button>
 
               {resultText && (
