@@ -728,7 +728,7 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
               onOpenMedicalSearch();
             }}
             className="hidden sm:flex items-center gap-1 border border-black px-2 py-0.5 bg-yellow-50 hover:bg-black hover:text-white shadow-[1px_1px_0_#000] cursor-pointer font-bold text-[10px]"
-            title="Minds 111疾患・医薬品・病名・難読漢字を検索"
+            title="Minds 111疾患・検査値・診療行為・腎機能減量・医薬品・病名を検索"
           >
             <span>📚</span>
             <span>医療データ検索</span>

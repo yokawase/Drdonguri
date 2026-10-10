@@ -553,7 +553,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
                   setIsMedicalSearchOpen(true);
                 }}
                 className="px-2 py-1 bg-yellow-100 hover:bg-black hover:text-white border border-black font-bold text-xs shadow-[1px_1px_0_#000] flex items-center gap-1 cursor-pointer"
-                title="Minds 111疾患・医薬品マスター・病名・難読漢字を検索"
+                title="Minds 111疾患・検査値・診療行為・腎機能減量・医薬品・病名を検索"
               >
                 <span>📚</span>
                 <span>医療データ検索</span>
@@ -1585,7 +1585,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
         </div>
       )}
 
-      {/* ★ 医療データ統合検索 モーダル (Minds 111CQ / 医薬品 / 病名 / 難読漢字) */}
+      {/* ★ 医療データ統合検索 モーダル (Minds 111CQ / 検査値 / 診療行為 / 腎機能減量 / 医薬品 / 病名) */}
       <MedicalDataSearchModal
         isOpen={isMedicalSearchOpen}
         onClose={() => setIsMedicalSearchOpen(false)}

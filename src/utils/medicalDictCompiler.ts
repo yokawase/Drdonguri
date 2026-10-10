@@ -25,46 +25,6 @@ export interface MedTermRecord {
   romaji: string;         // ヘボン式ローマ字 (最大25文字 + \0 = 26B)
 }
 
-// 2. 難読医療単漢字レコード (情報カタログ)
-export interface MedicalRareKanjiInfo {
-  char: string;           // 漢字1文字 (例: "嚥")
-  attr: number;           // 属性 (1 = 医療頻出難読, 2 = 常用外, 3 = 処方頻出) (1B)
-  meaning: string;        // 用例・解説
-}
-
-// 代表的な医療難読漢字マスター (厚労省マスター全件抽出頻出文字)
-export const MEDICAL_RARE_KANJI_CATALOG: MedicalRareKanjiInfo[] = [
-  { char: '嚥', attr: 1, meaning: '嚥下（えんげ）困難、誤嚥性肺炎' },
-  { char: '瘻', attr: 1, meaning: '胃瘻（いろう）、腸瘻、痔瘻' },
-  { char: '褥', attr: 1, meaning: '褥瘡（じょくそう: 床ずれ）' },
-  { char: '瘡', attr: 1, meaning: '褥瘡、毛瘡、痘瘡' },
-  { char: '瘢', attr: 1, meaning: '瘢痕（はんこん: 傷あと）' },
-  { char: '痙', attr: 1, meaning: '痙攣（けいれん）、痙縮' },
-  { char: '攣', attr: 1, meaning: '筋痙攣、拘攣' },
-  { char: '掻', attr: 1, meaning: '掻痒（そうよう: かゆみ）、掻爬' },
-  { char: '爬', attr: 1, meaning: '子宮内容掻爬（そうは）術' },
-  { char: '膿', attr: 1, meaning: '化膿、膿瘍（のうよう）、蓄膿' },
-  { char: '喀', attr: 1, meaning: '喀痰（かくたん）、喀血' },
-  { char: '喘', attr: 1, meaning: '気管支喘息（ぜんそく）、喘鳴' },
-  { char: '嗜', attr: 1, meaning: '嗜眠（しみん: 傾眠状態）' },
-  { char: '眩', attr: 1, meaning: '眩暈（めまい）、回転性眩暈' },
-  { char: '暈', attr: 1, meaning: '眩暈（げんうん）' },
-  { char: '齲', attr: 1, meaning: '齲歯（うし: 虫歯）' },
-  { char: '腱', attr: 1, meaning: '腱鞘炎（けんしょうえん）、アキレス腱' },
-  { char: '膵', attr: 1, meaning: '膵臓（すいぞう）、急性膵炎' },
-  { char: '胆', attr: 1, meaning: '胆石（たんせき）、胆嚢炎' },
-  { char: '脾', attr: 1, meaning: '脾臓（ひぞう）、脾腫' },
-  { char: '踵', attr: 1, meaning: '踵骨（しょうこつ: かかと）' },
-  { char: '趾', attr: 1, meaning: '足趾（そくし: 足の指）、第1趾' },
-  { char: '嗄', attr: 1, meaning: '嗄声（させい: 声がれ）' },
-  { char: '疣', attr: 1, meaning: '疣贅（ゆうぜい: イボ）' },
-  { char: '痣', attr: 1, meaning: '母斑、痣（あざ）' },
-  { char: '痺', attr: 1, meaning: '麻痺（まひ）、神経麻痺' },
-  { char: '癇', attr: 1, meaning: '癇癪、てんかん（癲癇）' },
-  { char: '癲', attr: 1, meaning: '癲癇（てんかん）発作' },
-  { char: '跛', attr: 1, meaning: '間欠性跛行（はこう）' },
-  { char: '篩', attr: 1, meaning: '篩骨（しこつ）、篩骨洞' }
-];
 
 
 // 医療マスター代表プリセットレコード

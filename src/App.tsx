@@ -671,7 +671,7 @@ export default function App() {
               setIsMedicalSearchOpen(true);
             }}
             className="mac-btn shrink-0 bg-emerald-50 hover:bg-emerald-100 border border-black font-bold flex items-center gap-1 text-xs shadow-[1px_1px_0_#000]"
-            title="Minds 111疾患・医薬品・病名・難読漢字を即時検索"
+            title="Minds 111疾患・検査値・診療行為・腎機能減量・医薬品・病名を即時検索"
           >
             <span>📚 医療データ検索</span>
           </button>

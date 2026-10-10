@@ -4,18 +4,18 @@ import {
   BookOpen,
   Pill,
   FileText,
-  Type,
+  Activity,
+  ClipboardList,
+  ShieldAlert,
   Plus,
   Copy,
   Check,
-  X,
   Sparkles,
-  ChevronRight,
   Brain,
   AlertTriangle,
   Info,
   RefreshCw,
-  ExternalLink
+  FlaskConical,
 } from 'lucide-react';
 import {
   searchUnifiedMedicalKnowledge,
@@ -23,14 +23,14 @@ import {
   MindsKnowledgeItem,
   DrugKnowledgeItem,
   DiseaseKnowledgeItem,
-  RareKanjiKnowledgeItem
+  LabTestKnowledgeItem,
+  ProcedureKnowledgeItem,
+  RenalDoseKnowledgeItem,
+  MedicalSearchItemType,
 } from '../data/medicalKnowledgeCatalog';
 import {
   consultGuidelineWithWebLLM,
-  isWebGpuSupported,
-  isEngineLoaded,
   ModelLoadProgress,
-  DEFAULT_WEBLLM_MODEL
 } from '../services/webLlmService';
 import { playMacBeep, playSosumi } from '../utils/macAudio';
 
@@ -42,6 +42,8 @@ interface MedicalDataSearchModalProps {
   initialQuery?: string;
 }
 
+type TabFilterType = 'all' | 'minds' | 'lab' | 'proc' | 'renal' | 'drug' | 'disease';
+
 export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
   isOpen,
   onClose,
@@ -50,7 +52,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
   initialQuery = '',
 }) => {
   const [query, setQuery] = useState(initialQuery);
-  const [filterType, setFilterType] = useState<'all' | 'minds' | 'drug' | 'disease' | 'kanji'>('all');
+  const [filterType, setFilterType] = useState<TabFilterType>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [insertedId, setInsertedId] = useState<string | null>(null);
 
@@ -58,7 +60,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
   const [activeMindsItem, setActiveMindsItem] = useState<MindsKnowledgeItem | null>(null);
   const [llmStreamingOutput, setLlmStreamingOutput] = useState<string>('');
   const [isLlmGenerating, setIsLlmGenerating] = useState(false);
-  const [llmProgress, setLlmProgress] = useState<ModelLoadProgress | null>(null);
+  const [, setLlmProgress] = useState<ModelLoadProgress | null>(null);
   const [llmError, setLlmError] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -79,10 +81,10 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
   // 検索結果 (インクリメンタル)
   const searchResults = useMemo(() => {
     if (!query.trim()) {
-      // クエリが空の場合は代表的な Minds ガイドラインと新薬を初期表示
-      return searchUnifiedMedicalKnowledge('急性', filterType, 15);
+      // クエリが空の場合は代表的な実用データを初期表示
+      return searchUnifiedMedicalKnowledge('急性', filterType as any, 20);
     }
-    return searchUnifiedMedicalKnowledge(query, filterType, 30);
+    return searchUnifiedMedicalKnowledge(query, filterType as any, 35);
   }, [query, filterType]);
 
   // コピー処理
@@ -91,6 +93,30 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
     playMacBeep();
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 1800);
+  };
+
+  // カルテ挿入テキストの生成
+  const getInsertText = (item: UnifiedMedicalSearchResult): string => {
+    switch (item.type) {
+      case 'minds':
+        return `【Minds推奨 ${item.title}】\n${item.content}\n（実践Tips: ${item.extraInfo || ''}）`;
+      case 'lab':
+        return item.labData?.soapTemplate || `【検査】${item.labData?.name}: 基準値 ${item.labData?.referenceRange}`;
+      case 'proc':
+        return item.procData?.soapTemplate || `【算定】${item.procData?.name} (${item.procData?.points})`;
+      case 'renal':
+        if (item.renalData) {
+          const cutoffs = item.renalData.cutoffs.map((c) => `  ・${c.range}: ${c.dose}`).join('\n');
+          return `【腎機能別投与設計】${item.renalData.drugName} (標準量: ${item.renalData.standardDose})\n${cutoffs}\n※留意点: ${item.renalData.clinicalTip}`;
+        }
+        return item.content;
+      case 'drug':
+        return `【処方】${item.drugData?.name} ${item.drugData?.standardDosage}`;
+      case 'disease':
+        return `【病名】${item.diseaseData?.name} (${item.diseaseData?.icd10})`;
+      default:
+        return item.content;
+    }
   };
 
   // カルテ挿入処理
@@ -105,18 +131,22 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
   const handleExtractFromChart = () => {
     playMacBeep();
     if (!inputText.trim()) {
-      setQuery('高血圧');
+      setQuery('生活習慣病');
       return;
     }
-    // 簡単な病名・症状キーワードの検出
-    const keywords = ['高血圧', '糖尿病', '感冒', '咽頭炎', '気管支炎', '肺炎', '喘息', '心房細動', '心不全', '逆流性食道炎', '痛風', '頭痛', '腰痛', '不眠'];
+    // 代表的な臨床キーワードの検出
+    const keywords = [
+      'HbA1c', 'eGFR', 'BNP', 'D-ダイマー', 'CRP', 'TSH',
+      '生活習慣病', '特定疾患', '心電図', 'オンライン診療',
+      'エリキュース', 'イグザレルト', 'リクシアナ', 'メトホルミン', 'ジャディアンス', 'バラシクロビル',
+      '高血圧', '糖尿病', '感冒', '咽頭炎', '気管支炎', '肺炎', '喘息', '心房細動', '心不全', '逆流性食道炎', '痛風', '頭痛'
+    ];
     const found = keywords.find((kw) => inputText.includes(kw));
     if (found) {
       setQuery(found);
     } else {
-      // 最初の20文字
       const firstLine = inputText.split('\n')[0].slice(0, 10).trim();
-      setQuery(firstLine || '感冒');
+      setQuery(firstLine || '生活習慣病');
     }
   };
 
@@ -177,11 +207,11 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
               ✕
             </button>
             <div className="font-bold text-xs sm:text-sm flex items-center gap-1.5 text-black">
-              <span>📚 医療データ統合検索 (Minds 111疾患・医薬品・病名・漢字)</span>
+              <span>📚 臨床データ統合検索 (Minds・検査値・指導料・腎機能減量・医薬品・病名)</span>
             </div>
           </div>
           <div className="text-[10px] text-gray-600 hidden sm:block">
-            Flash / SDカード・PWA共通ナレッジベース
+            Flash / SDカード・PWA共通ナレッジマスター (v2.3.0)
           </div>
         </div>
 
@@ -194,13 +224,13 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="病名、薬剤名、読み（ひらがな）、ICD-10、症状、CQを入力..."
+                placeholder="病名、薬剤名、検査値(HbA1c/eGFR)、指導料(生活習慣病)、腎機能減量(DOAC)、読み、ICD-10..."
                 className="w-full bg-white border-2 border-black px-3 py-1.5 text-xs sm:text-sm font-sans focus:outline-none focus:bg-yellow-50 shadow-[2px_2px_0_#000]"
               />
               {query && (
                 <button
                   onClick={() => setQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-black font-bold p-1"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-black font-bold p-1 cursor-pointer"
                 >
                   ✕
                 </button>
@@ -217,51 +247,92 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
             </button>
           </div>
 
+          {/* クイックサジェストチップス */}
+          <div className="flex items-center gap-1 overflow-x-auto pb-0.5 text-[11px] text-gray-700">
+            <span className="text-gray-500 font-mono text-[10px] shrink-0">頻出:</span>
+            {[
+              { label: 'HbA1c', q: 'HbA1c' },
+              { label: 'eGFR', q: 'eGFR' },
+              { label: 'BNP/心不全', q: 'BNP' },
+              { label: '生活習慣病管理料', q: '生活習慣病管理料' },
+              { label: '特定疾患', q: '特定疾患' },
+              { label: 'DOAC減量', q: 'エリキュース' },
+              { label: 'メトホルミン腎', q: 'メトホルミン' },
+              { label: '急性咳嗽', q: '咳嗽' },
+            ].map((chip) => (
+              <button
+                key={chip.label}
+                onClick={() => { playMacBeep(); setQuery(chip.q); }}
+                className="px-1.5 py-0.5 border border-gray-400 bg-white hover:bg-yellow-100 text-gray-800 text-[10px] whitespace-nowrap cursor-pointer"
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+
           {/* フィルタタブ */}
           <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs">
             <button
               onClick={() => { playMacBeep(); setFilterType('all'); }}
-              className={`px-2.5 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] ${
+              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] ${
                 filterType === 'all' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
               }`}
             >
               すべて ({searchResults.length})
             </button>
             <button
+              onClick={() => { playMacBeep(); setFilterType('lab'); }}
+              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
+                filterType === 'lab' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+              }`}
+            >
+              <Activity className="w-3 h-3 text-rose-600" />
+              <span>🔬 検査値＆基準値</span>
+            </button>
+            <button
+              onClick={() => { playMacBeep(); setFilterType('proc'); }}
+              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
+                filterType === 'proc' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+              }`}
+            >
+              <ClipboardList className="w-3 h-3 text-blue-600" />
+              <span>💉 診療行為・指導料</span>
+            </button>
+            <button
+              onClick={() => { playMacBeep(); setFilterType('renal'); }}
+              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
+                filterType === 'renal' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+              }`}
+            >
+              <ShieldAlert className="w-3 h-3 text-amber-600" />
+              <span>⚠️ 腎機能別減量</span>
+            </button>
+            <button
               onClick={() => { playMacBeep(); setFilterType('minds'); }}
-              className={`px-2.5 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
+              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
                 filterType === 'minds' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
               }`}
             >
-              <BookOpen className="w-3 h-3 text-emerald-700" />
-              <span>Mindsガイドライン (111疾患)</span>
+              <BookOpen className="w-3 h-3 text-emerald-600" />
+              <span>Minds (111疾患)</span>
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('drug'); }}
-              className={`px-2.5 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
+              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
                 filterType === 'drug' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
               }`}
             >
-              <Pill className="w-3 h-3 text-sky-700" />
-              <span>医薬品情報</span>
+              <Pill className="w-3 h-3 text-sky-600" />
+              <span>処方薬</span>
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('disease'); }}
-              className={`px-2.5 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
+              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
                 filterType === 'disease' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
               }`}
             >
-              <FileText className="w-3 h-3 text-indigo-700" />
-              <span>傷病名マスター</span>
-            </button>
-            <button
-              onClick={() => { playMacBeep(); setFilterType('kanji'); }}
-              className={`px-2.5 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
-                filterType === 'kanji' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
-              }`}
-            >
-              <Type className="w-3 h-3 text-amber-700" />
-              <span>難読漢字</span>
+              <FileText className="w-3 h-3 text-indigo-600" />
+              <span>傷病名</span>
             </button>
           </div>
         </div>
@@ -273,14 +344,38 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
             {searchResults.length === 0 ? (
               <div className="p-8 text-center text-gray-500 font-sans text-xs space-y-2">
                 <Search className="w-8 h-8 mx-auto text-gray-400 stroke-1" />
-                <p className="font-bold">一致する医療データが見つかりませんでした</p>
-                <p className="text-[11px]">ひらがな読み（例: 「こうけつあつ」「かろなーる」）や英字略語（「HT」「DM」「GERD」）をお試しください。</p>
+                <p className="font-bold">一致する臨床データが見つかりませんでした</p>
+                <p className="text-[11px]">検査項目（「HbA1c」「eGFR」）、指導管理料（「生活習慣病」）、腎機能減量（「DOAC」「メトホルミン」）等でお試しください。</p>
               </div>
             ) : (
               searchResults.map((item, idx) => {
                 const uniqueKey = `${item.type}-${idx}`;
                 const isItemCopied = copiedId === uniqueKey;
                 const isItemInserted = insertedId === uniqueKey;
+                const insertText = getInsertText(item);
+
+                // アイテムごとのカラー設定
+                let badgeStyle = 'bg-gray-100 text-gray-900';
+                let badgeLabel = '情報';
+                if (item.type === 'lab') {
+                  badgeStyle = 'bg-rose-100 text-rose-900 border-rose-300';
+                  badgeLabel = '🔬 検査値';
+                } else if (item.type === 'proc') {
+                  badgeStyle = 'bg-blue-100 text-blue-900 border-blue-300';
+                  badgeLabel = '💉 診療行為';
+                } else if (item.type === 'renal') {
+                  badgeStyle = 'bg-amber-100 text-amber-900 border-amber-300';
+                  badgeLabel = '⚠️ 腎機能減量';
+                } else if (item.type === 'minds') {
+                  badgeStyle = 'bg-emerald-100 text-emerald-900 border-emerald-300';
+                  badgeLabel = 'Minds CQ';
+                } else if (item.type === 'drug') {
+                  badgeStyle = 'bg-sky-100 text-sky-900 border-sky-300';
+                  badgeLabel = '医薬品';
+                } else if (item.type === 'disease') {
+                  badgeStyle = 'bg-indigo-100 text-indigo-900 border-indigo-300';
+                  badgeLabel = '病名';
+                }
 
                 return (
                   <div
@@ -291,24 +386,8 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span
-                            className={`text-[10px] font-bold px-1.5 py-0.2 border border-black ${
-                              item.type === 'minds'
-                                ? 'bg-emerald-100 text-emerald-900'
-                                : item.type === 'drug'
-                                ? 'bg-sky-100 text-sky-900'
-                                : item.type === 'disease'
-                                ? 'bg-indigo-100 text-indigo-900'
-                                : 'bg-amber-100 text-amber-900'
-                            }`}
-                          >
-                            {item.type === 'minds'
-                              ? 'Minds CQ'
-                              : item.type === 'drug'
-                              ? '医薬品'
-                              : item.type === 'disease'
-                              ? '病名'
-                              : '難読漢字'}
+                          <span className={`text-[10px] font-bold px-1.5 py-0.2 border ${badgeStyle}`}>
+                            {badgeLabel}
                           </span>
                           <span className="font-bold text-xs sm:text-sm text-black">
                             {item.title}
@@ -332,17 +411,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                           </button>
                         )}
                         <button
-                          onClick={() => {
-                            const insertText =
-                              item.type === 'minds'
-                                ? `【Minds推奨 ${item.title}】\n${item.content}\n（実践Tips: ${item.extraInfo || ''}）`
-                                : item.type === 'drug'
-                                ? `【処方】${item.drugData?.name} ${item.drugData?.standardDosage}`
-                                : item.type === 'disease'
-                                ? `【病名】${item.diseaseData?.name} (${item.diseaseData?.icd10})`
-                                : item.kanjiData?.char || '';
-                            handleInsert(insertText, uniqueKey);
-                          }}
+                          onClick={() => handleInsert(insertText, uniqueKey)}
                           className="px-2 py-1 text-[11px] font-bold border border-black bg-white hover:bg-black hover:text-white shadow-[1px_1px_0_#000] flex items-center gap-1 cursor-pointer"
                           title="カルテ本文に挿入"
                         >
@@ -350,7 +419,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                           <span>挿入</span>
                         </button>
                         <button
-                          onClick={() => handleCopy(item.content, uniqueKey)}
+                          onClick={() => handleCopy(insertText, uniqueKey)}
                           className="px-1.5 py-1 text-[11px] border border-black bg-white hover:bg-black hover:text-white shadow-[1px_1px_0_#000] cursor-pointer"
                           title="コピー"
                         >
@@ -364,16 +433,34 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                       {item.codeOrAttr}
                     </div>
 
-                    {/* 本文 (推奨・注意・用法) */}
+                    {/* 腎機能減量カットオフテーブル表示 */}
+                    {item.type === 'renal' && item.renalData && (
+                      <div className="bg-amber-50/60 border border-amber-200 p-2 text-xs space-y-1">
+                        <div className="font-bold text-amber-950 text-[11px] flex items-center gap-1">
+                          <ShieldAlert className="w-3 h-3 text-amber-700" />
+                          <span>eGFR / CrCl 減量基準</span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]">
+                          {item.renalData.cutoffs.map((cutoff, cidx) => (
+                            <div key={cidx} className="bg-white px-2 py-1 border border-amber-200 flex justify-between">
+                              <span className="font-bold text-gray-700">{cutoff.range}</span>
+                              <span className="text-rose-700 font-semibold">{cutoff.dose}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 本文 (推奨・注意・臨床的意義・要件) */}
                     <div className="text-xs text-gray-800 leading-relaxed bg-white p-1.5 border border-black/10">
                       {item.content}
                     </div>
 
-                    {/* 追加情報 (Tips・実践要点) */}
+                    {/* 追加情報 (カルテ定型文 / 実践Tips / パニック値) */}
                     {item.extraInfo && (
-                      <div className="text-[11px] text-amber-900 bg-amber-50/70 p-1.5 border border-amber-200 flex items-start gap-1">
-                        <Info className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
-                        <span>{item.extraInfo}</span>
+                      <div className="text-[11px] text-slate-800 bg-slate-50 p-1.5 border border-slate-200 flex items-start gap-1">
+                        <Info className="w-3 h-3 text-blue-600 shrink-0 mt-0.5" />
+                        <span className="font-mono text-[10.5px]">{item.extraInfo}</span>
                       </div>
                     )}
                   </div>
@@ -392,7 +479,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                 </div>
                 <button
                   onClick={() => setActiveMindsItem(null)}
-                  className="px-1.5 py-0.2 bg-white text-black hover:bg-gray-200 text-[10px] font-bold"
+                  className="px-1.5 py-0.2 bg-white text-black hover:bg-gray-200 text-[10px] font-bold cursor-pointer"
                 >
                   ✕ 閉じる
                 </button>
@@ -472,7 +559,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
         {/* フッター */}
         <div className="p-2 bg-gray-100 border-t border-black flex items-center justify-between text-[11px] text-gray-600">
           <div className="flex items-center gap-2">
-            <span>収録: Minds 111CQ / 医薬品 / 厚労省病名 / 難読漢字</span>
+            <span>収録: Minds 111CQ / 臨床検査値 / 診療行為・指導料 / 腎機能減量 / 医薬品 / 傷病名</span>
           </div>
           <button
             onClick={() => { playMacBeep(); onClose(); }}
