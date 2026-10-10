@@ -1153,16 +1153,17 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   '処方希望': 'syohoukibou', '処方方針': 'syohouhousinn', '処方・方針': 'syohou/housinn', '処方': 'syohou', '主訴': 'syuso', '現病歴': 'gennbyoureki', '既往歴': 'kioureki',
   '本態性高血圧症': 'honntaiseikouketuatusyou', '本態性': 'honntaisei', '高血圧症': 'kouketuatusyou', '高血圧': 'kouketuatu',
   '家庭血圧': 'kateiketuatu', '家庭': 'katei', '外来血圧': 'gairaiketuatu', '外来': 'gairai',
-  '朝平均': 'asaheikinn', '夜平均': 'yoruheikinn', '推移良好': 'suiiryoukou', '推移': 'suii', '良好': 'ryoukou',
+  '朝平均': 'asaheikinn', '夜平均': '[Z]yakann[/Z][BS][Z]heikinn[/Z]', '推移良好': 'suiiryoukou', '推移': 'suii', '良好': 'ryoukou',
   '服薬アドヒアランス良好': 'fukuyakuadohiarannsuryoukou', '服薬アドヒアランス': 'fukuyakuadohiarannsu', 'アドヒアランス': 'adohiarannsu', '服薬': 'fukuyaku',
   '飲み忘れなし': 'nomiwasurenasi', '飲み忘れ': 'nomiwasure', '忘れなし': 'wasurenasi', '忘れ': 'wasure',
   '胸部違和感なし': 'kyoubuiwakannnasi', '胸部違和感': 'kyoubuiwakann', '違和感なし': 'iwakannnasi', '違和感': 'iwakann', '胸部': 'kyoubu',
-  '頭痛': 'zutuu', 'ふらつき': 'furatuki', '手帳持参': 'tetyoujisann', '手帳': 'tetyou', '持参': 'jisann',
-  '心音純': 'sinnonnjunn', '心音': 'sinnonn', '雑音': 'zatuonn',
-  '両側肺野清': 'ryousokuhaiyasei', '肺野清': 'haiyasei', '肺野': 'haiya',
-  '両側下腿浮腫': 'ryousokukataihusyu', '下腿浮腫': 'kataihusyu', '下腿': 'katai', '浮腫': 'husyu',
-  'アムロジピン錠': 'amurojipinnjyou', 'テルミサルタン錠': 'terumisarutannjyou',
-  '朝食後': 'asasyokugo', '日分': 'nitibunn', '減塩': 'genenn', '食塩': 'syokuenn', '日未満': 'nitimimann',
+  '頭痛': 'zutuu', 'ふらつき': 'furatuki', '動悸': '[Z]doukigasuru[/Z][BS][BS][BS]', '手帳持参': 'tetyoujisann', '手帳': 'tetyou', '持参': 'jisann',
+  '心音純': '[Z]sinnonn[/Z][Z]junnsui[/Z][BS]', '心音': 'sinnonn', '雑音': 'zatuonn',
+  '両側肺野清': '[Z]ryousoku[/Z][Z]hai[/Z][Z]yasai[/Z][BS][Z]seiketu[/Z][BS]', '肺野清': '[Z]hai[/Z][Z]yasai[/Z][BS][Z]seiketu[/Z][BS]', '肺野': '[Z]hai[/Z][Z]yasai[/Z][BS]',
+  '両側下腿浮腫': '[Z]ryousoku[/Z][Z]kataibu[/Z][BS][Z]husyu[/Z]', '下腿浮腫': '[Z]kataibu[/Z][BS][Z]husyu[/Z]', '下腿': '[Z]kataibu[/Z][BS]', '浮腫': 'husyu',
+  'アムロジピン錠': '[K]amurojipinn[/K][Z]jyouzai[/Z][BS]', 'テルミサルタン錠': '[K]terumisarutann[/K][Z]jyouzai[/Z][BS]',
+  '朝食後': 'asasyokugo', '日分': 'nitibunn', '減塩': 'gennnenn', '食塩': 'syokuenn', '日未満': 'nitimimann',
+  'コントロール中': '[K]konntoro-ru[/K][Z]tyuusinn[/Z][BS]',
   '有酸素運動': 'yuusannsoundou', '適度な有酸素運動': 'tekidonayuusannsoundou', '継続指導': 'keizokusidou',
   '次回3ヶ月後の定期採血': 'jikai3kagetugonoteikisaiketu', '次回3ヶ月後': 'jikai3kagetugo', '次回': 'jikai',
   '3ヶ月後': '3kagetugo', '3ヶ月': '3kagetu', 'ヶ月後': 'kagetugo', 'ヶ月': 'kagetu', '定期採血': 'teikisaiketu',
@@ -1776,7 +1777,8 @@ export const AUTO_HOMOPHONE_TRIM_MAP: Record<string, HomophoneTrimDef> = {
   '細菌': { target: '細菌', safeCompound: '細菌学', safeReading: 'saikinngaku', backspaceCount: 1, reason: '「最近」への同音異義語劣後を「細菌学[BS]」で100%防止' },
   '科': { target: '科', safeCompound: '科学', safeReading: 'kagaku', backspaceCount: 1, reason: '「下」「課」への誤爆を「科学[BS]」で100%防止' },
   '拓': { target: '拓', safeCompound: '開拓', safeReading: 'kaitaku', backspaceCount: 1, reason: '人名「拓」の誤爆を「開拓[BS]」で100%防止' },
-  '動悸': { target: '動悸', safeCompound: '動悸息切れ', safeReading: 'doukiikigire', backspaceCount: 3, reason: '「同期」への同音異義語劣後を「動悸息切れ[BS][BS][BS]」で100%防止' },
+  '動悸': { target: '動悸', safeCompound: '動悸がする', safeReading: 'doukigasuru', backspaceCount: 3, reason: '「同期」への同音異義語劣後を「動悸がする[BS][BS][BS]」で100%防止' },
+  '中': { target: '中', safeCompound: '中心', safeReading: 'tyuusinn', backspaceCount: 1, reason: '単独「ちゅう」での「中う」誤爆を「中心[BS]」で100%防止' },
   '整': { target: '整', safeCompound: '整理', safeReading: 'seiri', backspaceCount: 1, reason: '「セイ/せい」への誤爆を「整理[BS]」で100%防止' },
   '純': { target: '純', safeCompound: '純粋', safeReading: 'junnsui', backspaceCount: 1, reason: '「順」への誤爆を「純粋[BS]」で100%防止' },
   '錠': { target: '錠', safeCompound: '錠剤', safeReading: 'jyouzai', backspaceCount: 1, reason: '「条」「上」への誤爆を「錠剤[BS]」で100%防止' },
@@ -1863,6 +1865,11 @@ export function compileMedicalTextToImeBoost(
   text = text.replace(/％/g, '%');
   text = text.replace(/[〜～–—−―]/g, '-');
 
+  // カルテ見出し括弧 【 】 を、MS-IME変換候補変動ゼロの「[H][[/H]」「[H]][/H]」（即時Enter確定）へ標準化
+  // （Spaceキーによる変換履歴の候補順位ブレをハードウェア＆ソフトウェア双方で100%根絶）
+  text = text.replace(/【/g, `${IME_TAG_HIRAGANA}[${IME_TAG_HIRAGANA_END}`);
+  text = text.replace(/】/g, `${IME_TAG_HIRAGANA}]${IME_TAG_HIRAGANA_END}`);
+
   // ギリシャ文字のIME記号変換トランスパイル（[G]モード: Space2回で第2候補の記号を100%直接確定）
   const GREEK_CHAR_MAP: Record<string, string> = {
     'α': `${IME_TAG_GREEK}arufa${IME_TAG_GREEK_END}`,
@@ -1900,6 +1907,16 @@ export function compileMedicalTextToImeBoost(
     '⇔': `${IME_TAG_KANJI}yajirusi${IME_TAG_KANJI_END}`,
   };
   text = text.replace(/[→←↑↓⇒⇔]/g, (ch) => ARROW_CHAR_MAP[ch] || ch);
+
+  // ──【一般化形態素ルール⓪-A：カタカナ薬品名＋「錠」の安全分離（アムロジピン上・テルミサルタン上誤爆完全根絶）】──
+  text = text.replace(/([ァ-ヴー]{2,})錠/g, (_m, drug) => {
+    return `${IME_TAG_KATAKANA}${kanaToRomaji(drug)}${IME_TAG_KATAKANA_END}${IME_TAG_KANJI}jyouzai${IME_TAG_KANJI_END}[BS]`;
+  });
+
+  // ──【一般化形態素ルール⓪-B：接尾辞「〜中」の安全削り出し（コントロール中う誤爆完全根絶）】──
+  text = text.replace(/([ァ-ヴー]{2,})中(?=[)）\s、。]|$)/g, (_m, kata) => {
+    return `${IME_TAG_KATAKANA}${kanaToRomaji(kata)}${IME_TAG_KATAKANA_END}${IME_TAG_KANJI}tyuusinn${IME_TAG_KANJI_END}[BS]`;
+  });
 
   // ──【一般化形態素ルール①：年齢＋性別の分離（祭壇誤爆・キメラ化の完全防止）】──
   text = text.replace(/(\d+)\s*歳\s*男(?!性)/g, '$1[Z]sai[/Z][Z]otoko[/Z]');
@@ -2056,7 +2073,7 @@ export function compileMedicalTextToImeBoost(
       }
 
       const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`(\\[[A-Z0-9]+\\][\\s\\S]*?\\[\\/[A-Z0-9]+\\])|(${escapedWord})`, 'g');
+      const regex = new RegExp(`(\\[(?:K|H|Z|G|A|U)\\][\\s\\S]*?\\[\\/(?:K|H|Z|G|A|U)\\]|\\[BS\\])|(${escapedWord})`, 'g');
       text = text.replace(regex, (match, tagPart, wordPart) => {
         if (tagPart) return tagPart;
         if (wordPart) return tagSeq;
@@ -2072,7 +2089,7 @@ export function compileMedicalTextToImeBoost(
       const bsSeq = '[BS]'.repeat(item.backspaceCount);
       const tagSeq = `${IME_TAG_KANJI}${item.safeReading}${IME_TAG_KANJI_END}${bsSeq}`;
       const escapedTarget = escapeRegExp(item.target);
-      const regex = new RegExp(`(\\[[A-Z0-9]+\\][\\s\\S]*?\\[\\/[A-Z0-9]+\\])|(${escapedTarget})`, 'g');
+      const regex = new RegExp(`(\\[(?:K|H|Z|G|A|U)\\][\\s\\S]*?\\[\\/(?:K|H|Z|G|A|U)\\]|\\[BS\\])|(${escapedTarget})`, 'g');
       text = text.replace(regex, (match, tagPart, wordPart) => {
         if (tagPart) return tagPart;
         if (wordPart) return tagSeq;
@@ -2159,7 +2176,7 @@ export function compileMedicalTextToImeBoost(
 
     // 既にタグが付与された部分（[K]...[/K], [H]...[/H], [Z]...[/Z], [G]...[/G], [A]...[/A], [U]...[/U]）やバックスペースを保持しつつパース
     // ★制御タグおよび角括弧・丸括弧を英数字クラスから厳密に除外し、タグの露出・二重ラップを100%防止
-    const tokenRegex = /(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\]|\[BS\]|[\x08]+|[ァ-ヴー]{2,}|\d+(?:\.\d+)?(?:[\-~–—−―]\d+(?:\.\d+)?)?(?:mg|g|kg|mL|mmHg|bpm|℃|\%|度|日分|錠|T)?|[a-zA-Z0-9_\-\.\:\/\+\#\*\=\!\?\`\'\"]+(?:\s+[a-zA-Z0-9_\-\.\:\/\+\#\*\=\!\?\`\'\"]+)*|[一-龠]+[ぁ-ん]*|[ぁ-ん]+|[、。・，．,.:;!?！？…~〜–—−―（）「」『』／/＜＞《》<>()\[\]{}【】ヶヵ]|\s+|[^\s])/g;
+    const tokenRegex = /(\[(?:K|H|Z|G|A|U)\][\s\S]*?\[\/(?:K|H|Z|G|A|U)\]|\[BS\]|[\x08]+|[ァ-ヴー]{2,}|\d+(?:\.\d+)?(?:[\-~–—−―]\d+(?:\.\d+)?)?(?:mg|g|kg|mL|mmHg|bpm|℃|\%|度|日分|錠|T)?|[a-zA-Z0-9_\-\.\:\/\+\#\*\=\!\?\`\'\"]+(?:\s+[a-zA-Z0-9_\-\.\:\/\+\#\*\=\!\?\`\'\"]+)*|[一-龠]+[ぁ-ん]*|[ぁ-ん]+|[、。・，．,.:;!?！？…~〜–—−―（）「」『』／/＜＞《》<>()\[\]{}【】ヶヵ]|\s+|[^\s])/g;
     const tokens = curLine.match(tokenRegex) || [curLine];
     let lineResult = headingPrefix;
 
@@ -2277,13 +2294,15 @@ export function compileMedicalTextToImeBoost(
         continue;
       }
       if (token === '【') {
-        lineResult += '【';
-        displayTokens.push({ type: 'kanji', originalText: token, actionTag: '[Z]', keystrokes: '【 ➔ [Space]x2 ➔ [Enter]', description: '隅付き括弧「【」確定' });
+        const seq = `${IME_TAG_HIRAGANA}[${IME_TAG_HIRAGANA_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '[ ➔ [Enter]', description: '見出し括弧「【」➔「「」即時確定' });
         continue;
       }
       if (token === '】') {
-        lineResult += '】';
-        displayTokens.push({ type: 'kanji', originalText: token, actionTag: '[Z]', keystrokes: '】 ➔ [Space]x2 ➔ [Enter]', description: '隅付き括弧「】」確定' });
+        const seq = `${IME_TAG_HIRAGANA}]${IME_TAG_HIRAGANA_END}`;
+        lineResult += seq;
+        displayTokens.push({ type: 'hiragana', originalText: token, actionTag: IME_TAG_HIRAGANA, keystrokes: '] ➔ [Enter]', description: '見出し括弧「】」➔「」」即時確定' });
         continue;
       }
       if (token === '「') {
@@ -2377,7 +2396,7 @@ export function compileMedicalTextToImeBoost(
   // 生成されたペイロードの中に、制御タグの外側に生の漢字（\u4E00-\u9FFF）が残存していないか走査し、
   // 残っている場合は自動的に [Z]...[/Z]（安全なローマ字Space変換）でラップする
   const sanitizedLines = compiledLines.map((line) => {
-    return line.replace(/(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\])|([一-龠]+)/g, (match, tagPart, kanjiPart) => {
+    return line.replace(/(\[(?:K|H|Z|G|A|U)\][\s\S]*?\[\/(?:K|H|Z|G|A|U)\]|\[BS\])|([一-龠]+)/g, (match, tagPart, kanjiPart) => {
       if (tagPart) return tagPart;
       if (kanjiPart) {
         const romaji = kanjiWordToRomaji(kanjiPart);

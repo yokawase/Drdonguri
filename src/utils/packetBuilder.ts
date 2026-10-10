@@ -199,7 +199,7 @@ export function buildTransmissionSession(
   // タグ外に生漢字が残存している場合は、すべて [Z]...[/Z]（安全なローマ字Space変換）にラップし、
   // F5リロード誤爆を完全に防止しながらカルテ端末へ着弾させる
   if (mode === DispatchMode.MODE_HYBRID_UNICODE || mode === DispatchMode.MODE_IME_ROMAJI) {
-    formattedText = formattedText.replace(/(\[[A-Z0-9]+\][\s\S]*?\[\/[A-Z0-9]+\]|\[BS\])|([一-龠]+)/g, (match, tagPart, kanjiPart) => {
+    formattedText = formattedText.replace(/(\[(?:K|H|Z|G|A|U)\][\s\S]*?\[\/(?:K|H|Z|G|A|U)\]|\[BS\])|([一-龠]+)/g, (match, tagPart, kanjiPart) => {
       if (tagPart) return tagPart;
       if (kanjiPart) {
         return `[Z]${kanjiWordToRomaji(kanjiPart)}[/Z]`;

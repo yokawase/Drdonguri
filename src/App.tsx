@@ -112,6 +112,7 @@ export default function App() {
   const [isImeBoostModalOpen, setIsImeBoostModalOpen] = useState(false);
   const [isPreprocessorModalOpen, setIsPreprocessorModalOpen] = useState(false);
   const [isCoprocessorModalOpen, setIsCoprocessorModalOpen] = useState(false);
+  const [isMedicalSearchOpen, setIsMedicalSearchOpen] = useState(false);
 
   // 通知バナー
   const [bannerNotice, setBannerNotice] = useState<{
@@ -574,6 +575,7 @@ export default function App() {
         onNewChart={handleNewChart}
         onInsertSoap={handleInsertSoap}
         onOpenCoprocessor={() => { setActiveTab('input'); setIsCoprocessorModalOpen(true); }}
+        onOpenMedicalSearch={() => { setActiveTab('input'); setIsMedicalSearchOpen(true); }}
         onOpenTemplates={() => { setActiveTab('input'); setIsTemplateModalOpen(true); }}
         onOpenAiAssist={() => { setActiveTab('input'); setIsAiModalOpen(true); }}
         onOpenOcr={() => { setActiveTab('input'); setIsCameraOcrOpen(true); }}
@@ -661,6 +663,18 @@ export default function App() {
             <span>📥 双方向コプロセッサ</span>
             <span className="text-[9px] bg-black text-white px-1 font-mono">v19.1</span>
           </button>
+
+          <button
+            onClick={() => {
+              playMacBeep();
+              setActiveTab('input');
+              setIsMedicalSearchOpen(true);
+            }}
+            className="mac-btn shrink-0 bg-emerald-50 hover:bg-emerald-100 border border-black font-bold flex items-center gap-1 text-xs shadow-[1px_1px_0_#000]"
+            title="Minds 111疾患・医薬品・病名・難読漢字を即時検索"
+          >
+            <span>📚 医療データ検索</span>
+          </button>
         </div>
 
         {/* System 7 スタイル アラート・通知バナー */}
@@ -716,6 +730,7 @@ export default function App() {
             isSending={isSending}
             isBleConnected={isBleConnected}
             isVirtualMode={isVirtualMode}
+            onConnectBle={handleConnectBle}
             onPressVirtualButton={handlePressButton}
             onNavigateTab={setActiveTab}
             isAiModalOpen={isAiModalOpen}
@@ -730,6 +745,8 @@ export default function App() {
             setIsPreprocessorModalOpen={setIsPreprocessorModalOpen}
             isCoprocessorModalOpen={isCoprocessorModalOpen}
             setIsCoprocessorModalOpen={setIsCoprocessorModalOpen}
+            isMedicalSearchOpen={isMedicalSearchOpen}
+            setIsMedicalSearchOpen={setIsMedicalSearchOpen}
             deviceType={deviceType}
             isLandscape={isLandscape}
           />

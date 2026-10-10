@@ -211,51 +211,123 @@ export const MINDS_PRESET_CATALOG: MindsGuidelineDetail[] = [
   }
 ];
 
+import { MINDS_KNOWLEDGE_CATALOG, MindsKnowledgeItem } from '../data/medicalKnowledgeCatalog';
+
 /**
- * テキストから Minds ガイドライン推奨を即時マッチング検索
+ * テキストから Minds ガイドライン推奨を即時マッチング検索 (全111件対象)
  */
 export function searchMindsGuidelines(query: string): MindsGuidelineDetail[] {
   if (!query || !query.trim()) return [];
   const q = query.toLowerCase();
 
-  return MINDS_PRESET_CATALOG.filter((item) => {
+  return MINDS_KNOWLEDGE_CATALOG.filter((item) => {
     return (
       item.diseaseName.toLowerCase().includes(q) ||
       item.icd10.toLowerCase().includes(q) ||
       item.cqTitle.toLowerCase().includes(q) ||
-      item.recommendation.toLowerCase().includes(q)
+      item.category.toLowerCase().includes(q) ||
+      item.recommendation.toLowerCase().includes(q) ||
+      item.detail.practiceTip.toLowerCase().includes(q)
     );
-  });
+  }).map((item) => ({
+    id: item.id,
+    icd10: item.icd10,
+    diseaseName: item.diseaseName,
+    category: item.category,
+    cqNum: item.cqNum,
+    cqTitle: item.cqTitle,
+    strength: item.strength,
+    evidenceLevel: item.evidenceLevel,
+    recommendation: item.recommendation,
+    detail: item.detail,
+  }));
 }
 
 /**
- * カルテテキストから自動的に関連する Minds ガイドラインを抽出するコパイロット関数
+ * カルテテキストから自動的に関連する Minds ガイドラインを抽出するコパイロット関数 (全111件対応)
  */
 export function extractRelevantMindsGuidelinesFromSoap(soapText: string): MindsGuidelineDetail[] {
-  if (!soapText) return [];
+  if (!soapText || !soapText.trim()) return [];
   const matched = new Set<string>();
   const results: MindsGuidelineDetail[] = [];
+  const lowerSoap = soapText.toLowerCase();
 
+  // 1. 主要疾患トリガーキーワードマップ
   const triggerMap: Record<string, string[]> = {
     "J00_CQ1": ["かぜ", "感冒", "上気道炎", "風邪", "咽頭発赤"],
-    "J02.9_CQ1": ["咽頭炎", "扁桃炎", "扁桃腫脹", "centor", "のどが痛い"],
-    "I10_CQ1": ["高血圧", "血圧高値", "降圧", "収縮期血圧", "アムロジピン"],
-    "E11.9_CQ1": ["糖尿病", "hba1c", "血糖", "dm", "sglt2"],
-    "I48.9_CQ1": ["心房細動", "af", "doac", "chads2", "アピキサバン"],
-    "K21.9_CQ1": ["gerd", "逆流性食道炎", "胸やけ", "呑酸", "タケキャブ", "ppi"],
+    "J02.9_CQ1": ["咽頭炎", "扁桃炎", "扁桃腫脹", "centor", "のどが痛い", "溶連菌"],
+    "J20.9_CQ1": ["気管支炎", "急性気管支炎", "咳が続く", "湿性咳嗽"],
+    "J18.9_CQ1": ["肺炎", "市中肺炎", "a-drop", "浸潤影", "curb-65"],
+    "J45.9_CQ1": ["喘息", "気管支喘息", "喘鳴", "ホイージング", "吸入ステロイド"],
+    "J44.9_CQ1": ["copd", "慢性閉塞性肺疾患", "肺気腫", "lama", "laba"],
+    "I10_CQ1": ["高血圧", "血圧高値", "降圧", "収縮期血圧", "アムロジピン", "130/80"],
+    "E11.9_CQ1": ["糖尿病", "hba1c", "血糖", "dm", "sglt2", "メトホルミン"],
+    "E78.5_CQ1": ["脂質異常症", "高コレステロール", "ldl", "スタチン", "中性脂肪"],
+    "E79.0_CQ1": ["高尿酸", "尿酸値", "フェブキソスタット", "高尿酸血症"],
+    "M10.9_CQ1": ["痛風", "痛風発作", "第1中足趾節関節", "足の親指が痛い"],
+    "I48.9_CQ1": ["心房細動", "af", "doac", "chads2", "アピキサバン", "リクシアナ"],
+    "I50.9_CQ1": ["心不全", "bnp", "浮腫", "息切れ", "ef低下", "鬱血"],
+    "K21.9_CQ1": ["gerd", "逆流性食道炎", "胸やけ", "呑酸", "タケキャブ", "ppi", "胃食道逆流"],
+    "A09_CQ1": ["胃腸炎", "感染性胃腸炎", "嘔吐", "下痢", "水様便"],
+    "K59.0_CQ1": ["便秘", "排便困難", "酸化マグネシウム", "モビコール"],
+    "N18.9_CQ1": ["ckd", "慢性腎臓病", "egfr", "蛋白尿", "クレアチニン"],
     "S09.9_CQ1": ["頭部打撲", "頭部外傷", "頭を打った", "cchr", "pecarn"],
-    "M10.9_CQ1": ["痛風", "高尿酸", "尿酸値", "第1中足趾節関節", "足の親指が痛い"],
-    "G47.0_CQ1": ["不眠", "眠れない", "中途覚醒", "睡眠薬", "ベンゾ"]
+    "G47.0_CQ1": ["不眠", "眠れない", "中途覚醒", "睡眠薬", "ベンゾ", "デエビゴ"],
+    "G44.2_CQ1": ["緊張型頭痛", "頭痛", "後頭部痛", "締め付けられるような頭痛"],
+    "G43.9_CQ1": ["片頭痛", "偏頭痛", "拍動性頭痛", "トリプタン", "閃輝暗点"],
+    "M17.9_CQ1": ["変形性膝関節症", "膝痛", "膝関節", "ヒアルロン酸注射"],
+    "M54.5_CQ1": ["腰痛", "急性腰痛", "ぎっくり腰", "腰痛症"],
+    "J30.4_CQ1": ["アレルギー性鼻炎", "花粉症", "鼻水", "くしゃみ", "抗ヒスタミン"],
+    "L50.9_CQ1": ["蕁麻疹", "じんましん", "膨疹", "かゆみ", "抗ヒスタミン薬"],
+    "B02.9_CQ1": ["帯状疱疹", "水疱", "ピリピリする痛", "抗ウイルス薬"]
   };
 
   for (const [guideId, triggers] of Object.entries(triggerMap)) {
-    const isMatched = triggers.some((t) => soapText.toLowerCase().includes(t.toLowerCase()));
+    const isMatched = triggers.some((t) => lowerSoap.includes(t.toLowerCase()));
     if (isMatched && !matched.has(guideId)) {
       matched.add(guideId);
-      const entry = MINDS_PRESET_CATALOG.find((g) => g.id === guideId);
-      if (entry) results.push(entry);
+      const entry = MINDS_KNOWLEDGE_CATALOG.find((g) => g.id === guideId);
+      if (entry) {
+        results.push({
+          id: entry.id,
+          icd10: entry.icd10,
+          diseaseName: entry.diseaseName,
+          category: entry.category,
+          cqNum: entry.cqNum,
+          cqTitle: entry.cqTitle,
+          strength: entry.strength,
+          evidenceLevel: entry.evidenceLevel,
+          recommendation: entry.recommendation,
+          detail: entry.detail,
+        });
+      }
+    }
+  }
+
+  // 2. 全111件から疾患名そのものが含まれているものを直接探索
+  for (const item of MINDS_KNOWLEDGE_CATALOG) {
+    if (!matched.has(item.id)) {
+      // 疾患名の正規化（括弧内を除外してコア疾患名で照合）
+      const cleanDiseaseName = item.diseaseName.replace(/（.*?）|\(.*?\)/g, '').trim().toLowerCase();
+      if (cleanDiseaseName.length >= 2 && lowerSoap.includes(cleanDiseaseName)) {
+        matched.add(item.id);
+        results.push({
+          id: item.id,
+          icd10: item.icd10,
+          diseaseName: item.diseaseName,
+          category: item.category,
+          cqNum: item.cqNum,
+          cqTitle: item.cqTitle,
+          strength: item.strength,
+          evidenceLevel: item.evidenceLevel,
+          recommendation: item.recommendation,
+          detail: item.detail,
+        });
+        if (results.length >= 6) break; // 多すぎるとUIが見づらくなるため最大6件
+      }
     }
   }
 
   return results;
 }
+

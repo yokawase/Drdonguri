@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   FileText, 
   Send, 
@@ -24,6 +24,7 @@ import {
   Settings,
   Check
 } from 'lucide-react';
+import { APP_VERSION } from '../version';
 import { DispatchMode, EhrNewlineMode, SessionTransmissionStatus, MedicalTemplate } from '../types';
 import { DEFAULT_PRESET_TEMPLATES } from './MedicalTemplates';
 import { transpileToImeRomajiSequence, generateKeystrokeSequence } from '../utils/japaneseImeTranspiler';
@@ -37,6 +38,8 @@ import { ImePrecisionBoostModal } from './ImePrecisionBoostModal';
 import { MedicalPreprocessorModal } from './MedicalPreprocessorModal';
 import { MedicalCoprocessorModal } from './MedicalCoprocessorModal';
 import { ClinicalDecisionSupport } from './ClinicalDecisionSupport';
+import { MedicalDataSearchModal } from './MedicalDataSearchModal';
+import { extractRelevantMindsGuidelinesFromSoap, MindsGuidelineDetail } from '../utils/mindsGuidelineCompiler';
 import { 
   preprocessMedicalText, 
   PreprocessOptions, 
@@ -68,6 +71,7 @@ interface InputPaneProps {
   isSending: boolean;
   isBleConnected: boolean;
   isVirtualMode: boolean;
+  onConnectBle?: () => void;
   onPressVirtualButton?: () => void;
   onNavigateTab?: (tab: 'input' | 'dongle' | 'firmware') => void;
   isAiModalOpen?: boolean;
@@ -82,6 +86,8 @@ interface InputPaneProps {
   setIsPreprocessorModalOpen?: (open: boolean) => void;
   isCoprocessorModalOpen?: boolean;
   setIsCoprocessorModalOpen?: (open: boolean) => void;
+  isMedicalSearchOpen?: boolean;
+  setIsMedicalSearchOpen?: (open: boolean) => void;
   deviceType?: DeviceType;
   isLandscape?: boolean;
 }
@@ -96,6 +102,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
   isSending,
   isBleConnected,
   isVirtualMode,
+  onConnectBle,
   onPressVirtualButton,
   onNavigateTab,
   isAiModalOpen: propAiOpen,
@@ -110,6 +117,8 @@ export const InputPane: React.FC<InputPaneProps> = ({
   setIsPreprocessorModalOpen: propSetPreprocessorOpen,
   isCoprocessorModalOpen: propCoprocessorOpen,
   setIsCoprocessorModalOpen: propSetCoprocessorOpen,
+  isMedicalSearchOpen: propMedicalSearchOpen,
+  setIsMedicalSearchOpen: propSetMedicalSearchOpen,
   deviceType = 'desktop',
   isLandscape = false,
 }) => {
@@ -159,6 +168,17 @@ export const InputPane: React.FC<InputPaneProps> = ({
   const [internalCoprocessorOpen, setInternalCoprocessorOpen] = useState(false);
   const isCoprocessorModalOpen = propCoprocessorOpen !== undefined ? propCoprocessorOpen : internalCoprocessorOpen;
   const setIsCoprocessorModalOpen = propSetCoprocessorOpen || setInternalCoprocessorOpen;
+  
+  const [internalMedicalSearchOpen, setInternalMedicalSearchOpen] = useState(false);
+  const isMedicalSearchOpen = propMedicalSearchOpen !== undefined ? propMedicalSearchOpen : internalMedicalSearchOpen;
+  const setIsMedicalSearchOpen = propSetMedicalSearchOpen || setInternalMedicalSearchOpen;
+  const [medicalSearchInitialQuery, setMedicalSearchInitialQuery] = useState('');
+
+  // カルテテキストから Minds ガイドライン (全111件) をリアルタイム自動照合
+  const relevantMindsList = useMemo(() => {
+    return extractRelevantMindsGuidelinesFromSoap(inputText);
+  }, [inputText]);
+
   const [isWindowZoomed, setIsWindowZoomed] = useState(false);
   const [isAutoSavedNotice, setIsAutoSavedNotice] = useState(false);
 
@@ -416,11 +436,11 @@ export const InputPane: React.FC<InputPaneProps> = ({
 
             <div className="bg-white border border-black px-1.5 sm:px-2 py-0.5 font-bold text-xs tracking-wider flex items-center gap-1 sm:gap-1.5 shadow-[1px_1px_0_#000] truncate">
               {deviceType === 'mobile' ? (
-                <span className="truncate">カルテ送信</span>
+                <span className="truncate">カルテ送信 (v{APP_VERSION})</span>
               ) : deviceType === 'tablet' ? (
-                <span className="truncate">DrVoice カルテ (双方向AI)</span>
+                <span className="truncate">DrVoice カルテ v{APP_VERSION}</span>
               ) : (
-                <span className="truncate">DrVoice どんぐり君 v19.1 (双方向コプロセッサ)</span>
+                <span className="truncate">DrVoice どんぐり君 v{APP_VERSION} (双方向コプロセッサ)</span>
               )}
 
               {isBleConnected ? (
@@ -490,7 +510,73 @@ export const InputPane: React.FC<InputPaneProps> = ({
         </div>
 
         {/* ウィンドウ内部コンテンツ（シンプル・直感UI） */}
-        <div className="p-2 sm:p-3 bg-white space-y-2.5">
+        <div className="p-2 sm:p-3 bg-white space-y-2">
+          {/* ★ クイックアクションバー: BLE接続状態 ＆ 医療データ検索 ＆ Minds推論 */}
+          <div className="flex items-center justify-between gap-1.5 flex-wrap bg-slate-100 p-1.5 border border-black shadow-[1px_1px_0_#000] text-xs">
+            {/* 左側: BLE接続ボタン (一番目立つ最前面配置！) */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  playMacBeep();
+                  if (onConnectBle) {
+                    onConnectBle();
+                  } else {
+                    bleManager.connect().catch((e) => console.warn(e));
+                  }
+                }}
+                className={`px-2.5 py-1 text-xs font-bold border-2 border-black shadow-[1.5px_1.5px_0_#000] cursor-pointer flex items-center gap-1.5 transition-all ${
+                  isBleConnected
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    : 'bg-sky-600 text-white hover:bg-sky-700 animate-pulse ring-2 ring-sky-300'
+                }`}
+                title={isBleConnected ? 'BLE接続中 (タップで切断・確認)' : '今すぐどんぐり君実機とBLE接続'}
+              >
+                <span>{isBleConnected ? '🟢' : '⚡'}</span>
+                <span>{isBleConnected ? 'BLE接続中' : '実機BLE接続'}</span>
+              </button>
+
+              {isVirtualMode && (
+                <span className="text-[10px] bg-amber-200 text-amber-900 border border-black px-1.5 py-0.5 font-bold">
+                  仮想
+                </span>
+              )}
+            </div>
+
+            {/* 右側: 医療データ検索 ＆ カルテからMinds推論 */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  playMacBeep();
+                  setMedicalSearchInitialQuery('');
+                  setIsMedicalSearchOpen(true);
+                }}
+                className="px-2 py-1 bg-yellow-100 hover:bg-black hover:text-white border border-black font-bold text-xs shadow-[1px_1px_0_#000] flex items-center gap-1 cursor-pointer"
+                title="Minds 111疾患・医薬品マスター・病名・難読漢字を検索"
+              >
+                <span>📚</span>
+                <span>医療データ検索</span>
+              </button>
+
+              {relevantMindsList.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    playMacBeep();
+                    setMedicalSearchInitialQuery(relevantMindsList[0].diseaseName);
+                    setIsMedicalSearchOpen(true);
+                  }}
+                  className="px-2 py-1 bg-indigo-100 text-indigo-900 hover:bg-indigo-900 hover:text-white border border-black font-bold text-xs shadow-[1px_1px_0_#000] flex items-center gap-1 cursor-pointer"
+                  title="カルテ内容に合致するMindsガイドラインをWebLLMで推論"
+                >
+                  <Sparkles className="w-3 h-3 text-indigo-700" />
+                  <span>Minds推論 ({relevantMindsList.length})</span>
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Monaco / DotGothic16 プレーンテキスト入力欄 */}
           <div className="relative border border-black p-0.5 bg-white shadow-[inset_1px_1px_0_#000]">
             <textarea
@@ -506,6 +592,74 @@ export const InputPane: React.FC<InputPaneProps> = ({
               }}
             />
           </div>
+
+          {/* ★【Minds診療ガイドライン リアルタイム照合・臨床支援バナー】 */}
+          {relevantMindsList.length > 0 && (
+            <div className="border-2 border-black bg-emerald-50 p-2 space-y-1.5 shadow-[2px_2px_0_#000]">
+              <div className="flex items-center justify-between text-xs font-bold text-emerald-950">
+                <div className="flex items-center gap-1.5">
+                  <BookOpen className="w-4 h-4 text-emerald-700" />
+                  <span>💡 Minds診療ガイドライン照合: {relevantMindsList.length}件の関連推奨</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playMacBeep();
+                    setMedicalSearchInitialQuery(relevantMindsList[0].diseaseName);
+                    setIsMedicalSearchOpen(true);
+                  }}
+                  className="text-[11px] underline text-emerald-800 hover:text-black cursor-pointer font-bold"
+                >
+                  すべて見る / AI推論 ➔
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {relevantMindsList.slice(0, 2).map((guide: MindsGuidelineDetail) => (
+                  <div
+                    key={guide.id}
+                    className="bg-white border border-black p-2 text-xs space-y-1 shadow-[1px_1px_0_#000]"
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="font-bold text-slate-900 truncate">
+                        {guide.diseaseName} CQ{guide.cqNum}
+                      </span>
+                      <span className="text-[10px] px-1 bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold shrink-0">
+                        {guide.strength === 1 ? '強く推奨' : guide.strength === 4 ? '非推奨' : '推奨'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-700 line-clamp-2 leading-tight">
+                      {guide.recommendation}
+                    </div>
+                    <div className="flex items-center justify-end gap-1 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          playMacBeep();
+                          setInputText((prev) => `${prev}\n\n【Minds推奨 ${guide.diseaseName}】\n${guide.recommendation}`);
+                          showToast('Minds推奨をカルテに挿入しました');
+                        }}
+                        className="px-1.5 py-0.5 border border-black text-[10px] font-bold bg-white hover:bg-black hover:text-white shadow-[1px_1px_0_#000] cursor-pointer"
+                      >
+                        ＋ 挿入
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          playMacBeep();
+                          setMedicalSearchInitialQuery(guide.diseaseName);
+                          setIsMedicalSearchOpen(true);
+                        }}
+                        className="px-1.5 py-0.5 border border-black text-[10px] font-bold bg-indigo-50 hover:bg-black hover:text-white shadow-[1px_1px_0_#000] cursor-pointer"
+                      >
+                        🧠 AI推論
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ★【高度推論・キーストローク着弾リアルタイム解析モニター】 */}
           {inputText.trim() && compiledImeResult && (
@@ -891,11 +1045,11 @@ export const InputPane: React.FC<InputPaneProps> = ({
         soapText={inputText}
         patientAge={64}
         patientGender="男性"
-        onApplyDiagnosisToSoap={(diagText) => {
+        onApplyDiagnosisToSoap={(diagText: string) => {
           setInputText((prev) => (prev ? `${prev}\n${diagText}` : diagText));
           showToast('【診断】欄へ推奨病名を反映しました');
         }}
-        onApplyPlanGuideline={(planText) => {
+        onApplyPlanGuideline={(planText: string) => {
           setInputText((prev) => (prev ? `${prev}\n${planText}` : planText));
           showToast('【方針】欄へ推奨を反映しました');
         }}
@@ -1074,7 +1228,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
               <div className="flex items-center gap-2">
                 <Menu className="w-4 h-4 text-black" />
                 <span className="font-bold text-sm tracking-wide">
-                  ツール ＆ カルテ設定メニュー (v19.1)
+                  ツール ＆ カルテ設定メニュー (v{APP_VERSION})
                 </span>
               </div>
               <button
@@ -1090,6 +1244,58 @@ export const InputPane: React.FC<InputPaneProps> = ({
             </div>
 
             <div className="space-y-3.5 text-xs max-h-[75vh] overflow-y-auto pr-1">
+              {/* ── ★ 実機BLE接続 ＆ 医療データ検索 (最前面) ── */}
+              <div className="border-2 border-black p-2.5 bg-sky-50 space-y-2 shadow-[2px_2px_0_#000]">
+                <div className="flex items-center justify-between font-bold text-black border-b border-black/30 pb-1">
+                  <div className="flex items-center gap-1.5">
+                    <span>🌰</span>
+                    <span>どんぐり君 実機接続 ＆ 医療マスター検索</span>
+                  </div>
+                  <span className={`px-1.5 py-0.2 border border-black text-[10px] font-bold ${isBleConnected ? 'bg-emerald-600 text-white' : 'bg-red-100 text-red-800'}`}>
+                    {isBleConnected ? 'BLE接続中' : '未接続'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playMacBeep();
+                      if (onConnectBle) {
+                        onConnectBle();
+                      } else {
+                        bleManager.connect().catch((e) => console.warn(e));
+                      }
+                      setIsSmartMenuOpen(false);
+                    }}
+                    className={`mac-btn text-left p-2 flex items-center gap-1.5 font-bold border border-black cursor-pointer ${
+                      isBleConnected ? 'bg-emerald-100' : 'bg-sky-600 text-white animate-pulse'
+                    }`}
+                  >
+                    <span>{isBleConnected ? '🟢' : '⚡'}</span>
+                    <div>
+                      <div className="font-bold">{isBleConnected ? 'BLE切断・再接続' : '実機BLE接続'}</div>
+                      <div className="text-[10px] opacity-80">{isBleConnected ? '正常稼働中' : '今すぐ接続開始'}</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playMacBeep();
+                      setIsMedicalSearchOpen(true);
+                      setIsSmartMenuOpen(false);
+                    }}
+                    className="mac-btn text-left p-2 flex items-center gap-1.5 font-bold bg-yellow-100 hover:bg-yellow-200 border border-black cursor-pointer"
+                  >
+                    <span>📚</span>
+                    <div>
+                      <div className="font-bold">医療データ検索</div>
+                      <div className="text-[10px] text-gray-700">Minds 111CQ / 医薬品 / 病名</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* ── ★ 最重要新機能: 医療双方向エッジコプロセッサ ── */}
               <div className="border-2 border-black p-2.5 bg-yellow-50 space-y-2 shadow-[2px_2px_0_#000]">
                 <div className="font-bold text-black border-b border-black/30 pb-1 flex items-center justify-between">
@@ -1378,6 +1584,18 @@ export const InputPane: React.FC<InputPaneProps> = ({
           </div>
         </div>
       )}
+
+      {/* ★ 医療データ統合検索 モーダル (Minds 111CQ / 医薬品 / 病名 / 難読漢字) */}
+      <MedicalDataSearchModal
+        isOpen={isMedicalSearchOpen}
+        onClose={() => setIsMedicalSearchOpen(false)}
+        inputText={inputText}
+        initialQuery={medicalSearchInitialQuery}
+        onInsertText={(text) => {
+          setInputText((prev) => (prev ? `${prev}\n${text}` : text));
+          showToast('カルテ本文に挿入しました');
+        }}
+      />
     </div>
   );
 };

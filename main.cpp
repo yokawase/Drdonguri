@@ -14,11 +14,22 @@
 // TinyUSB マウント監視API
 extern "C" bool tud_mounted(void);
 
-// ============================================================================
-// ハードウェア設定・ピン定義 (M5Stack AtomS3U: ESP32-S3FN8, 8MB Flash, No PSRAM)
-// ============================================================================
-#define RGB_LED_PIN         35  // 内蔵WS2812フルカラーLED
-#define FRONT_BTN_PIN       41  // 正面プッシュスイッチ (Active LOW: 押下時にGND)
+#if defined(T_DONGLE_S3)
+#include "donguri_display.h"
+#define RGB_LED_PIN         -1  // LCD表示
+#define FRONT_BTN_PIN       0   // T-Dongle-S3 BOOTボタン (GPIO 0)
+#else
+#define RGB_LED_PIN         35  // AtomS3U 内蔵WS2812フルカラーLED
+#define FRONT_BTN_PIN       41  // AtomS3U 正面プッシュスイッチ
+#endif
+
+// リアルタイム形態素タグカウンター
+static int g_tagZ = 0; // 漢字
+static int g_tagK = 0; // カナ
+static int g_tagA = 0; // 英数
+static int g_tagH = 0; // 助詞・ひらがな
+
+void updateTypingProgress(int pct);
 
 // BLE UUID定義 (DrVoice どんぐり君 アプリと完全一致)
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
@@ -160,7 +171,7 @@ struct MessageContext {
 // ============================================================================
 // USB Composite 仮想プリンター (Class 07h) - 閉域網電カル双方向エッジコプロセッサ
 // ============================================================================
-#define IEEE1284_DEVICE_ID "MFG:Generic;MDL:Custom-Text-Only;CMD:TEXT;CLS:PRINTER;"
+#define IEEE1284_DEVICE_ID "MFG:Generic;MDL:Custom-Text-Only;CMD:TEXT;CLS:PRINTER;DES:Generic Text Only;"
 #define PRINTER_REQ_GET_DEVICE_ID   0
 #define PRINTER_REQ_GET_PORT_STATUS 1
 #define PRINTER_REQ_SOFT_RESET      2
@@ -190,6 +201,11 @@ void onPrinterDataReceived(const uint8_t* data, uint16_t len) {
   s_printer_job_active = true;
   s_printer_total_bytes += len;
   setLedColor(0, 64, 64); // シアン点灯 (電カル吸い上げ中)
+#if defined(T_DONGLE_S3)
+  char prnBuf[24];
+  snprintf(prnBuf, sizeof(prnBuf), "PULL %uB", (unsigned int)s_printer_total_bytes);
+  g_display.updateStatus(prnBuf, 0, 0, 0, 0, 50, 0, "Pulling EHR");
+#endif
 
   if (s_printer_queue != nullptr) {
     PrinterChunkItem item;
@@ -234,6 +250,7 @@ static void printer_class_reset(uint8_t rhport) {
 
 static uint16_t printer_class_open(uint8_t rhport, tusb_desc_interface_t const * desc_intf, uint16_t max_len) {
   if (desc_intf->bInterfaceClass != 0x07) return 0;
+  s_printer_itf_num = desc_intf->bInterfaceNumber;
 
   uint8_t const * p_desc = (uint8_t const *) desc_intf;
   uint8_t const * p_desc_end = p_desc + max_len;
@@ -392,10 +409,42 @@ static inline size_t getUtf8CharLen(uint8_t c) {
 // ハードウェア制御 (WS2812 RGB LED) - 変化時のみ書き込んで割込停止を抑止
 // ============================================================================
 void setLedColor(uint8_t r, uint8_t g, uint8_t b) {
+#if !defined(T_DONGLE_S3)
   static uint8_t curR = 255, curG = 255, curB = 255;
   if (r == curR && g == curG && b == curB) return;
   curR = r; curG = g; curB = b;
-  neopixelWrite(RGB_LED_PIN, r, g, b);
+  if (RGB_LED_PIN >= 0) {
+    neopixelWrite(RGB_LED_PIN, r, g, b);
+  }
+#endif
+}
+
+void updateTypingProgress(int pct) {
+#if defined(T_DONGLE_S3)
+  static unsigned long lastUpdate = 0;
+  if (millis() - lastUpdate > 80 || pct == 100) {
+    lastUpdate = millis();
+    g_display.showFace(FACE_TYPING);
+    char buf[24];
+    snprintf(buf, sizeof(buf), "TYPING %d%%", constrain(pct, 0, 100));
+    g_display.updateStatus(buf, g_tagZ, g_tagK, g_tagA, g_tagH, pct, 0, "EHR Stream");
+  }
+#endif
+}
+
+// ============================================================================
+// モディファイアキー（Shift, Ctrl, Alt, GUI）完全全解放エンジン (Anti-Stuck Protection)
+// OS/メッセージフックによるKeyUp取りこぼしを100%防止し、ブラウザ誤爆（Ctrl+Shift+N/P, Ctrl+F）を完全根絶
+// ============================================================================
+void forceReleaseAllModifiers() {
+  KeyReport rep;
+  memset(&rep, 0, sizeof(KeyReport));
+  Keyboard.sendReport(&rep);
+  delay(4);
+  Keyboard.releaseAll();
+  delay(2);
+  Keyboard.sendReport(&rep);
+  delay(2);
 }
 
 // カルテ吸い上げ自動トリガー (Ctrl+P -> Enter)
@@ -405,7 +454,7 @@ void executeAutoPullKeySequence() {
   delay(50);
   Keyboard.press('p');
   delay(80);
-  Keyboard.releaseAll();
+  forceReleaseAllModifiers();
   
   // 印刷ダイアログ表示待機
   delay(350);
@@ -413,6 +462,7 @@ void executeAutoPullKeySequence() {
   // Enterで印刷実行（仮想テキストプリンタへスプール）
   Keyboard.write(KEY_RETURN);
   delay(100);
+  forceReleaseAllModifiers();
   setLedColor(0, 64, 0); // 復帰
 }
 
@@ -481,7 +531,7 @@ void safeWrite(uint8_t key) {
   delay(6);              // OSがKeyDownを確実に認識・処理する時間
   Keyboard.release(key);
   delay(2);
-  Keyboard.releaseAll();  // 念押しで全キー解放レポート(0x00)を送信（二重解放保証）
+  forceReleaseAllModifiers(); // 念押しで全キー＆全モディファイア解放レポート(0x00)を送信
 }
 
 // ============================================================================
@@ -947,7 +997,8 @@ static const KanaTableEntry MONO_KANA_TABLE[] = {
   {"ワ", "wa"}, {"ヲ", "wo"}, {"ン", "nn"},
   {"ッ", "ltu"}, {"ャ", "xya"}, {"ュ", "xyu"}, {"ョ", "xyo"},
   {"ァ", "xa"},  {"ィ", "xi"},  {"ゥ", "xu"},  {"ェ", "xe"},  {"ォ", "xo"},
-  {"ヴ", "vu"},  {"ー", "-"}
+  {"ヴ", "vu"},  {"ー", "-"},
+  {"ヶ", "ke"}, {"ヵ", "ka"}
 };
 
 // UTF-8ひらがな判定 (U+3041〜U+3096)
@@ -1066,6 +1117,12 @@ bool dispatchSafeKeystrokes() {
   const char* buf = currentMsg.assembledBuffer;
   bool isMicsMode = false; // MICS Navigator電子カルテ向け Alt+Enter 改行フラグ
 
+  g_tagZ = 0;
+  g_tagK = 0;
+  g_tagA = 0;
+  g_tagH = 0;
+  updateTypingProgress(0);
+
   // SPIFFS辞書ファイルのオープン（打鍵セッション中のみファイルハンドルを保持）
   File fYomi;
   File fTerms;
@@ -1155,6 +1212,8 @@ bool dispatchSafeKeystrokes() {
     // ------------------------------------------------------------------------
     // 1. [K]...[/K] (カタカナモード: F7 ➔ Enter)
     if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "<K>", 3) == 0) {
+      g_tagK++;
+      updateTypingProgress((total > 0) ? (i * 100) / total : 0);
       i += 3;
       bool sentAnyChar = false;
       while (i < total) {
@@ -1180,12 +1239,15 @@ bool dispatchSafeKeystrokes() {
         delay(25);
         safeWrite(KEY_RETURN);
         delay(40);
+        forceReleaseAllModifiers();
       }
       continue;
     }
 
     // 2. [H]...[/H] (ひらがな助詞モード: Enter即時確定、Space禁止、二重防護)
     if (strncmp(&buf[i], "[H]", 3) == 0 || strncmp(&buf[i], "<H>", 3) == 0) {
+      g_tagH++;
+      updateTypingProgress((total > 0) ? (i * 100) / total : 0);
       i += 3;
       bool sentAnyChar = false;
       while (i < total) {
@@ -1252,12 +1314,15 @@ bool dispatchSafeKeystrokes() {
         delay(20);
         safeWrite(KEY_RETURN);
         delay(40);
+        forceReleaseAllModifiers();
       }
       continue;
     }
 
     // 3. [Z]...[/Z] (漢字変換モード: Space変換 ➔ Enter確定)
     if (strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "<Z>", 3) == 0) {
+      g_tagZ++;
+      updateTypingProgress((total > 0) ? (i * 100) / total : 0);
       i += 3;
       bool sentAnyChar = false;
       while (i < total) {
@@ -1286,12 +1351,15 @@ bool dispatchSafeKeystrokes() {
         delay(35); // 候補窓展開ウェイト
         safeWrite(KEY_RETURN);
         delay(40);
+        forceReleaseAllModifiers();
       }
       continue;
     }
 
     // 3.5 [G]...[/G] (ギリシャ文字変換モード: Space2回 ➔ Enterで第2候補記号α/βを直接物理確定！)
     if (strncmp(&buf[i], "[G]", 3) == 0 || strncmp(&buf[i], "<G>", 3) == 0) {
+      g_tagZ++;
+      updateTypingProgress((total > 0) ? (i * 100) / total : 0);
       i += 3;
       bool sentAnyChar = false;
       while (i < total) {
@@ -1322,12 +1390,15 @@ bool dispatchSafeKeystrokes() {
         delay(35);
         safeWrite(KEY_RETURN); // 確定
         delay(40);
+        forceReleaseAllModifiers();
       }
       continue;
     }
 
     // 4. [A]...[/A] (半角ASCIIモード: 英数字・記号時はF10+EnterでMS-IME全角化完全防止＆直接送出)
     if (strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "<A>", 3) == 0) {
+      g_tagA++;
+      updateTypingProgress((total > 0) ? (i * 100) / total : 0);
       i += 3;
       bool hasNonSpace = false;
       while (i < total) {
@@ -1356,6 +1427,7 @@ bool dispatchSafeKeystrokes() {
         delay(25);
         safeWrite(KEY_RETURN);
         delay(35);
+        forceReleaseAllModifiers();
       }
       continue;
     }
@@ -1597,9 +1669,26 @@ bool dispatchSafeKeystrokes() {
     if (uLen == 3) {
       if (memcmp(&buf[i], "、", 3) == 0) { sendSafeChar(','); i += 3; continue; }
       if (memcmp(&buf[i], "。", 3) == 0) { sendSafeChar('.'); i += 3; continue; }
-      if (memcmp(&buf[i], "・", 3) == 0) { sendSafeChar('/'); i += 3; continue; }
-      if (memcmp(&buf[i], "「", 3) == 0 || memcmp(&buf[i], "【", 3) == 0 || memcmp(&buf[i], "『", 3) == 0) { sendSafeChar('['); i += 3; continue; }
-      if (memcmp(&buf[i], "」", 3) == 0 || memcmp(&buf[i], "】", 3) == 0 || memcmp(&buf[i], "』", 3) == 0) { sendSafeChar(']'); i += 3; continue; }
+      if (memcmp(&buf[i], "【", 3) == 0) {
+        sendSafeChar('[');
+        delay(25);
+        safeWrite(KEY_RETURN);
+        delay(35);
+        forceReleaseAllModifiers();
+        i += 3;
+        continue;
+      }
+      if (memcmp(&buf[i], "】", 3) == 0) {
+        sendSafeChar(']');
+        delay(25);
+        safeWrite(KEY_RETURN);
+        delay(35);
+        forceReleaseAllModifiers();
+        i += 3;
+        continue;
+      }
+      if (memcmp(&buf[i], "「", 3) == 0 || memcmp(&buf[i], "『", 3) == 0) { sendSafeChar('['); i += 3; continue; }
+      if (memcmp(&buf[i], "」", 3) == 0 || memcmp(&buf[i], "』", 3) == 0) { sendSafeChar(']'); i += 3; continue; }
       if (memcmp(&buf[i], "（", 3) == 0) { sendSafeChar('('); i += 3; continue; }
       if (memcmp(&buf[i], "）", 3) == 0) { sendSafeChar(')'); i += 3; continue; }
       if (memcmp(&buf[i], "〜", 3) == 0) { sendSafeChar('~'); i += 3; continue; }
@@ -1688,6 +1777,7 @@ bool dispatchSafeKeystrokes() {
 
     // 3. カタカナ連続塊: ローマ字送出 ➔ F7全角カタカナ強制 ➔ Enter確定
     if (isUtf8Katakana(&buf[i])) {
+      bool sentAnyChar = false;
       while (i < total && isUtf8Katakana(&buf[i])) {
         // 促音「ッ」(0xE3 0x83 0x83) の処理
         if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x83 && (uint8_t)buf[i+2] == 0x83) {
@@ -1698,11 +1788,13 @@ bool dispatchSafeKeystrokes() {
             if (nextRomaji != nullptr && nextRomaji[0] != 'a' && nextRomaji[0] != 'i' && 
                 nextRomaji[0] != 'u' && nextRomaji[0] != 'e' && nextRomaji[0] != 'o' && nextRomaji[0] != 'n') {
               sendSafeChar(nextRomaji[0]);
+              sentAnyChar = true;
               i += 3;
               continue;
             }
           }
           sendSafeChar('l'); sendSafeChar('t'); sendSafeChar('u');
+          sentAnyChar = true;
           i += 3;
           continue;
         }
@@ -1711,6 +1803,7 @@ bool dispatchSafeKeystrokes() {
         if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x83 && (uint8_t)buf[i+2] == 0xB3) {
           sendSafeChar('n');
           sendSafeChar('n');
+          sentAnyChar = true;
           i += 3;
           continue;
         }
@@ -1721,6 +1814,7 @@ bool dispatchSafeKeystrokes() {
             for (const char* p = romajiDi; *p != '\0'; p++) {
               sendSafeChar(*p);
             }
+            sentAnyChar = true;
             i += 6;
             continue;
           }
@@ -1731,17 +1825,21 @@ bool dispatchSafeKeystrokes() {
             for (const char* p = romajiMo; *p != '\0'; p++) {
               sendSafeChar(*p);
             }
+            sentAnyChar = true;
             i += 3;
             continue;
           }
         }
         i += getUtf8CharLen((uint8_t)buf[i]);
       }
-      delay(20);
-      safeWrite(KEY_F7);
-      delay(25);
-      safeWrite(KEY_RETURN);
-      delay(40);
+      if (sentAnyChar) {
+        delay(20);
+        safeWrite(KEY_F7);
+        delay(25);
+        safeWrite(KEY_RETURN);
+        delay(40);
+        forceReleaseAllModifiers();
+      }
       continue;
     }
 
@@ -1795,8 +1893,8 @@ void dispatchOutput() {
   // 4層ハイブリッド安全キーストローク送出（SPIFFS二分探索 Zero-RAM ＆ ビット演算Unicode直接着弾）
   dispatchSafeKeystrokes();
 
-  // キーの完全開放
-  Keyboard.releaseAll();
+  // キーの完全開放（全モディファイア完全クリア）
+  forceReleaseAllModifiers();
 
   sendBleAck("USB_REPORTS_SENT", currentMsg.sessionId);
   delay(30);
@@ -1808,6 +1906,12 @@ void dispatchOutput() {
   snprintf(hvcAck, sizeof(hvcAck), "%d:%s", hvcScore, hvcGrade);
   sendBleAck("HVC_SCORE", currentMsg.sessionId, hvcAck);
 
+#if defined(T_DONGLE_S3)
+  const char* cdsLabel = (hvcScore >= 85) ? "CDS:[RECOM]" : (hvcScore >= 70 ? "CDS:[PASS]" : "CDS:[CHECK]");
+  g_display.showFace(FACE_DONE);
+  g_display.updateStatus("DONE 100%", g_tagZ, g_tagK, g_tagA, g_tagH, 100, hvcScore, cdsLabel);
+#endif
+
   if (hvcScore >= 85) {
     setLedColor(0, 128, 64); // エメラルドグリーン
   } else if (hvcScore >= 70) {
@@ -1815,7 +1919,7 @@ void dispatchOutput() {
   } else {
     setLedColor(96, 96, 0);  // イエロー
   }
-  delay(600);
+  delay(1200);
 
   // セキュア消去
   secureWipeMessageContext();
@@ -1828,6 +1932,10 @@ void dispatchOutput() {
   } else {
     setLedColor(0, 0, 64); // 青点灯
   }
+#if defined(T_DONGLE_S3)
+  g_display.showFace(FACE_IDLE);
+  g_display.updateStatus(isBleConnected ? "BLE READY" : "WAITING BLE", 0, 0, 0, 0, 0, 0, "Minds 111 Q");
+#endif
 }
 
 // ============================================================================
@@ -1838,6 +1946,10 @@ class MyServerCallbacks : public BLEServerCallbacks {
     isBleConnected = true;
     currentState = STATE_BLE_CONNECTED;
     setLedColor(0, 64, 0); // 接続完了: 緑点灯
+#if defined(T_DONGLE_S3)
+    g_display.showFace(FACE_IDLE);
+    g_display.updateStatus("BLE READY", 0, 0, 0, 0, 0, 0, "Minds 111 Q");
+#endif
   }
 
   void onDisconnect(BLEServer* pServer) override {
@@ -1847,6 +1959,10 @@ class MyServerCallbacks : public BLEServerCallbacks {
     secureWipeMessageContext();
     Keyboard.releaseAll();
     setLedColor(0, 0, 64); // 待機状態: 青点灯
+#if defined(T_DONGLE_S3)
+    g_display.showFace(FACE_IDLE);
+    g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, "Minds 111 Q");
+#endif
   }
 };
 
@@ -1873,10 +1989,20 @@ class MyCallbacks : public BLECharacteristicCallbacks {
 // Arduino setup()
 // ============================================================================
 void setup() {
-  pinMode(RGB_LED_PIN, OUTPUT);
+#if !defined(T_DONGLE_S3)
+  if (RGB_LED_PIN >= 0) {
+    pinMode(RGB_LED_PIN, OUTPUT);
+  }
+#endif
   pinMode(FRONT_BTN_PIN, INPUT_PULLUP);
 
   setLedColor(0, 0, 64); // 青色（起動中）
+
+#if defined(T_DONGLE_S3)
+  g_display.init();
+  g_display.showFace(FACE_IDLE);
+  g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, "Minds 111 Q");
+#endif
 
   // SPIFFS初期化 (フォーマットフラグ: true)
   spiffsMounted = SPIFFS.begin(true);
@@ -1887,6 +2013,12 @@ void setup() {
   Keyboard.begin();
   USB.VID(0x303A);
   USB.PID(0x8025);
+  // USB Composite デバイス (Class 00h) として明示設定:
+  // IADを用いないHID+Printer独立インターフェース複合機としてWindows (usbccgp.sys) に各インターフェースを確実に個別列挙させる
+  USB.usbClass(0x00);
+  USB.usbSubClass(0x00);
+  USB.usbProtocol(0x00);
+  USB.firmwareVersion(0x0200); // Windows PnPキャッシュの再列挙を強制
   USB.productName("Donguri Medical Coprocessor");
   USB.manufacturerName("MedArt");
   USB.begin();
@@ -2020,6 +2152,10 @@ void loop() {
         Keyboard.releaseAll();
         currentState = isBleConnected ? STATE_BLE_CONNECTED : STATE_WAITING_BLE;
         setLedColor(0, isBleConnected ? 64 : 0, isBleConnected ? 0 : 64);
+#if defined(T_DONGLE_S3)
+        g_display.showFace(FACE_IDLE);
+        g_display.updateStatus(isBleConnected ? "BLE READY" : "WAITING BLE", 0, 0, 0, 0, 0, 0, "Memory Wiped");
+#endif
         sendBleAck("WIPED", 0);
         continue;
       }
@@ -2081,6 +2217,10 @@ void loop() {
       currentMsg.retryAttempts = 0;
       currentState = STATE_RECEIVING;
       setLedColor(0, 48, 64); // シアン点灯（パケット受信中）
+#if defined(T_DONGLE_S3)
+      g_display.showFace(FACE_RECEIVING);
+      g_display.updateStatus("RECEIVING 0%", 0, 0, 0, 0, 0, 0, "EHR Stream");
+#endif
       sendBleAck("SESSION_READY", sid);
       continue;
     }
@@ -2117,6 +2257,12 @@ void loop() {
         currentMsg.receivedCount++;
         currentMsg.mode = mode;
         currentMsg.lastActivityTime = millis();
+#if defined(T_DONGLE_S3)
+        int rxPct = (currentMsg.totalPackets > 0) ? (currentMsg.receivedCount * 100) / currentMsg.totalPackets : 0;
+        char rxBuf[24];
+        snprintf(rxBuf, sizeof(rxBuf), "RECV %d%%", rxPct);
+        g_display.updateStatus(rxBuf, 0, 0, 0, 0, rxPct, 0, "EHR Stream");
+#endif
       }
 
       // 全スロット受信完了判定
@@ -2157,6 +2303,10 @@ void loop() {
         resetButtonState();
         currentState = STATE_READY_TO_TYPE;
         setLedColor(64, 64, 0); // 黄色点灯（医師の物理ボタン押下待機）
+#if defined(T_DONGLE_S3)
+        g_display.showFace(FACE_RECEIVING);
+        g_display.updateStatus("READY PRESS", 0, 0, 0, 0, 100, 0, "Press BOOT Btn");
+#endif
         sendBleAck("ALL_PACKETS_READY", currentMsg.sessionId);
       }
     }
@@ -2184,6 +2334,10 @@ void loop() {
         Keyboard.releaseAll();
         currentState = isBleConnected ? STATE_BLE_CONNECTED : STATE_WAITING_BLE;
         setLedColor(0, isBleConnected ? 64 : 0, isBleConnected ? 0 : 64);
+#if defined(T_DONGLE_S3)
+        g_display.showFace(FACE_IDLE);
+        g_display.updateStatus(isBleConnected ? "BLE READY" : "WAITING BLE", 0, 0, 0, 0, 0, 0, "Timeout Abort");
+#endif
       }
     }
   }
@@ -2209,6 +2363,10 @@ void loop() {
       errStartTime = 0;
       currentState = isBleConnected ? STATE_BLE_CONNECTED : STATE_WAITING_BLE;
       setLedColor(0, isBleConnected ? 64 : 0, isBleConnected ? 0 : 64);
+#if defined(T_DONGLE_S3)
+      g_display.showFace(FACE_IDLE);
+      g_display.updateStatus(isBleConnected ? "BLE READY" : "WAITING BLE", 0, 0, 0, 0, 0, 0, "Minds 111 Q");
+#endif
     }
   }
 
@@ -2243,6 +2401,10 @@ void loop() {
     } else {
       setLedColor(0, 0, 64);
     }
+#if defined(T_DONGLE_S3)
+    g_display.showFace(FACE_IDLE);
+    g_display.updateStatus(isBleConnected ? "BLE READY" : "WAITING BLE", 0, 0, 0, 0, 0, 0, "Pull Complete");
+#endif
     s_printer_total_bytes = 0;
   }
 

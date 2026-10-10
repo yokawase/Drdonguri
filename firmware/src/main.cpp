@@ -171,7 +171,7 @@ struct MessageContext {
 // ============================================================================
 // USB Composite 仮想プリンター (Class 07h) - 閉域網電カル双方向エッジコプロセッサ
 // ============================================================================
-#define IEEE1284_DEVICE_ID "MFG:Generic;MDL:Custom-Text-Only;CMD:TEXT;CLS:PRINTER;"
+#define IEEE1284_DEVICE_ID "MFG:Generic;MDL:Custom-Text-Only;CMD:TEXT;CLS:PRINTER;DES:Generic Text Only;"
 #define PRINTER_REQ_GET_DEVICE_ID   0
 #define PRINTER_REQ_GET_PORT_STATUS 1
 #define PRINTER_REQ_SOFT_RESET      2
@@ -250,6 +250,7 @@ static void printer_class_reset(uint8_t rhport) {
 
 static uint16_t printer_class_open(uint8_t rhport, tusb_desc_interface_t const * desc_intf, uint16_t max_len) {
   if (desc_intf->bInterfaceClass != 0x07) return 0;
+  s_printer_itf_num = desc_intf->bInterfaceNumber;
 
   uint8_t const * p_desc = (uint8_t const *) desc_intf;
   uint8_t const * p_desc_end = p_desc + max_len;
@@ -1670,26 +1671,18 @@ bool dispatchSafeKeystrokes() {
       if (memcmp(&buf[i], "。", 3) == 0) { sendSafeChar('.'); i += 3; continue; }
       if (memcmp(&buf[i], "【", 3) == 0) {
         sendSafeChar('[');
-        delay(20);
-        safeWrite(' ');
-        delay(30);
-        safeWrite(' ');
-        delay(35);
+        delay(25);
         safeWrite(KEY_RETURN);
-        delay(40);
+        delay(35);
         forceReleaseAllModifiers();
         i += 3;
         continue;
       }
       if (memcmp(&buf[i], "】", 3) == 0) {
         sendSafeChar(']');
-        delay(20);
-        safeWrite(' ');
-        delay(30);
-        safeWrite(' ');
-        delay(35);
+        delay(25);
         safeWrite(KEY_RETURN);
-        delay(40);
+        delay(35);
         forceReleaseAllModifiers();
         i += 3;
         continue;
@@ -2020,6 +2013,12 @@ void setup() {
   Keyboard.begin();
   USB.VID(0x303A);
   USB.PID(0x8025);
+  // USB Composite デバイス (Class 00h) として明示設定:
+  // IADを用いないHID+Printer独立インターフェース複合機としてWindows (usbccgp.sys) に各インターフェースを確実に個別列挙させる
+  USB.usbClass(0x00);
+  USB.usbSubClass(0x00);
+  USB.usbProtocol(0x00);
+  USB.firmwareVersion(0x0200); // Windows PnPキャッシュの再列挙を強制
   USB.productName("Donguri Medical Coprocessor");
   USB.manufacturerName("MedArt");
   USB.begin();

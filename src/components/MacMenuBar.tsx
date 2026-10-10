@@ -5,6 +5,7 @@ import {
   playSosumi 
 } from '../utils/macAudio';
 import { LATEST_FIRMWARE_VERSION } from '../data/firmwareSource';
+import { APP_VERSION } from '../version';
 import { AdaptiveMode, DeviceType } from '../hooks/useAdaptiveLayout';
 import { AdaptiveModeSwitcher } from './AdaptiveModeSwitcher';
 import { Menu, X, Smartphone, Tablet, Monitor } from 'lucide-react';
@@ -19,6 +20,7 @@ interface MacMenuBarProps {
   onNewChart: () => void;
   onInsertSoap: () => void;
   onOpenCoprocessor?: () => void;
+  onOpenMedicalSearch?: () => void;
   onOpenTemplates: () => void;
   onOpenAiAssist: () => void;
   onOpenOcr: () => void;
@@ -52,6 +54,7 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
   onNewChart,
   onInsertSoap,
   onOpenCoprocessor,
+  onOpenMedicalSearch,
   onOpenTemplates,
   onOpenAiAssist,
   onOpenOcr,
@@ -127,11 +130,11 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
       <>
         <div
           ref={menuBarRef}
-          className="sticky top-0 z-50 h-8 bg-white border-b border-black flex items-center justify-between px-2 text-xs select-none shadow-[0_1px_0_#000]"
+          className="sticky top-0 z-50 h-9 bg-white border-b-2 border-black flex items-center justify-between px-2 text-xs select-none shadow-[0_1px_0_#000]"
           style={{ fontFamily: "'DotGothic16', 'Monaco', monospace" }}
         >
           {/* 左:  ロゴ & アプリ名 */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => {
                 playMacBeep();
@@ -143,22 +146,44 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
               
             </button>
             <span className="font-bold text-xs">Dr.Dongly</span>
-            {/* 接続状態 */}
-            <span
-              className={`text-[9px] px-1 py-0.2 border border-black font-bold ${
-                isBleConnected
-                  ? 'bg-black text-white'
-                  : isVirtualMode
-                  ? 'bg-amber-100 text-amber-900'
-                  : 'bg-white text-gray-500'
-              }`}
-            >
-              {isBleConnected ? 'BLE' : isVirtualMode ? '仮想' : '未接続'}
-            </span>
+            <span className="text-[9px] bg-slate-100 border border-black px-1 font-mono font-bold">v{APP_VERSION}</span>
           </div>
 
-          {/* 右: アダプティブ切替 ＆ ハンバーガーメニュー */}
+          {/* 中央: ★ 最前面の目立つ BLE接続ボタン！ */}
           <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                playMacBeep();
+                onConnectBle();
+              }}
+              className={`px-2.5 py-0.5 text-xs font-bold border-2 border-black shadow-[1.5px_1.5px_0_#000] cursor-pointer flex items-center gap-1 transition-all ${
+                isBleConnected
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  : 'bg-sky-600 text-white animate-pulse hover:bg-sky-700 ring-2 ring-sky-300'
+              }`}
+              title={isBleConnected ? 'BLE接続完了 (タップで切断・確認)' : '今すぐどんぐり君とBLE接続'}
+            >
+              <span>{isBleConnected ? '🟢' : '⚡'}</span>
+              <span>{isBleConnected ? 'BLE接続中' : 'BLE接続'}</span>
+            </button>
+          </div>
+
+          {/* 右: 医療検索 ＆ アダプティブ切替 ＆ ハンバーガーメニュー */}
+          <div className="flex items-center gap-1">
+            {onOpenMedicalSearch && (
+              <button
+                onClick={() => {
+                  playMacBeep();
+                  onOpenMedicalSearch();
+                }}
+                className="px-1.5 py-0.5 border border-black bg-yellow-50 hover:bg-black hover:text-white shadow-[1px_1px_0_#000] font-bold text-xs cursor-pointer flex items-center gap-0.5"
+                title="医療データ検索 (Minds 111疾患・医薬品・病名)"
+              >
+                <span>📚</span>
+                <span className="hidden xs:inline">検索</span>
+              </button>
+            )}
+
             {onSelectAdaptiveMode && (
               <AdaptiveModeSwitcher
                 mode={adaptiveMode}
@@ -173,21 +198,21 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
                 playMacBeep();
                 setIsMobileMenuOpen(!isMobileMenuOpen);
               }}
-              className="flex items-center gap-1 border border-black bg-white active:bg-black active:text-white px-2 py-0.5 shadow-[1px_1px_0_#000] font-bold text-xs cursor-pointer"
+              className="flex items-center gap-0.5 border border-black bg-white active:bg-black active:text-white px-1.5 py-0.5 shadow-[1px_1px_0_#000] font-bold text-xs cursor-pointer"
               title="メニューを開く"
             >
-              {isMobileMenuOpen ? <X className="w-3.5 h-3.5" /> : <Menu className="w-3.5 h-3.5" />}
-              <span>{isMobileMenuOpen ? '閉じる' : 'メニュー'}</span>
+              {isMobileMenuOpen ? <X className="w-3 h-3" /> : <Menu className="w-3 h-3" />}
+              <span>{isMobileMenuOpen ? '閉' : '三'}</span>
             </button>
           </div>
         </div>
 
         {/* モバイル用 フルスクリーンメニュー ドロワー */}
         {isMobileMenuOpen && (
-          <div className="fixed inset-0 top-8 z-40 bg-black/60 backdrop-blur-none flex flex-col p-3 overflow-y-auto animate-in fade-in select-none">
-            <div className="mac-window bg-white border-2 border-black p-3 space-y-3 shadow-[4px_4px_0_#000] my-auto max-h-[85vh] overflow-y-auto">
-              <div className="flex items-center justify-between border-b border-black pb-1.5 font-bold text-xs">
-                <span> System 7 アダプティブメニュー</span>
+          <div className="fixed inset-0 top-9 z-40 bg-black/60 backdrop-blur-none flex flex-col p-2.5 overflow-y-auto animate-in fade-in select-none">
+            <div className="mac-window bg-white border-2 border-black p-3 space-y-3 shadow-[4px_4px_0_#000] my-auto max-h-[88vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b-2 border-black pb-1.5 font-bold text-xs">
+                <span> System 7 アダプティブメニュー v{APP_VERSION}</span>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="px-2 py-0.2 border border-black text-xs hover:bg-black hover:text-white"
@@ -196,10 +221,42 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
                 </button>
               </div>
 
+              {/* ★ 最上部: わかりやすい大型 BLE接続バナーボタン */}
+              <div className="p-2 border-2 border-black bg-slate-50 shadow-[2px_2px_0_#000] space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span>🌰 どんぐり君 (AtomS3U / T-Dongle)</span>
+                  <span
+                    className={`px-1.5 py-0.2 border border-black text-[10px] font-bold ${
+                      isBleConnected ? 'bg-emerald-600 text-white' : 'bg-red-100 text-red-800'
+                    }`}
+                  >
+                    {isBleConnected ? '● BLE接続済み' : '○ 未接続'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleItemClick(onConnectBle)}
+                  className={`w-full py-2 px-3 border-2 border-black font-bold text-xs flex items-center justify-center gap-2 shadow-[2px_2px_0_#000] cursor-pointer transition-all ${
+                    isBleConnected
+                      ? 'bg-emerald-700 text-white hover:bg-emerald-800'
+                      : 'bg-sky-600 text-white hover:bg-sky-700 animate-pulse text-sm ring-2 ring-sky-300'
+                  }`}
+                >
+                  <span>{isBleConnected ? '🟢 BLE切断・状態確認' : '⚡ 今すぐ実機BLE接続'}</span>
+                </button>
+              </div>
+
               {/* クイックアクション */}
               <div className="space-y-1">
                 <div className="text-[10px] text-gray-500 font-bold">📄 カルテ・入力操作</div>
                 <div className="grid grid-cols-2 gap-1.5 text-xs">
+                  {onOpenMedicalSearch && (
+                    <button
+                      onClick={() => handleItemClick(() => { setActiveTab('input'); onOpenMedicalSearch(); })}
+                      className="mac-btn text-left p-1.5 flex items-center gap-1 col-span-2 bg-yellow-100 border-black font-bold"
+                    >
+                      <span>📚 医療データ検索 (Minds 111CQ / 医薬品 / 病名)</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => handleItemClick(() => { setActiveTab('input'); onNewChart(); })}
                     className="mac-btn text-left p-1.5 flex items-center gap-1"
@@ -663,21 +720,43 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
           />
         )}
 
-        {/* 実機BLE接続インジケータ (1-bit Mac style) */}
-        <div className="hidden sm:flex items-center gap-1.5 border border-black px-1.5 py-0.2 bg-white">
+        {/* 医療データ検索ボタン (Classic Mac style) */}
+        {onOpenMedicalSearch && (
+          <button
+            onClick={() => {
+              playMacBeep();
+              onOpenMedicalSearch();
+            }}
+            className="hidden sm:flex items-center gap-1 border border-black px-2 py-0.5 bg-yellow-50 hover:bg-black hover:text-white shadow-[1px_1px_0_#000] cursor-pointer font-bold text-[10px]"
+            title="Minds 111疾患・医薬品・病名・難読漢字を検索"
+          >
+            <span>📚</span>
+            <span>医療データ検索</span>
+          </button>
+        )}
+
+        {/* 実機BLE接続ボタン (1-bit Mac style ＆ ワンクリックでBLE接続開始) */}
+        <button
+          onClick={() => {
+            playMacBeep();
+            onConnectBle();
+          }}
+          className={`flex items-center gap-1.5 border border-black px-2 py-0.5 shadow-[1px_1px_0_#000] cursor-pointer font-bold transition-all ${
+            isBleConnected
+              ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+              : 'bg-sky-600 text-white hover:bg-sky-700 animate-pulse ring-1 ring-sky-300'
+          }`}
+          title={isBleConnected ? 'BLE接続中 (クリックで切断・確認)' : 'クリックして今すぐ実機BLE接続'}
+        >
+          <span>{isBleConnected ? '🟢' : '⚡'}</span>
           <span className="text-[10px]">
-            {isBleConnected ? 'BLE: 実機接続中' : isVirtualMode ? 'BLE: 仮想シミュレータ' : 'BLE: 待機中'}
+            {isBleConnected ? 'BLE: 実機接続中' : '実機BLE接続'}
           </span>
-          <span
-            className={`w-2 h-2 rounded-full border border-black ${
-              isBleConnected ? 'bg-black' : isVirtualMode ? 'bg-white' : 'bg-transparent'
-            }`}
-          />
-        </div>
+        </button>
 
         {/* アクティブアプリ (Macintosh右上アイコン) */}
         <div className="hidden md:flex items-center gap-1">
-          <span className="font-bold">Dr.Dongly</span>
+          <span className="font-bold">Dr.Dongly v{APP_VERSION}</span>
           <span className="text-sm">🌰</span>
         </div>
 
