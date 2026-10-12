@@ -10,6 +10,27 @@
 #define SD_D2  21
 #define SD_D3  18
 
+// T-Dongle-S3 APA102 RGB LED
+#define APA102_DI 40
+#define APA102_CI 39
+
+static void apa102_write_byte(uint8_t b) {
+    for (int i = 7; i >= 0; i--) {
+        digitalWrite(APA102_DI, (b >> i) & 1);
+        digitalWrite(APA102_CI, HIGH);
+        digitalWrite(APA102_CI, LOW);
+    }
+}
+
+static void setLed(uint8_t r, uint8_t g, uint8_t b, uint8_t brightness = 31) {
+    for (int i = 0; i < 4; i++) apa102_write_byte(0x00);
+    apa102_write_byte(0xE0 | (brightness & 0x1F));
+    apa102_write_byte(b);
+    apa102_write_byte(g);
+    apa102_write_byte(r);
+    for (int i = 0; i < 4; i++) apa102_write_byte(0xFF);
+}
+
 bool initSD() {
     // まず 1-bit モードで確実なマウントを試みる
     SD_MMC.setPins(SD_CLK, SD_CMD, SD_D0);
@@ -29,6 +50,12 @@ bool initSD() {
 }
 
 void setup() {
+    pinMode(APA102_DI, OUTPUT);
+    pinMode(APA102_CI, OUTPUT);
+    digitalWrite(APA102_DI, LOW);
+    digitalWrite(APA102_CI, LOW);
+    setLed(0, 0, 64); // 青色（起動中）
+
     Serial.begin(115200);
     delay(1000);
 
@@ -36,6 +63,7 @@ void setup() {
 
     if (!initSD()) {
         Serial.println("[ERROR] SD_MOUNT_FAILED");
+        setLed(64, 0, 0); // 赤色（エラー）
         return;
     }
 
@@ -46,6 +74,7 @@ void setup() {
     uint64_t usedBytes = SD_MMC.usedBytes() / (1024 * 1024);
     Serial.printf("[SD] Size: %llu MB (Total: %llu MB, Used: %llu MB)\n", cardSize, totalBytes, usedBytes);
 
+    setLed(0, 64, 0); // 緑色（マウント成功）
     Serial.println("[SD_FLASHER_READY]");
 }
 
@@ -63,11 +92,21 @@ void loop() {
     } else if (line.startsWith("MKDIR ")) {
         String dir = line.substring(6);
         if (!dir.startsWith("/")) dir = "/" + dir;
-        if (SD_MMC.mkdir(dir.c_str())) {
-            Serial.println("OK");
+        SD_MMC.mkdir(dir.c_str());
+        Serial.println("OK");
+    } else if (line.startsWith("SIZE ")) {
+        String path = line.substring(5);
+        if (!path.startsWith("/")) path = "/" + path;
+        if (SD_MMC.exists(path.c_str())) {
+            File f = SD_MMC.open(path.c_str(), FILE_READ);
+            if (f) {
+                Serial.printf("SIZE %s %d\n", path.c_str(), f.size());
+                f.close();
+            } else {
+                Serial.println("ERR_OPEN");
+            }
         } else {
-            // すでに存在する場合もOK
-            Serial.println("OK");
+            Serial.println("NOT_FOUND");
         }
     } else if (line.startsWith("WRITE ")) {
         // format: WRITE <filepath> <size>
@@ -85,36 +124,55 @@ void loop() {
         File file = SD_MMC.open(path.c_str(), FILE_WRITE);
         if (!file) {
             Serial.printf("ERR_OPEN_FAILED %s\n", path.c_str());
+            setLed(64, 0, 0);
             return;
         }
 
+        setLed(64, 64, 0); // 黄色（書込中）
         Serial.println("READY"); // 準備完了、バイナリ送信要求
+        Serial.flush();
 
         size_t received = 0;
-        uint8_t buf[512];
-        unsigned long timeout = millis() + 5000;
+        uint8_t buf[128];
+        bool ok = true;
 
-        while (received < fileSize && millis() < timeout) {
-            int avail = Serial.available();
-            if (avail > 0) {
-                int toRead = min((size_t)avail, min((size_t)sizeof(buf), fileSize - received));
-                int r = Serial.readBytes((char*)buf, toRead);
-                if (r > 0) {
-                    file.write(buf, r);
-                    received += r;
-                    timeout = millis() + 5000; // タイムアウトリセット
+        while (received < fileSize) {
+            size_t want = min((size_t)sizeof(buf), fileSize - received);
+            size_t chunkR = 0;
+            unsigned long tStart = millis();
+
+            while (chunkR < want && millis() - tStart < 5000) {
+                int c = Serial.read();
+                if (c >= 0) {
+                    buf[chunkR++] = (uint8_t)c;
+                    tStart = millis();
+                } else {
+                    delay(1);
                 }
             }
+
+            if (chunkR < want) {
+                ok = false;
+                break;
+            }
+
+            file.write(buf, chunkR);
+            received += chunkR;
+            Serial.write('K');
+            Serial.flush();
         }
 
         file.flush();
         file.close();
 
-        if (received == fileSize) {
+        if (ok && received == fileSize) {
+            setLed(0, 64, 0); // 緑色（成功）
             Serial.printf("OK_WRITE %s %d\n", path.c_str(), received);
         } else {
+            setLed(64, 0, 0); // 赤色（失敗）
             Serial.printf("ERR_INCOMPLETE %d/%d\n", received, fileSize);
         }
+        Serial.flush();
     } else if (line.startsWith("LIST")) {
         File root = SD_MMC.open("/");
         if (!root || !root.isDirectory()) {

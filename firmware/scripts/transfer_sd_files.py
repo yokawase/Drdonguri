@@ -37,7 +37,7 @@ def transfer_sd_files(base_dir: str):
     print(f"============================================================")
 
     try:
-        ser = serial.Serial(PORT, BAUD, timeout=1)
+        ser = serial.Serial(PORT, BAUD, timeout=5.0)
     except Exception as e:
         print(f"[ERROR] ポートオープン失敗: {e}")
         sys.exit(1)
@@ -78,13 +78,38 @@ def transfer_sd_files(base_dir: str):
 
         print(f"[{idx}/{len(files_to_send)}] 転送中: {target_path} ({file_size} B)...", end="", flush=True)
 
+        # まず既存ファイルサイズを確認
+        ser.reset_input_buffer()
+        ser.write(f"SIZE {target_path}\n".encode('utf-8'))
+        t_check = time.time() + 1.5
+        remote_size = None
+        while time.time() < t_check:
+            s_line = ser.readline().decode('utf-8', errors='ignore').strip()
+            if s_line.startswith("SIZE "):
+                parts = s_line.split()
+                if len(parts) >= 3:
+                    try:
+                        remote_size = int(parts[2])
+                    except ValueError:
+                        pass
+                break
+            elif "NOT_FOUND" in s_line:
+                break
+
+        if remote_size == file_size:
+            print(" ⏭️ スキップ (同名・同サイズ書込済)")
+            success_count += 1
+            continue
+
+        # 書込要求
         ser.reset_input_buffer()
         cmd = f"WRITE {target_path} {file_size}\n".encode('utf-8')
         ser.write(cmd)
+        ser.flush()
 
         # READY 待機
         ready_ok = False
-        t_end = time.time() + 3.0
+        t_end = time.time() + 5.0
         while time.time() < t_end:
             r_line = ser.readline().decode('utf-8', errors='ignore').strip()
             if "READY" in r_line:
@@ -92,16 +117,26 @@ def transfer_sd_files(base_dir: str):
                 break
 
         if ready_ok:
-            # バイナリデータ送信（256バイト単位で安全転送）
-            chunk_size = 256
+            # バイナリデータ送信（128バイト単位・ACK同期フロー制御）
+            chunk_size = 128
+            transfer_failed = False
             for offset in range(0, len(data), chunk_size):
                 chunk = data[offset:offset + chunk_size]
                 ser.write(chunk)
-                time.sleep(0.003)
-            ser.flush()
+                ser.flush()
+                # チャンクACK ('K') を待機
+                ack = ser.read(1)
+                if ack != b'K':
+                    print(f" ⚠️ ACK失敗 (offset {offset}, ack={ack})", end="")
+                    transfer_failed = True
+                    break
 
-            # 書込結果確認
-            t_end = time.time() + 4.0
+            if transfer_failed:
+                print(" ❌ 送信中断")
+                continue
+
+            # 書込結果確認 (最大10秒待機)
+            t_end = time.time() + 10.0
             res = ""
             while time.time() < t_end:
                 r_line = ser.readline().decode('utf-8', errors='ignore').strip()

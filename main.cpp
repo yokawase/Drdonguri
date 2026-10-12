@@ -16,7 +16,8 @@ extern "C" bool tud_mounted(void);
 
 #if defined(T_DONGLE_S3)
 #include "donguri_display.h"
-#define RGB_LED_PIN         -1  // LCD表示
+#define APA102_DI_PIN       40  // T-Dongle-S3 APA102 フルカラーLED Data (DI)
+#define APA102_CI_PIN       39  // T-Dongle-S3 APA102 フルカラーLED Clock (CI)
 #define FRONT_BTN_PIN       0   // T-Dongle-S3 BOOTボタン (GPIO 0)
 #else
 #define RGB_LED_PIN         35  // AtomS3U 内蔵WS2812フルカラーLED
@@ -406,13 +407,38 @@ static inline size_t getUtf8CharLen(uint8_t c) {
 }
 
 // ============================================================================
-// ハードウェア制御 (WS2812 RGB LED) - 変化時のみ書き込んで割込停止を抑止
+// ハードウェア制御 (WS2812 / APA102 RGB LED) - 変化時のみ書き込んで割込停止を抑止
 // ============================================================================
+#if defined(T_DONGLE_S3)
+static void apa102_write_byte(uint8_t b) {
+  for (int i = 7; i >= 0; i--) {
+    digitalWrite(APA102_DI_PIN, (b >> i) & 1);
+    digitalWrite(APA102_CI_PIN, HIGH);
+    digitalWrite(APA102_CI_PIN, LOW);
+  }
+}
+
+static void apa102_set_color(uint8_t r, uint8_t g, uint8_t b, uint8_t brightness = 31) {
+  // Start frame: 32 zeros
+  for (int i = 0; i < 4; i++) apa102_write_byte(0x00);
+  // LED frame: 111 + 5bit brightness (0~31), then Blue, Green, Red (APA102: BGR順)
+  apa102_write_byte(0xE0 | (brightness & 0x1F));
+  apa102_write_byte(b);
+  apa102_write_byte(g);
+  apa102_write_byte(r);
+  // End frame: 32 ones
+  for (int i = 0; i < 4; i++) apa102_write_byte(0xFF);
+}
+#endif
+
 void setLedColor(uint8_t r, uint8_t g, uint8_t b) {
-#if !defined(T_DONGLE_S3)
   static uint8_t curR = 255, curG = 255, curB = 255;
   if (r == curR && g == curG && b == curB) return;
   curR = r; curG = g; curB = b;
+
+#if defined(T_DONGLE_S3)
+  apa102_set_color(r, g, b, 31);
+#else
   if (RGB_LED_PIN >= 0) {
     neopixelWrite(RGB_LED_PIN, r, g, b);
   }
@@ -1989,7 +2015,12 @@ class MyCallbacks : public BLECharacteristicCallbacks {
 // Arduino setup()
 // ============================================================================
 void setup() {
-#if !defined(T_DONGLE_S3)
+#if defined(T_DONGLE_S3)
+  pinMode(APA102_DI_PIN, OUTPUT);
+  pinMode(APA102_CI_PIN, OUTPUT);
+  digitalWrite(APA102_DI_PIN, LOW);
+  digitalWrite(APA102_CI_PIN, LOW);
+#else
   if (RGB_LED_PIN >= 0) {
     pinMode(RGB_LED_PIN, OUTPUT);
   }
