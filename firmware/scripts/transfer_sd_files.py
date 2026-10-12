@@ -10,7 +10,7 @@ import sys
 import time
 import serial
 
-PORT = "/dev/ttyACM0"
+PORT = sys.argv[1] if len(sys.argv) > 1 else "/dev/ttyACM0"
 BAUD = 115200
 
 def send_command(ser, cmd: str, timeout: float = 3.0) -> str:
@@ -42,7 +42,12 @@ def transfer_sd_files(base_dir: str):
         print(f"[ERROR] ポートオープン失敗: {e}")
         sys.exit(1)
 
-    time.sleep(0.5)
+    # Flash Boot リセットシーケンス
+    ser.dtr = False
+    ser.rts = True
+    time.sleep(0.1)
+    ser.rts = False
+    time.sleep(1.2)
     ser.reset_input_buffer()
 
     print(" -> T-dongle-S3 の稼働状態を確認中...")
@@ -50,6 +55,7 @@ def transfer_sd_files(base_dir: str):
     print(f"    PING応答: {resp}")
     if "PONG" not in resp:
         # 再度試行
+        time.sleep(0.5)
         resp = send_command(ser, "PING", timeout=2.0)
         print(f"    再試行PING応答: {resp}")
 

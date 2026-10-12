@@ -173,6 +173,14 @@ void loop() {
             Serial.printf("ERR_INCOMPLETE %d/%d\n", received, fileSize);
         }
         Serial.flush();
+    } else if (line.startsWith("DELETE ")) {
+        String path = line.substring(7);
+        if (!path.startsWith("/")) path = "/" + path;
+        if (SD_MMC.remove(path.c_str())) {
+            Serial.println("OK_DELETE");
+        } else {
+            Serial.println("ERR_DELETE");
+        }
     } else if (line.startsWith("LIST")) {
         File root = SD_MMC.open("/");
         if (!root || !root.isDirectory()) {

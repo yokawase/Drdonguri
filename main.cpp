@@ -11,18 +11,28 @@
 #include "esp32-hal-tinyusb.h"
 #include "device/usbd_pvt.h"
 
+#include "esp_system.h"
+#include "soc/rtc_cntl_reg.h"
+
 // TinyUSB マウント監視API
 extern "C" bool tud_mounted(void);
 
 #if defined(T_DONGLE_S3)
 #include "donguri_display.h"
+#include "SD_MMC.h"
 #define APA102_DI_PIN       40  // T-Dongle-S3 APA102 フルカラーLED Data (DI)
 #define APA102_CI_PIN       39  // T-Dongle-S3 APA102 フルカラーLED Clock (CI)
 #define FRONT_BTN_PIN       0   // T-Dongle-S3 BOOTボタン (GPIO 0)
+#define SD_CLK_PIN          12
+#define SD_CMD_PIN          16
+#define SD_D0_PIN           14
+static bool g_sdMounted = false;
 #else
 #define RGB_LED_PIN         35  // AtomS3U 内蔵WS2812フルカラーLED
 #define FRONT_BTN_PIN       41  // AtomS3U 正面プッシュスイッチ
 #endif
+
+void rebootToBootloader();
 
 // リアルタイム形態素タグカウンター
 static int g_tagZ = 0; // 漢字
@@ -443,6 +453,15 @@ void setLedColor(uint8_t r, uint8_t g, uint8_t b) {
     neopixelWrite(RGB_LED_PIN, r, g, b);
   }
 #endif
+}
+
+// ソフトウェアから ROM ダウンロードモード（ブートローダー）へ突入
+void rebootToBootloader() {
+  Serial.println("[BOOT] Entering ROM Bootloader for flashing...");
+  setLedColor(64, 0, 64); // 紫色点灯（書込モード移行）
+  delay(150);
+  REG_WRITE(RTC_CNTL_OPTION1_REG, RTC_CNTL_FORCE_DOWNLOAD_BOOT);
+  esp_restart();
 }
 
 void updateTypingProgress(int pct) {
@@ -2030,9 +2049,16 @@ void setup() {
   setLedColor(0, 0, 64); // 青色（起動中）
 
 #if defined(T_DONGLE_S3)
+  SD_MMC.setPins(SD_CLK_PIN, SD_CMD_PIN, SD_D0_PIN);
+  g_sdMounted = SD_MMC.begin("/sdcard", true);
+  if (!g_sdMounted) {
+    SD_MMC.setPins(SD_CLK_PIN, SD_CMD_PIN, SD_D0_PIN, 17, 21, 18);
+    g_sdMounted = SD_MMC.begin("/sdcard", false);
+  }
+
   g_display.init();
   g_display.showFace(FACE_IDLE);
-  g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, "Minds 111 Q");
+  g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, g_sdMounted ? "Minds (SD:OK)" : "Minds 111 Q");
 #endif
 
   // SPIFFS初期化 (フォーマットフラグ: true)
@@ -2221,6 +2247,14 @@ void loop() {
         sendBleAck("AUTO_PULL_TRIGGERED", 0);
         continue;
       }
+
+      // 8. ファームウェア書込用ブートローダー突入コマンド
+      if (strcmp(cmdBuf, "CMD:REBOOT_BOOTLOADER") == 0 || strcmp(cmdBuf, "CMD:DFU") == 0) {
+        sendBleAck("REBOOTING_BOOTLOADER", 0);
+        delay(200);
+        rebootToBootloader();
+        continue;
+      }
     }
 
     // B. セッション初期化フレーム (8バイト)
@@ -2373,13 +2407,29 @@ void loop() {
     }
   }
 
-  // 4. 物理ボタン押下の判定 (GPIO 41, Active LOW)
+  // 4. 物理ボタン押下の判定 (Active LOW)
   if (currentState == STATE_READY_TO_TYPE) {
     setLedColor(64, 64, 0); // 黄色点灯維持
     if (isFrontButtonPressed()) {
       sendBleAck("PHYSICAL_BTN_PRESSED", currentMsg.sessionId);
       dispatchOutput(); // ボタン押下でカルテへ安全打鍵送出
     }
+  } else if (digitalRead(FRONT_BTN_PIN) == LOW) {
+    // 待機中にBOOTボタン長押し（2.5秒）でファームウェア書込モードへ自動突入！
+    static unsigned long s_btnPressStart = 0;
+    if (s_btnPressStart == 0) {
+      s_btnPressStart = millis();
+    } else if (millis() - s_btnPressStart > 2500) {
+      setLedColor(64, 0, 64); // 紫色点滅
+#if defined(T_DONGLE_S3)
+      g_display.updateStatus("BOOTLOADER", 0, 0, 0, 0, 0, 0, "Entering DFU");
+#endif
+      delay(300);
+      rebootToBootloader();
+    }
+  } else {
+    static unsigned long s_btnPressStart = 0;
+    s_btnPressStart = 0;
   }
 
   // 5. LED状態の維持とエラー時自動復帰
