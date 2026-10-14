@@ -17,6 +17,7 @@ export enum DispatchMode {
   MODE_IME_ROMAJI = 1,       // クライアント側IME協調ローマ字・自動確定シーケンス
   MODE_ONDEVICE_SPIFFS = 2,  // 【選択肢B】オンデバイス完結型: AtomS3U SPIFFS 医療マスター二分探索モード
   MODE_HYBRID_UNICODE = 2,   // ★ HYBRID Unicode 4層打鍵パイプライン（v14.0標準）
+  MODE_ALT_NUMPAD = 3,       // ★ Windows標準 Alt+テンキー 100%決定論モード (IME完全バイパス)
 }
 
 export enum EhrNewlineMode {

@@ -26,6 +26,7 @@ interface MacMenuBarProps {
   onOpenOcr: () => void;
   onOpenCds: () => void;
   onOpenImeBoost: () => void;
+  onOpenAltHil?: () => void;
   onOpenPreprocessor: () => void;
   onOpenAbout: () => void;
   onOpenCalculator: () => void;
@@ -60,6 +61,7 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
   onOpenOcr,
   onOpenCds,
   onOpenImeBoost,
+  onOpenAltHil,
   onOpenPreprocessor,
   onOpenAbout,
   onOpenCalculator,
@@ -249,6 +251,14 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
               <div className="space-y-1">
                 <div className="text-[10px] text-gray-500 font-bold">📄 カルテ・入力操作</div>
                 <div className="grid grid-cols-2 gap-1.5 text-xs">
+                  {onOpenAltHil && (
+                    <button
+                      onClick={() => handleItemClick(onOpenAltHil)}
+                      className="mac-btn text-left p-1.5 flex items-center gap-1 col-span-2 bg-amber-100 border-black font-bold text-amber-950"
+                    >
+                      <span>⚡ 100%日本語 HILテスト (Alt Numpad)</span>
+                    </button>
+                  )}
                   {onOpenMedicalSearch && (
                     <button
                       onClick={() => handleItemClick(() => { setActiveTab('input'); onOpenMedicalSearch(); })}
@@ -578,6 +588,15 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
                 >
                   <span>📥 医療双方向エッジコプロセッサ</span>
                   <span className="text-[10px] bg-black text-white px-1">v19.1</span>
+                </button>
+              )}
+              {onOpenAltHil && (
+                <button
+                  onClick={() => handleItemClick(onOpenAltHil)}
+                  className="w-full text-left px-3 py-1 bg-amber-50 hover:bg-black hover:text-white cursor-pointer font-bold flex justify-between border-y border-amber-300/60 my-0.5 text-amber-950 hover:text-white"
+                >
+                  <span>⚡ 100%日本語 HILテスト (Alt Numpad)</span>
+                  <span className="text-[10px] bg-amber-400 text-black px-1 font-bold">HIL</span>
                 </button>
               )}
               <div className="border-b border-black my-1 border-dotted" />

@@ -1487,6 +1487,20 @@ export const InputPane: React.FC<InputPaneProps> = ({
                 <div className="space-y-1">
                   <div className="font-bold text-gray-800">打鍵モード:</div>
                   <div className="space-y-1">
+                    <label className="flex items-center gap-1.5 cursor-pointer bg-amber-50 p-1 border border-black shadow-[1px_1px_0_#000]">
+                      <input
+                        type="radio"
+                        name="menuDispatchMode"
+                        className="mac-radio"
+                        checked={dispatchMode === DispatchMode.MODE_ALT_NUMPAD}
+                        onChange={() => {
+                          playMacBeep();
+                          setDispatchMode(DispatchMode.MODE_ALT_NUMPAD);
+                        }}
+                      />
+                      <span className="font-bold text-amber-950">⚡ Alt+テンキー 100%決定論モード (Windows IME完全バイパス)</span>
+                    </label>
+
                     <label className="flex items-center gap-1.5 cursor-pointer bg-white p-1 border border-black shadow-[1px_1px_0_#000]">
                       <input
                         type="radio"
@@ -1498,7 +1512,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
                           setDispatchMode(DispatchMode.MODE_HYBRID_UNICODE);
                         }}
                       />
-                      <span className="font-bold text-black">★ v19.1 4層タグ変換 (誤変換ゼロ・双方向コプロセッサ推奨)</span>
+                      <span className="font-bold text-black">★ 4層タグ変換 (自然文節・双方向コプロセッサ)</span>
                     </label>
 
                     <label className="flex items-center gap-1.5 cursor-pointer bg-white p-1 border border-black/30">

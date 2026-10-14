@@ -463,6 +463,35 @@ export class BleDongleManager {
     return this.sendCommand('CMD:NUM_UNLOCK');
   }
 
+  /**
+   * 任意テキストまたはバイナリのダイレクト送出
+   */
+  public async sendData(textOrBytes: string | Uint8Array): Promise<boolean> {
+    if (!this.isConnected()) {
+      await this.ensureConnected();
+    }
+    const bytes = typeof textOrBytes === 'string' ? new TextEncoder().encode(textOrBytes) : textOrBytes;
+    this.log('tx', 'DATA', `ダイレクトデータ送出: ${typeof textOrBytes === 'string' ? textOrBytes : '[Binary Bytes]'}`);
+    await this.writeData(bytes);
+    return true;
+  }
+
+  /**
+   * HILテスト用: Alt+Numpad 即時打鍵送信 ([ALT]コード[/ALT])
+   */
+  public async sendAltNumpadDirect(code: string): Promise<boolean> {
+    const payload = `[ALT]${code}[/ALT]`;
+    this.log('tx', 'ALT_HIL', `Alt+Numpad打鍵テスト送信: ${payload}`);
+    return this.sendData(payload);
+  }
+
+  /**
+   * HILテスト用: Alt+Numpad CMD指示 (CMD:ALT:コード)
+   */
+  public async sendAltNumpadCommand(code: string): Promise<boolean> {
+    return this.sendCommand(`CMD:ALT:${code}`);
+  }
+
   public async sendPing(): Promise<{ rttMs: number }> {
     const ts = Date.now().toString();
     const startTime = performance.now();

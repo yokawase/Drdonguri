@@ -8,6 +8,7 @@ interface MacDesktopIconsProps {
   onOpenDongle: () => void;
   onOpenFirmware: () => void;
   onOpenCoprocessor?: () => void;
+  onOpenAltHil?: () => void;
   onClearChart: () => void;
   hasChartContent: boolean;
   deviceType?: DeviceType;
@@ -18,6 +19,7 @@ export const MacDesktopIcons: React.FC<MacDesktopIconsProps> = ({
   onOpenDongle,
   onOpenFirmware,
   onOpenCoprocessor,
+  onOpenAltHil,
   onClearChart,
   hasChartContent,
   deviceType = 'desktop',
@@ -104,7 +106,26 @@ export const MacDesktopIcons: React.FC<MacDesktopIconsProps> = ({
         </button>
       )}
 
-      {/* 5. ゴミ箱 (Trash) */}
+      {/* 5. 100%日本語 HILテスト (Alt Numpad) */}
+      {onOpenAltHil && (
+        <button
+          onClick={() => {
+            playMacBeep();
+            onOpenAltHil();
+          }}
+          className="flex flex-col items-center gap-1 group cursor-pointer focus:outline-none"
+          title="100%決定論 日本語転送システム HIL実機テストベンチ (Alt Numpad)"
+        >
+          <div className="w-11 h-11 border border-black bg-amber-200 shadow-[1px_1px_0_#000] flex items-center justify-center text-xl group-active:bg-black group-active:text-white">
+            ⚡
+          </div>
+          <span className="bg-white border border-transparent px-1 group-hover:border-black group-active:bg-black group-active:text-white group-active:border-black text-center font-bold text-amber-950">
+            Alt HIL
+          </span>
+        </button>
+      )}
+
+      {/* 6. ゴミ箱 (Trash) */}
       <button
         onClick={() => {
           if (hasChartContent) {

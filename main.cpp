@@ -98,7 +98,8 @@ enum SystemState {
 enum DispatchMode {
   MODE_RAW_ASCII = 0,        // 患者ID、半角英数字直接送出
   MODE_IME_ROMAJI = 1,       // クライアント側IME協調ローマ字モード (<IME_ON>等タグ)
-  MODE_HYBRID_UNICODE = 2    // 自然文節・高精度IME協調パイプライン
+  MODE_HYBRID_UNICODE = 2,   // 自然文節・高精度IME協調パイプライン
+  MODE_ALT_NUMPAD = 3        // Windows標準 Alt+テンキー 100%決定論モード
 };
 
 #pragma pack(push, 1)
@@ -564,6 +565,73 @@ void sendNumLockToggle() {
   memset(&report, 0, sizeof(KeyReport));
   Keyboard.sendReport(&report);
   delay(20);
+}
+
+// ============================================================================
+// Windows標準「Alt + テンキー (Alt Numpad)」100%決定論打鍵エンジン
+// IMEの状態（ON/OFF、英数/かな）や学習履歴を完全バイパスし、OS RawInput層へ直接文字コードを注入
+// F5ファンクションキーを一切使用しないため、電子カルテ画面リロード事故を物理的にゼロ保証
+// ============================================================================
+static const uint8_t KEYPAD_MAP[10] = {
+  0x62, // HID_KEY_KEYPAD_0
+  0x59, // HID_KEY_KEYPAD_1
+  0x5A, // HID_KEY_KEYPAD_2
+  0x5B, // HID_KEY_KEYPAD_3
+  0x5C, // HID_KEY_KEYPAD_4
+  0x5D, // HID_KEY_KEYPAD_5
+  0x5E, // HID_KEY_KEYPAD_6
+  0x5F, // HID_KEY_KEYPAD_7
+  0x60, // HID_KEY_KEYPAD_8
+  0x61  // HID_KEY_KEYPAD_9
+};
+
+#define HID_KEYPAD_ADD 0x57 // HID_KEY_KEYPAD_ADD ('+')
+
+void sendAltNumpadCode(const char* digits) {
+  if (digits == nullptr || digits[0] == '\0') return;
+
+  KeyReport rep;
+  memset(&rep, 0, sizeof(KeyReport));
+
+  // 1. KEY_LEFT_ALT を押下保持 (Hold)
+  // KEYBOARD_MODIFIER_LEFTALT = 0x04 (TU_BIT(2))
+  rep.modifiers = 0x04;
+  Keyboard.sendReport(&rep);
+  delay(20); // Alt認識のための初期安定遅延 (電カルセーフ 15〜25ms)
+
+  // 2. テンキーの数字を1桁ずつ打鍵
+  for (size_t i = 0; digits[i] != '\0'; i++) {
+    char c = digits[i];
+    uint8_t kp_code = 0;
+
+    if (c >= '0' && c <= '9') {
+      kp_code = KEYPAD_MAP[c - '0'];
+    } else if (c == '+') {
+      kp_code = HID_KEYPAD_ADD;
+    } else {
+      continue;
+    }
+
+    // KeyDown (Alt + テンキー)
+    rep.modifiers = 0x04;
+    rep.keys[0] = kp_code;
+    Keyboard.sendReport(&rep);
+    delay(12); // 電カルセーフ遅延 (DLPフック対策 10〜12ms)
+
+    // KeyUp (テンキーのみ解放、Altは保持)
+    rep.keys[0] = 0;
+    Keyboard.sendReport(&rep);
+    delay(2);
+    Keyboard.sendReport(&rep); // KeyUp二重送出 (脱落防止)
+    delay(12);
+  }
+
+  // 3. KEY_LEFT_ALT を解放 (Release) ➔ この瞬間にWindows側で文字が合成・確定着弾する
+  memset(&rep, 0, sizeof(KeyReport));
+  Keyboard.sendReport(&rep);
+  delay(2);
+  Keyboard.sendReport(&rep); // 二重送出
+  delay(20); // 文字確定インターバル
 }
 
 // ============================================================================
@@ -1477,6 +1545,36 @@ bool dispatchSafeKeystrokes() {
       continue;
     }
 
+    // 4.8 [ALT]...[/ALT] (Windows標準 Alt+テンキー 100%決定論打鍵モード)
+    // IMEを完全バイパスし、Unicode / CP932の10進数コードを直接OSに合成させる
+    if (strncmp(&buf[i], "[ALT]", 5) == 0 || strncmp(&buf[i], "<ALT>", 5) == 0) {
+      g_tagZ++;
+      updateTypingProgress((total > 0) ? (i * 100) / total : 0);
+      i += 5;
+      char digits[16] = {0};
+      size_t dlen = 0;
+      while (i < total) {
+        if (strncmp(&buf[i], "[/ALT]", 6) == 0 || strncmp(&buf[i], "</ALT>", 6) == 0) {
+          i += 6;
+          break;
+        }
+        if (buf[i] == '[' || buf[i] == '<' || buf[i] == '\n' || buf[i] == '\r') {
+          break;
+        }
+        if ((buf[i] >= '0' && buf[i] <= '9') || buf[i] == '+') {
+          if (dlen < sizeof(digits) - 1) {
+            digits[dlen++] = buf[i];
+          }
+        }
+        i++;
+      }
+      digits[dlen] = '\0';
+      if (dlen > 0) {
+        sendAltNumpadCode(digits);
+      }
+      continue;
+    }
+
     // 5. [U]...[/U] (明示的Unicodeタグ: F5リロード暴発を完全防止し安全消費)
     if (strncmp(&buf[i], "[U]", 3) == 0 || strncmp(&buf[i], "<U>", 3) == 0) {
       i += 3;
@@ -1521,6 +1619,7 @@ bool dispatchSafeKeystrokes() {
         i += 4;
         continue;
       }
+      if (strncmp(&buf[i], "[/ALT]", 6) == 0 || strncmp(&buf[i], "</ALT>", 6) == 0) { i += 6; continue; }
       if (strncmp(&buf[i], "[/K]", 4) == 0 || strncmp(&buf[i], "</K>", 4) == 0) { i += 4; continue; }
       if (strncmp(&buf[i], "[/H]", 4) == 0 || strncmp(&buf[i], "</H>", 4) == 0) { i += 4; continue; }
       if (strncmp(&buf[i], "[/Z]", 4) == 0 || strncmp(&buf[i], "</Z>", 4) == 0) { i += 4; continue; }
@@ -2166,12 +2265,51 @@ void loop() {
   BleQueueItem item;
   while (xQueueReceive(bleQueue, &item, 0) == pdTRUE) {
 
+    // 0. ダイレクト [ALT]コード[/ALT] パケット (HILテスト即時打鍵)
+    if (item.length >= 11 && 
+        item.data[0] == '[' && item.data[1] == 'A' && item.data[2] == 'L' && item.data[3] == 'T' && item.data[4] == ']') {
+      char directBuf[48];
+      size_t copyLen = item.length < sizeof(directBuf) - 1 ? item.length : sizeof(directBuf) - 1;
+      memcpy(directBuf, item.data, copyLen);
+      directBuf[copyLen] = '\0';
+
+      char digits[16] = {0};
+      size_t dlen = 0;
+      char* pStart = directBuf + 5;
+      while (*pStart != '\0' && *pStart != '[') {
+        if ((*pStart >= '0' && *pStart <= '9') || *pStart == '+') {
+          if (dlen < sizeof(digits) - 1) {
+            digits[dlen++] = *pStart;
+          }
+        }
+        pStart++;
+      }
+      digits[dlen] = '\0';
+      if (dlen > 0) {
+        setLedColor(64, 0, 0); // 打鍵中（赤）
+        sendAltNumpadCode(digits);
+        setLedColor(0, isBleConnected ? 64 : 0, isBleConnected ? 0 : 64);
+        sendBleAck("ALT_NUMPAD_DIRECT_SENT", 0, digits);
+      }
+      continue;
+    }
+
     // A. 遠隔制御コマンド (CMD:...) の解析
     if (item.length >= 4 && item.data[0] == 'C' && item.data[1] == 'M' && item.data[2] == 'D' && item.data[3] == ':') {
       char cmdBuf[64];
       size_t copyLen = item.length < sizeof(cmdBuf) - 1 ? item.length : sizeof(cmdBuf) - 1;
       memcpy(cmdBuf, item.data, copyLen);
       cmdBuf[copyLen] = '\0';
+
+      // 0. Alt+Numpad 即時打鍵コマンド (例: CMD:ALT:24771 や CMD:ALT:034975)
+      if (strncmp(cmdBuf, "CMD:ALT:", 8) == 0) {
+        const char* altCode = cmdBuf + 8;
+        setLedColor(64, 0, 0); // 打鍵中（赤）
+        sendAltNumpadCode(altCode);
+        setLedColor(0, isBleConnected ? 64 : 0, isBleConnected ? 0 : 64);
+        sendBleAck("ALT_NUMPAD_SENT", 0, altCode);
+        continue;
+      }
 
       // 1. 緊急NumLock解除トグル
       if (strcmp(cmdBuf, "CMD:NUM_UNLOCK") == 0) {

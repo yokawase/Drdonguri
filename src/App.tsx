@@ -19,6 +19,7 @@ import { MacBombDialog } from './components/MacBombDialog';
 import { InputPane } from './components/InputPane';
 import { DongleConsole } from './components/DongleConsole';
 import { FirmwareHub } from './components/FirmwareHub';
+import { AltNumpadHilModal } from './components/AltNumpadHilModal';
 import { VirtualDongleSimulator, LED_DEFINITIONS } from './utils/virtualDongle';
 import { BleDongleManager, bleManager } from './utils/webBluetooth';
 import { buildTransmissionSession, PreparedSession } from './utils/packetBuilder';
@@ -113,6 +114,7 @@ export default function App() {
   const [isPreprocessorModalOpen, setIsPreprocessorModalOpen] = useState(false);
   const [isCoprocessorModalOpen, setIsCoprocessorModalOpen] = useState(false);
   const [isMedicalSearchOpen, setIsMedicalSearchOpen] = useState(false);
+  const [isAltNumpadHilOpen, setIsAltNumpadHilOpen] = useState(false);
 
   // 通知バナー
   const [bannerNotice, setBannerNotice] = useState<{
@@ -581,6 +583,7 @@ export default function App() {
         onOpenOcr={() => { setActiveTab('input'); setIsCameraOcrOpen(true); }}
         onOpenCds={() => { setActiveTab('input'); }}
         onOpenImeBoost={() => { setActiveTab('input'); setIsImeBoostModalOpen(true); }}
+        onOpenAltHil={() => setIsAltNumpadHilOpen(true)}
         onOpenPreprocessor={() => { setActiveTab('input'); setIsPreprocessorModalOpen(true); }}
         onOpenAbout={() => setIsAboutModalOpen(true)}
         onOpenCalculator={() => setIsCalculatorOpen(true)}
@@ -607,6 +610,7 @@ export default function App() {
         onOpenDongle={() => setActiveTab('dongle')}
         onOpenFirmware={() => setActiveTab('firmware')}
         onOpenCoprocessor={() => { setActiveTab('input'); setIsCoprocessorModalOpen(true); }}
+        onOpenAltHil={() => setIsAltNumpadHilOpen(true)}
         onClearChart={handleEmptyTrash}
         hasChartContent={Boolean(inputText.trim())}
         deviceType={deviceType}
@@ -650,6 +654,18 @@ export default function App() {
             className={`mac-btn shrink-0 ${activeTab === 'firmware' ? 'bg-black text-white font-bold' : ''}`}
           >
             <span>💾 FW {LATEST_FIRMWARE_VERSION}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              playMacBeep();
+              setIsAltNumpadHilOpen(true);
+            }}
+            className="mac-btn shrink-0 bg-amber-100 hover:bg-amber-200 border border-black font-bold flex items-center gap-1 text-xs shadow-[1px_1px_0_#000] text-amber-950"
+            title="Windows標準 Alt+テンキー (Alt Numpad) 100%決定論 日本語転送システムのHIL実機テストベンチを開く"
+          >
+            <span>⚡ 100%日本語 HILテスト</span>
+            <span className="text-[9px] bg-amber-400 text-black px-1 font-mono font-bold">Alt</span>
           </button>
 
           <button
@@ -924,6 +940,17 @@ export default function App() {
         title={bombDialogConfig.title}
         message={bombDialogConfig.message}
         errorCode={bombDialogConfig.errorCode}
+      />
+
+      {/* ======================================================================= */}
+      {/* 8. 100%日本語転送システム HIL実機テストベンチ (Alt Numpad) */}
+      {/* ======================================================================= */}
+      <AltNumpadHilModal
+        isOpen={isAltNumpadHilOpen}
+        onClose={() => setIsAltNumpadHilOpen(false)}
+        bleManager={bleManagerRef.current || bleManager}
+        isBleConnected={isBleConnected}
+        onConnectBle={handleConnectBle}
       />
     </div>
   );

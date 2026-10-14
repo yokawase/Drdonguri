@@ -3,6 +3,7 @@ import { DispatchMode, EhrNewlineMode } from '../types';
 import { formatForEhrNewlines, transpileToImeRomajiSequence, generateKeystrokeSequence } from './japaneseImeTranspiler';
 import { compileMedicalTextToImeBoost, CompileImeOptions, kanjiWordToRomaji } from './imePrecisionCompiler';
 import { preprocessMedicalText, PreprocessOptions } from './medicalTextPreprocessor';
+import { compileTextToAltNumpad } from './altNumpadCompiler';
 
 export const MAX_PAYLOAD_SIZE = 4096;
 export const MAX_PACKETS = 16;
@@ -170,7 +171,17 @@ export function buildTransmissionSession(
   // [Z]: 漢字・熟語ローマ字 (Space変換 ➔ Enter確定: F5リロード誤爆0%)
   // [A]: 半角ASCII直接（高速直接打鍵・Enter禁止でペイン閉鎖防止）
   let formattedText = processedText;
-  if (mode === DispatchMode.MODE_HYBRID_UNICODE || mode === DispatchMode.MODE_IME_ROMAJI) {
+  if (mode === DispatchMode.MODE_ALT_NUMPAD) {
+    // ★ Windows標準 Alt+テンキー 100%決定論モード (IME完全バイパス)
+    formattedText = compileTextToAltNumpad(processedText, {
+      mode: 'unicode',
+      keepAscii: true,
+      newlineMode,
+    });
+    if (newlineMode === EhrNewlineMode.MICS_ALT_ENTER) {
+      formattedText = `<EHR_MICS>\n${formattedText}`;
+    }
+  } else if (mode === DispatchMode.MODE_HYBRID_UNICODE || mode === DispatchMode.MODE_IME_ROMAJI) {
     if (enableImeBoost) {
       const compiled = compileMedicalTextToImeBoost(processedText, {
         enableFunctionKeyRouting: true,
