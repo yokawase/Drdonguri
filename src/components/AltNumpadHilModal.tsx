@@ -46,7 +46,7 @@ export const AltNumpadHilModal: React.FC<AltNumpadHilModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'presets' | 'custom' | 'matrix' | 'guide'>('presets');
   const [customText, setCustomText] = useState('胃癌の精査目的にて受診。');
-  const [encodingMode, setEncodingMode] = useState<'unicode' | 'cp932'>('unicode');
+  const [encodingMode, setEncodingMode] = useState<'unicode' | 'cp932'>('cp932');
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [testLogs, setTestLogs] = useState<{ id: string; time: string; text: string; status: 'sent' | 'ack' | 'error'; detail?: string }[]>([]);
   
@@ -61,14 +61,61 @@ export const AltNumpadHilModal: React.FC<AltNumpadHilModalProps> = ({
 
   const logsEndRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * Alt+Numpad ストリームを安全なBLEパケットサイズ（約120〜160バイト）に分割して逐次送信
+   */
+  const sendAltStreamChunks = async (
+    targetBleManager: BleDongleManager,
+    compiledText: string,
+    label: string
+  ): Promise<void> => {
+    // [ALT]...[/ALT], [A]...[/A], 改行, [ENTER] 単位でトークン分割
+    const tokenRegex = /(\[ALT\][0-9+]+\[\/ALT\]|\[A\].*?\[\/A\]|<ALT>[0-9+]+<\/ALT>|<A>.*?<\/A>|\[ENTER\]|<ENTER>|\[ALT_ENTER\]|<ALT_ENTER>|\r\n|\n|.)/gs;
+    const tokens = compiledText.match(tokenRegex) || [compiledText];
+
+    const chunks: string[] = [];
+    let currentChunk = '';
+
+    for (const token of tokens) {
+      if ((currentChunk + token).length > 150 && currentChunk.length > 0) {
+        chunks.push(currentChunk);
+        currentChunk = token;
+      } else {
+        currentChunk += token;
+      }
+    }
+    if (currentChunk.length > 0) {
+      chunks.push(currentChunk);
+    }
+
+    const timeStr = new Date().toLocaleTimeString('ja-JP', { hour12: false });
+    setTestLogs(prev => [
+      ...prev.slice(-30),
+      { id: Math.random().toString(), time: timeStr, text: `${label} (全${chunks.length}パケット・${compiledText.length}B 送出開始)`, status: 'sent' }
+    ]);
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      await targetBleManager.sendData(chunk);
+      // マイコン側打鍵とキューの安定化のため微小インターバル
+      if (i < chunks.length - 1) {
+        await new Promise(r => setTimeout(r, 40));
+      }
+    }
+  };
+
   useEffect(() => {
     if (!bleManager) return;
     const remove = bleManager.addAckListener((event) => {
-      if (event.ackType === 'ALT_NUMPAD_DIRECT_SENT' || event.ackType === 'ALT_NUMPAD_SENT') {
+      if (
+        event.ackType === 'ALT_NUMPAD_DIRECT_SENT' || 
+        event.ackType === 'ALT_NUMPAD_SENT' || 
+        event.ackType === 'ALT_STREAM_SENT'
+      ) {
         const timeStr = new Date().toLocaleTimeString('ja-JP', { hour12: false });
         setTestLogs(prev => [
           ...prev.slice(-30),
-          { id: Math.random().toString(), time: timeStr, text: `ACK着弾: ${event.ackType} (${event.detail || ''})`, status: 'ack' }
+          { id: Math.random().toString(), time: timeStr, text: `ACK着弾: ${event.ackType} (${event.detail || '完了'})`, status: 'ack' }
         ]);
       }
     });
@@ -94,14 +141,10 @@ export const AltNumpadHilModal: React.FC<AltNumpadHilModalProps> = ({
     
     try {
       if (preset.category === 'sentence') {
-        // 短文フレーズはAlt+Numpadストリームとしてコンパイルして送信
+        // 短文フレーズはAlt+Numpadストリームとしてコンパイルして安全チャンク送信
         const cleanText = preset.code.replace('SENTENCE:', '');
         const compiled = compileTextToAltNumpad(cleanText, { mode: encodingMode });
-        setTestLogs(prev => [
-          ...prev.slice(-30),
-          { id: Math.random().toString(), time: timeStr, text: `短文送出: ${cleanText} ➔ ${compiled}`, status: 'sent' }
-        ]);
-        await bleManager.sendData(compiled);
+        await sendAltStreamChunks(bleManager, compiled, `短文プリセット: ${cleanText}`);
       } else if (preset.code.includes(',')) {
         // 連続Altコード (熟語)
         const codes = preset.code.split(',');
@@ -109,11 +152,7 @@ export const AltNumpadHilModal: React.FC<AltNumpadHilModalProps> = ({
         for (const c of codes) {
           stream += `[ALT]${c}[/ALT]`;
         }
-        setTestLogs(prev => [
-          ...prev.slice(-30),
-          { id: Math.random().toString(), time: timeStr, text: `熟語連続Alt送出: ${preset.name} ➔ ${stream}`, status: 'sent' }
-        ]);
-        await bleManager.sendData(stream);
+        await sendAltStreamChunks(bleManager, stream, `熟語連続Alt: ${preset.name}`);
       } else {
         // 単発Altコード
         setTestLogs(prev => [
@@ -141,16 +180,11 @@ export const AltNumpadHilModal: React.FC<AltNumpadHilModalProps> = ({
     }
 
     const compiled = compileTextToAltNumpad(customText, { mode: encodingMode });
-    const timeStr = new Date().toLocaleTimeString('ja-JP', { hour12: false });
-
     setSendingId('custom');
     try {
-      setTestLogs(prev => [
-        ...prev.slice(-30),
-        { id: Math.random().toString(), time: timeStr, text: `自由文Alt送出: "${customText}" ➔ ${compiled}`, status: 'sent' }
-      ]);
-      await bleManager.sendData(compiled);
+      await sendAltStreamChunks(bleManager, compiled, `自由文Alt送出: "${customText}"`);
     } catch (err: any) {
+      const timeStr = new Date().toLocaleTimeString('ja-JP', { hour12: false });
       setTestLogs(prev => [
         ...prev.slice(-30),
         { id: Math.random().toString(), time: timeStr, text: `エラー: ${err?.message || err}`, status: 'error' }
@@ -225,8 +259,8 @@ export const AltNumpadHilModal: React.FC<AltNumpadHilModalProps> = ({
               onChange={(e) => setEncodingMode(e.target.value as 'unicode' | 'cp932')}
               className="bg-white border border-black px-1.5 py-0.5 text-[11px] font-bold"
             >
-              <option value="unicode">Unicode 10進 (推奨)</option>
-              <option value="cp932">CP932 / SJIS 10進 (0付き)</option>
+              <option value="cp932">CP932 / SJIS (Windows標準・推奨★)</option>
+              <option value="unicode">Unicode 10進 (EnableHexNumpad要)</option>
             </select>
           </div>
         </div>

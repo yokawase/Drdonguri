@@ -49,7 +49,7 @@ void updateTypingProgress(int pct);
 // プロトコル制約
 #define MAX_PAYLOAD_SIZE    4096
 #define MAX_PACKETS         16
-#define MAX_PACKET_LEN      256
+#define MAX_PACKET_LEN      512
 #define BLE_CHUNK_SIZE      (8 + MAX_PACKET_LEN)
 #define BLE_QUEUE_SIZE      32
 #define RX_TIMEOUT_MS       1500  // 受信タイムアウト (1.5秒で迅速に再送要求)
@@ -2018,6 +2018,108 @@ bool dispatchSafeKeystrokes() {
 }
 
 // ============================================================================
+// ダイレクトテキストストリーム打鍵エンジン (HILテスト・即時文章送出用)
+// 届いたバッファ内のすべての [ALT]...[/ALT], [A]...[/A], 改行, ASCII を全件順次打鍵する
+// ============================================================================
+void dispatchDirectTextStream(const char* buf, size_t total) {
+  if (buf == nullptr || total == 0) return;
+  setLedColor(64, 0, 0); // 打鍵中: 赤色点灯
+
+  size_t i = 0;
+  while (i < total) {
+    // 1. 改行処理
+    if (buf[i] == '\r') {
+      if (i + 1 < total && buf[i + 1] == '\n') i++;
+      safeWrite(KEY_RETURN);
+      delay(20);
+      i++;
+      continue;
+    }
+    if (buf[i] == '\n') {
+      safeWrite(KEY_RETURN);
+      delay(20);
+      i++;
+      continue;
+    }
+
+    // 2. [ALT]コード[/ALT] または <ALT>コード</ALT>
+    if (strncmp(&buf[i], "[ALT]", 5) == 0 || strncmp(&buf[i], "<ALT>", 5) == 0) {
+      i += 5;
+      char digits[16] = {0};
+      size_t dlen = 0;
+      while (i < total) {
+        if (strncmp(&buf[i], "[/ALT]", 6) == 0 || strncmp(&buf[i], "</ALT>", 6) == 0) {
+          i += 6;
+          break;
+        }
+        if (buf[i] == '[' || buf[i] == '<' || buf[i] == '\n' || buf[i] == '\r') {
+          break;
+        }
+        if ((buf[i] >= '0' && buf[i] <= '9') || buf[i] == '+') {
+          if (dlen < sizeof(digits) - 1) {
+            digits[dlen++] = buf[i];
+          }
+        }
+        i++;
+      }
+      digits[dlen] = '\0';
+      if (dlen > 0) {
+        sendAltNumpadCode(digits);
+      }
+      continue;
+    }
+
+    // 3. [A]ASCII[/A] または <A>ASCII</A>
+    if (strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "<A>", 3) == 0) {
+      i += 3;
+      bool hasNonSpace = false;
+      while (i < total) {
+        if (strncmp(&buf[i], "[/A]", 4) == 0 || strncmp(&buf[i], "</A>", 4) == 0) {
+          i += 4;
+          break;
+        }
+        if (buf[i] == '[' || buf[i] == '<' || buf[i] == '\n' || buf[i] == '\r') {
+          break;
+        }
+        char ac = buf[i];
+        if (ac != ' ' && ac != '\t') hasNonSpace = true;
+        sendSafeChar(ac);
+        i++;
+      }
+      if (hasNonSpace) {
+        delay(15);
+        safeWrite(KEY_F10);
+        delay(20);
+        safeWrite(KEY_RETURN);
+        delay(25);
+        forceReleaseAllModifiers();
+      }
+      continue;
+    }
+
+    // 4. 補助タグ (<ENTER>, <ALT_ENTER>, [/ALT], [/A], etc.)
+    if (buf[i] == '<' || buf[i] == '[') {
+      if (strncmp(&buf[i], "<ENTER>", 7) == 0 || strncmp(&buf[i], "[ENTER]", 7) == 0) {
+        safeWrite(KEY_RETURN); delay(20); i += 7; continue;
+      }
+      if (strncmp(&buf[i], "<ALT_ENTER>", 11) == 0 || strncmp(&buf[i], "[ALT_ENTER]", 11) == 0) {
+        Keyboard.press(KEY_LEFT_ALT); delay(10);
+        safeWrite(KEY_RETURN); delay(10);
+        Keyboard.releaseAll(); delay(30); i += 11; continue;
+      }
+      if (strncmp(&buf[i], "[/ALT]", 6) == 0 || strncmp(&buf[i], "</ALT>", 6) == 0) { i += 6; continue; }
+      if (strncmp(&buf[i], "[/A]", 4) == 0 || strncmp(&buf[i], "</A>", 4) == 0) { i += 4; continue; }
+    }
+
+    // 5. 通常文字 (ASCII英数・記号)
+    if ((uint8_t)buf[i] >= 0x20 && (uint8_t)buf[i] <= 0x7E) {
+      sendSafeChar(buf[i]);
+    }
+    i++;
+  }
+}
+
+// ============================================================================
 // USB打鍵ディスパッチャー
 // ============================================================================
 void dispatchOutput() {
@@ -2265,32 +2367,13 @@ void loop() {
   BleQueueItem item;
   while (xQueueReceive(bleQueue, &item, 0) == pdTRUE) {
 
-    // 0. ダイレクト [ALT]コード[/ALT] パケット (HILテスト即時打鍵)
-    if (item.length >= 11 && 
-        item.data[0] == '[' && item.data[1] == 'A' && item.data[2] == 'L' && item.data[3] == 'T' && item.data[4] == ']') {
-      char directBuf[48];
-      size_t copyLen = item.length < sizeof(directBuf) - 1 ? item.length : sizeof(directBuf) - 1;
-      memcpy(directBuf, item.data, copyLen);
-      directBuf[copyLen] = '\0';
-
-      char digits[16] = {0};
-      size_t dlen = 0;
-      char* pStart = directBuf + 5;
-      while (*pStart != '\0' && *pStart != '[') {
-        if ((*pStart >= '0' && *pStart <= '9') || *pStart == '+') {
-          if (dlen < sizeof(digits) - 1) {
-            digits[dlen++] = *pStart;
-          }
-        }
-        pStart++;
-      }
-      digits[dlen] = '\0';
-      if (dlen > 0) {
-        setLedColor(64, 0, 0); // 打鍵中（赤）
-        sendAltNumpadCode(digits);
-        setLedColor(0, isBleConnected ? 64 : 0, isBleConnected ? 0 : 64);
-        sendBleAck("ALT_NUMPAD_DIRECT_SENT", 0, digits);
-      }
+    // 0. ダイレクト [ALT] / [A] テキストストリーム (HILテスト文章即時打鍵)
+    if (item.length >= 3 && (item.data[0] == '[' || item.data[0] == '<') && 
+        (strncmp((const char*)item.data, "[ALT]", 5) == 0 || strncmp((const char*)item.data, "<ALT>", 5) == 0 ||
+         strncmp((const char*)item.data, "[A]", 3) == 0 || strncmp((const char*)item.data, "<A>", 3) == 0)) {
+      dispatchDirectTextStream((const char*)item.data, item.length);
+      setLedColor(0, isBleConnected ? 64 : 0, isBleConnected ? 0 : 64);
+      sendBleAck("ALT_STREAM_SENT", 0);
       continue;
     }
 

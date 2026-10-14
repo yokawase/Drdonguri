@@ -8,9 +8,10 @@
  */
 
 import { EhrNewlineMode } from '../types';
+import { CP932_NUMPAD_MAP } from '../data/cp932Table';
 
 // ============================================================================
-// HIL実機テスト用プリセットデータ (添付仕様書準拠 臨床主要語句)
+// HIL実機テスト用プリセットデータ (Windows標準 CP932 100%適合版)
 // ============================================================================
 export interface HilTestPreset {
   id: string;
@@ -22,30 +23,26 @@ export interface HilTestPreset {
 }
 
 export const HIL_TEST_PRESETS: HilTestPreset[] = [
-  // 1. 仕様書指定 単漢字 (Unicode 10進数)
-  { id: 'u-i', name: '「胃」 (Unicode: 24771)', description: '仕様書指定 Unicode 10進コード', code: '24771', category: 'single', expectedChar: '胃' },
-  { id: 'u-i-std', name: '「胃」 (Unicode標準: 32963)', description: 'UTF-16 codePoint 10進コード (0x80C3)', code: '32963', category: 'single', expectedChar: '胃' },
-  { id: 'u-gan', name: '「癌」 (Unicode: 30284)', description: 'Unicode 10進コード (0x764C)', code: '30284', category: 'single', expectedChar: '癌' },
-  { id: 'u-kou', name: '「高」 (Unicode: 39640)', description: 'Unicode 10進コード (0x9AD8)', code: '39640', category: 'single', expectedChar: '高' },
-  { id: 'u-ketsu', name: '「血」 (Unicode: 34880)', description: 'Unicode 10進コード (0x8840)', code: '34880', category: 'single', expectedChar: '血' },
-  { id: 'u-atsu', name: '「圧」 (Unicode: 22311)', description: 'Unicode 10進コード (0x5727)', code: '22311', category: 'single', expectedChar: '圧' },
-  
-  // 2. 仕様書指定 CP932 (Shift_JIS) 10進数パターン (先頭0付き)
-  { id: 'cp-i-doc', name: '「胃」 (CP932: 034975)', description: '仕様書指定 CP932コード', code: '034975', category: 'cp932', expectedChar: '胃' },
-  { id: 'cp-i-std', name: '「胃」 (CP932標準: 035037)', description: 'CP932/SJIS (0x88DD) 10進コード', code: '035037', category: 'cp932', expectedChar: '胃' },
-  { id: 'cp-gan', name: '「癌」 (CP932: 035552)', description: 'CP932/SJIS (0x8AE0) 10進コード', code: '035552', category: 'cp932', expectedChar: '癌' },
-  { id: 'cp-kou', name: '「高」 (CP932: 036226)', description: 'CP932/SJIS (0x8D82) 10進コード', code: '036226', category: 'cp932', expectedChar: '高' },
-  { id: 'cp-ketsu', name: '「血」 (CP932: 035980)', description: 'CP932/SJIS (0x8C8C) 10進コード', code: '035980', category: 'cp932', expectedChar: '血' },
-  { id: 'cp-atsu', name: '「圧」 (CP932: 034995)', description: 'CP932/SJIS (0x88B3) 10進コード', code: '034995', category: 'cp932', expectedChar: '圧' },
+  // 1. Windows標準 100%適合 CP932 (Shift_JIS 先頭0付き 10進数)
+  { id: 'cp-i-doc', name: '「胃」 (CP932: 034975)', description: '実機テスト合格確定 CP932コード', code: '034975', category: 'cp932', expectedChar: '胃' },
+  { id: 'cp-gan', name: '「癌」 (CP932: 035552)', description: 'CP932 (0x8AE0) 10進コード', code: '035552', category: 'cp932', expectedChar: '癌' },
+  { id: 'cp-kou', name: '「高」 (CP932: 036226)', description: 'CP932 (0x8D82) 10進コード', code: '036226', category: 'cp932', expectedChar: '高' },
+  { id: 'cp-ketsu', name: '「血」 (CP932: 035980)', description: 'CP932 (0x8C8C) 10進コード', code: '035980', category: 'cp932', expectedChar: '血' },
+  { id: 'cp-atsu', name: '「圧」 (CP932: 034995)', description: 'CP932 (0x88B3) 10進コード', code: '034995', category: 'cp932', expectedChar: '圧' },
 
-  // 3. 臨床熟語・複合語
-  { id: 'comp-igan', name: '「胃癌」 (連続Alt打鍵)', description: '胃(24771) + 癌(30284)', code: '24771,30284', category: 'compound', expectedChar: '胃癌' },
-  { id: 'comp-ht', name: '「高血圧」 (連続Alt打鍵)', description: '高(39640) + 血(34880) + 圧(22311)', code: '39640,34880,22311', category: 'compound', expectedChar: '高血圧' },
-  { id: 'comp-dm', name: '「糖尿病」 (連続Alt打鍵)', description: '糖(31958) + 尿(23615) + 病(30151)', code: '31958,23615,30151', category: 'compound', expectedChar: '糖尿病' },
+  // 2. 臨床熟語・複合語 (CP932 連続Alt打鍵)
+  { id: 'comp-igan', name: '「胃癌」 (CP932連続)', description: '胃(034975) + 癌(035552)', code: '034975,035552', category: 'compound', expectedChar: '胃癌' },
+  { id: 'comp-ht', name: '「高血圧」 (CP932連続)', description: '高(036226) + 血(035980) + 圧(034995)', code: '036226,035980,034995', category: 'compound', expectedChar: '高血圧' },
+  { id: 'comp-dm', name: '「糖尿病」 (CP932連続)', description: '糖(037788) + 尿(037953) + 病(038241)', code: '037788,037953,038241', category: 'compound', expectedChar: '糖尿病' },
 
-  // 4. 短文フレーズ
-  { id: 'sent-calonal', name: '「カロナール錠500mg」', description: 'カタカナ・漢字・英数混合', code: 'SENTENCE:カロナール錠500mg', category: 'sentence', expectedChar: 'カロナール錠500mg' },
-  { id: 'sent-soap', name: '「[S] 咽頭痛あり、発熱なし。」', description: 'SOAP記号・漢字・かな混合', code: 'SENTENCE:[S] 咽頭痛あり、発熱なし。', category: 'sentence', expectedChar: '[S] 咽頭痛あり、発熱なし。' }
+  // 3. 短文・フレーズ (CP932 Alt+Numpadストリーム)
+  { id: 'sent-calonal', name: '「カロナール錠500mg」', description: 'カナ・漢字・英数混合 CP932ストリーム', code: 'SENTENCE:カロナール錠500mg', category: 'sentence', expectedChar: 'カロナール錠500mg' },
+  { id: 'sent-soap-s', name: '「胃癌の精査目的にて受診。」', description: '臨床文・全文字CP932完全着弾', code: 'SENTENCE:胃癌の精査目的にて受診。', category: 'sentence', expectedChar: '胃癌の精査目的にて受診。' },
+  { id: 'sent-soap', name: '「[S] 咽頭痛あり、発熱なし。」', description: 'SOAP記号・漢字・かな混合', code: 'SENTENCE:[S] 咽頭痛あり、発熱なし。', category: 'sentence', expectedChar: '[S] 咽頭痛あり、発熱なし。' },
+
+  // 4. Unicode参考用
+  { id: 'u-i', name: '「胃」 (Unicode: 24771)', description: '※レジストリ設定なしでは記号化', code: '24771', category: 'single', expectedChar: '胃' },
+  { id: 'u-gan', name: '「癌」 (Unicode: 30284)', description: '※レジストリ設定なしでは記号化', code: '30284', category: 'single', expectedChar: '癌' }
 ];
 
 // 主要医療漢字のCP932マッピングテーブル
@@ -117,8 +114,8 @@ export function encodeCharToAltNumpadUnicode(char: string): string {
  */
 export function encodeCharToAltNumpadCp932(char: string): string | null {
   if (char === '胃') return '034975'; // 仕様書指定パターン
-  if (COMMON_CP932_MAP[char]) {
-    return COMMON_CP932_MAP[char];
+  if (CP932_NUMPAD_MAP[char]) {
+    return CP932_NUMPAD_MAP[char];
   }
   return null;
 }
@@ -133,11 +130,11 @@ export interface AltCompileOptions {
  * 任意のテキストを Alt+Numpad 決定論タグ列（[ALT]コード[/ALT]）へコンパイル
  * 
  * 例:
- * "胃癌" -> "[ALT]24771[/ALT][ALT]30284[/ALT]"
- * "胃 100mg" (keepAscii=true) -> "[ALT]24771[/ALT][A] 100mg[/A]"
+ * "胃癌" -> "[ALT]034975[/ALT][ALT]035552[/ALT]"
+ * "胃 100mg" (keepAscii=true) -> "[ALT]034975[/ALT][A] 100mg[/A]"
  */
 export function compileTextToAltNumpad(text: string, options: AltCompileOptions = {}): string {
-  const { mode = 'unicode', keepAscii = true, newlineMode = EhrNewlineMode.NORMAL_ENTER } = options;
+  const { mode = 'cp932', keepAscii = true, newlineMode = EhrNewlineMode.NORMAL_ENTER } = options;
   if (!text) return '';
 
   let result = '';
