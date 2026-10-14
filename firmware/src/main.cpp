@@ -2087,11 +2087,7 @@ void dispatchDirectTextStream(const char* buf, size_t total) {
         i++;
       }
       if (hasNonSpace) {
-        delay(15);
-        safeWrite(KEY_F10);
-        delay(20);
-        safeWrite(KEY_RETURN);
-        delay(25);
+        delay(10);
         forceReleaseAllModifiers();
       }
       continue;

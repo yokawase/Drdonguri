@@ -17,7 +17,8 @@ import {
   Sliders, 
   Info,
   Check,
-  RotateCcw
+  RotateCcw,
+  Copy
 } from 'lucide-react';
 import { playMacBeep } from '../utils/macAudio';
 import { BleDongleManager } from '../utils/webBluetooth';
@@ -59,7 +60,34 @@ export const AltNumpadHilModal: React.FC<AltNumpadHilModalProps> = ({
     'ehr_search_box': 'none',
   });
 
+  const [copiedLog, setCopiedLog] = useState(false);
+  const [copiedPayload, setCopiedPayload] = useState(false);
+
   const logsEndRef = useRef<HTMLDivElement>(null);
+
+  const handleCopyLogs = async () => {
+    if (testLogs.length === 0) return;
+    const text = testLogs.map(l => `[${l.time}] (${l.status.toUpperCase()}) ${l.text}`).join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedLog(true);
+      setTimeout(() => setCopiedLog(false), 2000);
+    } catch (e) {
+      console.error('Clipboard copy failed', e);
+    }
+  };
+
+  const handleCopyPayload = async () => {
+    const preview = compileTextToAltNumpad(customText, { mode: encodingMode });
+    if (!preview) return;
+    try {
+      await navigator.clipboard.writeText(preview);
+      setCopiedPayload(true);
+      setTimeout(() => setCopiedPayload(false), 2000);
+    } catch (e) {
+      console.error('Payload copy failed', e);
+    }
+  };
 
   /**
    * Alt+Numpad ストリームを安全なBLEパケットサイズ（約120〜160バイト）に分割して逐次送信
@@ -427,9 +455,23 @@ export const AltNumpadHilModal: React.FC<AltNumpadHilModalProps> = ({
               <div className="bg-white border border-black p-2.5 shadow-[2px_2px_0_#000]">
                 <div className="font-bold text-neutral-800 mb-1 flex items-center justify-between">
                   <span>ドングル送出ペイロード プレビュー ([ALT]コード[/ALT])</span>
-                  <span className="text-[10px] font-mono text-blue-700 font-bold">
-                    {encodingMode === 'unicode' ? 'Mode: Unicode 10進' : 'Mode: CP932 (先頭0付き)'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono text-blue-700 font-bold">
+                      {encodingMode === 'unicode' ? 'Mode: Unicode 10進' : 'Mode: CP932 (先頭0付き)'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyPayload}
+                      disabled={!compiledCustomPreview}
+                      className={`text-[9px] px-1.5 py-0.5 border border-black flex items-center gap-1 cursor-pointer transition-colors shadow-[1px_1px_0_#000] ${
+                        copiedPayload ? 'bg-emerald-600 text-white font-bold' : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
+                      }`}
+                      title="ペイロード文字列をコピー"
+                    >
+                      <Copy className="w-2.5 h-2.5" />
+                      <span>{copiedPayload ? 'コピー完了 ✓' : 'ペイロードコピー'}</span>
+                    </button>
+                  </div>
                 </div>
                 <div className="p-2 bg-neutral-900 text-emerald-400 font-mono text-[11px] border border-black overflow-x-auto whitespace-pre-wrap break-all max-h-32">
                   {compiledCustomPreview || '(入力テキストがありません)'}
@@ -619,13 +661,27 @@ export const AltNumpadHilModal: React.FC<AltNumpadHilModalProps> = ({
               <span className="font-bold text-[10px] text-neutral-400 flex items-center gap-1">
                 <Activity className="w-3 h-3 text-emerald-400" /> HIL打鍵通信ログ
               </span>
-              <button
-                type="button"
-                onClick={() => setTestLogs([])}
-                className="text-[9px] text-neutral-400 hover:text-white flex items-center gap-0.5 cursor-pointer"
-              >
-                <RotateCcw className="w-2.5 h-2.5" /> クリア
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyLogs}
+                  disabled={testLogs.length === 0}
+                  className={`text-[9px] px-1.5 py-0.5 border border-neutral-600 flex items-center gap-1 cursor-pointer transition-colors ${
+                    copiedLog ? 'bg-emerald-600 text-white font-bold' : 'text-neutral-300 hover:text-white hover:bg-neutral-800'
+                  }`}
+                  title="通信ログをクリップボードにコピー"
+                >
+                  <Copy className="w-2.5 h-2.5" />
+                  <span>{copiedLog ? 'コピー完了 ✓' : 'ログコピー'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTestLogs([])}
+                  className="text-[9px] text-neutral-400 hover:text-white flex items-center gap-0.5 cursor-pointer"
+                >
+                  <RotateCcw className="w-2.5 h-2.5" /> クリア
+                </button>
+              </div>
             </div>
             
             <div className="h-24 overflow-y-auto space-y-1 font-mono text-[10px]">

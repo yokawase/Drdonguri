@@ -24,14 +24,15 @@ export interface HilTestPreset {
 
 export const HIL_TEST_PRESETS: HilTestPreset[] = [
   // 1. Windows標準 100%適合 CP932 (Shift_JIS 先頭0付き 10進数)
-  { id: 'cp-i-doc', name: '「胃」 (CP932: 034975)', description: '実機テスト合格確定 CP932コード', code: '034975', category: 'cp932', expectedChar: '胃' },
+  { id: 'cp-i-doc', name: '「胃」 (CP932: 035037)', description: '実機テスト合格確定 CP932コード', code: '035037', category: 'cp932', expectedChar: '胃' },
+  { id: 'cp-a', name: '「亜」 (CP932: 034975)', description: 'JIS第1水準第1号 0x889F (比較用)', code: '034975', category: 'cp932', expectedChar: '亜' },
   { id: 'cp-gan', name: '「癌」 (CP932: 035552)', description: 'CP932 (0x8AE0) 10進コード', code: '035552', category: 'cp932', expectedChar: '癌' },
   { id: 'cp-kou', name: '「高」 (CP932: 036226)', description: 'CP932 (0x8D82) 10進コード', code: '036226', category: 'cp932', expectedChar: '高' },
   { id: 'cp-ketsu', name: '「血」 (CP932: 035980)', description: 'CP932 (0x8C8C) 10進コード', code: '035980', category: 'cp932', expectedChar: '血' },
   { id: 'cp-atsu', name: '「圧」 (CP932: 034995)', description: 'CP932 (0x88B3) 10進コード', code: '034995', category: 'cp932', expectedChar: '圧' },
 
   // 2. 臨床熟語・複合語 (CP932 連続Alt打鍵)
-  { id: 'comp-igan', name: '「胃癌」 (CP932連続)', description: '胃(034975) + 癌(035552)', code: '034975,035552', category: 'compound', expectedChar: '胃癌' },
+  { id: 'comp-igan', name: '「胃癌」 (CP932連続)', description: '胃(035037) + 癌(035552)', code: '035037,035552', category: 'compound', expectedChar: '胃癌' },
   { id: 'comp-ht', name: '「高血圧」 (CP932連続)', description: '高(036226) + 血(035980) + 圧(034995)', code: '036226,035980,034995', category: 'compound', expectedChar: '高血圧' },
   { id: 'comp-dm', name: '「糖尿病」 (CP932連続)', description: '糖(037788) + 尿(037953) + 病(038241)', code: '037788,037953,038241', category: 'compound', expectedChar: '糖尿病' },
 
@@ -48,6 +49,7 @@ export const HIL_TEST_PRESETS: HilTestPreset[] = [
 // 主要医療漢字のCP932マッピングテーブル
 export const COMMON_CP932_MAP: Record<string, string> = {
   '胃': '035037',
+  '亜': '034975',
   '癌': '035552',
   '高': '036226',
   '血': '035980',
@@ -95,7 +97,7 @@ export const COMMON_CP932_MAP: Record<string, string> = {
 
 // 仕様書指定のエイリアス
 const CUSTOM_UNICODE_OVERRIDES: Record<string, string> = {
-  '胃': '24771', // 仕様書の24771をデフォルト推奨
+  '胃': '24771', // 仕様書の24771を参考登録
 };
 
 /**
@@ -113,9 +115,16 @@ export function encodeCharToAltNumpadUnicode(char: string): string {
  * 1文字を CP932 (Shift_JIS) 10進数 Alt+Numpad コードへエンコード
  */
 export function encodeCharToAltNumpadCp932(char: string): string | null {
-  if (char === '胃') return '034975'; // 仕様書指定パターン
   if (CP932_NUMPAD_MAP[char]) {
     return CP932_NUMPAD_MAP[char];
+  }
+  if (COMMON_CP932_MAP[char]) {
+    return COMMON_CP932_MAP[char];
+  }
+  // 半角ASCII記号（[ ] ( ) : など）もIME ON誤爆防止のためAltコード化対応
+  const code = char.charCodeAt(0);
+  if (code >= 0x20 && code <= 0x7E) {
+    return `00${code}`.slice(-4); // 例: 91 -> 0091
   }
   return null;
 }
@@ -188,6 +197,13 @@ export function compileTextToAltNumpad(text: string, options: AltCompileOptions 
 
     // 半角ASCII文字（空白・英数・基本記号）
     const code = char.charCodeAt(0);
+    // [ と ] は IME ON 時に全角 「 と 」 に誤爆するため、Alt+Numpad (0091/0093) で100%決定論送出
+    if (char === '[' || char === ']') {
+      flushAscii();
+      result += `[ALT]00${code}[/ALT]`;
+      continue;
+    }
+
     if (code >= 0x20 && code <= 0x7E) {
       asciiBuf += char;
       continue;

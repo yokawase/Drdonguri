@@ -131,6 +131,7 @@ export const E2eAutoTestModal: React.FC<E2eAutoTestModalProps> = ({
   const [activeStepIndex, setActiveStepIndex] = useState<number>(-1);
   const [logMessages, setLogMessages] = useState<string[]>([]);
   const [copied, setCopied] = useState<boolean>(false);
+  const [copiedLogMsg, setCopiedLogMsg] = useState<boolean>(false);
   const [testMetrics, setTestMetrics] = useState<{
     totalBytes: number;
     totalPackets: number;
@@ -417,6 +418,13 @@ export const E2eAutoTestModal: React.FC<E2eAutoTestModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCopyLogs = () => {
+    if (logMessages.length === 0) return;
+    navigator.clipboard.writeText(logMessages.join('\n'));
+    setCopiedLogMsg(true);
+    setTimeout(() => setCopiedLogMsg(false), 2000);
+  };
+
   const handleApplyToMainInput = () => {
     onApplyDummyTextToInput(generatedDummyText);
     onClose();
@@ -692,9 +700,20 @@ export const E2eAutoTestModal: React.FC<E2eAutoTestModalProps> = ({
                   <Cpu className="w-3.5 h-3.5 text-emerald-400" />
                   <span>テスト実行コンソールログ</span>
                 </span>
-                <span className="text-[10px] text-slate-500 font-mono">
-                  {logMessages.length} 行
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCopyLogs}
+                    disabled={logMessages.length === 0}
+                    className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 transition-colors disabled:opacity-40 cursor-pointer"
+                    title="実行ログをクリップボードにコピー"
+                  >
+                    {copiedLogMsg ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    <span>{copiedLogMsg ? 'コピー完了' : 'ログコピー'}</span>
+                  </button>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {logMessages.length} 行
+                  </span>
+                </div>
               </div>
               <div className="flex-1 overflow-y-auto text-[10px] font-mono leading-normal text-emerald-400/90 p-1.5 space-y-1 selection:bg-emerald-950">
                 {logMessages.length === 0 ? (

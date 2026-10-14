@@ -10,15 +10,15 @@ export const APP_NAME = 'Dr.Dongly';
 export const APP_NAME_JA = 'DrVoice どんぐり君！';
 
 // アプリケーションバージョン (package.json と同期)
-export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.4.1';
+export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.4.2';
 
 // ビルドタイムスタンプ (Vite ビルド時に自動更新)
 export const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : new Date().toISOString();
 
 // 最新ファームウェアバージョン (Windows標準 Alt+テンキー 100%決定論 日本語転送＆F5事故ゼロHIL対応版)
-export const LATEST_FIRMWARE_VERSION = 'v21.1';
+export const LATEST_FIRMWARE_VERSION = 'v21.2';
 export const FIRMWARE_RELEASE_DATE = '2026-10-14';
-export const FIRMWARE_RELEASE_TITLE = 'v21.0（Windows標準 Alt+テンキー 100%決定論 日本語転送＆F5事故ゼロHIL対応版）';
+export const FIRMWARE_RELEASE_TITLE = 'v21.2（Windows標準 Alt+テンキー 胃コード是正・メニュー誤爆根絶・全ログコピー対応版）';
 
 // ローカルAI & OCR エンジン構成
 export const AI_ENGINE_INFO = 'WebLLM (Qwen2.5 1.5B / 0.5B)';
