@@ -8,7 +8,7 @@
 - **プロダクト名**: DrVoice どんぐり君！ (`dr-dongly` / `Drdonguri`)
 - **目的**: スマホ音声入力・テキストを、ESP32デバイス（AtomS3U / T-dongle-S3）経由で医療用電子カルテ端末にUSB-HID（キーボード）として超高速・無誤爆で直接打鍵転送するシステム。
 - **公開WebUI (PWA)**: [https://yokawase.github.io/Drdonguri/](https://yokawase.github.io/Drdonguri/)
-- **現在のバージョン**: **`v2.3.1`** (ファームウェア: `v20.1`)
+- **現在のバージョン**: **`v2.4.0`** (ファームウェア: `v21.0`)
 
 ---
 
@@ -45,11 +45,14 @@ PWAおよびFlash/SD検索エンジンでは、以下の6大マスターを正�
 
 | ファイル / ディレクトリ | 役割・技術スタック |
 | :--- | :--- |
-| [`src/version.ts`](file:///home/medart-code/Drdonguri/src/version.ts) | アプリケーションバージョン (`2.3.0`)・ビルド時刻一元管理 |
+| [`src/version.ts`](file:///home/medart-code/Drdonguri/src/version.ts) | アプリケーションバージョン (`2.4.0`)・ビルド時刻一元管理 |
+| [`src/components/AltNumpadHilModal.tsx`](file:///home/medart-code/Drdonguri/src/components/AltNumpadHilModal.tsx) | Windows標準 Alt+テンキー 100%決定論 日本語転送 HIL実機テストベンチ |
+| [`src/utils/altNumpadCompiler.ts`](file:///home/medart-code/Drdonguri/src/utils/altNumpadCompiler.ts) | Alt+Numpad (Unicode/CP932) 100%決定論コードコンパイラ ＆ 臨床プリセット |
+| [`scripts/flash_alt_numpad_fw.py`](file:///home/medart-code/Drdonguri/scripts/flash_alt_numpad_fw.py) | T-Dongle-S3 ダウンロードモード自動検知＆ファームウェアフラッシャー |
 | [`src/components/MedicalDataSearchModal.tsx`](file:///home/medart-code/Drdonguri/src/components/MedicalDataSearchModal.tsx) | 6大医療データ統合検索モーダル ＆ WebLLM臨床意思決定支援UI |
 | [`src/data/medicalKnowledgeCatalog.ts`](file:///home/medart-code/Drdonguri/src/data/medicalKnowledgeCatalog.ts) | 6大医療マスターのインクリメンタル検索エンジン |
 | [`scripts/generate_medical_search_catalog.py`](file:///home/medart-code/Drdonguri/scripts/generate_medical_search_catalog.py) | 医療マスターカタログ自動生成スクリプト |
 | [`src/services/webLlmService.ts`](file:///home/medart-code/Drdonguri/src/services/webLlmService.ts) | WebGPUによる完全ブラウザ内完結・通信不要のローカルLLM (Qwen2.5) |
 | [`setup_denkaru_printer.ps1`](file:///home/medart-code/Drdonguri/setup_denkaru_printer.ps1) | T-dongle-S3 複合機（仮想プリンタ＋キーボード）のWindows伝カル自動開通スクリプト |
-| [`main.cpp`](file:///home/medart-code/Drdonguri/main.cpp) | AtomS3U / T-dongle-S3 ファームウェア本体（F5廃止・HYBRID打鍵エンジン） |
-| [`ANTIGRAVITY.md`](file:///home/medart-code/Drdonguri/ANTIGRAVITY.md) | 全開発ステップ（ステップ1〜14）の詳細開発履歴・技術仕様書 |
+| [`main.cpp`](file:///home/medart-code/Drdonguri/main.cpp) | AtomS3U / T-dongle-S3 ファームウェア本体（Alt+Numpad 100%決定論＆HYBRID打鍵） |
+| [`ANTIGRAVITY.md`](file:///home/medart-code/Drdonguri/ANTIGRAVITY.md) | 全開発ステップ（ステップ1〜15）の詳細開発履歴・技術仕様書 |
