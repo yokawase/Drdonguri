@@ -44,7 +44,8 @@ def load_all_guideline_entries() -> list:
         'infection', 'respiratory', 'cardiovascular', 'metabolism',
         'gastroenterology', 'nephrology_urology', 'neurology',
         'psychiatry', 'orthopedics_rheumatology', 'dermatology',
-        'ent_ophthalmology', 'pediatrics', 'gynecology', 'emergency_general'
+        'ent_ophthalmology', 'pediatrics', 'gynecology', 'emergency_general',
+        'expanded_clinical_cqs'
     ]
 
     all_entries = []

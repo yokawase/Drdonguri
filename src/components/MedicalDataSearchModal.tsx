@@ -435,7 +435,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
               }`}
             >
               <BookOpen className="w-3 h-3 text-emerald-600" />
-              <span>Minds (111CQ)</span>
+              <span>Minds (169CQ)</span>
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('disease'); }}
@@ -881,7 +881,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
         {/* フッター */}
         <div className="p-2 bg-gray-100 border-t border-black flex items-center justify-between text-[11px] text-gray-600">
           <div className="flex items-center gap-2">
-            <span>収録: 32GB MicroSD (29.8GB) 10大医療カテゴリ / Minds 111CQ / 救急・中毒 / 臨床アトラス / 検査値 / 指導料 / 腎機能減量 / 刻印識別 / 臨床スコア</span>
+            <span>収録: 32GB MicroSD (29.8GB) 10大医療カテゴリ / Minds 169CQ / 救急・中毒 / 臨床アトラス / 検査値 / 指導料 / 腎機能減量 / 刻印識別 / 臨床スコア</span>
           </div>
           <button
             onClick={() => { playMacBeep(); onClose(); }}

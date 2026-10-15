@@ -7,7 +7,7 @@
   - **オンデバイス辞書エンジン**: AtomS3U (8MB Flash) および T-dongle-S3 (16MB Flash + TF Card) に厚労省医療用語辞書 (`med_terms.bin`) および JIS漢字音訓読み辞書 (`kanji_yomi.bin`) を内蔵し、Zero-RAM 二分探索で高速展開。
   - **HYBRID 送信アルゴリズム**: 電子カルテ側のIME機能（F7カタカナ強制、確実削り出し[BS]、音訓読みSpace変換）を活用した、誤爆のない確実なテキスト送信（※F5文字コード変換は誤爆・事故防止のため完全廃止）。
   - **複合機双方向通信 (T-dongle-S3)**: USB HID キーボード＋USB 仮想プリンター (Bulk IN/OUT) 複合機として認識させ、電子カルテからのテキスト吸い上げと打鍵入力を1台で実現。
-  - **完全ローカル臨床支援 (PWA + WebLLM)**: Minds診療ガイドライン（111疾患・CQ完全網羅）と電子カルテ内容をブラウザ内 WebGPU (Qwen2.5) で安全に推論・臨床意思決定支援。
+  - **完全ローカル臨床支援 (PWA + WebLLM)**: Minds診療ガイドライン（169疾患・CQ大規模拡充）と電子カルテ内容をブラウザ内 WebGPU (Qwen2.5) で安全に推論・臨床意思決定支援。
   - **臨床実用6大ナレッジマスター (v2.3.0)**: 価値のない単漢字を完全撤廃し、臨床現場で真に必要な検査値・指導料・腎機能減量マスターを新設・統合。
 
 ---
@@ -98,6 +98,19 @@
   - **EmbeddingGemma 2 MRL 128d ベクトルDB拡張 (`embeddingGemmaVectors.ts`)**: 10大医療カテゴリ全225件の臨床マスターを 128次元 MRL 空間へ事前計算・常駐化。全225件のコサイン類似度計算時間は **1ms**。
   - **PWA UI ＆ 32GB SDマップ視覚化 (`MedicalDataSearchModal.tsx`)**: 10大カテゴリフィルタータブ、32GB MicroSD 全領域配分プログレスバー、救急中毒（解毒薬・初期処置）・アトラスECG（典型所見・画像パス）・持参薬識別（刻印コード・外観）・臨床スコアリング（計算式・推奨アクション）の専用リッチカードUIを完全実装。
   - **検証**: Vitest 全20件PASS（EmbeddingGemma 10件、KeyStrokeCompiler 10件）、TypeScript型チェック (`tsc --noEmit`) エラー0、Vite 本番ビルド成功。
+- [x] **ステップ20**: Minds診療ガイドライン大規模臨床拡充 (111CQ ➔ 169CQ / 1,039バイナリレコード / 283 Gemma2ベクトルDB) ＆ 32GB SD残量活用 (v2.7.0 / FW v22.0) - 【完了】
+  - **背景**: 111疾患・21診療科の1疾患1問体制から、臨床現場で真に直面する重要派生CQ（糖尿病のシックデイ・高齢者血糖目標・GLP-1適応、難治性/二次性高血圧、HFpEF、心房細動アブレーション、脳梗塞21日DAPT、がん疼痛強オピオイド/OIC等）や未収録頻出疾患（熱性痙攣、緊張性気胸、梅毒ステルイズ筋注、尿管結石、COVID-19等）の大規模追加要求に対応。
+  - **大規模臨床CQモジュール新設 (`firmware/scripts/minds_data/expanded_clinical_cqs.py`)**: 58件の派生・重要CQ（エビデンスレベル、推奨度、背景、推奨文、処方例/具体的治療アルゴリズム、検索トリガーワード）を完全構造化定義。
+  - **Minds コンパイラ拡張＆全パイプライン自動連動 (`compile_minds_guidelines.py`)**:
+    - Minds収載総数を **111件 ➔ 169件** に拡大。
+    - 検索トリガーワード展開後のファームウェア用バイナリレコード数は **674件 ➔ 1,039件** に増強。
+    - `data/minds_cds.bin` (531,968 B) および `firmware/data/minds_cds.bin` を再生成。
+    - `data/sdcard/minds_fulltext.dat` (247,924 B) および `data/sdcard/guidelines/` (全169疾患Markdownファイル) を自動生成。
+    - `data/sdcard/minds_knowledge_base.json` および PWA同期用 `src/data/mindsKnowledgeBase.json` を完全同期。
+  - **PWA統合カタログ自動再生成 (`generate_medical_search_catalog.py`)**: `src/data/medicalKnowledgeCatalog.ts` (300.9 KB) を全169 CQ ＋ 臨床検査値・指導管理料・腎機能別減量・処方薬・病名・救急中毒・アトラス・持参薬・臨床スコアと統合再生成。
+  - **EmbeddingGemma 2 MRL 128d ベクトルDB再計算 (`embeddingGemmaVectors.ts`)**: `scripts/generate_embedding_gemma_vectors.ts` により、全283件の臨床マスター（169 CQ含む）を 128次元 MRL 空間へ事前計算・更新。
+  - **UI更新**: `MedicalDataSearchModal.tsx` のタブおよびフッター表示を「Minds (169CQ)」に連動更新。
+  - **検証**: TypeScript型チェック（エラー0）、Vitest全20件PASS、Vite本番ビルド成功。バージョン `v2.7.0` へ昇格。
 
 ---
 
