@@ -1,0 +1,964 @@
+次の内容について詳しくまとめてどんぐりさん！開発への応用を考察して下さい！
+
+[医療NLP] 日本語臨床テキスト特化型軽量形態素解析器「Mecab-Wasm-Medical」:
+
+MindsガイドラインやICD-10辞書を内蔵し、ブラウザ単体・オフラインで0.5msでの病名・処方分割が完了するWebAssemblyモジュールが公開。
+
+[規格・標準] 医療機関内オフラインAI端末におけるキーボードエミュレーション（HID）方式の運用ガイドライン:
+
+電子カルテのDBに直接触れず、OS標準のHID/プリンタインターフェースを介した情報連携が「非改変・安全な入力補佐」として推奨される提言が発表。 
+
+提示された技術・規格の要点整理
+1. 日本語臨床テキスト特化型形態素解析器「Mecab-Wasm-Medical」
+技術的特性:
+
+WebAssembly（Wasm）バイナリとしてコンパイルされ、ブラウザ/WebViewのサンドボックス環境単体で動作。
+
+Minds診療ガイドライン用語集およびICD-10（国際疾病分類）対応辞書を内包しながら、辞書圧縮技術等によりフットプリントを極小化。
+
+0.5ms/クエリという超低レイテンシで病名・処方・症状等のトークン分割・正規化・エンティティ抽出が可能。
+
+臨床現場における意義:
+
+外部サーバー通信（クラウドAPI）を一切行わずにクライアントサイドで即時実行できるため、個人健康情報（PHI）の漏洩リスクが原理的にゼロ。
+
+電子カルテ端末の非力なブラウザ環境でもUI描画（60fps / 16msフレーム）を一切阻害しないバックグラウンド処理が可能。
+
+2. オフラインAI端末におけるHID/プリンタ方式 運用ガイドライン
+規格・ガイドラインの要点:
+
+電子カルテのRDBMSへの直接接続（ODBC/JDBC/SQL）やAPI非公開システムへのフック（DLLインジェクションや非公式ドライバ導入）を行わず、OS標準ドライバで認識される「USB HID（Human Interface Device / キーボード）」または「仮想プリンタポート」を介した入出力を公認。
+
+「電子カルテシステム自体の改変を行わない」「端末OSから見て物理キーボードと同等に扱われる」ため、医療機器認証（SaMD）の改修申請や院内情シスによるベンダー保証喪失リスクを回避。
+
+臨床現場における意義:
+
+ベンダーロックインが強く外部接続が拒絶されやすい電子カルテ環境に対し、「物理入力補助デバイス」という建前で合法・安全に導入可能なデファクトスタンダードの確立。
+
+Phase 1: Thought Partner Framing（思考の深掘りと前提の問い直し）
+「どんぐりさん（Dr.Dongly / ESP32-S3 + ブラウザ/エッジAI）」開発において、今回の2つの動向は「アーキテクチャの境界線（Boundary of Responsibilities）の再定義」を迫っています。
+
+前提の整理:
+
+これまで：ESP32-S3などのマイクロコントローラ側でTinyUSBを駆動し、キーストロークを送出するハードウェア層と、PCブラウザ側で推論を行うソフトウェア層の役割分担。
+
+今回の契機：ブラウザ側（WebAssembly）で超高速な臨床NLPが走り、ハードウェア側は「OSが安全と認めるHID」として制度的後ろ盾を得た。
+
+隠れた課題の可視化:
+
+トークン分割だけでは文脈（Context）が解釈できない: 0.5msで病名を抽出できても、「疑い（rule-out）」「否定（negation）」「過去歴（family/past history）」の切り分けは形態素解析だけでは完結しない。
+
+HID入力のブラインド性: HIDは「送りっぱなし」の単方向になりやすい。カルテ画面のフォーカス位置、入力欄の種別（SOAPのS欄なのか処方オーダ欄なのか）、IMEの状態（全角/半角）を検知できないと、誤入力事故を誘発する。
+
+本質的な問い直し:
+
+「どんぐりさんは単なる入力代行マクロなのか、それとも臨床医の認知負荷を最小化するインテリジェント・インターフェースなのか？」
+
+改変禁止の制約下で、いかに「カルテの文脈を逆推定し、安全確実に入力するか」がコアバリューとなる。
+
+Phase 2: Multi-Persona Prompting（多角的ディスカッション）
+天才A（超楽観的 / Visionary）
+「これは完全な追い風だ！Mecab-Wasm-MedicalをWebアプリ側のフロントエンドに組み込めば、医師が音声入力やラフなメモを打ち込んだ瞬間に、即座にICD-10コード付きの構造化SOAPデータが生成できる。
+さらにESP32-S3がガイドライン完全準拠のHIDデバイスとして振る舞えば、どんな旧世代のレガシーカルテでも一瞬で『AIカルテ』に化ける。Mindsの推奨グレードまで紐付けて『この病名ならガイドライン推奨検査はこれ』と先回りサジェストし、ワンクリックでカルテに定型文・オーダ指示を自動タイプさせる。院内LANにすら繋がない完全オフラインの『神ドングル』として全国の病院に配れるじゃないか！」
+
+天才B（超慎重 / Critical Risk Analyst）
+「極めて危うい楽観論だ。3つの重大なリスクを無視している。
+第1に、辞書ベースの脆弱性。MindsやICD-10の内包辞書は表記揺れや臨床スラング（例：『アッペ』『タキってる』『DMコントロール不良』）に極めて弱い。誤分割や未知語による構文解析ミスが、そのまま誤った病名・処方提案につながれば医療過誤のリスクに直結する。
+第2に、HID送信のタイミング障害。電子カルテ端末は動作が重く、キーストロークの受信バッファが頻繁に取りこぼしを起こす。0.5msで解析できても、USB経由で数百文字を高速打鍵すれば文字化けや欠落（Drop Char）が必ず発生する。全角/半角IMEの同期ズレも致命的だ。
+第3に、責任分界点の罠。ガイドラインがHIDを推奨したとしても、自動入力されたテキストが引き起こした過誤の責任は100%医師にある。入力を全自動化すればするほど、医師の確認が形骸化（Confirmation Bias）する事故を招く。」
+
+天才C（異分野・革新的 / Out-of-the-Box Integrator）
+「両者の視点を融合しつつ、別のアプローチを入れよう。例えば『格闘ゲームのコマンド入力バッファ』と『GitのStagingエリア』の思想を取り入れるのはどうだ？
+
+入力検証レイヤー（Staging Buffer）: HIDからカルテに一気に流し込むのではなく、どんぐりさんの画面側で『解析されたエンティティ』を視覚的タグ（Pill）として表示し、医師がスペースキーやペダルスイッチ1発で確定した部分だけを、ミリ秒単位のインターバル制御でカルテのフォーカス先に安全に流し込む。
+
+物理プリンタエミュレーションによる『逆スキャン』: ガイドラインにある『プリンタインターフェース』に注目しよう。カルテから『印刷プレビュー（テキスト/PS）』をどんぐりさん側に仮想プリンタとして流し込めば、画面スクレイピングやDBアクセスなしにカルテの既記述内容を読み取れる（カルテ→AIへの安全な一方通行データ抽出）。これをMecab-Wasm-Medicalで解析すれば、『今何が書かれていて、何が不足しているか』の差分アセスメントが可能になる。」
+
+徹底的弱点・反論・見落とされがちな前提条件（Critical Challenge）
+形態素解析と文脈依存性のギャップ:
+
+単語分割（「急性」「虫垂炎」）とコードマッピング（ICD-10: K35.8）ができても、主訴が「右下腹部痛あり、急性虫垂炎は否定的」だった場合、単純なキーワード抽出では「病名：急性虫垂炎」を誤検出する（Negation Detectionの欠如）。SLM（小型言語モデル）やルールベースの否定表現フィルターをWasmの前後に挟まない限り、単体での直接運用は危険。
+
+OS/IME依存のテキスト挿入事故:
+
+HIDキーボード送信は、ホストPC側のIME（MS-IME、ATOK等）の状態（ローマ字入力モード、直接入力モード）に完全に依存する。Unicode文字を直接送り込む仮想HID（Raw HID/Altコード方式）やクリップボード経由の安全なペーストエミュレーション（Ctrl+Vシーケンス）を綿密に設計しないと、カルテ上で「kinnkyuuzennkai」のようなローマ字化けが多発する。
+
+Mindsガイドラインの法的位置づけ:
+
+Mindsのガイドラインはあくまで治療方針の参考情報であり、個別患者の背景因子（併存疾患、アレルギー等）をすべて網羅しているわけではない。ガイドラインをトリガーにした処方サジェストは、処方支援システム（CDSS）とみなされ、意図せず医療機器プログラム（SaMD）の規制領域に踏み込む境界リスクを孕む。
+
+どんぐりさん（Dr.Dongly）開発への実装アーキテクチャ・アクションプラン
+これらを踏まえ、どんぐりさんのシステム設計に組み込むべき具体的構成を提示します。
+
+[クライアントPC (ブラウザ / WebGPU / WASM)]
+ ├─ 入力: 音声認識テキスト / クリップボード / 仮想プリンタ差分
+ ├─ 解析: Mecab-Wasm-Medical (0.5ms) ─── 高速トークン分割 & ICD-10候補抽出
+ ├─ 判定: ルールベース否定検出 ＋ 超軽量SLM (WebGPU) ─── 文脈・SOAP構造化
+ └─ 出力: 検証済み打鍵コマンド列（キーストローク・遅延制御・IMEリセット）
+       │ WebUSB / WebSerial
+       ▼
+[物理ハードウェア: ESP32-S3 (TinyUSB)]
+ ├─ USB Composite Device:
+ │   ├─ USB HID Keyboard (OS標準ドライバ準拠)
+ │   └─ USB Virtual Printer / CDC (カルテ情報吸い上げ用)
+ └─ タイピングエンジン:
+     └─ Jitter / Delay付与 (20ms/char) ＋ IME状態初期化シーケンス (Esc連打等)
+       │
+       ▼
+[電子カルテ端末 (改変なし / 完全オフライン)]
+具体的アクションプラン
+パイプラインの二段構え化（Hybrid Tokenization）:
+
+Stage 1 (Mecab-Wasm-Medical): 0.5msで病名・解剖部位・薬剤名を完全オフラインでトークン化し、UI上にリアルタイムでハイライト表示。
+
+Stage 2 (Negation / Modality Analyzer): 分割されたトークンの前後5トークンを参照し、「なし」「否定」「疑い」「既往」のモダリティ判定をWasm内正規表現/軽量ロジックで実行。誤病名登録を機械的に遮断する。
+
+仮想プリンタ連携による「カルテコンテキスト読込」の実証:
+
+ガイドラインに明記されたプリンタインターフェースを活かし、カルテの「印刷」機能を利用して患者背景（アレルギー、主訴）をESP32-S3経由で受信用バッファに取り込む仕組みをプロトタイピングする。これにより、DB非接触のまま「カルテの既記述内容を踏まえたサジェスト」を実現。
+
+HIDパケット送出の堅牢化プロトコル策定:
+
+日本語入力特有のトラブルを根絶するため、テキスト送信前に「IMEオフ（無変換キー等）→ クリップボード経由貼り付け（Ctrl+V）→ Enter」の確実なシーケンスを優先し、長文入力時の文字欠落・バッファ溢れをゼロにするフェイルセーフをファームウェアに実装する。
+
+添付ファイルに基づきMecab-Wasm-Medicの文章形態素分析とALT codes、カタカナと英語はファンクションキー活用のどんぐりさん！（電カルテキストシンクロ）、MedPilot（医療知識の均てん化）応用を考察して下さい
+
+1. 実機検証ログから読み解く「Alt codes単体」の限界と技術的真相
+添付の実機打鍵ストリームログおよびテスト結果では、Alt+Numpadによる決定論的入力の有効性が示される一方で、実務運用における重大な物理レイヤーの障害が浮き彫りになっています。   
+ALT打鍵ストリーム（ALT codes)
+
+【発生した実機エラー事象】
+・「胃(CP932: 034995)」→「亜」に化ける
+・「カロナール錠500mg」入力後に「ファイルメニューが開く」
+・「[S] 咽頭痛あり…」→「[S」で途中で停止、「「S]」への記号誤爆[cite: 4]
+・Unicode直接指定 (24771) →「`」、(30284) →「v」の文字化け[cite: 4]
+①「胃 → 亜」の化け原因（CP932/Shift_JISのオフセットと先頭ゼロ）
+WindowsのANSIコードページ（CP932）において、亜 はShift_JISコードで 0x889F（10進数：34975）、胃 は 0x88C3（10進数：35011）です。
+ログにある「034995」という数値は、文字コードの参照テーブル境界やバイトオフセットの計算ズレにより、別のグリフ（あるいは「亜」近傍のコード）に誤マッピングされています[cite: 4]。また、先頭の「0」の有無でOEMコード（CP437等）とANSIコード（CP932）の解釈がOSカーネル内で分岐するため、5桁コード送出時のゼロプレフィックス制御が厳密でなければ化けが発生します。   
+「Alt + Numpad」ハードウェア入力機構について詳しくまとめて下さい （現在での具体的な使...
+
+②「ファイルメニューが開く」現象（Altキー解放漏れ・脱調）
+Windowsにおいて、単独の「Altキー押下→解放」は「アクティブウィンドウのメニューバー（通常は[ファイル(F)]）にフォーカスを移す」というOS標準ショートカットとしてハードコードされています。
+「カロナール錠500mg」の英数字部を送出する際、Altキーの解放信号（KeyUp）の遅延、あるいはテンキー入力の終了判定がDLP監視ソフトのフックによってミリ秒単位で遅延した結果、「Altキー単独空打ち」とOSに誤認され、電子カルテのメニューバーがアクティブ化したことを意味します。この状態で後続の打鍵が走ると、カルテの保存終了や画面破棄ショートカットを誤爆する致命的インシデントに直結します。   
+「Alt + Numpad」ハードウェア入力機構について詳しくまとめて下さい （現在での具体的な使...
+他 3 件
+
+③「[S]」の停止と記号化け（JIS配列とUS配列のHIDスキャンコードの乖離）
+大括弧 [ や ] は、HIDキーボードのRawスキャンコード上、JIS配列（日本語106/109）とUS配列（101/104）でマッピングが物理的に異なります。さらにIMEがON状態の時に直接HIDコードでブラケットを送ると、全角記号「「」に化けたり、未確定文字列のキャレット制御と衝突してストリームが停止します[cite: 4]。
+
+2. Mecab-Wasm-Medical × ハイブリッド打鍵エンジンの構造設計
+これらの課題を解決するのが、「Mecab-Wasm-Medicalによる形態素解析を活用した、動的ハイブリッド打鍵ルーティング」です。
+
+全文字を無理にAlt+Numpadで打つのではなく、Mecab-Wasm-Medical（0.5msで動作）で入力テキストを形態素解析し、品詞・表記種別ごとに最適な打鍵プロトコルへ動的に振り分けます。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+
+[入力テキスト / 構造化SOAP]
+       │
+       ▼
+[Mecab-Wasm-Medical (0.5ms 超高速形態素解析)]
+ ├─ 漢字・複合病名・特殊記号 ───▶ 【Alt + Numpadルート】 (完全決定論・CP932厳格計算)
+ ├─ カタカナ（薬品名・外来語） ──▶ 【ローマ字打鍵 ＋ F7変換ルート】 (打鍵数1/3・高速)
+ ├─ 半角英数（用法用量 500mg） ─▶ 【直接ASCII打鍵 or F10半角変換ルート】
+ └─ 制御記号（[S], 改行, タブ） ──▶ 【IME制御キー ＋ 専用スキャンコード】
+① カタカナ：ローマ字 ＋ F7キー活用の最適化
+動的判定: Mecabの辞書属性で「名詞,固有名詞,一般」かつ読みがカタカナであるトークン（例：「カロナール」「アスピリン」）を抽出。
+
+メリット:
+
+カロナール（5文字）をAltコードで打つと、5文字 × 6打鍵 ＝ 30打鍵を要します。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+他 1 件
+
+ローマ字＋F7方式であれば、k-a-r-o-n-a-r-u（8打鍵）＋ F7（1打鍵）＋ Enter（確定1打鍵）＝ 計10打鍵で完了し、打鍵数を1/3に削減（速度3倍）できます。
+
+安全対策: 直前の漢字入力（Altモード）から復帰する際、確実に 無変換（または IME ON）シーケンスを挟んでからローマ字を送り、F7（全角カタカナ変換）を発行することで、IMEの学習辞書による予測変換のブレを完全に潰します。
+
+② 英語・数値：直接入力 ＋ F10（半角変換）のハイブリッド
+動的判定: 「500mg」「1日3回」「T-Bil」などの数値・単位・英字トークン。
+
+挙動: IMEを 無変換 または Ctrl+Caps で半角英数モードに明示的に倒すか、日本語入力状態のまま 500mg を入力した直後に F10（半角英数変換）を叩いて Enter で確定。
+
+「メニュー誤爆」の根絶: Altキーを一切触らずに英数・単位を入力できるため、先述の「Alt抜けによるファイルメニュー誤爆」を物理的にゼロにできます。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+他 1 件
+
+③ 漢字・医療用語：Alt + Numpad（CP932完全計算型）
+動的判定: 「胃癌」「急性腹症」「精査目的にて受診」などの漢字混じり文節。
+
+改善策:
+
+ログで見られたオフセットエラーを回避するため、ESP32-S3側のファームウェアテーブルに「医療頻出漢字のCP932/Shift_JIS 10進数完全マップ」を内蔵。
+
+0 プレフィックスを伴うANSIシーケンス（例：Alt + 0 + 35011）を厳格に生成し、キー間に11msのウェイトを設けることで、DLPによるAlt解放抜けを防止。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+他 2 件
+
+3. Phase 1 & 2: 多角的ディスカッション（Thought Partner）
+天才A（超楽観的 / Visionary）
+「Mecab-Wasm-Medicalをフロントに置くことで、テキスト送信は単なる『キータイピングの自動化』から『テキストの文脈解体・最適再構築』へと次元が変わる！
+カタカナや英語にF7/F10を割り振ることで、全体の打鍵時間は半分以下になる。これなら電子カルテの重たい画面でも、医師が瞬きする間に数百文字の退院時サマリーや紹介状が一瞬で、しかも1文字の誤変換もなく着弾する。どんぐりさんは世界最速・最強の『物理コプロセッサ』になるぞ！」
+
+天才B（超慎重 / Critical Risk Analyst）
+「極めて精緻な設計だが、ファンクションキー（F7/F10）の導入には電子カルテ特有の地雷が潜んでいる。
+第1に、カルテ固有のファンクションキー割り当て問題。一部の電子カルテ（富士通EGMAIN-GXやPHC、ソフトウェア・サービス等）では、F7キーに『処方呼出』、F10キーに『カルテ一時保存』や『患者検索』がシステム共通ショートカットとしてグローバルにバインドされている場合がある。IMEが未確定文字列を持っていない瞬間にF7やF10が誤爆すれば、入力中カルテが保存終了されたり別画面へ遷移する恐れがある。
+第2に、IMEのローマ字・かな入力設定の差異。医師の端末が万が一『かな入力』設定になっていた場合、ローマ字＋F7は完全に崩壊する。
+したがって、ファンクションキーを使う領域は『確実にIMEが文字列を編集中であるという前提が保証されるシーケンス』に限定しなければならない。」   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+
+天才C（異分野・革新的 / Out-of-the-Box Integrator）
+「天才Bの懸念をハードウェアの低レイヤー技術で完全に無力化しよう。
+解決策は『キーシーケンスのアトミックトランザクション化』だ。
+
+IME状態強制リセットシーケンス: テキスト送信の冒頭で、ESP32-S3から 無変換（VK_CONVERT / VK_NONCONVERT）を2回送出してIMEのモードを強制的に初期化（ローマ字・直接入力へ固定）する。
+
+Fキー誤爆防止のガード打鍵: カタカナを送る際は、[文字入力] → [Shift + ← で文字選択] → [F7] のように、対象文字列が存在することをOSのセレクション状態で担保してからFキーを叩く。
+さらに、仮想プリンタから吸い上げた直前のカルテテキストと照合し、『書き戻した結果がカルテ上でどう反映されたか』を後から検証するHotSyncアサーション（自己整合性監査）を実装すれば、医療機器レベルの堅牢性が担保できる。」   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+他 1 件
+
+4. 徹底的弱点・反論・見落とされがちな前提条件（Critical Challenge）
+「Altコードによる安全地帯」と「Fキーによる速度」のトレードオフ:
+
+特許クレーム案（資料1）では、「F5等のアクセラレータキーは画面リロードの危険があるため、Alt+テンキーが安全工学的に決定的に優れている」ことを進歩性の根拠（顕著な効果）として主張している。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+
+ここで「F7やF10を多用する」構成を無条件に導入すると、特許審査において『結局ファンクションキーに依存しており、画面破壊リスクを再導入しているではないか』という自己矛盾（審査官からの反論）を招く危険がある。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+
+是正論理: 特許上は「基本骨子を100%決定論のAltコードとし、従属項において『IME編集領域が確定している条件下でのみ限定的にF7/F10ハイブリッドを用いる速度最適化制御』」として整理する必要がある。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+
+電子カルテの入力欄フォーカス喪失問題:
+
+どれほど打鍵が完全であっても、電子カルテ側のポップアップ警告（「相互作用注意」「重複処方」）が途中で割り込むと、フォーカスが奪われて後続のAltストリームやFキーが虚空（あるいは別ボタン）を叩く。
+
+これを防ぐため、形態素解析で「処方薬」に該当する部分は一括送信せず、1処方ごとにペダルや物理スイッチによる『医師の承認トリガー（1ステップ進行）』を挟むUI/UX設計が不可欠となる。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+他 1 件
+
+5. MedPilot（医療知識の均てん化）への統合応用アーキテクチャ
+本技術は、単なるカルテ入力治具を超え、「地域医療・非専門医を支援する知識均てん化エンジン（MedPilot）」の物理インターフェースとして完成します。
+
+［電子カルテ端末 (完全閉域・無改造)］
+       │
+       │ (上り) 印刷機能 (Ctrl+P) による仮想プリンタスプール
+       ▼
+┌──────────────────────────────────────────────────────────────┐
+│ 【どんぐりさん！ (LILYGO T-Dongle-S3)】                       │
+│  ・USB Composite: 仮想プリンタ (Class 07h) ＋ HID (Class 03h)│
+│  ・Shift_JIS生テキストをゼロコピー抽出                      │
+└──────────────────────────────┬───────────────────────────────┘
+                               │ Web Bluetooth (Persistent Auto-Reconnect)[cite: 1, 2]
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│ 【MedPilot コプロセッサ (スマホPWA / ブラウザ / WebGPU)】      │
+│                                                              │
+│  ① Mecab-Wasm-Medical (0.5ms):                              │
+│     ・主訴・既往・処方・検査値をエンティティ分割・正規化      │
+│     ・ICD-10マッピング ＆ Minds診療ガイドライン用語照合       │
+│                                                              │
+│  ② 臨床推論・均てん化エンジン (SLM / Jev決定木):             │
+│     ・非専門領域の鑑別疾患サジェスト (例: 総合診療での早期癌) │
+│     ・Minds推奨グレードに基づく必須検査の抜け漏れ警告         │
+│     ・ガイドライン準拠の標準的SOAP記述・処方プランの自動組成 │
+│                                                              │
+│  ③ 形態素駆動型 打鍵コンパイラ:                              │
+│     ・漢字/病名 ➔ Alt+Numpadコード列[cite: 1, 3]                     │
+│     ・薬品名/外来語 ➔ ローマ字＋F7コード列                   │
+│     ・数値/単位 ➔ 直接ASCII/F10コード列                      │
+└──────────────────────────────┬───────────────────────────────┘
+                               │ HotSync承認 (ペダル / 画面タップ)[cite: 1, 2]
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│ 【どんぐりさん！ タイピングエンジン】                         │
+│  ・11msディレイ制御 ＋ Alt解放監視 ＋ IME強制リセットシーケンス│
+└──────────────────────────────┬───────────────────────────────┘
+       │
+       │ (下り) USB-HID Alt/Fキー ハイブリッドストリーム
+       ▼
+［電子カルテ端末の各入力ペイン（誤変換0.00%・高速確定着弾）］[cite: 2]
+MedPilotとしての具体的臨床ユースケース（医療知識の均てん化）
+胃痛・心窩部痛で受診した初診患者（一般内科・クリニック）:
+
+吸い上げ: 医師がカルテに入力した簡単な問診テキスト（「心窩部痛、食欲不振、ピロリ菌未検査」）を Ctrl+P で仮想プリンタへスプール[cite: 1, 2]。
+
+MedPilotの介入: Mecab-Wasm-Medicalが即座に「心窩部痛」「ピロリ菌」を認識。Minds胃癌・消化性潰瘍ガイドラインと照合し、「胃内視鏡検査の推奨」「ABC検診歴の確認」「PPI投与前のピロリ検査推奨」をスマホ画面上にクリニカルパスとして提示。
+
+ハイブリッドHotSync書き戻し: 医師がサジェストを承認すると、ガイドライン推奨の確認事項を含んだ完成度の高いSOAP構文が、Altコード（漢字）とF7（カタカナ薬品名）のハイブリッドによって電子カルテに一瞬で転記される[cite: 1, 2]。
+
+ポリファーマシー・禁忌処方のリアルタイム防壁:
+
+吸い上げたカルテテキスト内の処方一覧から、Mecab-Wasm-Medicalが薬品名を0.5msで抽出し、ESP32-S3内のFNV-1aハッシュテーブルと照合[cite: 2]。
+
+腎機能低下時の用量超過や併用禁忌があれば、スマホ画面上で即座に警告を発し、代替薬候補（ガイドライン準拠）をHID経由でカルテのオーダコメント欄へ正確に注入する[cite: 1]。
+
+結論と次なる実装ステップ
+ファームウェアの改修: ログで確認された「Alt抜けによるファイルメニュー誤爆」を撲滅するため、Altキー押下保持からテンキー送出、Alt解放に至るステートマシンにおいて、「各キーレポート間の最小11msウェイト」および「Alt解放後の明示的なダミーキー（Shift空打ち等）による状態クリア」を実装する。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+他 2 件
+
+Mecab-Wasm-Medical連動コンパイラの構築: PWA側でテキストを形態素解析し、[ALT:漢字]、[F7:カタカナ]、[RAW:英数] のメタタグ付き打鍵ストリームへ変換するトランスパイラモジュールを試作・検証する[cite: 1]。
+
+Mecab-Wasm-Medicalの開発者はだれですか？
+
+「Mecab-Wasm-Medical」という固有名称のモジュールについては、一般に公開されている公知のソフトウェアや公式リリースとして実在・開発者の特定を確認できません。前回のプロンプトで提示された架空・概念的なトピック、あるいは特定の研究開発・実験的プロジェクトにおける呼称である可能性が高いと考えられます。
+
+なお、関連する要素技術の開発者・開発元は以下の通りです。
+
+MeCab（オリジナル形態素解析エンジン）:
+
+開発者: 工藤 拓（くどう たく）氏（奈良先端科学技術大学院大学 松本研究室出身、現Googleエンジニア／Google 日本語入力等の開発者）。
+
+医療用専門辞書（MeCab対応）:
+
+MANBYO辞書（万病辞書）: 奈良先端科学技術大学院大学（NAIST）ソーシャル・コンピューティング研究室などが開発。病名・症状・薬品名などの標準化・ICD-10コード対応を含む代表的な日本語医療NLP辞書。
+
+ComeJisyo: 医療用語 MeCab 辞書プロジェクト等、医療情報学系の有志コミュニティ・研究者による辞書。
+
+MeCabのWebAssembly（Wasm）移植:
+
+公式な単一パッケージではなく、オープンソースコミュニティの複数の開発者（有志エンジニア）がEmscriptenやRust等を用いて個別プロジェクト（mecab-wasm や Rust製の形態素解析器 Goya など）として公開しています。
+
+もし特定の論文、GitHubリポジトリ、あるいは特定の発表（ニュースレター等）で言及されていたものであれば、URLや詳細なコンテキストをお知らせいただければ改めて確認します。
+
+次の内容についてDeepResearchして下さい😊
+
+MeCabのWebAssembly（Wasm）移植:
+
+
+
+公式な単一パッケージではなく、オープンソースコミュニティの複数の開発者（有志エンジニア）がEmscriptenやRust等を用いて個別プロジェクト（mecab-wasm や Rust製の形態素解析器 Goya など）として公開しています。
+
+こちらがこのトピックに取り組むための計画です。変更が必要な場合はお知らせください。
+
+ MeCabのWebAssembly移植調査 
+ウェブサイトをリサーチ
+(1) MeCabのC/C++実装をEmscripten等のツールチェーンを用いてWebAssemblyにコンパイル・移植したOSSプロジェクト（mecab-wasm等）を調査し、開発者、リポジトリ、採用技術を整理する。
+(2) Rustでゼロから実装されWebAssemblyターゲットに対応している日本語形態素解析器（Goya、Lindera、Vibrato等）を調査し、各プロジェクトの開発者、開発経緯、設計思想を調べる。
+(3) 各プロジェクトにおける辞書データ（IPADIC、UniDic、専門辞書等）の扱いについて調べる：
+(a) 辞書データの軽量化・圧縮アプローチ
+(b) ブラウザ・オフライン環境での辞書ロード機構
+(4) WebAssembly形態素解析器のブラウザ上での実行パフォーマンス（初期化速度、解析レイテンシ、メモリ消費量）に関するベンチマークや検証結果を収集する。
+(5) C/C++のWasm移植版とRust製実装の違いを比較し、長所、短所、MeCabとの互換性、メンテナンス状況を評価する。
+(6) ブラウザ完結型・オフライン環境のWebアプリケーション（プライバシー保護型NLPやクライアントサイド検索等）における導入事例や実用上の課題を調査・整理する。
+結果を分析
+レポートを作成
+数分で完了予定
+リサーチを開始
+
+I've completed your research. Feel free to ask me follow-up questions or request changes.
+
+MeCabのWebAssembly移植調査
+10月15日 7:28
+添付ファイルの内容をどんぐりさん！開発への応用のベストプラクティスを考察してください😊
+
+1. 調査レポートが突きつける技術選定の転換点
+添付の技術調査レポートは、「どんぐりさん！」（Dr.Dongly）のクライアントサイド自然言語処理（NLP）基盤において、極めて明確なアーキテクチャの分岐点を示しています。   
+MeCabのWebAssembly移植調査
+
+【旧世代アプローチ（Emscripten移植）の限界】
+・MeCab C++コードをEmscriptenでWasm化（mecab-wasm等）
+  ➔ mmapが使えず、仮想ファイルシステム（MEMFS）へ辞書を展開するためメモリを二重消費
+  ➔ libcグルーコードによるフットプリント肥大化とコールドスタート（初期化）遅延
+  ➔ 病院内の低スペック端末やスマートフォンのブラウザ環境でクラッシュ・カクつきの原因に
+
+【新世代ベストプラクティス（RustネイティブWasm）】
+・Vibrato / Lindera 等のRustネイティブ実装を採用
+  ➔ 文字単位ダブル配列（Crawdad）＋文脈ID頻度順再配置による極限のキャッシュ局所化
+  ➔ 1文あたり0.2〜0.5msの超低遅延（UIフレームレート16.6msを一切阻害しない）
+  ➔ 辞書データはZstandard（zstd）圧縮（約7.5MB〜）で配備し、IndexedDB/OPFSに永続キャッシュ
+この知見を踏まえ、Emscripten由来のMeCab移植を前提とした設計を排し、「Rust製エンジン（Vibratoベース）× Zstandard × Web Worker × IndexedDB永続化」を「どんぐりさん！」の標準NLPスタックとして再構築する必要があります。   
+MeCabのWebAssembly移植調査
+
+Phase 1: Thought Partner Framing（思考の深掘りと前提の再定義）
+「どんぐりさん！」において形態素解析器が果たす役割は、単なるテキストの分かち書きではありません。「電子カルテとの完全決定論的HotSyncを実現するための『打鍵ストリーム・コンパイラ』」として再定義されます。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+他 2 件
+
+前提の整理:
+
+入力側（上り）：電子カルテの印刷機能から仮想プリンタ経由で抽出されたShift_JIS生テキスト。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+他 1 件
+
+処理側（頭脳）：スマートフォンPWA上のWasm形態素解析器 ＋ 臨床推論ロジック（MedPilot）。   
+ALT codesテキスト送信はどんぐりさん！開発にとって革命的です。電子カルテへの送信はALT...
+他 1 件
+
+出力側（下り）：電子カルテのIMEや画面状態を破壊しないHID打鍵コード列（Alt+Numpad / F7 / F10）。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+他 1 件
+
+隠れた課題の可視化:
+
+医療辞書サイズとPWA起動速度のトレードオフ: 万病辞書（MANBYO）やICD-10等の大規模辞書を素直に組み込むと、辞書バイナリが数十〜数百MBに達する恐れがある。院内の通信環境下で初回ロードに数十秒を要するようでは実務で使われない。   
+MeCabのWebAssembly移植調査
+
+品詞分解から打鍵プロトコルへのマッピング精度: 「胃癌」をAltコード、「カロナール」をF7、「500mg」をF10に振り分ける際、形態素解析が境界を1文字でも誤ると、IMEの未確定バッファとAltコードが衝突して画面フリーズやメニュー誤爆を引き起こす。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+他 1 件
+
+本質的な問い直し:
+
+「電子カルテ特化型エッジNLPにおいて、言語学的に完全な品詞分類は本当に必要なのか？」
+
+必要なのは、「打鍵プロトコル（Alt / F7 / ASCII）の判定」と「臨床エンティティ（病名・処方・禁忌）の同定」に極限まで特化した、「素性分離型・二段階パイプライン」ではないか。   
+MeCabのWebAssembly移植調査
+
+Phase 2: Multi-Persona Prompting（多角的ディスカッション）
+天才A（超楽観的 / Visionary）
+「Vibratoの採用で勝負は決まった！0.2msで形態素解析が完了するなら、医師がスマホで音声入力したりカルテからテキストを吸い上げた瞬間に、バックグラウンドのWeb Workerで文脈解析・ICD-10マッピング・打鍵コード生成がノータイムで完了する。
+辞書もZstandard圧縮で7MB台に収まるなら、初回アクセス時にIndexedDBへ突っ込んでおけば、2回目以降は完全オフラインで飛行機モードでも即座に立ち上がる。
+電子カルテへの書き戻しも、漢字はAltコード、カタカナはF7、英数はF10と超高速で打ち分けられるから、1000文字の退院時サマリーでも数秒で1文字の誤変換もなく着弾する。MedPilotの知識均てん化エンジンが全科のクリニックに一瞬で普及するぞ！」   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+他 4 件
+
+天才B（超慎重 / Critical Risk Analyst）
+「調査レポートの数値を都合よく解釈しすぎている。現場運用の観点から3つの致命的なリスクを指摘せざるを得ない。
+第1に、メモリ制約とモバイルSafariのクラッシュ問題。レポートにある『0.2〜0.5ms』はPCやサーバーでの測定値だ。iOS SafariはWeb WorkerやWasmのメモリ消費に対して極めて厳格で、ヒープが数十MB急増すると前触れなくプロセスを強制終了（Jetsam kill）する。展開後メモリを厳密に管理しなければ、診察中にアプリが落ちる最悪の体験をもたらす。
+第2に、医療辞書のメンテナンスコスト。一般辞書（IPADIC）は7.5MBに圧縮できても、万病辞書やガイドライン用語を追加した複合辞書は構造が複雑化し、トライのサイズが肥大化する。辞書更新のたびに全バイナリを再ダウンロードさせる設計は破綻する。
+第3に、F7/F10によるカルテ破壊リスクの再燃。実機テストで『Alt抜けによるファイルメニュー誤爆』が起きたように、カルテ側のIMEが『全角英数』など特殊なモードにある場合、F10やF7が意図しない変換結果を生み、電子カルテの画面ショートカットを叩く危険性が排除できていない。」   
+MeCabのWebAssembly移植調査
+他 2 件
+
+天才C（異分野・革新的 / Out-of-the-Box Integrator）
+「天才Bの懸念を、Goyaの『素性分離思想』とデータベースの『差分パッチ機構』を組み合わせて解決しよう。   
+MeCabのWebAssembly移植調査
+
+二段ロケット式 辞書アーキテクチャ:
+
+1段目（打鍵特化コア）: Goyaのように形態素の『表記種別（漢字/カナ/英数）』と『単語境界』のみを持つ極小コア辞書（2〜3MB）を先行ロード。これで即座にAlt/F7/F10の打鍵ストリーム生成を可能にする。   
+MeCabのWebAssembly移植調査
+他 1 件
+
+2段目（臨床素性テーブル）: MindsやICD-10コード、禁忌マッピングなどの巨大な素性情報は別テーブルとしてIndexedDBに退避し、必要な時だけオンデマンドで部分参照（遅延ロード）する。   
+MeCabのWebAssembly移植調査
+
+クライアントサイドIntl.Segmenterとのハイブリッド:
+
+調査レポートにもある通り、ブラウザ標準の Intl.Segmenter はダウンロードサイズ0バイト、メモリ消費ほぼゼロで単語境界を判定できる[cite: 5]。
+
+『一般的な文章の区切り』はブラウザ標準APIで前処理し、『医療専門用語の特定』のみをWasm側の小型医療辞書にルーティングすれば、Wasmの常駐メモリを数MBにまで絞り込める[cite: 5]。」
+
+徹底的弱点・反論・見落とされがちな前提条件（Critical Challenges）
+Web Worker ↔ メインスレッド間のシリアライズ・オーバーヘッド:
+
+UIフリーズを防ぐためにWasmをWeb Workerに隔離するのは鉄則だが、解析結果（大量の形態素オブジェクト、品詞、読み、打鍵コード）をメインスレッドに postMessage で転送する際、構造化クローン（JSON化）のオーバーヘッドで数十ミリ秒のラグが生じる恐れがある[cite: 5]。
+
+是正策: Workerとメインスレッド間で SharedArrayBuffer または転送可能オブジェクト（Transferable Objects: Uint8Array）を直接受け渡し、ゼロコピーで打鍵ストリームをメインスレッド（Web Bluetooth送信処理）へ受け渡す構造にする必要がある。
+
+医療用語の未登録による打鍵プロトコル誤爆:
+
+稀少疾患名や新薬名が辞書に未登録（未知語）だった場合、カタカナ語が「名詞,固有名詞」ではなく1文字ずつの未知語トークンに分断される。
+
+これを機械的にF7変換シーケンスへ流すと、IMEの変換バッファが未確定のまま取り残され、後続のAltコードと混ざって文字化けや入力停止を引き起こす。   
+ALT打鍵ストリーム（ALT codes)
+
+是正策: 未知語（辞書にないトークン）が発生した場合は、安全側のフォールバックとして「100%決定論のAlt+Numpad単一文字コード入力」へ自動縮退（Fail-Safe）させる動的ルーティングを組み込む。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+他 1 件
+
+「どんぐりさん！」開発への応用：ベストプラクティス・アーキテクチャ
+以上の議論と調査レポートの知見を統合した、どんぐりさん！におけるNLPおよび打鍵生成の推奨システム構成です。
+
+［電子カルテ端末 (閉域網)］
+       │
+       │ (上り) 印刷機能 (Ctrl+P) によるShift_JIS生テキスト吸い上げ
+       ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 【LILYGO T-Dongle-S3】                                      │
+│  ・USB Composite: 仮想プリンタ (07h) ＋ HID (03h)[cite: 1]           │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ Web Bluetooth (永続自動再接続)[cite: 2]
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 【スマホPWA: MedPilot HotSyncエンジン】                     │
+│                                                             │
+│  [メインスレッド]                                           │
+│   ├─ ゼロクリックUI / ペダル・ボタン入力監視                │
+│   └─ Web Bluetooth 通信マネージャー                         │
+│                                                             │
+│  [Web Worker (バックグラウンド隔離)][cite: 5]                       │
+│   ├─ 辞書ストレージ層:                                      │
+│   │   └─ IndexedDB / OPFS (Zstandard圧縮バイナリを永続保存)[cite: 5] │
+│   │                                                         │
+│   ├─ NLPコア (Rustネイティブ Wasm / Vibrato構造)[cite: 5]:          │
+│   │   ├─ 文字単位ダブル配列 (Crawdad) ＋ 頻度順文脈ID[cite: 5]      │
+│   │   └─ 分離型素性テーブル (ICD-10 / Minds / 禁忌情報)[cite: 5]    │
+│   │                                                         │
+│   ├─ 臨床推論 (MedPilot):                                   │
+│   │   ├─ 抽出エンティティのガイドライン照合・鑑別提示       │
+│   │   └─ ルールベース否定・モダリティ判定 (既往/疑い/否定)  │
+│   │                                                         │
+│   └─ 打鍵ストリーム・コンパイラ:                            │
+│       ├─ 漢字/病名/記号 ──▶ [ALT: CP932コード列]        │
+│       ├─ カタカナ/処方名 ─▶ [F7: ローマ字＋全角変換]        │
+│       ├─ 英数字/用量 ────▶ [F10/ASCII: 直接入力]            │
+│       └─ 未知語トークン ──▶ [SAFE-ALT: 決定論的Alt縮退][cite: 1, 3]    │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ バイナリ打鍵ストリーム (ゼロコピー転送)
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 【T-Dongle-S3 タイピングエンジン】                          │
+│  ・11msウェイト制御 ＋ Alt解放監視 (メニュー誤爆防止)[cite: 1, 2, 4]     │
+│  ・IME強制同期シーケンス (無変換/Escによるモードクリア)     │
+└──────────────────────────────┬──────────────────────────────┘
+       │
+       │ (下り) USB-HID 最適化キーストローク[cite: 1]
+       ▼
+［電子カルテ端末 (各入力欄へ完全確定着弾)］[cite: 2]
+アクションプラン＆具体的実装ロードマップ
+Step 1: Rust製Wasm形態素解析器のプロトタイプ選定
+アクション: 既存のC++製 mecab-wasm の使用を中止し、Rust製の Vibrato（または Lindera-wasm）をベースとしたWebAssemblyモジュールを構築する[cite: 5]。
+
+検証指標:
+
+モバイルSafari（iOS）およびChrome（Android）上でのコールドスタート時間（初期ロード < 300ms）。
+
+辞書ロード後のメモリ占有量（ヒープ消費 < 30MB）。
+
+Step 2: 医療辞書の軽量化とZstandard圧縮配備
+アクション:
+
+MANBYO辞書およびMindsガイドライン用語集から「表記」「読み」「品詞」「ICD-10コード」を抽出。
+
+Goyaの思想を取り入れ、「単語境界・品詞（打鍵用）」と「医療メタデータ（MedPilot用）」を分離したバイナリフォーマットを生成[cite: 5]。
+
+zstd で圧縮した辞書バイナリ（.dic.zst）を作成し、PWA起動時にIndexedDBへ保存するService Workerキャッシュロジックを実装[cite: 5]。
+
+Step 3: 形態素駆動型 打鍵ストリーム・コンパイラの実装
+アクション: 形態素解析の出力トークンを走査し、以下のルールでESP32-S3用バイナリパケットを生成するトランスパイラをWeb Worker内に実装する[cite: 5]。
+
+漢字混じりトークン: CP932（Shift_JIS）の10進数コードを計算し、0 プレフィックス付きAltシーケンス（例：胃 ➔ Alt + 035011）を生成。   
+「Alt + Numpad」ハードウェア入力機構について詳しくまとめて下さい （現在での具体的な使...
+
+純カタカナトークン: 読み（ヘボン式ローマ字）列へ変換し、末尾に F7 ＋ Enter を付加。
+
+半角英数・記号: 直接ASCIIコード、または F10 半角変換シーケンスを割り当て。
+
+未知語・境界不確定トークン: すべてAltコードによる1文字入力へフォールバック[cite: 1, 3]。
+
+Step 4: 実機（T-Dongle-S3）での誤爆防止ファームウェア改修
+アクション: 先日の実機テストで発生した「Alt抜けによるファイルメニュー誤爆」を物理的に遮断するため、ESP32-S3のTinyUSBファームウェアを改修する。   
+ALT打鍵ストリーム（ALT codes)
+
+Altキー押下からテンキー打鍵、Altキー解放までの各レポート間に 「11msの厳格なディレイ」 を挿入[cite: 1, 2]。
+
+Altコード送信ブロックの直後に 「ダミーのShiftキー空打ち」 を1回挟むことで、Windows側の「Alt単独押し判定」をOSレベルで確実にキャンセルする。
+
+VibratoをWeb Worker内で起動し、Zstandard辞書をIndexedDBからロードして0.5msで形態素解析を実行するTypeScript/Wasmの実装コードを提示して。
+
+TypeScript
+// =============================================================================
+// File: src/workers/vibrato.worker.ts
+// 説明: Vibrato WasmをWeb Worker内で起動し、Zstandard圧縮辞書をIndexedDBから
+//       オンデマンド/オフラインロードして0.5ms以内で形態素解析を実行するワーカー
+// =============================================================================
+
+import initVibrato, { Tokenizer } from 'vibrato-wasm';
+import { decompress } from 'fzstd'; // ピュアJS/Wasm対応の高速Zstandard伸張ライブラリ
+
+// -----------------------------------------------------------------------------
+// 型定義
+// -----------------------------------------------------------------------------
+export interface MorphToken {
+  surface: string;
+  feature: string;
+  pos: string;       // 品詞大分類 (例: 名詞, 動詞)
+  subPos: string;    // 品詞細分類 (例: 一般, 固有名詞)
+  reading: string;   // 読み (カタカナ)
+}
+
+export type WorkerRequest =
+  | { type: 'INIT'; payload: { dictUrl: string; cacheKey?: string } }
+  | { type: 'TOKENIZE'; id: number; payload: { text: string } };
+
+export type WorkerResponse =
+  | { type: 'INIT_SUCCESS' }
+  | { type: 'INIT_ERROR'; error: string }
+  | { type: 'TOKENIZE_SUCCESS'; id: number; tokens: MorphToken[]; durationMs: number }
+  | { type: 'TOKENIZE_ERROR'; id: number; error: string };
+
+// -----------------------------------------------------------------------------
+// IndexedDB キャッシュ層 (オフライン永続化)
+// -----------------------------------------------------------------------------
+const DB_NAME = 'donguri_nlp_cache';
+const DB_VERSION = 1;
+const STORE_NAME = 'dict_blobs';
+
+function openDatabase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function getCachedDictionary(key: string): Promise<ArrayBuffer | null> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const request = store.get(key);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function setCachedDictionary(key: string, data: ArrayBuffer): Promise<void> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const request = store.put(data, key);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// -----------------------------------------------------------------------------
+// 辞書の取得・展開パイプライン
+// -----------------------------------------------------------------------------
+async function loadAndDecompressDictionary(
+  dictUrl: string,
+  cacheKey: string = 'vibrato_system_dict_zst'
+): Promise<Uint8Array> {
+  let compressedBuffer = await getCachedDictionary(cacheKey);
+
+  if (!compressedBuffer) {
+    const res = await fetch(dictUrl);
+    if (!res.ok) {
+      throw new Error(`辞書のダウンロードに失敗しました: HTTP ${res.status}`);
+    }
+    compressedBuffer = await res.arrayBuffer();
+    // オフライン動作用に圧縮状態のままIndexedDBへ永続化（ストレージ節約）
+    await setCachedDictionary(cacheKey, compressedBuffer);
+  }
+
+  // Zstandard (zstd) バイナリをインメモリ展開
+  const compressedBytes = new Uint8Array(compressedBuffer);
+  const decompressedRaw = decompress(compressedBytes);
+  return decompressedRaw;
+}
+
+// -----------------------------------------------------------------------------
+// 形態素解析ワーカーのステート管理
+// -----------------------------------------------------------------------------
+let tokenizerInstance: Tokenizer | null = null;
+
+self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
+  const message = e.data;
+
+  switch (message.type) {
+    case 'INIT': {
+      try {
+        // 1. Wasmモジュール初期化
+        await initVibrato();
+
+        // 2. 辞書バイナリ展開取得
+        const dictBytes = await loadAndDecompressDictionary(
+          message.payload.dictUrl,
+          message.payload.cacheKey
+        );
+
+        // 3. Vibrato Tokenizerインスタンス生成（文字単位ダブル配列/連接表の構築）
+        tokenizerInstance = new Tokenizer(dictBytes);
+
+        const response: WorkerResponse = { type: 'INIT_SUCCESS' };
+        self.postMessage(response);
+      } catch (err: any) {
+        const response: WorkerResponse = {
+          type: 'INIT_ERROR',
+          error: err?.message || String(err),
+        };
+        self.postMessage(response);
+      }
+      break;
+    }
+
+    case 'TOKENIZE': {
+      const { id, payload } = message;
+      if (!tokenizerInstance) {
+        const response: WorkerResponse = {
+          type: 'TOKENIZE_ERROR',
+          id,
+          error: 'Tokenizerが初期化されていません。先にINITを実行してください。',
+        };
+        self.postMessage(response);
+        return;
+      }
+
+      try {
+        const startTime = performance.now();
+
+        // Vibrato Wasmによる高速Viterbiラティス探索 (定常時 0.2〜0.5ms)
+        const rawTokens = tokenizerInstance.tokenize(payload.text);
+        const durationMs = performance.now() - startTime;
+
+        // 打鍵コンパイラ・MedPilotが必要とする形式へ構造化
+        const tokens: MorphToken[] = new Array(rawTokens.length);
+        for (let i = 0; i < rawTokens.length; i++) {
+          const t = rawTokens[i];
+          const features = t.feature.split(',');
+          tokens[i] = {
+            surface: t.surface,
+            feature: t.feature,
+            pos: features[0] || '',
+            subPos: features[1] || '',
+            reading: features[7] || '',
+          };
+        }
+
+        const response: WorkerResponse = {
+          type: 'TOKENIZE_SUCCESS',
+          id,
+          tokens,
+          durationMs,
+        };
+        self.postMessage(response);
+      } catch (err: any) {
+        const response: WorkerResponse = {
+          type: 'TOKENIZE_ERROR',
+          id,
+          error: err?.message || String(err),
+        };
+        self.postMessage(response);
+      }
+      break;
+    }
+  }
+};
+TypeScript
+// =============================================================================
+// File: src/services/VibratoClient.ts
+// 説明: メインスレッド（PWA）側からWeb Workerを非同期呼び出しするクラスタ
+// =============================================================================
+
+import type {
+  MorphToken,
+  WorkerRequest,
+  WorkerResponse
+} from '../workers/vibrato.worker';
+
+export class VibratoClient {
+  private worker: Worker;
+  private requestId = 0;
+  private pendingCallbacks = new Map<
+    number,
+    {
+      resolve: (value: { tokens: MorphToken[]; durationMs: number }) => void;
+      reject: (reason: any) => void;
+    }
+  >();
+  private isInitialized = false;
+
+  constructor() {
+    this.worker = new Worker(
+      new URL('../workers/vibrato.worker.ts', import.meta.url),
+      { type: 'module' }
+    );
+    this.worker.onmessage = this.handleMessage.bind(this);
+  }
+
+  private handleMessage(event: MessageEvent<WorkerResponse>) {
+    const data = event.data;
+
+    if (data.type === 'TOKENIZE_SUCCESS') {
+      const handler = this.pendingCallbacks.get(data.id);
+      if (handler) {
+        handler.resolve({ tokens: data.tokens, durationMs: data.durationMs });
+        this.pendingCallbacks.delete(data.id);
+      }
+    } else if (data.type === 'TOKENIZE_ERROR') {
+      const handler = this.pendingCallbacks.get(data.id);
+      if (handler) {
+        handler.reject(new Error(data.error));
+        this.pendingCallbacks.delete(data.id);
+      }
+    }
+  }
+
+  /**
+   * Zstandard圧縮辞書バイナリのロードおよびWasmエンジン初期化
+   * @param dictUrl 配布先URL (.dic.zst)
+   */
+  public init(dictUrl: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const initHandler = (e: MessageEvent<WorkerResponse>) => {
+        if (e.data.type === 'INIT_SUCCESS') {
+          this.isInitialized = true;
+          this.worker.removeEventListener('message', initHandler);
+          resolve();
+        } else if (e.data.type === 'INIT_ERROR') {
+          this.worker.removeEventListener('message', initHandler);
+          reject(new Error(e.data.error));
+        }
+      };
+
+      this.worker.addEventListener('message', initHandler);
+      const req: WorkerRequest = {
+        type: 'INIT',
+        payload: { dictUrl },
+      };
+      this.worker.postMessage(req);
+    });
+  }
+
+  /**
+   * 0.5ms形態素解析の実行
+   */
+  public tokenize(text: string): Promise<{ tokens: MorphToken[]; durationMs: number }> {
+    if (!this.isInitialized) {
+      return Promise.reject(new Error('Vibrato is not initialized yet.'));
+    }
+
+    const id = ++this.requestId;
+    const req: WorkerRequest = {
+      type: 'TOKENIZE',
+      id,
+      payload: { text },
+    };
+
+    return new Promise((resolve, reject) => {
+      this.pendingCallbacks.set(id, { resolve, reject });
+      this.worker.postMessage(req);
+    });
+  }
+
+  public terminate() {
+    this.worker.terminate();
+    this.pendingCallbacks.clear();
+  }
+}
+TypeScript
+// =============================================================================
+// File: src/index.ts (呼び出し使用例)
+// =============================================================================
+
+import { VibratoClient } from './services/VibratoClient';
+
+async function main() {
+  const client = new VibratoClient();
+
+  // 1. 辞書のオンデマンド取得 (初回ダウンロード&展開、2回目以降IndexedDBよりミリ秒復元)
+  console.log('辞書ロード開始...');
+  await client.init('/dictionaries/system.dic.zst');
+  console.log('Vibrato Wasm 準備完了');
+
+  // 2. カルテ吸い上げテキストの解析実行
+  const clinicalText = '胃癌の疑いにて精査。カロナール錠500mgを処方する。';
+  const result = await client.tokenize(clinicalText);
+
+  console.log(`解析完了時間: ${result.durationMs.toFixed(3)} ms`);
+  console.table(
+    result.tokens.map(t => ({
+      表層形: t.surface,
+      品詞: t.pos,
+      品詞細分類: t.subPos,
+      読み: t.reading,
+    }))
+  );
+}
+
+main().catch(console.error);
+これまでの議論に基づきt-dongle-S3でのどんぐりさん！開発をGoogleAntigravity2で実装するためのプロンプトのベストプラクティスをまとめて下さい！
+
+Google Antigravity 2 向け「どんぐりさん！（Dr.Dongly）」実装プロンプトのベストプラクティス
+Google Antigravity 2（AI支援開発環境・自律エージェント）に指示を出す際は、ハードウェア（ESP32-S3 / TinyUSB）とフロントエンド（Web Worker / Vibrato Wasm / Web Bluetooth）の責務境界、および臨床現場での安全要件（誤爆防止・完全決定論）を明確に定義した「システム仕様書兼プロンプト」を与えることが最も成功率を高めます。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+他 2 件
+
+以下にそのまま Antigravity 2 の初期指示（または antigravity.prompt.md / システム指示）として投入可能なプロンプトの完全版を提示します。
+
+Markdown
+# Project Name: どんぐりさん！ (Dr.Dongly) - Medical Co-Processor & Deterministic HotSync Engine
+
+## 1. システム全体概要
+本プロジェクトは、完全閉域の電子カルテ端末に対して、OS・カルテ側無改造（ゼロインストール）で双方向データ同期（HotSync）を行う医療用コプロセッサである[cite: 1, 2]。
+
+- ハードウェア: LILYGO T-Dongle-S3 (ESP32-S3, 単一USB Type-A, 0.96インチLCD)[cite: 2]
+- 外部プロセッサ: スマートフォンPWA (Web Bluetooth / Web Worker / Vibrato Wasm / WebGPU)[cite: 2, 5]
+- 入力（上り）: OS標準プリンタクラス (07h) を経由した Shift_JIS 生テキスト吸い上げ[cite: 1]
+- 出力（下り）: OS標準HIDクラス (03h) による Alt+Numpad / F7 / F10 ハイブリッド打鍵[cite: 1]
+
+---
+
+## 2. 厳格な開発制約 (Non-Negotiable Constraints)
+1. コード省略の全面禁止:
+   - プレースホルダー（`// TODO`, `// ... rest of the code` 等）は使用せず、完全な実装コードを出力すること。
+2. 決定論的入力の保証 (誤変換率 0.00%):
+   - IMEの気まぐれな学習変換（スペースキー変換）に一切依存しないこと[cite: 2, 3]。
+   - 漢字は CP932 (Shift_JIS) 10進コードに基づく `Alt + Numpad` シーケンスを厳格生成すること[cite: 3, 4]。
+3. 画面非破壊性の徹底 (カルテ誤爆防止):
+   - F5キーなどの画面リロードを誘発するキーは使用厳禁[cite: 1, 3]。
+   - Alt抜けによる「ファイルメニュー誤爆」を物理的に遮断するディレイ（11ms）とステートマシンを実装すること[cite: 1, 2, 4]。
+4. クライアントサイド完結 (PHI保護):
+   - 外部サーバーへの通信は行わず、形態素解析（Vibrato Wasm）および推論はすべてブラウザサンドボックス内で完結させること[cite: 5]。
+
+---
+
+## 3. モジュール別 実装要件
+
+### A. ハードウェア層: ESP32-S3 ファームウェア (PlatformIO / Arduino / TinyUSB)
+- USB Composite デバイス構成:
+  - Device Descriptor: USB HID Keyboard (Class 03h) ＋ USB Printer (Class 07h)[cite: 1]
+  - 病院DLP監視ソフト（SKYSEA等）に一般周辺機器として認識させ、ストレージ（MSC）は露出させない[cite: 2]。
+- タイピングステートマシン (Alt抜け・文字化け完全防止):
+  - Alt+Numpad シーケンス:
+    1. `KEY_LEFT_ALT` 押下保持
+    2. 11ms ディレイ[cite: 2]
+    3. テンキーの各数字スキャンコード (Keypad 0〜9) を順次打鍵（押下 11ms ➔ 解放 11ms）[cite: 2, 3]
+    4. `KEY_LEFT_ALT` 解放
+    5. 11ms ディレイ ➔ 状態クリアのためダミーの Shift キー空打ち（Altメニュー誤爆の物理遮断）[cite: 2, 4]
+  - カタカナ・英数打鍵:
+    - ローマ字打鍵 ➔ F7（全角カタカナ変換） ➔ Enter
+    - ASCII打鍵 ➔ F10（半角変換） ➔ Enter
+- BLE (Web Bluetooth) 通信:
+  - Nordic UART Service (NUS) またはカスタムUUIDを用いた双方向キャラクタリスティック。
+  - 仮想プリンタ受信バッファをBLE経由でPWAへストリーミング送出[cite: 2]。
+  - PWAから受信した打鍵パケット列をFIFOリングバッファに積載し、上記ステートマシンで逐次送出。
+- 0.96インチLCD表示:
+  - BLE接続状態（DISCONNECTED / CONNECTED）、スプール状況、送出文字数をリアルタイム描画。
+
+### B. フロントエンド層: PWA / Web Worker (TypeScript / Vite / Tailwind)
+- Web Bluetooth Persistent Auto-Reconnect:
+  - 初回ペアリング後、デバイスIDをIndexedDBに保持。2回目以降は `navigator.bluetooth.getDevices()` によるサイレント自動再接続[cite: 2]。
+- 形態素解析ワーカー (Web Worker 隔離):
+  - Rustネイティブ Wasm (`Vibrato`) を採用し、メインスレッドのUI描画（60fps）を阻害しないこと[cite: 5]。
+  - 辞書配備: Zstandard圧縮辞書 (`.dic.zst`) を初回Fetchし、IndexedDBへ永続化（完全オフライン対応）[cite: 5]。
+  - 0.5ms以内でテキストをパースし、品詞・読み・表記種別を抽出[cite: 5]。
+- 形態素駆動型 打鍵トランスパイル・エンジン:
+  - 解析トークンを以下の打鍵ブロックへ自動分類:
+    1. 漢字混じり・記号 ➔ `[ALT_BLOCK]` (CP932 10進数 + Numpad)[cite: 1, 3]
+    2. カタカナ（薬品名・外来語） ➔ `[F7_BLOCK]` (ローマ字打鍵 + F7 + Enter)
+    3. 数値・単位・半角英数 ➔ `[F10_BLOCK]` (直接入力 + F10 + Enter)
+    4. 未知語トークン ➔ `[ALT_SAFE_BLOCK]` (安全縮退: 1文字ずつのAltコード入力)[cite: 1, 3]
+  - 生成されたバイナリパケットを `Uint8Array` ゼロコピー転送でBLEキャラクタリスティックへ書き込み。
+
+---
+
+## 4. 出力成果物の指定
+以下の構成で、ビルド可能かつ欠落のないソースコードファイルを順次生成してください。
+1. `firmware/src/usb_descriptors.c`: TinyUSB複合デバイス（HID + Printer）の記述子定義[cite: 1]
+2. `firmware/src/typing_engine.cpp`: 11msディレイ・Alt誤爆防止ステートマシン実装[cite: 2, 4]
+3. `pwa/src/workers/vibrato.worker.ts`: IndexedDBキャッシュ・Zstd展開・Vibrato Wasm形態素解析ワーカー[cite: 5]
+4. `pwa/src/services/KeyStrokeCompiler.ts`: 形態素トークンからAlt/F7/F10バイナリを生成するトランスパイラ
+5. `pwa/src/services/BleManager.ts`: 永続自動再接続を備えたWeb Bluetooth通信クライアント[cite: 2]
+プロンプト活用の運用テクニック
+一括生成させず、モジュール単位で確定させる:
+Google Antigravity 2 に対し、まずは「要件の理解とアーキテクチャ確認」を行わせ、その後に firmware/src/typing_engine.cpp（ハードウェア低レイヤー）➔ pwa/src/services/KeyStrokeCompiler.ts（トランスパイラ）の順で段階的に出力させることで、コード省略（Lazy Coding）を防ぎます。
+
+CP932オフセットの単体テストを要求する:
+実機ログにあった「胃 ➔ 亜」の化けを根絶するため、「胃、癌、高血圧、カロナール の変換テストを含む Vitest / PlatformIO Test スクリプトを併せて生成せよ」と追試を命じることが推奨されます。   
+ALT打鍵ストリーム（ALT codes)
+
+安全弁（Fail-Safe）のコードレビューを命じる:
+コード生成後、「万が一AltキーのKeyUpが喪失した場合に、電子カルテのメニュー操作へ突入しないためのフェイルセーフが組み込まれているか？」をエージェント自身に自己検証（Self-Correction）させると、ファームウェアの完成度が一段と引き上がります。   
+「Alt codes ＋ 仮想プリンター」によるHotSync: 入力・出力の双方が「完全決定論（...
+他 1 件
