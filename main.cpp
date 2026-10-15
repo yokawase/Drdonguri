@@ -11,6 +11,9 @@
 #include "esp32-hal-tinyusb.h"
 #include "device/usbd_pvt.h"
 
+#include "usb_descriptors.h"
+#include "typing_engine.h"
+
 #include "esp_system.h"
 #include "soc/rtc_cntl_reg.h"
 
@@ -183,18 +186,6 @@ struct MessageContext {
 // ============================================================================
 // USB Composite 仮想プリンター (Class 07h) - 閉域網電カル双方向エッジコプロセッサ
 // ============================================================================
-#define IEEE1284_DEVICE_ID "MFG:Generic;MDL:Custom-Text-Only;CMD:TEXT;CLS:PRINTER;DES:Generic Text Only;"
-#define PRINTER_REQ_GET_DEVICE_ID   0
-#define PRINTER_REQ_GET_PORT_STATUS 1
-#define PRINTER_REQ_SOFT_RESET      2
-#define PRINTER_DESC_LEN            (9 + 7 + 7)
-
-static uint8_t s_printer_itf_num = 1;
-static uint8_t s_printer_ep_out = 0;
-static uint8_t s_printer_ep_in = 0;
-static CFG_TUSB_MEM_ALIGN uint8_t s_printer_rx_buf[64];
-static volatile bool s_printer_open = false;
-
 struct PrinterChunkItem {
   uint16_t length;
   uint8_t  data[64];
@@ -232,137 +223,16 @@ void onPrinterDataReceived(const uint8_t* data, uint16_t len) {
   }
 }
 
-static uint16_t printer_load_descriptor(uint8_t * dst, uint8_t * itf) {
-  s_printer_itf_num = *itf;
-  uint8_t str_index = tinyusb_add_string_descriptor("Generic Text Only Printer");
-  s_printer_ep_out = tinyusb_get_free_out_endpoint();
-  s_printer_ep_in = tinyusb_get_free_in_endpoint();
-
-  uint8_t descriptor[] = {
-    // 1. Interface Descriptor (9 bytes)
-    9, TUSB_DESC_INTERFACE, s_printer_itf_num, 0, 2, 0x07, 0x01, 0x02, str_index,
-    // 2. Endpoint Descriptor (Bulk OUT: PC -> Dongle, 7 bytes)
-    7, TUSB_DESC_ENDPOINT, s_printer_ep_out, TUSB_XFER_BULK, 0x40, 0x00, 0,
-    // 3. Endpoint Descriptor (Bulk IN: Dongle -> PC, 7 bytes)
-    7, TUSB_DESC_ENDPOINT, (uint8_t)(0x80 | s_printer_ep_in), TUSB_XFER_BULK, 0x40, 0x00, 0
-  };
-
-  *itf += 1;
-  memcpy(dst, descriptor, sizeof(descriptor));
-  return sizeof(descriptor);
-}
-
-static void printer_class_init(void) {}
-
-static void printer_class_reset(uint8_t rhport) {
-  (void)rhport;
-  s_printer_open = false;
-  s_printer_job_active = false;
-}
-
-static uint16_t printer_class_open(uint8_t rhport, tusb_desc_interface_t const * desc_intf, uint16_t max_len) {
-  if (desc_intf->bInterfaceClass != 0x07) return 0;
-  s_printer_itf_num = desc_intf->bInterfaceNumber;
-
-  uint8_t const * p_desc = (uint8_t const *) desc_intf;
-  uint8_t const * p_desc_end = p_desc + max_len;
-  p_desc = tu_desc_next(p_desc);
-
-  for (int i = 0; i < desc_intf->bNumEndpoints; i++) {
-    if (p_desc >= p_desc_end) break;
-    tusb_desc_endpoint_t const * desc_ep = (tusb_desc_endpoint_t const *) p_desc;
-    if (desc_ep->bDescriptorType == TUSB_DESC_ENDPOINT) {
-      usbd_edpt_open(rhport, desc_ep);
-      if (tu_edpt_dir(desc_ep->bEndpointAddress) == TUSB_DIR_OUT) {
-        s_printer_ep_out = desc_ep->bEndpointAddress;
-      } else {
-        s_printer_ep_in = desc_ep->bEndpointAddress;
-      }
-    }
-    p_desc = tu_desc_next(p_desc);
-  }
-
-  s_printer_open = true;
-
-  if (s_printer_ep_out != 0) {
-    usbd_edpt_xfer(rhport, s_printer_ep_out, s_printer_rx_buf, sizeof(s_printer_rx_buf));
-  }
-
-  return (uint16_t)(p_desc - (uint8_t const *)desc_intf);
-}
-
-static bool printer_class_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const * request) {
-  if (request->bmRequestType_bit.type == TUSB_REQ_TYPE_CLASS &&
-      request->bmRequestType_bit.recipient == TUSB_REQ_RCPT_INTERFACE &&
-      (request->wIndex & 0xFF) == s_printer_itf_num) {
-
-    if (stage == CONTROL_STAGE_SETUP) {
-      switch (request->bRequest) {
-        case PRINTER_REQ_GET_DEVICE_ID: {
-          static uint8_t dev_id_buf[128];
-          const char* dev_id = IEEE1284_DEVICE_ID;
-          uint16_t str_len = strlen(dev_id);
-          uint16_t total_len = str_len + 2;
-          dev_id_buf[0] = (uint8_t)(total_len >> 8);
-          dev_id_buf[1] = (uint8_t)(total_len & 0xFF);
-          memcpy(&dev_id_buf[2], dev_id, str_len);
-
-          uint16_t xfer_len = (request->wLength < total_len) ? request->wLength : total_len;
-          return tud_control_xfer(rhport, request, dev_id_buf, xfer_len);
-        }
-        case PRINTER_REQ_GET_PORT_STATUS: {
-          static uint8_t port_status = 0x18; // 0x18: Selected (0x10) + No Error (0x08)
-          return tud_control_xfer(rhport, request, &port_status, 1);
-        }
-        case PRINTER_REQ_SOFT_RESET: {
-          return tud_control_status(rhport, request);
-        }
-        default:
-          return false;
-      }
-    }
-    return true;
-  }
-  return false;
-}
-
-static bool printer_class_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result, uint32_t xferred_bytes) {
-  if (ep_addr == s_printer_ep_out) {
-    if (result == XFER_RESULT_SUCCESS && xferred_bytes > 0) {
-      onPrinterDataReceived(s_printer_rx_buf, (uint16_t)xferred_bytes);
-    }
-    usbd_edpt_xfer(rhport, s_printer_ep_out, s_printer_rx_buf, sizeof(s_printer_rx_buf));
-    return true;
-  }
-  return true;
-}
-
-static const usbd_class_driver_t s_printer_driver = {
-#if CFG_TUSB_DEBUG >= CFG_TUD_LOG_LEVEL
-  .name = "PRINTER",
-#endif
-  .init = printer_class_init,
-  .reset = printer_class_reset,
-  .open = printer_class_open,
-  .control_xfer_cb = printer_class_control_xfer_cb,
-  .xfer_cb = printer_class_xfer_cb,
-  .sof = NULL
-};
-
-extern "C" usbd_class_driver_t const* usbd_app_driver_get_cb(uint8_t* driver_count) {
-  *driver_count = 1;
-  return &s_printer_driver;
-}
-
 void initPrinterInterface() {
   s_printer_queue = xQueueCreate(PRINTER_QUEUE_SIZE, sizeof(PrinterChunkItem));
-  tinyusb_enable_interface(USB_INTERFACE_CUSTOM, PRINTER_DESC_LEN, printer_load_descriptor);
+  donguri_usb_printer_init(onPrinterDataReceived);
 }
 
 // ============================================================================
 // グローバル変数
 // ============================================================================
 USBHIDKeyboard Keyboard;
+DonguriTypingEngine g_typingEngine(Keyboard);
 static BLEServer *pBleServer = nullptr;
 static BLECharacteristic *pTxRxCharacteristic = nullptr;
 static QueueHandle_t bleQueue = nullptr;
@@ -585,53 +455,8 @@ static const uint8_t KEYPAD_MAP[10] = {
   0x61  // HID_KEY_KEYPAD_9
 };
 
-#define HID_KEYPAD_ADD 0x57 // HID_KEY_KEYPAD_ADD ('+')
-
 void sendAltNumpadCode(const char* digits) {
-  if (digits == nullptr || digits[0] == '\0') return;
-
-  KeyReport rep;
-  memset(&rep, 0, sizeof(KeyReport));
-
-  // 1. KEY_LEFT_ALT を押下保持 (Hold)
-  // KEYBOARD_MODIFIER_LEFTALT = 0x04 (TU_BIT(2))
-  rep.modifiers = 0x04;
-  Keyboard.sendReport(&rep);
-  delay(20); // Alt認識のための初期安定遅延 (電カルセーフ 15〜25ms)
-
-  // 2. テンキーの数字を1桁ずつ打鍵
-  for (size_t i = 0; digits[i] != '\0'; i++) {
-    char c = digits[i];
-    uint8_t kp_code = 0;
-
-    if (c >= '0' && c <= '9') {
-      kp_code = KEYPAD_MAP[c - '0'];
-    } else if (c == '+') {
-      kp_code = HID_KEYPAD_ADD;
-    } else {
-      continue;
-    }
-
-    // KeyDown (Alt + テンキー)
-    rep.modifiers = 0x04;
-    rep.keys[0] = kp_code;
-    Keyboard.sendReport(&rep);
-    delay(12); // 電カルセーフ遅延 (DLPフック対策 10〜12ms)
-
-    // KeyUp (テンキーのみ解放、Altは保持)
-    rep.keys[0] = 0;
-    Keyboard.sendReport(&rep);
-    delay(2);
-    Keyboard.sendReport(&rep); // KeyUp二重送出 (脱落防止)
-    delay(12);
-  }
-
-  // 3. KEY_LEFT_ALT を解放 (Release) ➔ この瞬間にWindows側で文字が合成・確定着弾する
-  memset(&rep, 0, sizeof(KeyReport));
-  Keyboard.sendReport(&rep);
-  delay(2);
-  Keyboard.sendReport(&rep); // 二重送出
-  delay(20); // 文字確定インターバル
+  g_typingEngine.sendAltNumpadCode(digits);
 }
 
 // ============================================================================
@@ -2025,94 +1850,10 @@ void dispatchDirectTextStream(const char* buf, size_t total) {
   if (buf == nullptr || total == 0) return;
   setLedColor(64, 0, 0); // 打鍵中: 赤色点灯
 
-  size_t i = 0;
-  while (i < total) {
-    // 1. 改行処理
-    if (buf[i] == '\r') {
-      if (i + 1 < total && buf[i + 1] == '\n') i++;
-      safeWrite(KEY_RETURN);
-      delay(20);
-      i++;
-      continue;
-    }
-    if (buf[i] == '\n') {
-      safeWrite(KEY_RETURN);
-      delay(20);
-      i++;
-      continue;
-    }
-
-    // 2. [ALT]コード[/ALT] または <ALT>コード</ALT>
-    if (strncmp(&buf[i], "[ALT]", 5) == 0 || strncmp(&buf[i], "<ALT>", 5) == 0) {
-      i += 5;
-      char digits[16] = {0};
-      size_t dlen = 0;
-      while (i < total) {
-        if (strncmp(&buf[i], "[/ALT]", 6) == 0 || strncmp(&buf[i], "</ALT>", 6) == 0) {
-          i += 6;
-          break;
-        }
-        if (buf[i] == '[' || buf[i] == '<' || buf[i] == '\n' || buf[i] == '\r') {
-          break;
-        }
-        if ((buf[i] >= '0' && buf[i] <= '9') || buf[i] == '+') {
-          if (dlen < sizeof(digits) - 1) {
-            digits[dlen++] = buf[i];
-          }
-        }
-        i++;
-      }
-      digits[dlen] = '\0';
-      if (dlen > 0) {
-        sendAltNumpadCode(digits);
-      }
-      continue;
-    }
-
-    // 3. [A]ASCII[/A] または <A>ASCII</A>
-    if (strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "<A>", 3) == 0) {
-      i += 3;
-      bool hasNonSpace = false;
-      while (i < total) {
-        if (strncmp(&buf[i], "[/A]", 4) == 0 || strncmp(&buf[i], "</A>", 4) == 0) {
-          i += 4;
-          break;
-        }
-        if (buf[i] == '[' || buf[i] == '<' || buf[i] == '\n' || buf[i] == '\r') {
-          break;
-        }
-        char ac = buf[i];
-        if (ac != ' ' && ac != '\t') hasNonSpace = true;
-        sendSafeChar(ac);
-        i++;
-      }
-      if (hasNonSpace) {
-        delay(10);
-        forceReleaseAllModifiers();
-      }
-      continue;
-    }
-
-    // 4. 補助タグ (<ENTER>, <ALT_ENTER>, [/ALT], [/A], etc.)
-    if (buf[i] == '<' || buf[i] == '[') {
-      if (strncmp(&buf[i], "<ENTER>", 7) == 0 || strncmp(&buf[i], "[ENTER]", 7) == 0) {
-        safeWrite(KEY_RETURN); delay(20); i += 7; continue;
-      }
-      if (strncmp(&buf[i], "<ALT_ENTER>", 11) == 0 || strncmp(&buf[i], "[ALT_ENTER]", 11) == 0) {
-        Keyboard.press(KEY_LEFT_ALT); delay(10);
-        safeWrite(KEY_RETURN); delay(10);
-        Keyboard.releaseAll(); delay(30); i += 11; continue;
-      }
-      if (strncmp(&buf[i], "[/ALT]", 6) == 0 || strncmp(&buf[i], "</ALT>", 6) == 0) { i += 6; continue; }
-      if (strncmp(&buf[i], "[/A]", 4) == 0 || strncmp(&buf[i], "</A>", 4) == 0) { i += 4; continue; }
-    }
-
-    // 5. 通常文字 (ASCII英数・記号)
-    if ((uint8_t)buf[i] >= 0x20 && (uint8_t)buf[i] <= 0x7E) {
-      sendSafeChar(buf[i]);
-    }
-    i++;
-  }
+  g_typingEngine.dispatchStream(buf, total, [](int cur, int tot) {
+    int pct = (tot > 0) ? (cur * 100 / tot) : 0;
+    updateTypingProgress(pct);
+  });
 }
 
 // ============================================================================
