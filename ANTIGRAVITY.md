@@ -128,6 +128,19 @@
     - `index.html`: メタ説明文を Gemma 2 2B に更新。
   - **バージョンインクリメント**: `v2.8.0`（`package.json`, `src/version.ts`, `GEMINI.md`, `ANTIGRAVITY.md` 同期）。
   - **検証**: TypeScript型チェック（エラー0）、Vitest全20件PASS、Vite本番ビルド成功。GitHub Pages への自動デプロイ完了。
+- [x] **ステップ22**: Gemma 2 日本語特化 2B (jpn-it) 単一モデル一本化 ＆ 多言語トークン暴走（Logit Softcapping特異点崩壊）の完全根本修正 (v2.8.1 / FW v22.0) - 【完了】
+  - **ユーザー指摘事象**: AIカルテ整形時に多言語（キリル文字・アラビア語・韓国語・ルーン文字等）の無意味なトークン列（`<unused45>` 等含む）が大量に誤変換・暴走出力される現象が発生。
+  - **根本原因の特定**:
+    1. **Logit Softcapping 特異点崩壊**: Gemma 2 特有の Logit Softcapping（attn: 50.0, final: 30.0）に対し、従来の極小 temperature (0.05 / 0.1) を指定したことで除算・アンダーフロー特異点が生じ、サンプリング確率分布が崩壊してトークナイザーの境界トークンがデシンク暴走。
+    2. **不正なプロンプト構造**: Gemma 2 は RLHF 設計上 `system` ロールを持たないが、従来の `messages: [{ role: 'system' }, { role: 'user' }]` により、`<start_of_turn>user` の直前に剥き出しでテキストが挿入されアテンションが破綻。
+  - **修正アーキテクチャ (`webLlmService.ts`)**:
+    - **単一モデル一本化**: 不要な 2B 高速版を完全撤廃し、最高精度の `gemma-2-2b-jpn-it-q4f16_1-MLC`（Gemma 2 日本語特化 2B）のみに完全統一。
+    - **単一ユーザープロンプト統合**: 指示と入力を `{ role: 'user', content: prompt }` の1ターン内に完全統合。
+    - **Gemma 2 至適サンプリング**: `temperature: 0.6`, `top_p: 0.9`, `presence_penalty: 0.1`, `frequency_penalty: 0.1` を設定し、確率分布の特異点崩壊を根絶。
+    - **ストップシーケンス強化**: `stop: ['<end_of_turn>', '<start_of_turn>', '【入力テキスト】', '【入力】']` を指定。
+    - **特殊トークンサニタイザー実装 (`cleanGeneratedChartText`)**: `<start_of_turn>`, `<end_of_turn>`, `<unused...>` を物理的に完全除去。
+  - **UI改善 (`AiAssistModal.tsx`)**: 速度選択トグルを削除し、「Google Gemma 2 日本語 (2B-jpn) [完全オンデバイス医療校正]」固定バナーに刷新。
+  - **検証**: TypeScript型チェック（エラー0）、Vitest全20件PASS、Vite本番ビルド成功。バージョン `v2.8.1` へ昇格。
 
 ---
 

@@ -4,8 +4,7 @@ import {
   formatMedicalChartWithWebLLM,
   isWebGpuSupported,
   isEngineLoaded,
-  FAST_WEBLLM_MODEL,
-  PRECISE_WEBLLM_MODEL,
+  GEMMA_2_JPN_MODEL,
   type ModelLoadProgress,
 } from '../services/webLlmService';
 
@@ -23,7 +22,6 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
   onApplyFormattedText,
 }) => {
   const [style, setStyle] = useState<'soap' | 'concise' | 'interview'>('soap');
-  const [modelType, setModelType] = useState<'fast' | 'precise'>('fast');
   const [isLoading, setIsLoading] = useState(false);
   const [loadStatus, setLoadStatus] = useState<string>('');
   const [progressPercent, setProgressPercent] = useState<number>(0);
@@ -36,7 +34,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
     setIsLoading(true);
     setError(null);
     setResultText(''); // 前回の結果をクリアしてストリーミングに備える
-    setLoadStatus('WebLLM 初期化中...');
+    setLoadStatus('Gemma 2 日本語モデル 初期化中...');
     setProgressPercent(15);
     playMacBeep();
 
@@ -45,8 +43,6 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
       setIsLoading(false);
       return;
     }
-
-    const selectedModelId = modelType === 'fast' ? FAST_WEBLLM_MODEL : PRECISE_WEBLLM_MODEL;
 
     try {
       const targetText =
@@ -64,7 +60,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
           setResultText(streamedText);
           setLoadStatus('テキスト出力中...');
         },
-        selectedModelId
+        GEMMA_2_JPN_MODEL
       );
 
       setResultText(formatted);
@@ -107,29 +103,15 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
 
         {/* Content */}
         <div className="p-3 space-y-3 bg-white overflow-y-auto flex-1">
-          {/* Model Speed Selector */}
+          {/* Model Info Banner (Gemma 2 日本語 2B-jpn 単一高精度エンジン) */}
           <div className="border border-black p-2 bg-gray-50 flex items-center justify-between">
-            <span className="font-bold text-[11px]">Gemma 2 モデル:</span>
-            <div className="flex gap-1.5">
-              <button
-                type="button"
-                onClick={() => setModelType('fast')}
-                className={`px-2 py-0.5 border border-black text-[10px] font-bold cursor-pointer transition-colors ${
-                  modelType === 'fast' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
-                }`}
-              >
-                ⚡ Gemma 2 (2B 高速)
-              </button>
-              <button
-                type="button"
-                onClick={() => setModelType('precise')}
-                className={`px-2 py-0.5 border border-black text-[10px] font-bold cursor-pointer transition-colors ${
-                  modelType === 'precise' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
-                }`}
-              >
-                🎯 Gemma 2 日本語 (2B-jpn)
-              </button>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-[11px]">AIエンジン:</span>
+              <span className="text-[10px] font-bold bg-black text-white px-1.5 py-0.5 shadow-[1px_1px_0_#888]">
+                Google Gemma 2 日本語 (2B-jpn)
+              </span>
             </div>
+            <span className="text-[10px] text-gray-600 font-bold">完全オンデバイス医療校正</span>
           </div>
 
           {/* Format style selector */}

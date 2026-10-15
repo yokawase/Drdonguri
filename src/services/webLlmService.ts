@@ -5,14 +5,15 @@ import {
 } from '@mlc-ai/web-llm';
 import type { MindsGuidelineDetail } from '../utils/mindsGuidelineCompiler';
 
-// 【超高速・省メモリ】Google Gemma 2 2B Instruct 1k (VRAM約1.5GB, low-resource対応, 高速レスポンス)
-export const FAST_WEBLLM_MODEL = 'gemma-2-2b-it-q4f16_1-MLC-1k';
+// 【Google Gemma 2 日本語特化 2B】医療カルテSOAP整形・院内閉域完全ローカル推論
+export const GEMMA_2_JPN_MODEL = 'gemma-2-2b-jpn-it-q4f16_1-MLC';
 
-// 【高精度・日本語特化】Google Gemma 2 2B 日本語特化 Instruct (日本語文脈・医療カルテSOAP整形に最高精度)
-export const PRECISE_WEBLLM_MODEL = 'gemma-2-2b-jpn-it-q4f16_1-MLC';
+// デフォルト・唯一のモデルとして Gemma 2 日本語 2B-jpn を使用
+export const DEFAULT_WEBLLM_MODEL = GEMMA_2_JPN_MODEL;
 
-// デフォルトは高速・省リソースの FAST_WEBLLM_MODEL
-export const DEFAULT_WEBLLM_MODEL = FAST_WEBLLM_MODEL;
+// 後方互換性エイリアス（Gemma 2 日本語 2B-jpn に完全統一）
+export const FAST_WEBLLM_MODEL = GEMMA_2_JPN_MODEL;
+export const PRECISE_WEBLLM_MODEL = GEMMA_2_JPN_MODEL;
 
 export interface ModelLoadProgress {
   text: string;
@@ -134,7 +135,21 @@ export async function disposeWebLlmEngine(): Promise<void> {
 }
 
 /**
- * 医療カルテテキストのAI自動校正・SOAP整形 (超高速スリム化プロンプト)
+ * 生成されたカルテテキストから特殊トークンや見出しタグを除去するサニタイザー
+ */
+function cleanGeneratedChartText(text: string): string {
+  return text
+    .replace(/<start_of_turn>(?:model|user)?/gi, '')
+    .replace(/<end_of_turn>/gi, '')
+    .replace(/<unused\d+>/gi, '')
+    .replace(/^【整形本文】\s*/g, '')
+    .replace(/^【補正本文】\s*/g, '')
+    .replace(/^【ガイドライン準拠の臨床アドバイス】\s*/g, '')
+    .trim();
+}
+
+/**
+ * 医療カルテテキストのAI自動校正・SOAP整形 (Google Gemma 2 日本語特化プロンプト)
  */
 export async function formatMedicalChartWithWebLLM(
   text: string,
@@ -146,30 +161,41 @@ export async function formatMedicalChartWithWebLLM(
   const engine = await getWebLlmEngine(onProgress, modelId);
 
   const styleGuides = {
-    soap: '【S】主訴 【O】所見・バイタル 【A】評価・診断 【P】治療方針・処方',
-    concise: '箇条書き要約（医学的要点のみを簡潔に列挙）',
-    interview: '問診・現病歴要約（時系列での経過まとめ）',
+    soap: '【S】主訴 【O】所見・バイタル 【A】評価・診断 【P】治療方針・処方 のSOAP形式',
+    concise: '箇条書き要約（医学的要点のみを簡潔に列挙）形式',
+    interview: '問診・現病歴要約（時系列での経過まとめ）形式',
   };
 
-  // Prefillトークンを最小限にしてTTFT（最初の1文字が出る時間）を極限まで短縮
-  const systemPrompt = `日本の電子カルテ整形AIです。医師の入力テキストの誤字脱字・音声変換ミスを修正し、指定形式のカルテ本文のみを出力してください。前置きや挨拶は厳禁です。
-形式: ${styleGuides[style]}`;
-
   const cleanInput = text.replace(/\n{3,}/g, '\n\n').slice(0, 800);
-  const userPrompt = `【入力】\n${cleanInput}\n\n整形本文:`;
+
+  // Gemma 2 には system ロールが存在しないため、指示を user メッセージ内に統合 (RLHF完全適合)
+  const prompt = `あなたは日本の医療電子カルテ整形専門AIです。
+医師が入力した以下のテキスト（音声入力メモ等）の誤字脱字・音声誤認識を医学的文脈で修正し、${styleGuides[style]}で出力してください。
+
+【厳守事項】
+- 挨拶、解説、前置き、「整形結果:」等の余計な言葉は一切出力せず、指定されたカルテ本文のみを出力すること。
+- 日本語で自然かつ正確な臨床医学用語を用いること。
+
+【入力テキスト】
+${cleanInput}
+
+【整形本文】
+`;
 
   if (onProgress) {
-    onProgress({ text: 'AIがリアルタイム出力中...', progress: 1.0 });
+    onProgress({ text: 'Gemma 2 がリアルタイム出力中...', progress: 1.0 });
   }
 
   try {
     const stream = await engine.chat.completions.create({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.1,
-      max_tokens: 320, // 320トークンで十分。不要な長文生成を防ぎ高速完了
+      messages: [{ role: 'user', content: prompt }],
+      // Gemma 2 Logit Softcapping 特異点崩壊を防止するため temperature=0.6, top_p=0.9 を指定
+      temperature: 0.6,
+      top_p: 0.9,
+      max_tokens: 380,
+      presence_penalty: 0.1,
+      frequency_penalty: 0.1,
+      stop: ['<end_of_turn>', '<start_of_turn>', '【入力テキスト】', '【入力】'],
       stream: true,
     });
 
@@ -178,27 +204,28 @@ export async function formatMedicalChartWithWebLLM(
       const delta = chunk.choices[0]?.delta?.content || '';
       fullText += delta;
       if (onStream) {
-        onStream(fullText);
+        onStream(cleanGeneratedChartText(fullText));
       }
     }
 
-    return fullText.trim() || text;
+    const cleaned = cleanGeneratedChartText(fullText);
+    return cleaned || text;
   } catch (err: any) {
-    console.warn('[WebLLM Stream Fallback]:', err);
+    console.warn('[WebLLM Gemma 2 Stream Fallback]:', err);
     const completion = await engine.chat.completions.create({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.1,
-      max_tokens: 320,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.6,
+      top_p: 0.9,
+      max_tokens: 380,
+      stop: ['<end_of_turn>', '<start_of_turn>', '【入力テキスト】'],
     });
-    return completion.choices[0]?.message?.content?.trim() || text;
+    const fallbackText = completion.choices[0]?.message?.content || '';
+    return cleanGeneratedChartText(fallbackText) || text;
   }
 }
 
 /**
- * カメラOCRで抽出した粗い生テキストを医療文脈で高精度補正・カルテ化 (超高速版)
+ * カメラOCRで抽出した粗い生テキストを医療文脈で高精度補正・カルテ化 (Google Gemma 2 版)
  */
 export async function refineOcrChartWithWebLLM(
   rawOcrText: string,
@@ -216,24 +243,35 @@ export async function refineOcrChartWithWebLLM(
       ? '処方箋形式（薬品名、用法、用量、日数）'
       : '標準カルテ形式（【主訴】【所見】【方針】等）';
 
-  // Prefillトークンを最小限にして瞬時に推論開始
-  const systemPrompt = `医療OCRテキスト補正AIです。生OCRテキストの誤認識・ノイズ・単位（mg/dL, %, γ-GTP等）を修正し、${styleDesc}で本文のみ出力してください。解説・挨拶は厳禁です。`;
-
   const cleanRaw = rawOcrText.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').slice(0, 800);
-  const prompt = `【OCR生テキスト】\n${cleanRaw}\n\n補正本文:`;
+
+  // Gemma 2 向け単一ユーザープロンプト統合
+  const prompt = `あなたは医療OCRテキスト補正専門AIです。
+生OCRテキストの誤認識、ノイズ、単位（mg/dL, %, γ-GTP等）を修正し、${styleDesc}で本文のみ出力してください。
+
+【厳守事項】
+- 挨拶、解説、前置きは一切出力せず、補正後のカルテ本文のみを出力すること。
+- 日本語で自然かつ正確な臨床医学用語・薬品名を用いること。
+
+【OCR生テキスト】
+${cleanRaw}
+
+【補正本文】
+`;
 
   if (onProgress) {
-    onProgress({ text: 'AIがリアルタイム出力中...', progress: 1.0 });
+    onProgress({ text: 'Gemma 2 がリアルタイム出力中...', progress: 1.0 });
   }
 
   try {
     const stream = await engine.chat.completions.create({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.05,
-      max_tokens: 350,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.6,
+      top_p: 0.9,
+      max_tokens: 380,
+      presence_penalty: 0.1,
+      frequency_penalty: 0.1,
+      stop: ['<end_of_turn>', '<start_of_turn>', '【OCR生テキスト】'],
       stream: true,
     });
 
@@ -242,22 +280,23 @@ export async function refineOcrChartWithWebLLM(
       const delta = chunk.choices[0]?.delta?.content || '';
       fullText += delta;
       if (onStream) {
-        onStream(fullText);
+        onStream(cleanGeneratedChartText(fullText));
       }
     }
 
-    return fullText.trim() || rawOcrText;
+    const cleaned = cleanGeneratedChartText(fullText);
+    return cleaned || rawOcrText;
   } catch (err: any) {
-    console.warn('[WebLLM OCR Stream Fallback]:', err);
+    console.warn('[WebLLM Gemma 2 OCR Stream Fallback]:', err);
     const completion = await engine.chat.completions.create({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.05,
-      max_tokens: 350,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.6,
+      top_p: 0.9,
+      max_tokens: 380,
+      stop: ['<end_of_turn>', '<start_of_turn>'],
     });
-    return completion.choices[0]?.message?.content?.trim() || rawOcrText;
+    const fallbackText = completion.choices[0]?.message?.content || '';
+    return cleanGeneratedChartText(fallbackText) || rawOcrText;
   }
 }
 
@@ -272,10 +311,11 @@ export async function consultGuidelineWithWebLLM(
 ): Promise<string> {
   const engine = await getWebLlmEngine(undefined, modelId);
 
-  const systemPrompt = `あなたは日本の臨床診療ガイドライン（Minds）に準拠した医療意思決定支援AIです。
-提供された公式エビデンスに基づき、医師のカルテ記載内容に対する臨床的アドバイス、注意すべき禁忌・漫然投与リスク、患者説明の要点を簡潔・明快に出力してください。`;
+  // Gemma 2 向け単一ユーザープロンプト統合
+  const prompt = `あなたは日本の臨床診療ガイドライン（Minds）に準拠した医療意思決定支援AIです。
+提供された公式エビデンスに基づき、医師のカルテ記載内容に対する臨床的アドバイス、注意すべき禁忌・漫然投与リスク、患者説明の要点を簡潔・明快に出力してください。
 
-  const userPrompt = `【Mindsガイドライン情報】
+【Mindsガイドライン情報】
 疾患: ${guideline.diseaseName} (ICD-10: ${guideline.icd10})
 CQ: ${guideline.cqTitle}
 推奨: ${guideline.recommendation}
@@ -285,16 +325,18 @@ CQ: ${guideline.cqTitle}
 【現在のカルテ記載】
 ${soapText}
 
-ガイドライン準拠の臨床アドバイス:`;
+【ガイドライン準拠の臨床アドバイス】
+`;
 
   try {
     const stream = await engine.chat.completions.create({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.1,
-      max_tokens: 300,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.6,
+      top_p: 0.9,
+      max_tokens: 350,
+      presence_penalty: 0.1,
+      frequency_penalty: 0.1,
+      stop: ['<end_of_turn>', '<start_of_turn>'],
       stream: true,
     });
 
@@ -303,21 +345,21 @@ ${soapText}
       const delta = chunk.choices[0]?.delta?.content || '';
       fullText += delta;
       if (onStream) {
-        onStream(fullText);
+        onStream(cleanGeneratedChartText(fullText));
       }
     }
 
-    return fullText.trim();
+    return cleanGeneratedChartText(fullText);
   } catch (err: any) {
-    console.warn('[WebLLM Minds RAG Stream Fallback]:', err);
+    console.warn('[WebLLM Gemma 2 Minds RAG Stream Fallback]:', err);
     const completion = await engine.chat.completions.create({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.1,
-      max_tokens: 300,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.6,
+      top_p: 0.9,
+      max_tokens: 350,
+      stop: ['<end_of_turn>', '<start_of_turn>'],
     });
-    return completion.choices[0]?.message?.content?.trim() || guideline.recommendation;
+    const fallbackText = completion.choices[0]?.message?.content || '';
+    return cleanGeneratedChartText(fallbackText) || guideline.recommendation;
   }
 }
