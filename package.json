@@ -1,7 +1,7 @@
 {
   "name": "dr-dongly",
   "private": true,
-  "version": "2.4.2",
+  "version": "2.5.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
@@ -36,8 +36,10 @@
     "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.28.0",
+    "fzstd": "^0.1.1",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
   }
 }

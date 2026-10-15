@@ -20,6 +20,7 @@ import { InputPane } from './components/InputPane';
 import { DongleConsole } from './components/DongleConsole';
 import { FirmwareHub } from './components/FirmwareHub';
 import { AltNumpadHilModal } from './components/AltNumpadHilModal';
+import { MedPilotHotSyncModal } from './components/MedPilotHotSyncModal';
 import { VirtualDongleSimulator, LED_DEFINITIONS } from './utils/virtualDongle';
 import { BleDongleManager, bleManager } from './utils/webBluetooth';
 import { buildTransmissionSession, PreparedSession } from './utils/packetBuilder';
@@ -115,6 +116,7 @@ export default function App() {
   const [isCoprocessorModalOpen, setIsCoprocessorModalOpen] = useState(false);
   const [isMedicalSearchOpen, setIsMedicalSearchOpen] = useState(false);
   const [isAltNumpadHilOpen, setIsAltNumpadHilOpen] = useState(false);
+  const [isMedPilotHotSyncOpen, setIsMedPilotHotSyncOpen] = useState(false);
 
   // 通知バナー
   const [bannerNotice, setBannerNotice] = useState<{
@@ -584,6 +586,7 @@ export default function App() {
         onOpenCds={() => { setActiveTab('input'); }}
         onOpenImeBoost={() => { setActiveTab('input'); setIsImeBoostModalOpen(true); }}
         onOpenAltHil={() => setIsAltNumpadHilOpen(true)}
+        onOpenMedPilot={() => setIsMedPilotHotSyncOpen(true)}
         onOpenPreprocessor={() => { setActiveTab('input'); setIsPreprocessorModalOpen(true); }}
         onOpenAbout={() => setIsAboutModalOpen(true)}
         onOpenCalculator={() => setIsCalculatorOpen(true)}
@@ -611,6 +614,7 @@ export default function App() {
         onOpenFirmware={() => setActiveTab('firmware')}
         onOpenCoprocessor={() => { setActiveTab('input'); setIsCoprocessorModalOpen(true); }}
         onOpenAltHil={() => setIsAltNumpadHilOpen(true)}
+        onOpenMedPilot={() => setIsMedPilotHotSyncOpen(true)}
         onClearChart={handleEmptyTrash}
         hasChartContent={Boolean(inputText.trim())}
         deviceType={deviceType}
@@ -666,6 +670,18 @@ export default function App() {
           >
             <span>⚡ 100%日本語 HILテスト</span>
             <span className="text-[9px] bg-amber-400 text-black px-1 font-mono font-bold">Alt</span>
+          </button>
+
+          <button
+            onClick={() => {
+              playMacBeep();
+              setIsMedPilotHotSyncOpen(true);
+            }}
+            className="mac-btn shrink-0 bg-emerald-100 hover:bg-emerald-200 border border-black font-bold flex items-center gap-1 text-xs shadow-[1px_1px_0_#000] text-emerald-950"
+            title="MedPilot: 0.5ms臨床形態素解析 ＆ 100%決定論Alt/F7 HotSyncコプロセッサを開く"
+          >
+            <span>🩺 MedPilot HotSync</span>
+            <span className="text-[9px] bg-emerald-700 text-white px-1 font-mono font-bold">0.5ms</span>
           </button>
 
           <button
@@ -763,6 +779,8 @@ export default function App() {
             setIsCoprocessorModalOpen={setIsCoprocessorModalOpen}
             isMedicalSearchOpen={isMedicalSearchOpen}
             setIsMedicalSearchOpen={setIsMedicalSearchOpen}
+            isMedPilotOpen={isMedPilotHotSyncOpen}
+            setIsMedPilotOpen={setIsMedPilotHotSyncOpen}
             deviceType={deviceType}
             isLandscape={isLandscape}
           />
@@ -951,6 +969,15 @@ export default function App() {
         bleManager={bleManagerRef.current || bleManager}
         isBleConnected={isBleConnected}
         onConnectBle={handleConnectBle}
+      />
+
+      {/* ======================================================================= */}
+      {/* 9. MedPilot HotSync 知識均てん化 ＆ 決定論HotSyncコプロセッサ */}
+      {/* ======================================================================= */}
+      <MedPilotHotSyncModal
+        isOpen={isMedPilotHotSyncOpen}
+        onClose={() => setIsMedPilotHotSyncOpen(false)}
+        initialText={inputText}
       />
     </div>
   );

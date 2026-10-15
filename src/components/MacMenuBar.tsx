@@ -27,6 +27,7 @@ interface MacMenuBarProps {
   onOpenCds: () => void;
   onOpenImeBoost: () => void;
   onOpenAltHil?: () => void;
+  onOpenMedPilot?: () => void;
   onOpenPreprocessor: () => void;
   onOpenAbout: () => void;
   onOpenCalculator: () => void;
@@ -62,6 +63,7 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
   onOpenCds,
   onOpenImeBoost,
   onOpenAltHil,
+  onOpenMedPilot,
   onOpenPreprocessor,
   onOpenAbout,
   onOpenCalculator,
@@ -251,6 +253,15 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
               <div className="space-y-1">
                 <div className="text-[10px] text-gray-500 font-bold">📄 カルテ・入力操作</div>
                 <div className="grid grid-cols-2 gap-1.5 text-xs">
+                  {onOpenMedPilot && (
+                    <button
+                      onClick={() => handleItemClick(onOpenMedPilot)}
+                      className="mac-btn text-left p-1.5 flex items-center justify-between col-span-2 bg-emerald-100 border-black font-bold text-emerald-950"
+                    >
+                      <span>🩺 MedPilot 0.5ms形態素 ＆ HotSync</span>
+                      <span className="text-[10px] bg-emerald-700 text-white px-1 rounded-sm">HotSync</span>
+                    </button>
+                  )}
                   {onOpenAltHil && (
                     <button
                       onClick={() => handleItemClick(onOpenAltHil)}
@@ -588,6 +599,15 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
                 >
                   <span>📥 医療双方向エッジコプロセッサ</span>
                   <span className="text-[10px] bg-black text-white px-1">v19.1</span>
+                </button>
+              )}
+              {onOpenMedPilot && (
+                <button
+                  onClick={() => handleItemClick(onOpenMedPilot)}
+                  className="w-full text-left px-3 py-1 bg-emerald-50 hover:bg-black hover:text-white cursor-pointer font-bold flex justify-between border-y border-emerald-300/60 my-0.5 text-emerald-950 hover:text-white"
+                >
+                  <span>🩺 MedPilot 0.5ms形態素 ＆ HotSync</span>
+                  <span className="text-[10px] bg-emerald-600 text-white px-1 font-bold">HotSync</span>
                 </button>
               )}
               {onOpenAltHil && (

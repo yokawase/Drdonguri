@@ -88,6 +88,8 @@ interface InputPaneProps {
   setIsCoprocessorModalOpen?: (open: boolean) => void;
   isMedicalSearchOpen?: boolean;
   setIsMedicalSearchOpen?: (open: boolean) => void;
+  isMedPilotOpen?: boolean;
+  setIsMedPilotOpen?: (open: boolean) => void;
   deviceType?: DeviceType;
   isLandscape?: boolean;
 }
@@ -119,6 +121,8 @@ export const InputPane: React.FC<InputPaneProps> = ({
   setIsCoprocessorModalOpen: propSetCoprocessorOpen,
   isMedicalSearchOpen: propMedicalSearchOpen,
   setIsMedicalSearchOpen: propSetMedicalSearchOpen,
+  isMedPilotOpen: propMedPilotOpen,
+  setIsMedPilotOpen: propSetMedPilotOpen,
   deviceType = 'desktop',
   isLandscape = false,
 }) => {
@@ -173,6 +177,10 @@ export const InputPane: React.FC<InputPaneProps> = ({
   const isMedicalSearchOpen = propMedicalSearchOpen !== undefined ? propMedicalSearchOpen : internalMedicalSearchOpen;
   const setIsMedicalSearchOpen = propSetMedicalSearchOpen || setInternalMedicalSearchOpen;
   const [medicalSearchInitialQuery, setMedicalSearchInitialQuery] = useState('');
+
+  const [internalMedPilotOpen, setInternalMedPilotOpen] = useState(false);
+  const isMedPilotOpen = propMedPilotOpen !== undefined ? propMedPilotOpen : internalMedPilotOpen;
+  const setIsMedPilotOpen = propSetMedPilotOpen || setInternalMedPilotOpen;
 
   // カルテテキストから Minds ガイドライン (全111件) をリアルタイム自動照合
   const relevantMindsList = useMemo(() => {
@@ -878,6 +886,19 @@ export const InputPane: React.FC<InputPaneProps> = ({
                     <span>本体ボタン押下 🔘</span>
                   </button>
                 )}
+
+                {/* 知識均てん化 ＆ 決定論HotSyncコプロセッサ (MedPilot) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    playMacBeep();
+                    setIsMedPilotOpen(true);
+                  }}
+                  className="mac-btn bg-emerald-100 hover:bg-emerald-200 border-2 border-black font-bold flex items-center gap-1.5 text-xs px-3 py-1.5 shadow-[1px_1px_0_#000] active:translate-x-0.5 active:translate-y-0.5 text-emerald-950"
+                  title="0.5ms臨床形態素解析 ＆ 100%決定論Alt/F7 HotSync"
+                >
+                  <span>🩺 MedPilot HotSync</span>
+                </button>
 
                 {/* 医療双方向エッジコプロセッサ (吸い上げ ＆ 要約 ＆ 書き戻し) */}
                 <button

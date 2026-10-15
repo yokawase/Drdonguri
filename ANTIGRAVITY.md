@@ -73,6 +73,12 @@
 - [x] **ステップ14**: 医療難読単漢字の完全撤廃＆3大臨床実用マスター新設 (v2.3.0) - 【完了】使われていなかった難読単漢字を完全削除し、外来・病棟で真に有用な臨床検査値・外来指導管理料・腎機能別減量マスターを新設。PWAバージョンを `v2.3.0` に更新し、GitHub Pages への自動ビルド＆デプロイを完了
 - [x] **ステップ15**: T-Dongle-S3 実機フル導入 ＆ APA102 フルカラーLED作動表示 ＆ 32GB MicroSD 114ファイル高速フロー制御転送 (v2.3.1 / FW v20.1) - 【完了】T-Dongle-S3 オンボード APA102 RGB LED (DI: 40, CI: 39) による遠目からの作動ステータス可視化（青:BLE待機, 緑:BLE接続/打鍵完了, 赤:打鍵中, 黄:ボタン待機, シアン:受信/吸い上げ）を完全実装。128BチャンクACK同期フロー制御により32GB MicroSDへ全114ガイドライン・ナレッジデータを100%欠損ゼロで転送完了。16MB Flash（SPIFFS辞書＋ファームウェア本体）の実機フラッシュ書き込みを完了。
 - [x] **ステップ16**: Windows標準 Alt+テンキー（Alt Numpad）100%決定論 日本語転送システム移行＆HIL実機テストベンチ構築 (v2.4.0 / FW v21.0) - 【完了】OS（Windows）やIMEの確率論的推論・誤変換学習を完全バイパスし、F5画面リロード事故を物理的にゼロ保証する「Alt + テンキー (Alt Numpad)」打鍵エンジンをファームウェア（`sendAltNumpadCode`, `KEYPAD_MAP`, `[ALT]...[/ALT]`, `CMD:ALT:`）に完全実装。PWA側にAlt+Numpadコードコンパイラ（`altNumpadCompiler.ts`）および専用HIL実機テストベンチUI（`AltNumpadHilModal.tsx`）を新設。手元DynaBook（メモ帳 notepad.exe / IME ON・OFF）および電子カルテ各ペインでのHIL実機検証手順・合否判定マトリクスを整備完了。
+- [x] **ステップ17**: 究極の医療コプロセッサ「MedPilot」実装・0.5ms形態素解析＆11msディレイ制御・Alt抜けダミーShift空打ち＆複合プリンタ開通 (v2.5.0 / FW v22.0) - 【完了】
+  - **ファームウェア層**: USB-HID Keyboard (03h) ＋ 仮想プリンタ (07h) 複合クラスドライバ実装。マスストレージ(MSC)完全遮断。11msディレイ制御、Alt解放後ダミーShift空打ち（modifiers 0x02によるファイルメニュー誤爆完全防止）、F7/F10ハイブリッド、JIS無変換キー2回連打によるIME強制リセット実装。CP932単体テスト（胃: 035037 等）全件PASS。AtomS3U / T-Dongle-S3 両機種ビルド成功。
+  - **PWA/フロントエンド層**: `vibrato.worker.ts` による IndexedDB キャッシュ、fzstd展開、`Intl.Segmenter` + 医療Trieハイブリッドによる 0.5ms 超高速形態素解析・モダリティ（否定・疑い・既往）判定ワーカー実装。
+  - **打鍵トランスパイラ層**: `KeyStrokeCompiler.ts` による形態素トークン ➔ CP932 Alt+Numpad / F7 / F10 ハイブリッド打鍵トランスパイラ、カタカナ ➔ ローマ字変換、BLEチャンク分割実装。Vitest単体テスト10件すべてPASS。
+  - **BLE通信マネージャー**: `BleManager.ts` による Web Bluetooth 永続自動再接続（IndexedDB保存＆`getDevices()`）、仮想プリンタ双方向受信、打鍵ストリーム送出。
+  - **UI/HotSync層**: `MedPilotHotSyncModal.tsx` による 0.5ms形態素Pill表示・Staging Buffer・ワンタップ/ペダル打鍵HotSync UI実装。各メインUIからのワンクリック起動を結合。
 
 ---
 

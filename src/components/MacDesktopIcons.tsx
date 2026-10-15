@@ -9,6 +9,7 @@ interface MacDesktopIconsProps {
   onOpenFirmware: () => void;
   onOpenCoprocessor?: () => void;
   onOpenAltHil?: () => void;
+  onOpenMedPilot?: () => void;
   onClearChart: () => void;
   hasChartContent: boolean;
   deviceType?: DeviceType;
@@ -20,6 +21,7 @@ export const MacDesktopIcons: React.FC<MacDesktopIconsProps> = ({
   onOpenFirmware,
   onOpenCoprocessor,
   onOpenAltHil,
+  onOpenMedPilot,
   onClearChart,
   hasChartContent,
   deviceType = 'desktop',
@@ -121,6 +123,25 @@ export const MacDesktopIcons: React.FC<MacDesktopIconsProps> = ({
           </div>
           <span className="bg-white border border-transparent px-1 group-hover:border-black group-active:bg-black group-active:text-white group-active:border-black text-center font-bold text-amber-950">
             Alt HIL
+          </span>
+        </button>
+      )}
+
+      {/* 6. MedPilot HotSync (0.5ms 形態素 ＆ ハイブリッド決定論HotSync) */}
+      {onOpenMedPilot && (
+        <button
+          onClick={() => {
+            playMacBeep();
+            onOpenMedPilot();
+          }}
+          className="flex flex-col items-center gap-1 group cursor-pointer focus:outline-none"
+          title="MedPilot: 0.5ms臨床形態素解析 ＆ 100%決定論Alt/F7 HotSync"
+        >
+          <div className="w-11 h-11 border border-black bg-emerald-200 shadow-[1px_1px_0_#000] flex items-center justify-center text-xl group-active:bg-black group-active:text-white">
+            🩺
+          </div>
+          <span className="bg-white border border-transparent px-1 group-hover:border-black group-active:bg-black group-active:text-white group-active:border-black text-center font-bold text-emerald-950">
+            MedPilot
           </span>
         </button>
       )}
