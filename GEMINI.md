@@ -8,7 +8,7 @@
 - **プロダクト名**: DrVoice どんぐり君！ (`dr-dongly` / `Drdonguri`)
 - **目的**: スマホ音声入力・テキストを、ESP32デバイス（AtomS3U / T-dongle-S3）経由で医療用電子カルテ端末にUSB-HID（キーボード）として超高速・無誤爆で直接打鍵転送するシステム。
 - **公開WebUI (PWA)**: [https://yokawase.github.io/Drdonguri/](https://yokawase.github.io/Drdonguri/)
-- **現在のバージョン**: **`v2.5.0`** (ファームウェア: `v22.0`)
+- **現在のバージョン**: **`v2.6.0`** (ファームウェア: `v22.0`)
 
 ---
 
@@ -45,7 +45,10 @@ PWAおよびFlash/SD検索エンジンでは、以下の6大マスターを正�
 
 | ファイル / ディレクトリ | 役割・技術スタック |
 | :--- | :--- |
-| [`src/version.ts`](file:///home/medart-code/Drdonguri/src/version.ts) | アプリケーションバージョン (`2.5.0`)・ビルド時刻一元管理 |
+| [`src/version.ts`](file:///home/medart-code/Drdonguri/src/version.ts) | アプリケーションバージョン (`2.6.0`)・ビルド時刻一元管理 |
+| [`src/services/embeddingGemmaService.ts`](file:///home/medart-code/Drdonguri/src/services/embeddingGemmaService.ts) | Google DeepMind EmbeddingGemma 2 (740M MRL 128d) 臨床セマンティック検索エンジン |
+| [`src/data/embeddingGemmaVectors.ts`](file:///home/medart-code/Drdonguri/src/data/embeddingGemmaVectors.ts) | 6大医療マスター全206件の 128次元 MRL 事前計算ベクトルデータベース |
+| [`src/workers/embeddingGemma.worker.ts`](file:///home/medart-code/Drdonguri/src/workers/embeddingGemma.worker.ts) | バックグラウンド高速コサイン類似度ランキング Web Worker |
 | [`src/components/MedPilotHotSyncModal.tsx`](file:///home/medart-code/Drdonguri/src/components/MedPilotHotSyncModal.tsx) | MedPilot 0.5ms形態素解析・臨床意思決定支援・100%決定論打鍵HotSync UI |
 | [`src/services/KeyStrokeCompiler.ts`](file:///home/medart-code/Drdonguri/src/services/KeyStrokeCompiler.ts) | 形態素トークン ➔ CP932 Alt+Numpad / F7 / F10 ハイブリッド打鍵トランスパイラ |
 | [`src/services/BleManager.ts`](file:///home/medart-code/Drdonguri/src/services/BleManager.ts) | Web Bluetooth 永続自動再接続 ＆ 仮想プリンタ双方向通信マネージャー |

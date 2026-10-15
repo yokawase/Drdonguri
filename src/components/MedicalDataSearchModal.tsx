@@ -32,6 +32,10 @@ import {
   consultGuidelineWithWebLLM,
   ModelLoadProgress,
 } from '../services/webLlmService';
+import {
+  searchWithEmbeddingGemma,
+  SemanticSearchResult,
+} from '../services/embeddingGemmaService';
 import { playMacBeep, playSosumi } from '../utils/macAudio';
 
 interface MedicalDataSearchModalProps {
@@ -56,6 +60,11 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [insertedId, setInsertedId] = useState<string | null>(null);
 
+  // EmbeddingGemma 2 (740M MRL 128d) セマンティック検索ステート (Ollama代替)
+  const [useSemantic, setUseSemantic] = useState(true);
+  const [semanticResults, setSemanticResults] = useState<SemanticSearchResult[]>([]);
+  const [isSearchingSemantic, setIsSearchingSemantic] = useState(false);
+
   // WebLLM 相談用ステート
   const [activeMindsItem, setActiveMindsItem] = useState<MindsKnowledgeItem | null>(null);
   const [llmStreamingOutput, setLlmStreamingOutput] = useState<string>('');
@@ -78,14 +87,48 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
     }
   }, [isOpen, initialQuery]);
 
-  // 検索結果 (インクリメンタル)
+  // EmbeddingGemma 2 セマンティック検索の非同期実行
+  useEffect(() => {
+    if (!useSemantic) {
+      setSemanticResults([]);
+      return;
+    }
+
+    let isMounted = true;
+    const executeSearch = async () => {
+      const q = query.trim() || '急性';
+      setIsSearchingSemantic(true);
+      try {
+        const results = await searchWithEmbeddingGemma(q, filterType as any, 35, true);
+        if (isMounted) {
+          setSemanticResults(results);
+        }
+      } catch (err) {
+        console.error('EmbeddingGemma search error:', err);
+      } finally {
+        if (isMounted) {
+          setIsSearchingSemantic(false);
+        }
+      }
+    };
+
+    const timer = setTimeout(executeSearch, 60);
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [query, filterType, useSemantic]);
+
+  // 検索結果 (セマンティック有効時は EmbeddingGemma、無効時は従来のキーワード検索)
   const searchResults = useMemo(() => {
+    if (useSemantic && semanticResults.length > 0) {
+      return semanticResults;
+    }
     if (!query.trim()) {
-      // クエリが空の場合は代表的な実用データを初期表示
       return searchUnifiedMedicalKnowledge('急性', filterType as any, 20);
     }
     return searchUnifiedMedicalKnowledge(query, filterType as any, 35);
-  }, [query, filterType]);
+  }, [query, filterType, useSemantic, semanticResults]);
 
   // コピー処理
   const handleCopy = (text: string, id: string) => {
@@ -210,8 +253,9 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
               <span>📚 臨床データ統合検索 (Minds・検査値・指導料・腎機能減量・医薬品・病名)</span>
             </div>
           </div>
-          <div className="text-[10px] text-gray-600 hidden sm:block">
-            Flash / SDカード・PWA共通ナレッジマスター (v2.3.0)
+          <div className="text-[10px] text-purple-900 font-bold bg-purple-100 border border-purple-300 px-2 py-0.5 hidden sm:flex items-center gap-1 shadow-[1px_1px_0_#000]">
+            <Brain className="w-3 h-3 text-purple-700" />
+            <span>EmbeddingGemma 2 (740M MRL) 搭載</span>
           </div>
         </div>
 
@@ -236,6 +280,25 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                 </button>
               )}
             </div>
+            {/* EmbeddingGemma 2 (740M MRL 128d) セマンティック検索トグル (Ollama不要) */}
+            <button
+              type="button"
+              onClick={() => {
+                playMacBeep();
+                setUseSemantic(!useSemantic);
+              }}
+              className={`px-2.5 py-1.5 border-2 border-black text-xs font-bold shadow-[2px_2px_0_#000] whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-colors ${
+                useSemantic
+                  ? 'bg-purple-100 text-purple-950 border-black ring-1 ring-purple-600'
+                  : 'bg-white text-gray-600 hover:bg-gray-100'
+              }`}
+              title="Google DeepMind EmbeddingGemma 2 (740M MRL 128d) による完全ブラウザ内ローカルセマンティック検索。Ollama等の外部サーバー不要で0.5ms推論"
+            >
+              <Brain className={`w-3.5 h-3.5 ${useSemantic ? 'text-purple-700 animate-pulse' : 'text-gray-400'}`} />
+              <span className="hidden sm:inline">⚡ Gemma 2 {useSemantic ? 'ON' : 'OFF'}</span>
+              <span className="sm:hidden">Gemma</span>
+            </button>
+
             <button
               onClick={handleExtractFromChart}
               className="px-2.5 py-1.5 border border-black bg-white hover:bg-black hover:text-white text-xs font-bold shadow-[2px_2px_0_#000] whitespace-nowrap flex items-center gap-1 cursor-pointer"
@@ -389,6 +452,15 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                           <span className={`text-[10px] font-bold px-1.5 py-0.2 border ${badgeStyle}`}>
                             {badgeLabel}
                           </span>
+                          {(item as SemanticSearchResult).semanticScore !== undefined && (item as SemanticSearchResult).semanticScore > 0 && (
+                            <span
+                              className="text-[9px] font-mono font-bold px-1.5 py-0.5 border border-purple-400 bg-purple-50 text-purple-900 flex items-center gap-1 shadow-[1px_1px_0_#000]"
+                              title={`EmbeddingGemma 2 (740M MRL 128d) 意味的コサイン類似度: ${Math.round((item as SemanticSearchResult).semanticScore * 100)}%`}
+                            >
+                              <Brain className="w-2.5 h-2.5 text-purple-700" />
+                              <span>{Math.round((item as SemanticSearchResult).semanticScore * 100)}% Match</span>
+                            </span>
+                          )}
                           <span className="font-bold text-xs sm:text-sm text-black">
                             {item.title}
                           </span>
