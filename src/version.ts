@@ -10,7 +10,7 @@ export const APP_NAME = 'Dr.Dongly';
 export const APP_NAME_JA = 'DrVoice どんぐり君！';
 
 // アプリケーションバージョン (package.json と同期)
-export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.7.0';
+export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.8.0';
 
 // ビルドタイムスタンプ (Vite ビルド時に自動更新)
 export const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : new Date().toISOString();
@@ -21,7 +21,7 @@ export const FIRMWARE_RELEASE_DATE = '2026-10-15';
 export const FIRMWARE_RELEASE_TITLE = 'v22.0（MedPilot 0.5ms形態素解析・複合プリンタ記述子＆11ms Alt抜け完全防止対応版）';
 
 // ローカルAI & 臨床セマンティック検索エンジン構成
-export const AI_ENGINE_INFO = 'EmbeddingGemma 2 (740M MRL 128d) ＆ WebLLM (Qwen2.5)';
+export const AI_ENGINE_INFO = 'EmbeddingGemma 2 (740M MRL 128d) ＆ WebLLM (Gemma 2 2B)';
 export const OCR_ENGINE_INFO = 'Tesseract.js (完全ローカルブラウザOCR)';
 export const LOCAL_RULE_ENGINE_INFO = 'Vibrato/軽量Wasm 0.5ms形態素解析 ＆ HVC防衛的サジェスト';
 

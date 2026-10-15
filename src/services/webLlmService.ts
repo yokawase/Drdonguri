@@ -5,13 +5,13 @@ import {
 } from '@mlc-ai/web-llm';
 import type { MindsGuidelineDetail } from '../utils/mindsGuidelineCompiler';
 
-// 【超高速デフォルト】Qwen2.5-0.5B (約350MB, VRAM約550MB, 推論速度1.5B比3倍高速)
-export const FAST_WEBLLM_MODEL = 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC';
+// 【超高速・省メモリ】Google Gemma 2 2B Instruct 1k (VRAM約1.5GB, low-resource対応, 高速レスポンス)
+export const FAST_WEBLLM_MODEL = 'gemma-2-2b-it-q4f16_1-MLC-1k';
 
-// 【高精度モデル】Qwen2.5-1.5B (約950MB, VRAM約1.6GB, より複雑なカルテ向け)
-export const PRECISE_WEBLLM_MODEL = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
+// 【高精度・日本語特化】Google Gemma 2 2B 日本語特化 Instruct (日本語文脈・医療カルテSOAP整形に最高精度)
+export const PRECISE_WEBLLM_MODEL = 'gemma-2-2b-jpn-it-q4f16_1-MLC';
 
-// デフォルトは速度最優先の FAST_WEBLLM_MODEL (校正時間を極限まで短縮)
+// デフォルトは高速・省リソースの FAST_WEBLLM_MODEL
 export const DEFAULT_WEBLLM_MODEL = FAST_WEBLLM_MODEL;
 
 export interface ModelLoadProgress {

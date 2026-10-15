@@ -1,4 +1,4 @@
-﻿LilyGO T-Dongle-S3に搭載された32GB MicroSDカード（実効容量 約29.8GB）の容量を余すところなく使い切り、完全オフラインの閉域電子カルテ環境で「最強のポータブル医学全書・臨床コパイロット」を実現するための推奨データ配分ポートフォリオおよび収録リストです[cite: 1, 4]。
+LilyGO T-Dongle-S3に搭載された32GB MicroSDカード（実効容量 約29.8GB）の容量を余すところなく使い切り、完全オフラインの閉域電子カルテ環境で「最強のポータブル医学全書・臨床コパイロット」を実現するための推奨データ配分ポートフォリオおよび収録リストです[cite: 1, 4]。
 32GB MicroSDカード 容量配分ポートフォリオ
 テキストや構造化DBのみでは2〜3GB程度しか消費しないため、「臨床画像アトラス」「原本PDFアーカイブ」「オフラインAIモデル（SLM/Embedding）の重み」 を内包することで、32GBの物理リソースを極限まで使い切ります。
 
@@ -36,10 +36,10 @@ Minds収載の全疾患（約300〜500タイトル）の公式ガイドライン
 想定容量: 約 6.5 GB
 ファイル形式: GGUF / ONNX / WebGPU (SafeTensors) 量子化バイナリ
 収録内容:
-Qwen2.5-1.5B-Instruct (4-bit量子化): 約 1.0 GB（カルテSOAP整形・要約用）[cite: 1, 4]。
-Qwen2.5-7B-Instruct (3-bit/4-bit量子化): 約 3.8 GB（より高度な鑑別診断・臨床推論用。ハイスペックスマホ/タブレット展開用）。
+Gemma-2-2b-jpn-it (4-bit量子化): 約 1.5 GB（日本語特化・カルテSOAP整形・要約用）。
+Gemma-2-9b-it (3-bit/4-bit量子化): 約 3.8 GB（より高度な鑑別診断・臨床推論用。ハイスペックスマホ/タブレット展開用）。
 EmbeddingGemma 2 (INT4/INT8量子化): 約 0.5 GB（8,192トークン対応、長文カルテ・画像セマンティック検索用）。
-Whisper-small / base (int8): 約 1.2 GB（オフライン高精度音声認識用）。
+Whisper-small / base (int8): 約 0.7 GB（オフライン高精度音声認識用）。
 臨床的価値:
 ネット通信が遮断された環境でも、スマホ側PWAがMicroSDからモデルを読み込んでWebGPUで直接起動できるため、完全閉域での生成AI・音声入力が担保されます[cite: 1, 4]。
 3. 医療用医薬品 添付文書・インタビューフォーム ＆ 錠剤識別写真
@@ -127,10 +127,10 @@ T-Dongle-S3 MicroSDファイル配置構造（フォルダツリー）
 │   └── fts5_medical_text.db        <-- 全文検索SQLite (300MB)[cite: 1]
 │
 ├── models/                         <-- オフラインローカルAI重み領域 (計 6.5GB)
-│   ├── qwen2.5-1.5b-instruct-q4.bin<-- WebLLM推論モデル (1.0GB)[cite: 1, 4]
-│   ├── qwen2.5-7b-instruct-q3.bin  <-- 高度推論モデル (3.8GB)
+│   ├── gemma-2-2b-jpn-it-q4.bin    <-- WebLLM日本語特化推論モデル (1.5GB)
+│   ├── gemma-2-9b-it-q3.bin        <-- 高度推論モデル (3.8GB)
 │   ├── embedding-gemma2-int4.onnx  <-- 埋め込みモデル (0.5GB)
-│   └── whisper-small-int8.bin      <-- 音声認識モデル (1.2GB)
+│   └── whisper-small-int8.bin      <-- 音声認識モデル (0.7GB)
 │
 ├── guidelines/                     <-- ガイドライン原本PDF & 解説 (計 10.5GB)[cite: 1]
 │   ├── pdf/                        <-- 各学会・Minds公式原本PDF全冊[cite: 1]

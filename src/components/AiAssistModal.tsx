@@ -97,7 +97,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
             title="閉じる"
           />
           <div className="bg-white border border-black px-2 py-0.2 font-bold text-xs tracking-wider flex items-center gap-1.5 truncate min-w-0">
-            <span className="truncate">AI カルテ校正 (WebLLM)</span>
+            <span className="truncate">AI カルテ校正 (WebLLM - Gemma 2)</span>
             <span className="text-[10px] bg-black text-white px-1 shrink-0">完全ローカル</span>
           </div>
           <div className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] flex items-center justify-center shrink-0">
@@ -109,7 +109,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
         <div className="p-3 space-y-3 bg-white overflow-y-auto flex-1">
           {/* Model Speed Selector */}
           <div className="border border-black p-2 bg-gray-50 flex items-center justify-between">
-            <span className="font-bold text-[11px]">AIモデル速度:</span>
+            <span className="font-bold text-[11px]">Gemma 2 モデル:</span>
             <div className="flex gap-1.5">
               <button
                 type="button"
@@ -118,7 +118,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                   modelType === 'fast' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
                 }`}
               >
-                ⚡ 超高速 (0.5B 約3秒)
+                ⚡ Gemma 2 (2B 高速)
               </button>
               <button
                 type="button"
@@ -127,7 +127,7 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                   modelType === 'precise' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
                 }`}
               >
-                🎯 高精度 (1.5B)
+                🎯 Gemma 2 日本語 (2B-jpn)
               </button>
             </div>
           </div>

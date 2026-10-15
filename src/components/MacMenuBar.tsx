@@ -583,7 +583,7 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
                 className="w-full text-left px-3 py-1 hover:bg-black hover:text-white cursor-pointer font-bold flex justify-between"
               >
                 <span>🤖 AIスマート推敲・要約 (WebLLM)</span>
-                <span className="text-[10px]">Qwen</span>
+                <span className="text-[10px]">Gemma2</span>
               </button>
               <button
                 onClick={() => handleItemClick(onOpenOcr)}

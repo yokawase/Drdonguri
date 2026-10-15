@@ -7,7 +7,7 @@
   - **オンデバイス辞書エンジン**: AtomS3U (8MB Flash) および T-dongle-S3 (16MB Flash + TF Card) に厚労省医療用語辞書 (`med_terms.bin`) および JIS漢字音訓読み辞書 (`kanji_yomi.bin`) を内蔵し、Zero-RAM 二分探索で高速展開。
   - **HYBRID 送信アルゴリズム**: 電子カルテ側のIME機能（F7カタカナ強制、確実削り出し[BS]、音訓読みSpace変換）を活用した、誤爆のない確実なテキスト送信（※F5文字コード変換は誤爆・事故防止のため完全廃止）。
   - **複合機双方向通信 (T-dongle-S3)**: USB HID キーボード＋USB 仮想プリンター (Bulk IN/OUT) 複合機として認識させ、電子カルテからのテキスト吸い上げと打鍵入力を1台で実現。
-  - **完全ローカル臨床支援 (PWA + WebLLM)**: Minds診療ガイドライン（169疾患・CQ大規模拡充）と電子カルテ内容をブラウザ内 WebGPU (Qwen2.5) で安全に推論・臨床意思決定支援。
+  - **完全ローカル臨床支援 (PWA + WebLLM)**: Minds診療ガイドライン（169疾患・CQ大規模拡充）と電子カルテ内容をブラウザ内 WebGPU (Gemma 2) で安全に推論・臨床意思決定支援。
   - **臨床実用6大ナレッジマスター (v2.3.0)**: 価値のない単漢字を完全撤廃し、臨床現場で真に必要な検査値・指導料・腎機能減量マスターを新設・統合。
 
 ---
@@ -31,7 +31,7 @@
   - `medicalKnowledgeCatalog.ts`: PWA統合インクリメンタル検索エンジン用データセット
 
 ### C. Web & 音声認識インターフェース (PWA)
-- **技術**: React 18 / TypeScript / Vite / Tailwind CSS / WebLLM (Qwen2.5) / Tesseract.js (Local OCR) / Lucide Icons
+- **技術**: React 18 / TypeScript / Vite / Tailwind CSS / WebLLM (Gemma 2) / Tesseract.js (Local OCR) / Lucide Icons
 - **デザイン**: レトロ Mac System 7 スタイル UI（DotGothic16, ウィンドウ枠, 物理ボタン）
 - **公開URL**: `https://yokawase.github.io/Drdonguri/` (GitHub Actions による自動ビルド＆デプロイ)
 
@@ -111,6 +111,23 @@
   - **EmbeddingGemma 2 MRL 128d ベクトルDB再計算 (`embeddingGemmaVectors.ts`)**: `scripts/generate_embedding_gemma_vectors.ts` により、全283件の臨床マスター（169 CQ含む）を 128次元 MRL 空間へ事前計算・更新。
   - **UI更新**: `MedicalDataSearchModal.tsx` のタブおよびフッター表示を「Minds (169CQ)」に連動更新。
   - **検証**: TypeScript型チェック（エラー0）、Vitest全20件PASS、Vite本番ビルド成功。バージョン `v2.7.0` へ昇格。
+- [x] **ステップ21**: AIカルテ校正のGoogle Gemma 2 2B完全移行＆Qwen完全排除・AIスタックGemmaファミリー一本化 (v2.8.0 / FW v22.0) - 【完了】
+  - **背景**: ユーザー要望に基づき、AIカルテ校正・カメラOCR整形・ガイドラインRAG推論エンジンを従来の Qwen2.5 (0.5B / 1.5B) から、Google DeepMind の最新モデル **Google Gemma 2** へ完全移行。セマンティック検索（EmbeddingGemma 2 740M MRL 128d）とカルテ生成・整形推論（Gemma 2 2B）の双方を Google Gemma ファミリーに統一し、プロジェクト内の Qwen 依存・表記を完全根絶。
+  - **WebLLM Gemma 2 エンジン刷新 (`webLlmService.ts`)**:
+    - 高速モデル: `FAST_WEBLLM_MODEL = 'gemma-2-2b-it-q4f16_1-MLC-1k'`（コンテキスト1024・省リソース・低遅延）
+    - 高精度・日本語特化モデル: `PRECISE_WEBLLM_MODEL = 'gemma-2-2b-jpn-it-q4f16_1-MLC'`（Gemma 2 日本語特化Instructionモデル・SOAP整形に最高精度）
+    - プロンプトを Gemma 2 向けに最適化。
+  - **UI全面刷新**:
+    - `AiAssistModal.tsx`: 「AI カルテ校正 (WebLLM - Gemma 2)」、モデル選択肢を「⚡ Gemma 2 (2B 高速)」「🎯 Gemma 2 日本語 (2B-jpn)」に更新。
+    - `CameraOcrModal.tsx`: 「Tesseract.js ＋ WebLLM (Gemma 2 2B) による院内閉域文字認識」「Gemma 2 校正完了」に更新。
+    - `localOcrService.ts`: 進捗メッセージおよびパイプラインを Gemma 2 2B に連動。
+    - `MacMenuBar.tsx`: メニュータグを `Gemma2` に更新。
+    - `ClinicalDecisionSupport.tsx`: 「ローカルWebLLM (Gemma 2)」に更新。
+    - `App.tsx`: フッター表示を `AI: WebLLM (Gemma 2) / 完全ローカルOCR` に更新。
+    - `microSdMedicalCatalog.ts`: 32GB SDカード `/models/` 領域を Gemma 2 2B/9B, EmbeddingGemma 2, Whisper に更新。
+    - `index.html`: メタ説明文を Gemma 2 2B に更新。
+  - **バージョンインクリメント**: `v2.8.0`（`package.json`, `src/version.ts`, `GEMINI.md`, `ANTIGRAVITY.md` 同期）。
+  - **検証**: TypeScript型チェック（エラー0）、Vitest全20件PASS、Vite本番ビルド成功。GitHub Pages への自動デプロイ完了。
 
 ---
 

@@ -893,7 +893,7 @@ export default function App() {
             <span className="text-slate-400">|</span>
             <span>ビルド: {getFormattedBuildDate()}</span>
             <span className="text-slate-400">|</span>
-            <span>AI: WebLLM (Qwen2.5) / 完全ローカルOCR</span>
+            <span>AI: WebLLM (Gemma 2) / 完全ローカルOCR</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1.5">

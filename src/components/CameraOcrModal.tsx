@@ -137,7 +137,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
     }
   };
 
-  // 完全ローカルOCR (Tesseract.js + WebLLM Qwen2.5 1.5B) 実行
+  // 完全ローカルOCR (Tesseract.js + WebLLM Gemma 2 2B) 実行
   const runLocalOcr = async (base64Img: string, mode: 'chart' | 'soap' | 'prescription') => {
     setIsProcessing(true);
     setErrorMessage(null);
@@ -214,7 +214,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-teal-100 mt-0.5">
-                Tesseract.js ＋ WebLLM (Qwen2.5 1.5B) による院内閉域文字認識
+                Tesseract.js ＋ WebLLM (Gemma 2 2B) による院内閉域文字認識
               </p>
             </div>
           </div>
@@ -447,7 +447,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                     ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
                     : 'text-amber-700 bg-amber-50 border-amber-200'
                 }`}>
-                  {isRefinedByLlm ? 'Qwen2.5 校正完了' : isProcessing ? 'AI校正中...' : '生OCRテキスト'}
+                  {isRefinedByLlm ? 'Gemma 2 校正完了' : isProcessing ? 'AI校正中...' : '生OCRテキスト'}
                 </span>
               </div>
               <textarea

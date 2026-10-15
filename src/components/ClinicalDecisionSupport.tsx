@@ -804,7 +804,7 @@ export const ClinicalDecisionSupport: React.FC<ClinicalDecisionSupportProps> = (
                 {cdsResult.engine === 'hybrid-ai' 
                   ? 'AI深層構造化解析 (HVC)' 
                   : cdsResult.engine === 'local-webllm'
-                  ? 'ローカルWebLLM (Qwen2.5)'
+                  ? 'ローカルWebLLM (Gemma 2)'
                   : 'エッジ即時ルールエンジン (完全オフライン)'}
               </span>
             </div>

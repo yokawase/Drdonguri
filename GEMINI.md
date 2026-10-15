@@ -8,7 +8,7 @@
 - **プロダクト名**: DrVoice どんぐり君！ (`dr-dongly` / `Drdonguri`)
 - **目的**: スマホ音声入力・テキストを、ESP32デバイス（AtomS3U / T-dongle-S3）経由で医療用電子カルテ端末にUSB-HID（キーボード）として超高速・無誤爆で直接打鍵転送するシステム。
 - **公開WebUI (PWA)**: [https://yokawase.github.io/Drdonguri/](https://yokawase.github.io/Drdonguri/)
-- **現在のバージョン**: **`v2.7.0`** (ファームウェア: `v22.0`)
+- **現在のバージョン**: **`v2.8.0`** (ファームウェア: `v22.0`)
 
 ---
 
@@ -22,7 +22,7 @@
 ### ② 臨床現場に真に必要な「10大医療データポートフォリオ (32GB MicroSD 29.8GB)」
 T-Dongle-S3 32GB MicroSDおよびPWAセマンティック検索エンジンでは、以下の10大マスター＆ストレージ配分マップを正として運用・拡張してください：
 1. **ガイドライン原本PDF & Minds構造化全集 (10.5 GB)**: Minds収載全疾患・約450タイトルの公式原本PDF・CQ全件
-2. **ローカルAIモデル重み (6.5 GB)**: Qwen2.5-1.5B/7B, EmbeddingGemma 2 (INT4), Whisper-small オフライン重み
+2. **ローカルAIモデル重み (6.5 GB)**: Gemma 2 2B/9B, EmbeddingGemma 2 (INT4), Whisper オフライン重み
 3. **医薬品添付文書全文 & 錠剤識別写真 (4.5 GB)**: PMDA公表約22,000品目の添付文書 ＋ 錠剤表裏刻印写真WebP
 4. **臨床アトラス画像 (4.0 GB)**: 皮膚科・内視鏡・心電図ライブラリ 高解像度WebP 約4,000点
 5. **セマンティック・ベクトル & 全文検索インデックス (1.5 GB)**: EmbeddingGemma 2 MRL 128d ベクトルDB ＋ FTS5
@@ -64,7 +64,7 @@ T-Dongle-S3 32GB MicroSDおよびPWAセマンティック検索エンジンで�
 | [`src/components/MedicalDataSearchModal.tsx`](file:///home/medart-code/Drdonguri/src/components/MedicalDataSearchModal.tsx) | 10大医療データ統合検索モーダル ＆ 32GB SD配分マップ視覚化 ＆ WebLLM RAG |
 | [`src/data/medicalKnowledgeCatalog.ts`](file:///home/medart-code/Drdonguri/src/data/medicalKnowledgeCatalog.ts) | 医療マスターのインクリメンタル検索エンジン |
 | [`scripts/generate_embedding_gemma_vectors.ts`](file:///home/medart-code/Drdonguri/scripts/generate_embedding_gemma_vectors.ts) | EmbeddingGemma 2 MRL 128d ベクトル生成スクリプト |
-| [`src/services/webLlmService.ts`](file:///home/medart-code/Drdonguri/src/services/webLlmService.ts) | WebGPUによる完全ブラウザ内完結・通信不要のローカルLLM (Qwen2.5) |
+| [`src/services/webLlmService.ts`](file:///home/medart-code/Drdonguri/src/services/webLlmService.ts) | WebGPUによる完全ブラウザ内完結・通信不要のローカルLLM (Gemma 2 2B) |
 | [`setup_denkaru_printer.ps1`](file:///home/medart-code/Drdonguri/setup_denkaru_printer.ps1) | T-dongle-S3 複合機（仮想プリンタ＋キーボード）のWindows伝カル自動開通スクリプト |
 | [`main.cpp`](file:///home/medart-code/Drdonguri/main.cpp) | AtomS3U / T-dongle-S3 ファームウェア本体（Alt+Numpad 100%決定論＆HYBRID打鍵） |
 | [`ANTIGRAVITY.md`](file:///home/medart-code/Drdonguri/ANTIGRAVITY.md) | 全開発ステップ（ステップ1〜19）の詳細開発履歴・技術仕様書 |

@@ -320,12 +320,12 @@ export const MICRO_SD_STORAGE_MAP: MicroSdStoragePartition[] = [
     itemCountDescription: "公式ガイドライン原本 約450タイトル"
   },
   {
-    categoryName: "ローカルAIモデル重み (WebLLM / EmbeddingGemma)",
+    categoryName: "ローカルAIモデル重み (Gemma 2 / EmbeddingGemma 2)",
     sizeGb: 6.5,
     percentage: 21.8,
     path: "/models/",
-    description: "Qwen2.5-1.5B/7B (q4/q3), EmbeddingGemma 2 (INT4 0.5GB), Whisper-small (1.2GB) 完全オフライン重み",
-    itemCountDescription: "量子化SLM/音声認識モデル 4系統"
+    description: "Gemma 2 2B (jpn-it / 2B-it 1.5GB), Gemma 2 9B (4.0GB), EmbeddingGemma 2 (INT4 0.5GB), Whisper (0.5GB) 完全オフライン重み",
+    itemCountDescription: "Google Gemma 2ファミリー SLM/埋め込みモデル 4系統"
   },
   {
     categoryName: "医薬品添付文書全文 & 錠剤識別写真",

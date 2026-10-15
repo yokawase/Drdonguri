@@ -12,7 +12,7 @@ export interface OcrProgressUpdate {
  * 1. Tesseract.js で画像から日本語・英数字を文字起こし（Raw OCR）
  *    ➔ 即座に Raw テキストを UI に展開してユーザーの待ち時間をゼロ化！
  * 2. Tesseract のワーカーを破棄してメモリを解放
- * 3. WebLLM (Qwen2.5 1.5B) でリアルタイムストリーミング医療補正
+ * 3. WebLLM (Gemma 2 2B) でリアルタイムストリーミング医療補正
  */
 export async function performLocalCameraOcr(
   imageSource: string | File,
@@ -72,12 +72,12 @@ export async function performLocalCameraOcr(
   }
 
   // -------------------------------------------------------------
-  // Step 2: WebLLM (Qwen2.5 1.5B) で医療文脈補正・SOAP整形
+  // Step 2: WebLLM (Gemma 2 2B) で医療文脈補正・SOAP整形
   // -------------------------------------------------------------
   if (onProgress) {
     onProgress({
       stage: 'llm_loading',
-      message: 'WebLLM (Qwen2.5) を準備中...',
+      message: 'WebLLM (Gemma 2) を準備中...',
       progress: 0.6,
     });
   }
