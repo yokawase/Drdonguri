@@ -90,7 +90,7 @@ describe('EmbeddingGemma 2 (740M MRL 128d) Engine Tests', () => {
     expect(hasRenalItem).toBe(true);
   });
 
-  it('6. 206件全件コサイン類似度計算のパフォーマンス (< 5ms)', () => {
+  it('6. 225件全件コサイン類似度計算のパフォーマンス (< 5ms)', () => {
     const queryVec = computeEmbeddingGemmaQueryVector('生活習慣病管理料の算定要件と療養計画書');
     const start = performance.now();
 
@@ -99,7 +99,62 @@ describe('EmbeddingGemma 2 (740M MRL 128d) Engine Tests', () => {
     }
 
     const elapsed = performance.now() - start;
-    // 206件の内積計算は 1ms 未満で完了すべき
+    // 225件の内積計算は 1ms 未満で完了すべき
     expect(elapsed).toBeLessThan(5.0);
+  });
+
+  it('7. 救急・中毒プロトコルのセマンティック検索精度 (農薬・有機リン)', async () => {
+    const results = await searchWithEmbeddingGemma('農薬を誤飲した アトロピンとPAM投与', 'all', 10, true);
+    expect(results.length).toBeGreaterThan(0);
+
+    const hasEmergency = results.some(
+      (r) =>
+        r.title.includes('有機リン') ||
+        r.title.includes('救急') ||
+        r.content.includes('アトロピン') ||
+        r.category === '中毒'
+    );
+    expect(hasEmergency).toBe(true);
+  });
+
+  it('8. 臨床アトラス・心電図のセマンティック検索精度 (STEMI / 高K血症)', async () => {
+    const results = await searchWithEmbeddingGemma('胸痛 ST上昇 V1〜V4 急性心筋梗塞', 'all', 10, true);
+    expect(results.length).toBeGreaterThan(0);
+
+    const hasAtlas = results.some(
+      (r) =>
+        r.title.includes('心筋梗塞') ||
+        r.title.includes('STEMI') ||
+        r.title.includes('アトラス') ||
+        r.category === '心電図'
+    );
+    expect(hasAtlas).toBe(true);
+  });
+
+  it('9. 臨床スコアリングのセマンティック検索精度 (CHADS2 / A-DROP)', async () => {
+    const results = await searchWithEmbeddingGemma('心房細動の脳梗塞リスクスコア 年齢や糖尿病', 'all', 10, true);
+    expect(results.length).toBeGreaterThan(0);
+
+    const hasScore = results.some(
+      (r) =>
+        r.title.includes('CHADS2') ||
+        r.title.includes('スコア') ||
+        r.content.includes('CHADS2') ||
+        r.category === 'スコアリング'
+    );
+    expect(hasScore).toBe(true);
+  });
+
+  it('10. 持参薬識別・刻印コードのセマンティック検索精度 (タケキャブ20mg)', async () => {
+    const results = await searchWithEmbeddingGemma('タケキャブ 赤色 刻印', 'all', 10, true);
+    expect(results.length).toBeGreaterThan(0);
+
+    const hasDrugId = results.some(
+      (r) =>
+        r.title.includes('タケキャブ') ||
+        r.title.includes('持参薬') ||
+        r.content.includes('ボノプラザン')
+    );
+    expect(hasDrugId).toBe(true);
   });
 });

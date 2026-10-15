@@ -27,11 +27,25 @@ import {
   MedicalSearchItemType,
   searchUnifiedMedicalKnowledge,
 } from '../data/medicalKnowledgeCatalog';
+import {
+  EMERGENCY_PROTOCOLS_CATALOG,
+  CLINICAL_ATLAS_CATALOG,
+  DRUG_IDENTIFICATION_CATALOG,
+  CLINICAL_SCORES_CATALOG,
+  EmergencyProtocolItem,
+  ClinicalAtlasItem,
+  DrugIdentificationItem,
+  ClinicalScoreItem,
+} from '../data/microSdMedicalCatalog';
 
 export interface SemanticSearchResult extends UnifiedMedicalSearchResult {
   semanticScore: number; // 0.0 ~ 1.0 (コサイン類似度)
   hybridScore: number;   // 0.0 ~ 1.0 (RRF / 複合スコア)
   matchedKeywords: string[];
+  emergencyData?: EmergencyProtocolItem;
+  atlasData?: ClinicalAtlasItem;
+  drugIdData?: DrugIdentificationItem;
+  scoreData?: ClinicalScoreItem;
 }
 
 // 臨床セマンティック概念空間の主要ドメインアンカー (128次元基底)
@@ -327,6 +341,66 @@ function resolveKnowledgeDetail(vecItem: EmbeddingGemmaVectorItem): UnifiedMedic
     };
   }
 
+  if (type === 'emergency') {
+    const emItem = EMERGENCY_PROTOCOLS_CATALOG.find((e) => e.id === id);
+    if (!emItem) return null;
+    return {
+      type: 'emer',
+      title: `[救急・中毒] ${emItem.title}`,
+      subtitle: `原因/病態: ${emItem.substanceOrCondition}`,
+      codeOrAttr: `${emItem.category}`,
+      category: emItem.category,
+      content: `【治療/拮抗薬】${emItem.antidoteOrTreatment}\n【初期プロトコル】${emItem.initialProtocol}`,
+      extraInfo: `留意点: ${emItem.cautions} (SD: ${emItem.sdFilePath})`,
+      emergencyData: emItem,
+    };
+  }
+
+  if (type === 'atlas') {
+    const atItem = CLINICAL_ATLAS_CATALOG.find((a) => a.id === id);
+    if (!atItem) return null;
+    return {
+      type: 'atlas',
+      title: `[アトラス画像] ${atItem.title}`,
+      subtitle: `典型所見: ${atItem.typicalFeatures}`,
+      codeOrAttr: `${atItem.category}`,
+      category: atItem.category,
+      content: `【臨床的意義】${atItem.clinicalSignificance}\n【鑑別診断】${atItem.differentialDiagnosis}`,
+      extraInfo: `画像: ${atItem.imageFileName} (SD: ${atItem.sdFilePath})`,
+      atlasData: atItem,
+    };
+  }
+
+  if (type === 'drug_id') {
+    const diItem = DRUG_IDENTIFICATION_CATALOG.find((d) => d.id === id);
+    if (!diItem) return null;
+    return {
+      type: 'drug_id',
+      title: `[持参薬識別] ${diItem.brandName}`,
+      subtitle: `刻印: 【${diItem.imprintCode}】 | 外観: ${diItem.colorAndShape}`,
+      codeOrAttr: `${diItem.category}`,
+      category: diItem.category,
+      content: `【標準用法用量】${diItem.standardDose}\n【禁忌・注意】${diItem.majorCautions}`,
+      extraInfo: `一般名: ${diItem.genericName} (SD: ${diItem.sdFilePath})`,
+      drugIdData: diItem,
+    };
+  }
+
+  if (type === 'score') {
+    const scItem = CLINICAL_SCORES_CATALOG.find((s) => s.id === id);
+    if (!scItem) return null;
+    return {
+      type: 'score',
+      title: `[臨床スコア] ${scItem.scoreName}`,
+      subtitle: `対象: ${scItem.targetClinicalCondition}`,
+      codeOrAttr: `臨床スコアリング`,
+      category: `スコアリング`,
+      content: `【計算式】${scItem.calculationFormula}\n【リスク評価】${scItem.riskEvaluation}`,
+      extraInfo: `臨床アクション: ${scItem.clinicalAction}`,
+      scoreData: scItem,
+    };
+  }
+
   return null;
 }
 
@@ -359,8 +433,13 @@ export async function searchWithEmbeddingGemma(
   // 2. 全アイテムとのコサイン類似度を一括計算 (Float32Array 高速内積)
   const scoredItems: { item: EmbeddingGemmaVectorItem; score: number }[] = [];
   for (const vItem of EMBEDDING_GEMMA_VECTOR_DATABASE) {
-    if (filterType !== 'all' && vItem.type !== filterType) {
-      continue;
+    if (filterType !== 'all') {
+      const matchType =
+        (filterType === 'emer' && vItem.type === 'emergency') ||
+        (filterType === 'drug' && (vItem.type === 'drug' || vItem.type === 'drug_id')) ||
+        (filterType === 'drug_id' && vItem.type === 'drug_id') ||
+        (filterType === (vItem.type as any));
+      if (!matchType) continue;
     }
     const score = computeCosineSimilarity(queryVector, vItem.vector);
     scoredItems.push({ item: vItem, score });

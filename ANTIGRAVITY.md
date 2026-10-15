@@ -85,6 +85,19 @@
   - **6大臨床マスターベクトル化**: Minds 111疾患・CQ、臨床検査値、外来指導管理料、腎機能別減量、処方薬、病名の全206件を 128次元 MRL 正規化ベクトル（`src/data/embeddingGemmaVectors.ts`）として完全常駐化。
   - **ハイブリッド検索 (Lexical BM25 + Dense Semantic RRF)**: キーワード完全一致とセマンティック類似度を Reciprocal Rank Fusion (k=60) で合成。全206件の内積計算が **1ms 未満** で完了する超高速性を実現。単体テスト全6件 PASS。
   - **UI統合**: `MedicalDataSearchModal.tsx` に「⚡ Gemma 2」セマンティック検索トグル、マッチ度パーセンテージ（例: `94% Match`）バッジ、主訴・症状からの臨床逆引きサジェストを完全実装。
+- [x] **ステップ19**: LilyGO T-Dongle-S3 32GB MicroSD (実効29.8GB) 全領域配分マップ ＆ EmbeddingGemma 2 10大医療カテゴリ完全セマンティック検索エンジンの確立 (v2.6.0 / FW v22.0) - 【完了】
+  - **32GB MicroSD (29.8GB) 10大医療カテゴリ構造化ポートフォリオ構築 (`microSdMedicalCatalog.ts`)**:
+    1. ガイドライン原本PDF & Minds全集 (10.5GB / 約450タイトル)
+    2. ローカルAIモデル重み (6.5GB: Qwen2.5-1.5B/7B, EmbeddingGemma 2, Whisper)
+    3. 添付文書全文 & 錠剤識別写真 (4.5GB / 約22,000品目)
+    4. 臨床アトラス画像 (4.0GB / 皮膚科・内視鏡・心電図 約4,000点)
+    5. セマンティック・ベクトル & 全文検索インデックス (1.5GB)
+    6. 救急・中毒・災害医療(DMAT)プロトコル (0.8GB / 有機リン・PAM、アセトアミノフェンOD・NAC、START式トリアージ、アナフィラキシー、JRC心停止ALS)
+    7. 医科点数表・外来指導管理料・公的コード・検査・スコアマスター (0.5GB / 約50,000件: CHADS2, HAS-BLED, A-DROP, Centorスコア計算式等)
+    8. システム予約・リードキャッシュ領域 (1.5GB / FAT破損防止 Zero-Write 読取専用保護)
+  - **EmbeddingGemma 2 MRL 128d ベクトルDB拡張 (`embeddingGemmaVectors.ts`)**: 10大医療カテゴリ全225件の臨床マスターを 128次元 MRL 空間へ事前計算・常駐化。全225件のコサイン類似度計算時間は **1ms**。
+  - **PWA UI ＆ 32GB SDマップ視覚化 (`MedicalDataSearchModal.tsx`)**: 10大カテゴリフィルタータブ、32GB MicroSD 全領域配分プログレスバー、救急中毒（解毒薬・初期処置）・アトラスECG（典型所見・画像パス）・持参薬識別（刻印コード・外観）・臨床スコアリング（計算式・推奨アクション）の専用リッチカードUIを完全実装。
+  - **検証**: Vitest 全20件PASS（EmbeddingGemma 10件、KeyStrokeCompiler 10件）、TypeScript型チェック (`tsc --noEmit`) エラー0、Vite 本番ビルド成功。
 
 ---
 

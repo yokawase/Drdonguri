@@ -18,6 +18,12 @@ import {
   PROCEDURES_CATALOG,
   RENAL_DOSE_CATALOG,
 } from '../src/data/medicalKnowledgeCatalog';
+import {
+  EMERGENCY_PROTOCOLS_CATALOG,
+  CLINICAL_ATLAS_CATALOG,
+  DRUG_IDENTIFICATION_CATALOG,
+  CLINICAL_SCORES_CATALOG,
+} from '../src/data/microSdMedicalCatalog';
 
 // 臨床セマンティック概念空間の主要ドメインアンカー (128次元基底)
 const CLINICAL_ANCHORS = [
@@ -138,7 +144,7 @@ function computeMrl128Vector(text: string, taskPrefix: string = 'task: search_do
 
 interface PrecomputedVectorItem {
   id: string;
-  type: 'minds' | 'drug' | 'disease' | 'lab' | 'proc' | 'renal';
+  type: 'minds' | 'drug' | 'disease' | 'lab' | 'proc' | 'renal' | 'emergency' | 'atlas' | 'drug_id' | 'score';
   category: string;
   title: string;
   vector: number[];
@@ -220,6 +226,54 @@ function generateAllVectors(): PrecomputedVectorItem[] {
     });
   }
 
+  // 7. 救急・中毒・災害DMATプロトコル (新規)
+  for (const em of EMERGENCY_PROTOCOLS_CATALOG) {
+    const docText = `${em.title} ${em.category} ${em.substanceOrCondition} ${em.antidoteOrTreatment} ${em.initialProtocol} ${em.triageOrScore} ${em.cautions}`;
+    items.push({
+      id: em.id,
+      type: 'emergency',
+      category: em.category,
+      title: `[救急・中毒] ${em.title}`,
+      vector: computeMrl128Vector(docText),
+    });
+  }
+
+  // 8. 臨床医学アトラス (皮膚科・内視鏡・心電図) (新規)
+  for (const at of CLINICAL_ATLAS_CATALOG) {
+    const docText = `${at.title} ${at.category} ${at.typicalFeatures} ${at.clinicalSignificance} ${at.differentialDiagnosis}`;
+    items.push({
+      id: at.id,
+      type: 'atlas',
+      category: at.category,
+      title: `[アトラス画像] ${at.title}`,
+      vector: computeMrl128Vector(docText),
+    });
+  }
+
+  // 9. 医薬品添付文書 ＆ 錠剤刻印・持参薬識別 (新規)
+  for (const di of DRUG_IDENTIFICATION_CATALOG) {
+    const docText = `${di.brandName} ${di.genericName} 刻印:${di.imprintCode} ${di.colorAndShape} ${di.category} ${di.standardDose} ${di.majorCautions}`;
+    items.push({
+      id: di.id,
+      type: 'drug_id',
+      category: di.category,
+      title: `[持参薬識別] ${di.brandName} (刻印: ${di.imprintCode})`,
+      vector: computeMrl128Vector(docText),
+    });
+  }
+
+  // 10. 臨床医学スコアリング ＆ 薬物相互作用 (新規)
+  for (const sc of CLINICAL_SCORES_CATALOG) {
+    const docText = `${sc.scoreName} ${sc.targetClinicalCondition} ${sc.calculationFormula} ${sc.riskEvaluation} ${sc.clinicalAction}`;
+    items.push({
+      id: sc.id,
+      type: 'score',
+      category: '臨床スコア',
+      title: `[臨床スコア] ${sc.scoreName}`,
+      vector: computeMrl128Vector(docText),
+    });
+  }
+
   return items;
 }
 
@@ -234,13 +288,13 @@ function run() {
  * Google DeepMind EmbeddingGemma 2 仕様準拠 (270M Text Backbone MRL 128d)
  * 
  * 自動生成: scripts/generate_embedding_gemma_vectors.ts
- * アイテム総数: ${vectors.length} 件 (全6大医療マスター完全網羅)
+ * アイテム総数: ${vectors.length} 件 (T-Dongle-S3 32GB SDカード 10大医療マスター完全網羅)
  * ベクトル次元: 128次元 (MRL L2 Unit Normalized, 内積 = コサイン類似度)
  */
 
 export interface EmbeddingGemmaVectorItem {
   id: string;
-  type: 'minds' | 'drug' | 'disease' | 'lab' | 'proc' | 'renal';
+  type: 'minds' | 'drug' | 'disease' | 'lab' | 'proc' | 'renal' | 'emergency' | 'atlas' | 'drug_id' | 'score';
   category: string;
   title: string;
   vector: number[];

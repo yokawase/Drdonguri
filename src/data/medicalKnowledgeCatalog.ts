@@ -13,6 +13,13 @@
  * 自動生成スクリプト: scripts/generate_medical_search_catalog.py
  */
 
+import {
+  EmergencyProtocolItem,
+  ClinicalAtlasItem,
+  DrugIdentificationItem,
+  ClinicalScoreItem,
+} from './microSdMedicalCatalog';
+
 export interface MindsKnowledgeItem {
   id: string;
   icd10: string;
@@ -79,7 +86,7 @@ export interface RenalDoseKnowledgeItem {
   clinicalTip: string;
 }
 
-export type MedicalSearchItemType = 'minds' | 'drug' | 'disease' | 'lab' | 'proc' | 'renal';
+export type MedicalSearchItemType = 'minds' | 'drug' | 'disease' | 'lab' | 'proc' | 'renal' | 'emer' | 'atlas' | 'drug_id' | 'score';
 
 export interface UnifiedMedicalSearchResult {
   type: MedicalSearchItemType;
@@ -95,6 +102,10 @@ export interface UnifiedMedicalSearchResult {
   labData?: LabTestKnowledgeItem;
   procData?: ProcedureKnowledgeItem;
   renalData?: RenalDoseKnowledgeItem;
+  emergencyData?: EmergencyProtocolItem;
+  atlasData?: ClinicalAtlasItem;
+  drugIdData?: DrugIdentificationItem;
+  scoreData?: ClinicalScoreItem;
 }
 
 export const MINDS_KNOWLEDGE_CATALOG: MindsKnowledgeItem[] = [
@@ -3046,7 +3057,7 @@ export const RENAL_DOSE_CATALOG: RenalDoseKnowledgeItem[] = [
  */
 export function searchUnifiedMedicalKnowledge(
   query: string,
-  filterType: 'all' | 'minds' | 'drug' | 'disease' | 'lab' | 'proc' | 'renal' = 'all',
+  filterType: 'all' | MedicalSearchItemType = 'all',
   limit: number = 30
 ): UnifiedMedicalSearchResult[] {
   if (!query || !query.trim()) return [];
