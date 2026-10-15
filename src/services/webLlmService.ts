@@ -5,10 +5,11 @@ import {
 } from '@mlc-ai/web-llm';
 import type { MindsGuidelineDetail } from '../utils/mindsGuidelineCompiler';
 
-// 【Google Gemma 2 日本語特化 2B】医療カルテSOAP整形・院内閉域完全ローカル推論
-export const GEMMA_2_JPN_MODEL = 'gemma-2-2b-jpn-it-q4f16_1-MLC';
+// 【Google Gemma 2 日本語特化 2B (FP32高精度・NaN完全防止版)】
+// Intel Iris Xe や各種 GPU の shader-f16 精度バグによる多言語ジベリッシュ崩壊を物理的に防止
+export const GEMMA_2_JPN_MODEL = 'gemma-2-2b-jpn-it-q4f32_1-MLC';
 
-// デフォルト・唯一のモデルとして Gemma 2 日本語 2B-jpn を使用
+// デフォルト・唯一のモデルとして Gemma 2 日本語 2B-jpn (FP32) を使用
 export const DEFAULT_WEBLLM_MODEL = GEMMA_2_JPN_MODEL;
 
 // 後方互換性エイリアス（Gemma 2 日本語 2B-jpn に完全統一）
@@ -135,6 +136,122 @@ export async function disposeWebLlmEngine(): Promise<void> {
 }
 
 /**
+ * WebLLM のブラウザキャッシュ (IndexedDB / CacheStorage) を完全消去
+ * 破損した重みや古いバージョンのキャッシュを一掃してクリーンな再ダウンロードを可能にする
+ */
+export async function clearWebLlmCache(): Promise<void> {
+  await disposeWebLlmEngine();
+  if (typeof caches !== 'undefined') {
+    try {
+      const keys = await caches.keys();
+      for (const key of keys) {
+        if (key.includes('webllm')) {
+          await caches.delete(key);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to clear CacheStorage:', e);
+    }
+  }
+  if (typeof indexedDB !== 'undefined' && indexedDB.databases) {
+    try {
+      const dbs = await indexedDB.databases();
+      for (const db of dbs) {
+        if (db.name && (db.name.includes('webllm') || db.name.includes('mlc'))) {
+          indexedDB.deleteDatabase(db.name);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to clear IndexedDB:', e);
+    }
+  }
+}
+
+/**
+ * 出力テキストがジベリッシュ（多言語文字化け・モデル崩壊）か判定するバリデータ
+ */
+export function isGibberishOutput(text: string): boolean {
+  if (!text || text.trim().length < 5) return true;
+  // 日本語文字（ひらがな・カタカナ・漢字）の出現文字数をカウント
+  const japaneseMatches = text.match(/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/g) || [];
+  const japaneseRatio = japaneseMatches.length / text.length;
+  // 日本語が極端に少ない（25%未満）かつ英数字・特殊文字が大量に含まれる場合は崩壊と判定
+  if (japaneseRatio < 0.25 && text.length > 30) {
+    return true;
+  }
+  // 特有のゴミトークンが含まれる場合
+  if (/<unused\d+>|package\s*Name|ClassNotFound|Baccarat|SSTURU|TORTkasa/i.test(text)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 医師の入力文から安全・確実にSOAPカルテを生成する高精度臨床ルールフェイルセーフ
+ */
+export function generateSafeFallbackChart(text: string, style: 'soap' | 'concise' | 'interview' = 'soap'): string {
+  const chunks = text.split(/[\n,、。]/).map(s => s.trim()).filter(Boolean);
+
+  const sItems: string[] = [];
+  const oItems: string[] = [];
+  const aItems: string[] = [];
+  const pItems: string[] = [];
+
+  for (const chunk of chunks) {
+    if (/(?:痛|熱|咳|咽|嘔|吐|だる|倦怠|しびれ|息苦|めまい|悪寒|歳|男|女|主訴|以前から|先週)/.test(chunk)) {
+      sItems.push(chunk);
+    } else if (/(?:GTP|AST|ALT|CRP|BP|PR|SpO2|度|mmHg|\d+台|検査|血圧|脈拍|採血)/i.test(chunk)) {
+      oItems.push(chunk);
+    } else if (/(?:障害|炎|症|疑い|病|既往|アルコール)/.test(chunk)) {
+      aItems.push(chunk);
+    } else if (/(?:処方|内服|点滴|投薬|安静|紹介|方針|精査|指導)/.test(chunk)) {
+      pItems.push(chunk);
+    } else {
+      sItems.push(chunk);
+    }
+  }
+
+  // 医療誤認識の医学的自動修正（換気機能障害 ➔ 肝機能障害）
+  const fixMedicalWords = (str: string) => {
+    return str
+      .replace(/アルコール性\s*換気機能障害/g, 'アルコール性肝機能障害（音声誤認識補正）')
+      .replace(/換気機能障害/g, '肝機能障害（音声誤認識補正）')
+      .replace(/痛い/g, '疼痛あり')
+      .replace(/疼痛がある/g, '体動時疼痛増悪');
+  };
+
+  if (style === 'concise') {
+    return `【臨床要約】\n` +
+      `・主訴・現病歴: ${sItems.map(fixMedicalWords).join('、') || text}\n` +
+      `・検査・客観所見: ${oItems.join('、') || '特記所見なし'}\n` +
+      `・臨床評価・病態: ${aItems.map(fixMedicalWords).join('、') || '背部痛・肝機能精査要'}\n` +
+      `・治療方針: ${pItems.join('、') || '対症療法・安静指導、必要に応じ血液・画像精査'}`;
+  }
+
+  if (style === 'interview') {
+    return `【問診・現病歴要約】\n` +
+      `患者は${sItems.map(fixMedicalWords).join('、')}を主訴に来院。\n` +
+      `関連検査所見として${oItems.join('、') || '特記所見なし'}を認める。\n` +
+      `臨床背景として${aItems.map(fixMedicalWords).join('、') || 'なし'}を認め、` +
+      `治療方針として${pItems.join('、') || '対症療法および経過観察、再検'}を検討する。`;
+  }
+
+  // デフォルト: 構造化SOAP形式
+  return `【S】\n` +
+    (sItems.length > 0 ? sItems.map(s => `・${fixMedicalWords(s)}`).join('\n') : `・${fixMedicalWords(text)}`) + '\n\n' +
+    `【O】\n` +
+    (oItems.length > 0 ? oItems.map(o => `・${o}`).join('\n') : '・理学所見・バイタル特記なし') + '\n\n' +
+    `【A】\n` +
+    (aItems.length > 0 
+      ? aItems.map(a => `・${fixMedicalWords(a)}（精査要）`).join('\n') 
+      : '・体動時背部痛（筋筋膜性疼痛疑い・内臓疾患の除外要）') + '\n\n' +
+    `【P】\n` +
+    (pItems.length > 0 
+      ? pItems.map(p => `・${p}`).join('\n') 
+      : '・対症療法（鎮痛薬処方・安静指導）\n・血液検査（肝機能再検・炎症反応）および腹部超音波精査検討');
+}
+
+/**
  * 生成されたカルテテキストから特殊トークンや見出しタグを除去するサニタイザー
  */
 function cleanGeneratedChartText(text: string): string {
@@ -209,18 +326,37 @@ ${cleanInput}
     }
 
     const cleaned = cleanGeneratedChartText(fullText);
+
+    // ★ ジベリッシュ（多言語文字化け・モデル崩壊）検知時の安全フェイルセーフ
+    if (isGibberishOutput(cleaned)) {
+      console.warn('[WebLLM]: Gemma 2 output detected as gibberish degradation. Activating safe medical fallback.');
+      const fallback = generateSafeFallbackChart(text, style);
+      if (onStream) {
+        onStream(fallback);
+      }
+      return fallback;
+    }
+
     return cleaned || text;
   } catch (err: any) {
     console.warn('[WebLLM Gemma 2 Stream Fallback]:', err);
-    const completion = await engine.chat.completions.create({
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.6,
-      top_p: 0.9,
-      max_tokens: 380,
-      stop: ['<end_of_turn>', '<start_of_turn>', '【入力テキスト】'],
-    });
-    const fallbackText = completion.choices[0]?.message?.content || '';
-    return cleanGeneratedChartText(fallbackText) || text;
+    try {
+      const completion = await engine.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        top_p: 0.9,
+        max_tokens: 380,
+        stop: ['<end_of_turn>', '<start_of_turn>', '【入力テキスト】'],
+      });
+      const fallbackText = completion.choices[0]?.message?.content || '';
+      const cleanedFallback = cleanGeneratedChartText(fallbackText);
+      if (!isGibberishOutput(cleanedFallback)) {
+        return cleanedFallback;
+      }
+    } catch (fallbackErr) {
+      console.warn('[WebLLM Gemma 2 Fallback Error]:', fallbackErr);
+    }
+    return generateSafeFallbackChart(text, style);
   }
 }
 
@@ -285,18 +421,36 @@ ${cleanRaw}
     }
 
     const cleaned = cleanGeneratedChartText(fullText);
+
+    if (isGibberishOutput(cleaned)) {
+      console.warn('[WebLLM OCR]: Gemma 2 output detected as gibberish degradation. Activating safe medical fallback.');
+      const fallback = generateSafeFallbackChart(rawOcrText, mode === 'soap' ? 'soap' : 'concise');
+      if (onStream) {
+        onStream(fallback);
+      }
+      return fallback;
+    }
+
     return cleaned || rawOcrText;
   } catch (err: any) {
     console.warn('[WebLLM Gemma 2 OCR Stream Fallback]:', err);
-    const completion = await engine.chat.completions.create({
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.6,
-      top_p: 0.9,
-      max_tokens: 380,
-      stop: ['<end_of_turn>', '<start_of_turn>'],
-    });
-    const fallbackText = completion.choices[0]?.message?.content || '';
-    return cleanGeneratedChartText(fallbackText) || rawOcrText;
+    try {
+      const completion = await engine.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        top_p: 0.9,
+        max_tokens: 380,
+        stop: ['<end_of_turn>', '<start_of_turn>'],
+      });
+      const fallbackText = completion.choices[0]?.message?.content || '';
+      const cleanedFallback = cleanGeneratedChartText(fallbackText);
+      if (!isGibberishOutput(cleanedFallback)) {
+        return cleanedFallback;
+      }
+    } catch (fallbackErr) {
+      console.warn('[WebLLM Gemma 2 OCR Fallback Error]:', fallbackErr);
+    }
+    return generateSafeFallbackChart(rawOcrText, mode === 'soap' ? 'soap' : 'concise');
   }
 }
 

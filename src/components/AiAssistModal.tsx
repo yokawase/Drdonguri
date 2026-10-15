@@ -4,6 +4,7 @@ import {
   formatMedicalChartWithWebLLM,
   isWebGpuSupported,
   isEngineLoaded,
+  clearWebLlmCache,
   GEMMA_2_JPN_MODEL,
   type ModelLoadProgress,
 } from '../services/webLlmService';
@@ -27,8 +28,21 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
   const [progressPercent, setProgressPercent] = useState<number>(0);
   const [resultText, setResultText] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [cacheStatus, setCacheStatus] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const handleClearCache = async () => {
+    try {
+      playMacBeep();
+      setCacheStatus('キャッシュ消去中...');
+      await clearWebLlmCache();
+      setCacheStatus('IndexedDBキャッシュを消去しました。次回起動時に新モデルをロードします。');
+      setTimeout(() => setCacheStatus(null), 4000);
+    } catch (e: any) {
+      setCacheStatus(`消去失敗: ${e.message}`);
+    }
+  };
 
   const handleGenerate = async () => {
     setIsLoading(true);
@@ -108,11 +122,27 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-[11px]">AIエンジン:</span>
               <span className="text-[10px] font-bold bg-black text-white px-1.5 py-0.5 shadow-[1px_1px_0_#888]">
-                Google Gemma 2 日本語 (2B-jpn)
+                Google Gemma 2 日本語 (2B-jpn FP32)
               </span>
             </div>
-            <span className="text-[10px] text-gray-600 font-bold">完全オンデバイス医療校正</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleClearCache}
+                className="text-[9px] px-1.5 py-0.5 border border-gray-400 bg-white hover:bg-red-50 text-gray-700 cursor-pointer"
+                title="ブラウザ内にキャッシュされたモデル重みを消去してリフレッシュします"
+              >
+                🔄 キャッシュ消去
+              </button>
+              <span className="text-[10px] text-gray-600 font-bold hidden sm:inline">院内閉域推論</span>
+            </div>
           </div>
+
+          {cacheStatus && (
+            <div className="p-1.5 bg-yellow-50 border border-yellow-400 text-yellow-900 text-[10px] font-bold">
+              ⚡ {cacheStatus}
+            </div>
+          )}
 
           {/* Format style selector */}
           <div className="border border-black p-2.5 bg-white space-y-1.5">

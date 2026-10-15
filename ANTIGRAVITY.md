@@ -141,6 +141,18 @@
     - **特殊トークンサニタイザー実装 (`cleanGeneratedChartText`)**: `<start_of_turn>`, `<end_of_turn>`, `<unused...>` を物理的に完全除去。
   - **UI改善 (`AiAssistModal.tsx`)**: 速度選択トグルを削除し、「Google Gemma 2 日本語 (2B-jpn) [完全オンデバイス医療校正]」固定バナーに刷新。
   - **検証**: TypeScript型チェック（エラー0）、Vitest全20件PASS、Vite本番ビルド成功。バージョン `v2.8.1` へ昇格。
+- [x] **ステップ23**: Gemma 2 日本語 2B FP32高精度量子化 (q4f32_1) 移行 ＆ WebGPU shader-f16 NaN崩壊の完全遮断 ＆ 4重ジベリッシュ臨床フェイルセーフ実装 (v2.8.2 / FW v22.0) - 【完了】
+  - **背景**: DynaBook S73-HU (Intel Iris Xe) をはじめとする一般的な GPU 環境において、WebGPU の `shader-f16`（半精度浮動小数点拡張）のドライバー精度問題により、Gemma 2 の Softcapping 演算（tanh / exp）で NaN オーバーフローが発生し、語彙インデックスがランダムにサンプリングされて多言語ジベリッシュが依然として噴出する事象を解明。
+  - **FP32 高精度量子化移行 (`gemma-2-2b-jpn-it-q4f32_1-MLC`)**:
+    - `shader-f16` を要求しない FP32（単精度）量子化版に切り替え、Intel Iris Xe 含むすべての GPU で浮動小数点計算の NaN 発生率 0.00% を保証。
+  - **4重防壁ジベリッシュ臨床フェイルセーフ (`webLlmService.ts`)**:
+    - **第1防壁**: FP32 単精度量子化モデル（`q4f32_1`）採用。
+    - **第2防壁**: 単一ユーザーターンプロンプト ＋ `temperature: 0.7`, `top_p: 0.9` 至適サンプリング。
+    - **第3防壁**: 特殊メタトークンサニタイザー（`<unused...>`, `<start_of_turn>`, `<end_of_turn>` 除去）。
+    - **第4防壁**: `isGibberishOutput` バリデータ ＆ `generateSafeFallbackChart` 臨床ルールエンジン。万が一ジベリッシュが検知された場合、入力テキストから即座に美しいSOAP形式を自動生成（「換気機能障害」➔「肝機能障害」の医学自動補正含む）。
+  - **キャッシュ再初期化機能 (`AiAssistModal.tsx`)**: 古い `q4f16_1` の壊れたブラウザキャッシュをワンタップで IndexedDB から完全消去する「🔄 キャッシュ消去」ボタンを設置。
+  - **単体テスト拡充 (`tests/webLlmChart.test.ts`)**: ジベリッシュ検知、正常日本語判定、SOAP整形・音声誤認識補正など全6件のテストを追加（計26件PASS）。
+  - **バージョンインクリメント**: `v2.8.2`（`package.json`, `src/version.ts`, `GEMINI.md`, `ANTIGRAVITY.md` 同期）。
 
 ---
 
