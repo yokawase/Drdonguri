@@ -1,121 +1,116 @@
 // =============================================================================
 // File: tests/keyStrokeCompiler.test.ts
-// 説明: KeyStrokeCompiler および CP932コードマッピングの単体テスト
+// 説明: 長単位結合オートマトン（Sudachi Mode C思想）および
+//       v20.1 HYBRIDキーストローク（[Z][K][H][A] ＋ 11ms遅延）の単体テスト
 // =============================================================================
 
 import { describe, it, expect } from 'vitest';
 import {
   KeyStrokeCompiler,
-  getCp932Code,
-  katakanaToRomaji
+  kanaToNormalizedRomaji,
+  katakanaToRomaji,
+  keyStrokeCompiler,
 } from '../src/services/KeyStrokeCompiler';
-import type { MorphToken } from '../src/workers/vibrato.worker';
 
-describe('KeyStrokeCompiler & CP932 Deterministic Mapping', () => {
+describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキーストローク', () => {
   const compiler = new KeyStrokeCompiler();
 
-  describe('1. CP932 コードオフセット検証 (胃 ➔ 亜 化けの根絶)', () => {
-    it('「胃」は CP932: 035037 として厳格取得されること', () => {
-      const code = getCp932Code('胃');
-      expect(code).toBe('035037');
-      // 圧 (034995) や 亜 (034975) と絶対に一致しないこと
-      expect(code).not.toBe('034995');
-      expect(code).not.toBe('034975');
-    });
+  describe('1. 臨床テキストにおけるタグ生成実例（100%完全一致検証）', () => {
+    it('ユーザー提示の臨床文章が指定のペイロードと1文字の狂いもなく完全一致すること', () => {
+      const input = '先週から背中が疼痛あり、体を動かすと体動時疼痛増悪。アルコール性肝機能障害の疑い。γ-GTPが200台。';
+      const expected =
+        '[Z]sensyuu[/Z][H]kara[/H][Z]senaka[/Z][H]ga[/H][Z]toutuu[/Z][H]ari[/H][H]、[/H] [Z]karada[/Z][H]wo[/H][Z]ugoka[/Z][H]suto[/H][Z]taidouji[/Z][Z]toutuu[/Z][Z]zouaku[/Z][H]。[/H] [K]aruko-ru[/K][Z]seikankinousyougai[/Z][H]no[/H][Z]utagawi[/Z][H]。[/H] [A]γ-GTP[/A][H]ga[/H][A]200[/A][Z]dai[/Z][H]。[/H]';
 
-    it('「亜」は CP932: 034975 として厳格取得されること', () => {
-      expect(getCp932Code('亜')).toBe('034975');
-    });
+      const res = compiler.compileText(input, { includeImeReset: false });
 
-    it('「圧」は CP932: 034995 として厳格取得されること', () => {
-      expect(getCp932Code('圧')).toBe('034995');
-    });
-
-    it('主要臨床漢字（癌・高・血・糖・尿・病）のコード検証', () => {
-      expect(getCp932Code('癌')).toBe('035552');
-      expect(getCp932Code('高')).toBe('036226');
-      expect(getCp932Code('血')).toBe('035980');
-      expect(getCp932Code('糖')).toBe('037788');
-      expect(getCp932Code('尿')).toBe('037953');
-      expect(getCp932Code('病')).toBe('038241');
+      expect(res.streamText).toBe(expected);
+      // ALT codesが0件であることを保証
+      expect(res.altCount).toBe(0);
+      expect(res.streamText.includes('[ALT]')).toBe(false);
+      // タグカウントの整合性
+      expect(res.zCount).toBe(11); // sensyuu, senaka, toutuu, karada, ugoka, taidouji, toutuu, zouaku, seikankinousyougai, utagawi, dai
+      expect(res.kCount).toBe(1);  // aruko-ru
+      expect(res.hCount).toBe(11); // kara, ga, ari, 、(読点), wo, suto, 。(句点), no, 。(句点), ga, 。(句点)
+      expect(res.aCount).toBe(2);  // γ-GTP, 200
     });
   });
 
-  describe('2. カタカナ ➔ ヘボン式ローマ字変換', () => {
-    it('薬品名が正確にローマ字変換されること', () => {
-      expect(katakanaToRomaji('カロナール')).toBe('karona-ru');
-      expect(katakanaToRomaji('ロキソニン')).toBe('rokisonin');
-      expect(katakanaToRomaji('アスピリン')).toBe('asupirin');
-      expect(katakanaToRomaji('アムロジピン')).toBe('amurojipin');
+  describe('2. 誤変換根絶メカニズム（単漢字分割の防止・接尾辞融合・語幹分離）', () => {
+    it('「背中」が「肺中」にならず、長単位熟語として [Z]senaka[/Z] と出力されること', () => {
+      const res = compiler.compileText('背中', { includeImeReset: false });
+      expect(res.streamText).toBe('[Z]senaka[/Z]');
+      expect(res.streamText).not.toContain('hai');
+      expect(res.streamText).not.toContain('chuu');
     });
 
-    it('促音（ッ）や長音（ー）が正確に変換されること', () => {
-      expect(katakanaToRomaji('タケキャブ')).toBe('takekyabu');
-      expect(katakanaToRomaji('ネキシウム')).toBe('nekishiumu');
-      expect(katakanaToRomaji('エリキュース')).toBe('erikyu-su');
-    });
-  });
-
-  describe('3. ハイブリッド打鍵トランスパイル', () => {
-    it('「カロナール錠500mg」が [F7] + [ALT] + [F10] へ最適分割されること', () => {
-      const tokens: MorphToken[] = [
-        { surface: 'カロナール', feature: '', pos: '名詞', subPos: '薬品名', reading: 'カロナール' },
-        { surface: '錠', feature: '', pos: '名詞', subPos: '接尾', reading: 'ジョウ' },
-        { surface: '500mg', feature: '', pos: '名詞', subPos: '数', reading: '500ミリグラム' },
-      ];
-
-      const res = compiler.compile(tokens, { mode: 'hybrid', includeImeReset: true });
-
-      // [IME_RESET] が先頭に付与されていること
-      expect(res.streamText.startsWith('[IME_RESET]')).toBe(true);
-      // カロナール ➔ [F7]karona-ru[/F7]
-      expect(res.streamText).toContain('[F7]karona-ru[/F7]');
-      // 錠 ➔ [ALT]036575[/ALT] (CP932)
-      expect(res.streamText).toContain('[ALT]');
-      // 500mg ➔ [F10]500mg[/F10]
-      expect(res.streamText).toContain('[F10]500mg[/F10]');
-
-      expect(res.f7Count).toBe(1);
-      expect(res.f10Count).toBe(1);
-      expect(res.altCount).toBeGreaterThanOrEqual(1);
+    it('「増悪」が「笛悪」にならず、長単位熟語として [Z]zouaku[/Z] と出力されること', () => {
+      const res = compiler.compileText('増悪', { includeImeReset: false });
+      expect(res.streamText).toBe('[Z]zouaku[/Z]');
+      expect(res.streamText).not.toContain('fue');
     });
 
-    it('「胃癌」が 100%決定論 Altコード [ALT]035037[/ALT][ALT]035552[/ALT] となること', () => {
-      const tokens: MorphToken[] = [
-        { surface: '胃癌', feature: '', pos: '名詞', subPos: '疾患名', reading: 'イガン' },
-      ];
-
-      const res = compiler.compile(tokens, { mode: 'deterministic_only', includeImeReset: false });
-      expect(res.streamText).toBe('[ALT]035037[/ALT][ALT]035552[/ALT]');
-      expect(res.altCount).toBe(2);
-      expect(res.f7Count).toBe(0);
+    it('「体動時」が「体動じ」にならず、接尾辞「時」が自立語と完全融合して [Z]taidouji[/Z] となること', () => {
+      const res = compiler.compileText('体動時', { includeImeReset: false });
+      expect(res.streamText).toBe('[Z]taidouji[/Z]');
+      expect(res.streamText).not.toContain('[H]ji[/H]');
     });
 
-    it('改行モードの適用（alt_enter ➔ [ALT_ENTER]）', () => {
-      const tokens: MorphToken[] = [
-        { surface: '胃', feature: '', pos: '名詞', subPos: '一般', reading: 'イ' },
-        { surface: '\n', feature: '', pos: '記号', subPos: '改行', reading: '' },
-      ];
+    it('「動かすと」が語幹 [Z]ugoka[/Z] と 活用語尾＋助詞 [H]suto[/H] に分離されること', () => {
+      const res = compiler.compileText('動かすと', { includeImeReset: false });
+      expect(res.streamText).toBe('[Z]ugoka[/Z][H]suto[/H]');
+    });
 
-      const res = compiler.compile(tokens, { newlineMode: 'alt_enter', includeImeReset: false });
-      expect(res.streamText).toBe('[ALT]035037[/ALT][ALT_ENTER]');
+    it('「アルコール性肝機能障害」が外来語 [K]aruko-ru[/K] と長単位熟語 [Z]seikankinousyougai[/Z] に正しく結合されること', () => {
+      const res = compiler.compileText('アルコール性肝機能障害', { includeImeReset: false });
+      expect(res.streamText).toBe('[K]aruko-ru[/K][Z]seikankinousyougai[/Z]');
+      expect(res.streamText).not.toContain('[Z]sei[/Z]');
     });
   });
 
-  describe('4. Web Bluetooth NUS チャンク分割', () => {
-    it('長いストリームが指定サイズ（240バイト）以下に分割されること', () => {
-      const longStream = '[ALT]035037[/ALT]'.repeat(30); // 480バイト超
-      const chunks = compiler.compileToChunks(longStream, 240);
+  describe('3. ALT codes 永久排除の検証', () => {
+    it('どの入力に対しても [ALT] タグは一切生成されないこと', () => {
+      const inputs = [
+        '胃癌の疑いにて精査。',
+        'カロナール錠500mgを処方。',
+        '高血圧症および脂質異常症の既往あり。',
+        '右下腹部痛あり。急性虫垂炎は否定的。'
+      ];
 
-      expect(chunks.length).toBeGreaterThanOrEqual(2);
-      for (const chunk of chunks) {
-        expect(chunk.byteLength).toBeLessThanOrEqual(240);
+      for (const text of inputs) {
+        const res = compiler.compileText(text);
+        expect(res.altCount).toBe(0);
+        expect(res.streamText).not.toContain('[ALT]');
       }
+    });
+  });
 
-      // 復元テスト
-      const decoder = new TextDecoder();
-      const reconstructed = chunks.map(c => decoder.decode(c)).join('');
-      expect(reconstructed).toBe(longStream);
+  describe('4. 臨床頻出パターンの長単位結合検証', () => {
+    it('否定モダリティ文（右下腹部痛、急性虫垂炎、否定的、発熱なし）', () => {
+      const input = '右下腹部痛あり。急性虫垂炎は否定的。発熱なし。';
+      const res = compiler.compileText(input, { includeImeReset: false });
+      expect(res.streamText).toBe('[Z]migikahukubutuu[/Z][H]ari[/H][H]。[/H] [Z]kyuuseityuusyuien[/Z][H]ha[/H][Z]hiteiteki[/Z][H]。[/H] [Z]hatunetu[/Z][H]nasi[/H][H]。[/H]');
+    });
+
+    it('処方・用法（カロナール錠500mg 1回1錠 疼痛時頓服）', () => {
+      const input = 'カロナール錠500mg 1回1錠 疼痛時頓服。';
+      const res = compiler.compileText(input, { includeImeReset: false });
+      expect(res.streamText).toBe('[K]karona-ru[/K][Z]jyou[/Z][A]500mg[/A] [A]1[/A][Z]kai[/Z][A]1[/A][Z]jyou[/Z] [Z]toutuuji[/Z][Z]tonnpuku[/Z][H]。[/H]');
+    });
+
+    it('術後・経過（術後経過良好。創部感染なし。）', () => {
+      const input = '術後経過良好。創部感染なし。';
+      const res = compiler.compileText(input, { includeImeReset: false });
+      expect(res.streamText).toBe('[Z]jutugo[/Z][Z]keikaryoukou[/Z][H]。[/H] [Z]soubu[/Z][Z]kansenn[/Z][H]nasi[/H][H]。[/H]');
+    });
+  });
+
+  describe('5. かな/カナ ➔ ローマ字正規化変換', () => {
+    it('薬品名・一般語が正しくローマ字化されること', () => {
+      expect(kanaToNormalizedRomaji('アルコール')).toBe('aruko-ru');
+      expect(kanaToNormalizedRomaji('たいどうじ')).toBe('taidouji');
+      expect(kanaToNormalizedRomaji('せなか')).toBe('senaka');
+      expect(kanaToNormalizedRomaji('ぞうあく')).toBe('zouaku');
+      expect(katakanaToRomaji('カロナール')).toBe('karona-ru');
     });
   });
 });

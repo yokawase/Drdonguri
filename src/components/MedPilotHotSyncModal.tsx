@@ -173,9 +173,9 @@ export const MedPilotHotSyncModal: React.FC<MedPilotHotSyncModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-neutral-100">MedPilot HotSync コプロセッサ</h2>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">v2.5.0-proto</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono">v20.1-HYBRID</span>
               </div>
-              <p className="text-xs text-neutral-400">0.5ms 臨床形態素解析 ＆ 100%決定論 Alt+Numpad / F7 ハイブリッド打鍵</p>
+              <p className="text-xs text-neutral-400">長単位結合オートマトン（Sudachi Mode C思想）＆ v20.1 HYBRIDキーストローク（[Z][K][H][A] ＋ 11ms遅延）</p>
             </div>
           </div>
 
@@ -300,45 +300,37 @@ export const MedPilotHotSyncModal: React.FC<MedPilotHotSyncModalProps> = ({
                 打鍵ストリーム・コンパイラ
               </label>
 
-              {/* モード切替 */}
+              {/* モード表示 */}
               <div className="flex items-center p-0.5 rounded-lg bg-neutral-950 border border-neutral-800 text-xs">
-                <button
-                  onClick={() => setMode('hybrid')}
-                  className={`px-2.5 py-1 rounded-md transition-colors ${
-                    mode === 'hybrid' ? 'bg-neutral-800 text-emerald-400 font-bold' : 'text-neutral-400'
-                  }`}
-                >
-                  F7/F10ハイブリッド (高速)
-                </button>
-                <button
-                  onClick={() => setMode('deterministic_only')}
-                  className={`px-2.5 py-1 rounded-md transition-colors ${
-                    mode === 'deterministic_only' ? 'bg-neutral-800 text-sky-400 font-bold' : 'text-neutral-400'
-                  }`}
-                >
-                  100% Alt+Numpad
-                </button>
+                <div className="px-2.5 py-1 rounded-md bg-neutral-800 text-emerald-400 font-bold flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>v20.1 HYBRID打鍵 ([Z][K][H][A])</span>
+                </div>
               </div>
             </div>
 
             {/* 打鍵統計 */}
             {compileResult && (
-              <div className="grid grid-cols-4 gap-2 text-center text-xs font-mono">
+              <div className="grid grid-cols-5 gap-1.5 text-center text-xs font-mono">
                 <div className="p-2 rounded-lg bg-neutral-950 border border-neutral-800">
                   <div className="text-neutral-500 text-[10px]">総打鍵数</div>
                   <div className="text-emerald-400 font-bold text-sm">{compileResult.totalKeystrokes}</div>
                 </div>
                 <div className="p-2 rounded-lg bg-neutral-950 border border-neutral-800">
-                  <div className="text-neutral-500 text-[10px]">Altコード</div>
-                  <div className="text-sky-400 font-bold text-sm">{compileResult.altCount}</div>
+                  <div className="text-neutral-500 text-[10px]">[Z] 漢字熟語</div>
+                  <div className="text-sky-400 font-bold text-sm">{compileResult.zCount}</div>
                 </div>
                 <div className="p-2 rounded-lg bg-neutral-950 border border-neutral-800">
-                  <div className="text-neutral-500 text-[10px]">F7カタカナ</div>
-                  <div className="text-cyan-400 font-bold text-sm">{compileResult.f7Count}</div>
+                  <div className="text-neutral-500 text-[10px]">[K] F7カナ</div>
+                  <div className="text-cyan-400 font-bold text-sm">{compileResult.kCount}</div>
                 </div>
                 <div className="p-2 rounded-lg bg-neutral-950 border border-neutral-800">
-                  <div className="text-neutral-500 text-[10px]">F10英数</div>
-                  <div className="text-indigo-400 font-bold text-sm">{compileResult.f10Count}</div>
+                  <div className="text-neutral-500 text-[10px]">[H] 助詞/語尾</div>
+                  <div className="text-amber-400 font-bold text-sm">{compileResult.hCount}</div>
+                </div>
+                <div className="p-2 rounded-lg bg-neutral-950 border border-neutral-800">
+                  <div className="text-neutral-500 text-[10px]">[A] 半角ASCII</div>
+                  <div className="text-indigo-400 font-bold text-sm">{compileResult.aCount}</div>
                 </div>
               </div>
             )}
@@ -355,7 +347,7 @@ export const MedPilotHotSyncModal: React.FC<MedPilotHotSyncModalProps> = ({
             <div className="p-3 rounded-xl bg-neutral-950/60 border border-neutral-800 flex items-center justify-between text-xs text-neutral-400">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>11msディレイ ＋ ダミーShift空打ち ＋ IME強制同期</span>
+                <span>ALT codes排除 ＆ 長単位結合 ＆ 11ms安全遅延 ＆ Altメニュー誤爆根絶</span>
               </div>
               <span className="text-emerald-400 font-mono text-[11px]">誤爆率 0.00%</span>
             </div>

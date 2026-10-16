@@ -88,14 +88,23 @@ public:
   // 6. 半角英数打鍵（直接ASCII打鍵 ➔ F10半角変換 ➔ Enter確定）
   void sendAsciiF10(const char* ascii);
 
-  // 7. 安全な単一ASCII文字打鍵 (JIS記号補正付き)
+  // 7. [Z] 漢字熟語・自立語打鍵（ローマ字打鍵 ➔ Space変換 ➔ Enter確定）
+  void sendKanjiZ(const char* romaji);
+
+  // 8. [H] 助詞・語尾・ひらがな打鍵（ローマ字打鍵 ➔ Enter即時確定 / Space禁止）
+  void sendHiraganaH(const char* romaji);
+
+  // 9. [G] ギリシャ文字・医学記号打鍵（ローマ字打鍵 ➔ Space2回 ➔ Enter確定）
+  void sendGreekG(const char* romaji);
+
+  // 10. 安全な単一ASCII文字打鍵 (JIS記号補正付き)
   void sendSafeChar(char c);
 
-  // 8. 安全な単一キー送出（KeyUp二重保証）
+  // 11. 安全な単一キー送出（KeyUp二重保証）
   void safeWrite(uint8_t key);
 
-  // 9. メタタグ付きハイブリッド打鍵ストリームの解析送出
-  // [ALT]035037[/ALT], [F7]karona-ru[/F7], [F10]500mg[/F10], [A]text[/A], [IME_RESET], etc.
+  // 12. メタタグ付きハイブリッド打鍵ストリームの解析送出
+  // [Z]...[/Z], [K]...[/K], [H]...[/H], [A]...[/A], [G]...[/G], [IME_RESET], etc.
   void dispatchStream(const char* stream, size_t length, TypingProgressCallback progressCb = nullptr);
 
 private:

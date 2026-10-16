@@ -155,6 +155,56 @@ void DonguriTypingEngine::sendAsciiF10(const char* ascii) {
   delay(TYPING_INTER_REPORT_DELAY_MS);
 }
 
+void DonguriTypingEngine::sendKanjiZ(const char* romaji) {
+  if (romaji == nullptr || romaji[0] == '\0') return;
+
+  for (size_t i = 0; romaji[i] != '\0'; i++) {
+    sendSafeChar(romaji[i]);
+  }
+  delay(20);
+
+  // Space変換（第1候補）
+  safeWrite(' ');
+  delay(35);
+
+  // Enter確定
+  safeWrite(KEY_RETURN);
+  delay(40);
+  forceReleaseAll();
+}
+
+void DonguriTypingEngine::sendHiraganaH(const char* romaji) {
+  if (romaji == nullptr || romaji[0] == '\0') return;
+
+  for (size_t i = 0; romaji[i] != '\0'; i++) {
+    sendSafeChar(romaji[i]);
+  }
+  delay(20);
+
+  // Enter即時確定（Spaceキー禁止・漢字化遮断）
+  safeWrite(KEY_RETURN);
+  delay(40);
+  forceReleaseAll();
+}
+
+void DonguriTypingEngine::sendGreekG(const char* romaji) {
+  if (romaji == nullptr || romaji[0] == '\0') return;
+
+  for (size_t i = 0; romaji[i] != '\0'; i++) {
+    sendSafeChar(romaji[i]);
+  }
+  delay(20);
+
+  // Space 2回 ➔ Enter確定（第2候補 α/β）
+  safeWrite(' ');
+  delay(30);
+  safeWrite(' ');
+  delay(35);
+  safeWrite(KEY_RETURN);
+  delay(40);
+  forceReleaseAll();
+}
+
 void DonguriTypingEngine::safeWrite(uint8_t key) {
   KeyReport rep;
   memset(&rep, 0, sizeof(KeyReport));
@@ -316,7 +366,107 @@ void DonguriTypingEngine::dispatchStream(const char* stream, size_t length, Typi
       continue;
     }
 
-    // 2. [ALT]035037[/ALT] または <ALT>035037</ALT>
+    // 1.1 [Z]...[/Z] (漢字熟語・自立語: Space変換 ➔ Enter確定)
+    if (strncmp(&stream[i], "[Z]", 3) == 0 || strncmp(&stream[i], "<Z>", 3) == 0) {
+      i += 3;
+      char romaji[128] = {0};
+      size_t rlen = 0;
+      while (i < length) {
+        if (strncmp(&stream[i], "[/Z]", 4) == 0 || strncmp(&stream[i], "</Z>", 4) == 0) {
+          i += 4;
+          break;
+        }
+        if (stream[i] == '[' || stream[i] == '<' || stream[i] == '\n' || stream[i] == '\r') {
+          break;
+        }
+        if (rlen < sizeof(romaji) - 1) {
+          romaji[rlen++] = stream[i];
+        }
+        i++;
+      }
+      romaji[rlen] = '\0';
+      if (rlen > 0) {
+        sendKanjiZ(romaji);
+      }
+      continue;
+    }
+
+    // 1.2 [K]...[/K] (全角カタカナ: KEY_F7 ➔ Enter確定)
+    if (strncmp(&stream[i], "[K]", 3) == 0 || strncmp(&stream[i], "<K>", 3) == 0) {
+      i += 3;
+      char romaji[128] = {0};
+      size_t rlen = 0;
+      while (i < length) {
+        if (strncmp(&stream[i], "[/K]", 4) == 0 || strncmp(&stream[i], "</K>", 4) == 0) {
+          i += 4;
+          break;
+        }
+        if (stream[i] == '[' || stream[i] == '<' || stream[i] == '\n' || stream[i] == '\r') {
+          break;
+        }
+        if (rlen < sizeof(romaji) - 1) {
+          romaji[rlen++] = stream[i];
+        }
+        i++;
+      }
+      romaji[rlen] = '\0';
+      if (rlen > 0) {
+        sendKatakanaF7(romaji);
+      }
+      continue;
+    }
+
+    // 1.3 [H]...[/H] (助詞・語尾・ひらがな: Enter即時確定 / Space禁止)
+    if (strncmp(&stream[i], "[H]", 3) == 0 || strncmp(&stream[i], "<H>", 3) == 0) {
+      i += 3;
+      char romaji[128] = {0};
+      size_t rlen = 0;
+      while (i < length) {
+        if (strncmp(&stream[i], "[/H]", 4) == 0 || strncmp(&stream[i], "</H>", 4) == 0) {
+          i += 4;
+          break;
+        }
+        if (stream[i] == '[' || stream[i] == '<' || stream[i] == '\n' || stream[i] == '\r') {
+          break;
+        }
+        if (rlen < sizeof(romaji) - 1) {
+          romaji[rlen++] = stream[i];
+        }
+        i++;
+      }
+      romaji[rlen] = '\0';
+      if (rlen > 0) {
+        sendHiraganaH(romaji);
+      }
+      continue;
+    }
+
+    // 1.4 [G]...[/G] (ギリシャ文字・記号: Space 2回 ➔ Enter確定)
+    if (strncmp(&stream[i], "[G]", 3) == 0 || strncmp(&stream[i], "<G>", 3) == 0) {
+      i += 3;
+      char romaji[64] = {0};
+      size_t rlen = 0;
+      while (i < length) {
+        if (strncmp(&stream[i], "[/G]", 4) == 0 || strncmp(&stream[i], "</G>", 4) == 0) {
+          i += 4;
+          break;
+        }
+        if (stream[i] == '[' || stream[i] == '<' || stream[i] == '\n' || stream[i] == '\r') {
+          break;
+        }
+        if (rlen < sizeof(romaji) - 1) {
+          romaji[rlen++] = stream[i];
+        }
+        i++;
+      }
+      romaji[rlen] = '\0';
+      if (rlen > 0) {
+        sendGreekG(romaji);
+      }
+      continue;
+    }
+
+    // 2. [ALT]035037[/ALT] または <ALT>035037</ALT> (後方互換)
     if (strncmp(&stream[i], "[ALT]", 5) == 0 || strncmp(&stream[i], "<ALT>", 5) == 0) {
       i += 5;
       char digits[16] = {0};

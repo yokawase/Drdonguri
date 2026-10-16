@@ -8,7 +8,7 @@
 - **プロダクト名**: DrVoice どんぐり君！ (`dr-dongly` / `Drdonguri`)
 - **目的**: スマホ音声入力・テキストを、ESP32デバイス（AtomS3U / T-dongle-S3）経由で医療用電子カルテ端末にUSB-HID（キーボード）として超高速・無誤爆で直接打鍵転送するシステム。
 - **公開WebUI (PWA)**: [https://yokawase.github.io/Drdonguri/](https://yokawase.github.io/Drdonguri/)
-- **現在のバージョン**: **`v2.8.2`** (ファームウェア: `v22.0`)
+- **現在のバージョン**: **`v2.9.0`** (ファームウェア: `v22.1`)
 
 ---
 
@@ -37,7 +37,17 @@ T-Dongle-S3 32GB MicroSDおよびPWAセマンティック検索エンジンで�
 3. `git commit` 後、リモートブランチ（`dr-dongly`, `Dr.Dongly`, `main`）へ push
 4. GitHub Actions による GitHub Pages への自動デプロイ完了（`conclusion: success`）を確認する
 
-### ④ チャットの推奨運用
+### ④ ALT codesの完全排除 ＆ 長単位結合オートマトン（Sudachi Mode C）＋ v20.1 HYBRIDキーストローク（恒久採用）
+- **ALT codes直接指定の永久禁止**: OSメニューバー脱落事故（Menu Bar Trap）、レジストリ権限の壁、IME ON/OFF干渉による文字化け、EDR誤検知・パケット爆発の危険があるため、ALT codesは臨床現場で絶対に使用しない。
+- **長単位結合オートマトン（Sudachi Mode C思想）**: 形態素を単漢字に過剰分断せず、複合名詞（「背中」「増悪」等）や医療接尾辞（「体動」＋「時」➔「体動時」）を長単位で一体化し、動詞は語幹（「動か」）と語尾（「すと」）に分離する。
+- **v20.1 HYBRIDキーストローク（11ms遅延）**:
+  - `[Z]`: 漢字熟語・自立語語幹 ➔ 熟語全体の正規化ローマ字打鍵 ➔ Space変換 ➔ Enter確定
+  - `[K]`: 全角カタカナ ➔ 平仮名ローマ字打鍵 ➔ KEY_F7 強制確定
+  - `[H]`: 付属語（助詞/語尾/句読点） ➔ 平仮名ローマ字打鍵 ➔ 即時 Enter 確定 (Space禁止)
+  - `[A]`: 半角英数・記号 ➔ IMEを介さず ASCIIキーコード直接送出 (F10確定)
+- 物理層: 11ms 安全インターキー遅延 ＆ KeyUp二重送出 ＆ Alt/F5完全非使用。
+
+### ⑤ チャットの推奨運用
 - 1つのチャットは **約15〜25ターン** を目安とし、1つのマイルストーン（バージョンリリースや特定機能の完成）が完了した時点で新しいチャットに切り替えることを推奨します。
 - 過去の決定事項は本ファイル（`GEMINI.md`）および [`ANTIGRAVITY.md`](file:///home/medart-code/Drdonguri/ANTIGRAVITY.md) に永続化されています。
 
