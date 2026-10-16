@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { playMacBeep, playSosumi } from '../utils/macAudio';
 import {
   formatMedicalChartWithWebLLM,
+  hasMultilingualArtifacts,
   isWebGpuSupported,
   isEngineLoaded,
   clearWebLlmCache,
@@ -69,10 +70,12 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
           setLoadStatus(report.text || '推論処理中...');
           setProgressPercent(Math.round(report.progress * 100));
         },
-        // ★ リアルタイムストリーミング更新
+        // ★ リアルタイムストリーミング更新（多言語・ジベリッシュ混入時は画面描画を即時ブロック）
         (streamedText: string) => {
-          setResultText(streamedText);
-          setLoadStatus('テキスト出力中...');
+          if (!hasMultilingualArtifacts(streamedText)) {
+            setResultText(streamedText);
+            setLoadStatus('テキスト出力中...');
+          }
         },
         GEMMA_2_JPN_MODEL
       );

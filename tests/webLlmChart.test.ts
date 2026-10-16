@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isGibberishOutput,
+  hasMultilingualArtifacts,
   generateSafeFallbackChart,
   GEMMA_2_JPN_MODEL,
 } from '../src/services/webLlmService';
@@ -10,12 +11,32 @@ describe('WebLLM Gemma 2 日本語カルテ整形 ＆ ジベリッシュ完全�
     expect(GEMMA_2_JPN_MODEL).toBe('gemma-2-2b-jpn-it-q4f32_1-MLC');
   });
 
+  it('リアルタイム生成中の多言語文字混入（キリル、ハングル、アラビア、タイ等）を1文字で即時検知すること', () => {
+    // キリル文字（ロシア語）混入
+    expect(hasMultilingualArtifacts('【S】発熱あり поскольку 咽頭痛')).toBe(true);
+    // ハングル（韓国語）混入
+    expect(hasMultilingualArtifacts('【O】BT 38.0度 습니다')).toBe(true);
+    // アラビア文字混入
+    expect(hasMultilingualArtifacts('【A】急性上気道炎 مرحبا')).toBe(true);
+    // タイ文字混入
+    expect(hasMultilingualArtifacts('【P】処方 สวัสดี')).toBe(true);
+    // ラテン特殊記号（アクセント・ウムラウト等）
+    expect(hasMultilingualArtifacts('unità de la santé')).toBe(true);
+  });
+
+  it('医学略語・英数字（SOAP, BT, PR, BP, SpO2, mg, room air等）を含む正常カルテを多言語と誤判定しないこと', () => {
+    expect(hasMultilingualArtifacts('【S】3日前より発熱あり')).toBe(false);
+    expect(hasMultilingualArtifacts('【O】BT 37.8度, PR 82bpm, BP 124/76mmHg, SpO2 98%(room air)')).toBe(false);
+    expect(hasMultilingualArtifacts('【P】アセトアミノフェン錠500mg 1回1錠 頓服')).toBe(false);
+  });
+
   it('ユーザー報告の多言語ジベリッシュ崩壊テキストを確実に検知・ブロックすること', () => {
     // ユーザー報告のジベリッシュ文字列
     const gibberishText =
       "arkasagonal Respectfully unitàRocks GON습니다ouragethral SSTURU gamefcntl HRM поскольку Threadsнциклоペtplatz produkt WithoutтельностьineſsLOC packageName";
     
     expect(isGibberishOutput(gibberishText)).toBe(true);
+    expect(hasMultilingualArtifacts(gibberishText)).toBe(true);
   });
 
   it('特殊トークン (<unused45> 等) を含む崩壊テキストを確実に検知すること', () => {

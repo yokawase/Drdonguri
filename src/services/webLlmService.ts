@@ -168,20 +168,45 @@ export async function clearWebLlmCache(): Promise<void> {
   }
 }
 
+// 医療日本語テキストに混入し得ない多言語文字（キリル、ハングル、アラビア、タイ、デーヴァナーガリー、ヘブライ、ラテン特殊文字等）
+export const MULTILINGUAL_ARTIFACT_REGEX =
+  /[\u0400-\u04FF\u0500-\u052F\u2DE0-\u2DFF\uA640-\uA69F\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F\u0600-\u06FF\u0750-\u077F\u0E00-\u0E7F\u0900-\u097F\u0590-\u05FF\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF\u0100-\u024F]/;
+
+/**
+ * リアルタイム生成中に多言語（外国語・非日本語）やジベリッシュが混入していないか判定
+ */
+export function hasMultilingualArtifacts(text: string): boolean {
+  if (!text) return false;
+  // 1. 多言語文字セットの混入を即時検知 (ロシア語、韓国語、アラビア語、アクセント文字等)
+  if (MULTILINGUAL_ARTIFACT_REGEX.test(text)) {
+    return true;
+  }
+  // 2. モデル崩壊特有のゴミトークン検知
+  if (/<unused\d+>|package\s*Name|ClassNotFound|Baccarat|SSTURU|TORTkasa/i.test(text)) {
+    return true;
+  }
+  // 3. 異常な長さの英字連続 (30文字以上)
+  if (/[a-zA-Z]{30,}/.test(text)) {
+    return true;
+  }
+  return false;
+}
+
 /**
  * 出力テキストがジベリッシュ（多言語文字化け・モデル崩壊）か判定するバリデータ
  */
 export function isGibberishOutput(text: string): boolean {
   if (!text || text.trim().length < 5) return true;
+  // 多言語文字または崩壊トークンが含まれる場合は即座に判定
+  if (hasMultilingualArtifacts(text)) {
+    return true;
+  }
+
   // 日本語文字（ひらがな・カタカナ・漢字）の出現文字数をカウント
   const japaneseMatches = text.match(/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/g) || [];
   const japaneseRatio = japaneseMatches.length / text.length;
-  // 日本語が極端に少ない（25%未満）かつ英数字・特殊文字が大量に含まれる場合は崩壊と判定
-  if (japaneseRatio < 0.25 && text.length > 30) {
-    return true;
-  }
-  // 特有のゴミトークンが含まれる場合
-  if (/<unused\d+>|package\s*Name|ClassNotFound|Baccarat|SSTURU|TORTkasa/i.test(text)) {
+  // 日本語が極端に少ない（30%未満）かつ英数字・特殊文字が20文字以上含まれる場合は崩壊と判定
+  if (japaneseRatio < 0.30 && text.length > 20) {
     return true;
   }
   return false;
@@ -291,6 +316,7 @@ export async function formatMedicalChartWithWebLLM(
 医師が入力した以下のテキスト（音声入力メモ等）の誤字脱字・音声誤認識を医学的文脈で修正し、${styleGuides[style]}で出力してください。
 
 【厳守事項】
+- 必ず100%日本語のみで出力してください。外国語（英語、ロシア語、中国語、韓国語等）や意味不明な記号・多言語テキストは絶対に出力してはなりません。
 - 挨拶、解説、前置き、「整形結果:」等の余計な言葉は一切出力せず、指定されたカルテ本文のみを出力すること。
 - 日本語で自然かつ正確な臨床医学用語を用いること。
 
@@ -307,30 +333,44 @@ ${cleanInput}
   try {
     const stream = await engine.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
-      // Gemma 2 Logit Softcapping 特異点崩壊を防止するため temperature=0.6, top_p=0.9 を指定
-      temperature: 0.6,
-      top_p: 0.9,
+      // Gemma 2 多言語ジベリッシュ発散を防止するため低温度・決定論的設定 (temperature=0.2)
+      temperature: 0.2,
+      top_p: 0.85,
       max_tokens: 380,
-      presence_penalty: 0.1,
-      frequency_penalty: 0.1,
+      presence_penalty: 0.0,
+      frequency_penalty: 0.0,
       stop: ['<end_of_turn>', '<start_of_turn>', '【入力テキスト】', '【入力】'],
       stream: true,
     });
 
     let fullText = '';
+    let isDegraded = false;
+
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content || '';
       fullText += delta;
+
+      const currentCleaned = cleanGeneratedChartText(fullText);
+
+      // ★ リアルタイム多言語・ジベリッシュ検知サーキットブレーカー
+      // 生成中のテキストにロシア語、ハングル、外国語ゴミ文字が1文字でも現れたら直ちにストリームを遮断
+      if (hasMultilingualArtifacts(currentCleaned) || (currentCleaned.length > 25 && isGibberishOutput(currentCleaned))) {
+        console.warn('[WebLLM]: Multilingual/gibberish detected during real-time stream. Halting stream immediately.');
+        isDegraded = true;
+        break;
+      }
+
+      // 多言語混入のない安全なテキストのみリアルタイムに画面へ出力
       if (onStream) {
-        onStream(cleanGeneratedChartText(fullText));
+        onStream(currentCleaned);
       }
     }
 
     const cleaned = cleanGeneratedChartText(fullText);
 
     // ★ ジベリッシュ（多言語文字化け・モデル崩壊）検知時の安全フェイルセーフ
-    if (isGibberishOutput(cleaned)) {
-      console.warn('[WebLLM]: Gemma 2 output detected as gibberish degradation. Activating safe medical fallback.');
+    if (isDegraded || isGibberishOutput(cleaned)) {
+      console.warn('[WebLLM]: Gemma 2 output degraded. Activating safe medical fallback.');
       const fallback = generateSafeFallbackChart(text, style);
       if (onStream) {
         onStream(fallback);
@@ -344,8 +384,8 @@ ${cleanInput}
     try {
       const completion = await engine.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        top_p: 0.9,
+        temperature: 0.2,
+        top_p: 0.85,
         max_tokens: 380,
         stop: ['<end_of_turn>', '<start_of_turn>', '【入力テキスト】'],
       });
@@ -387,6 +427,7 @@ export async function refineOcrChartWithWebLLM(
 生OCRテキストの誤認識、ノイズ、単位（mg/dL, %, γ-GTP等）を修正し、${styleDesc}で本文のみ出力してください。
 
 【厳守事項】
+- 必ず100%日本語のみで出力してください。外国語（英語、ロシア語、中国語、韓国語等）や意味不明な記号・多言語テキストは絶対に出力してはなりません。
 - 挨拶、解説、前置きは一切出力せず、補正後のカルテ本文のみを出力すること。
 - 日本語で自然かつ正確な臨床医学用語・薬品名を用いること。
 
@@ -403,27 +444,39 @@ ${cleanRaw}
   try {
     const stream = await engine.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.6,
-      top_p: 0.9,
+      temperature: 0.2,
+      top_p: 0.85,
       max_tokens: 380,
-      presence_penalty: 0.1,
-      frequency_penalty: 0.1,
+      presence_penalty: 0.0,
+      frequency_penalty: 0.0,
       stop: ['<end_of_turn>', '<start_of_turn>', '【OCR生テキスト】'],
       stream: true,
     });
 
     let fullText = '';
+    let isDegraded = false;
+
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content || '';
       fullText += delta;
+
+      const currentCleaned = cleanGeneratedChartText(fullText);
+
+      // ★ リアルタイム多言語・ジベリッシュ検知サーキットブレーカー
+      if (hasMultilingualArtifacts(currentCleaned) || (currentCleaned.length > 25 && isGibberishOutput(currentCleaned))) {
+        console.warn('[WebLLM OCR]: Multilingual/gibberish detected during real-time stream. Halting stream immediately.');
+        isDegraded = true;
+        break;
+      }
+
       if (onStream) {
-        onStream(cleanGeneratedChartText(fullText));
+        onStream(currentCleaned);
       }
     }
 
     const cleaned = cleanGeneratedChartText(fullText);
 
-    if (isGibberishOutput(cleaned)) {
+    if (isDegraded || isGibberishOutput(cleaned)) {
       console.warn('[WebLLM OCR]: Gemma 2 output detected as gibberish degradation. Activating safe medical fallback.');
       const fallback = generateSafeFallbackChart(rawOcrText, mode === 'soap' ? 'soap' : 'concise');
       if (onStream) {
@@ -470,6 +523,10 @@ export async function consultGuidelineWithWebLLM(
   const prompt = `あなたは日本の臨床診療ガイドライン（Minds）に準拠した医療意思決定支援AIです。
 提供された公式エビデンスに基づき、医師のカルテ記載内容に対する臨床的アドバイス、注意すべき禁忌・漫然投与リスク、患者説明の要点を簡潔・明快に出力してください。
 
+【厳守事項】
+- 必ず100%日本語のみで出力してください。外国語（英語、ロシア語、中国語、韓国語等）や多言語テキストは絶対に出力してはなりません。
+- 挨拶、前置きは一切出力せず、臨床アドバイス本文のみを出力すること。
+
 【Mindsガイドライン情報】
 疾患: ${guideline.diseaseName} (ICD-10: ${guideline.icd10})
 CQ: ${guideline.cqTitle}
@@ -486,31 +543,52 @@ ${soapText}
   try {
     const stream = await engine.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.6,
-      top_p: 0.9,
+      temperature: 0.2,
+      top_p: 0.85,
       max_tokens: 350,
-      presence_penalty: 0.1,
-      frequency_penalty: 0.1,
+      presence_penalty: 0.0,
+      frequency_penalty: 0.0,
       stop: ['<end_of_turn>', '<start_of_turn>'],
       stream: true,
     });
 
     let fullText = '';
+    let isDegraded = false;
+
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content || '';
       fullText += delta;
+
+      const currentCleaned = cleanGeneratedChartText(fullText);
+
+      // ★ リアルタイム多言語・ジベリッシュ検知サーキットブレーカー
+      if (hasMultilingualArtifacts(currentCleaned) || (currentCleaned.length > 25 && isGibberishOutput(currentCleaned))) {
+        console.warn('[WebLLM Minds RAG]: Multilingual/gibberish detected during stream. Halting.');
+        isDegraded = true;
+        break;
+      }
+
       if (onStream) {
-        onStream(cleanGeneratedChartText(fullText));
+        onStream(currentCleaned);
       }
     }
 
-    return cleanGeneratedChartText(fullText);
+    const cleaned = cleanGeneratedChartText(fullText);
+    if (isDegraded || isGibberishOutput(cleaned)) {
+      const fallback = `【推奨】${guideline.recommendation}\n【実践要点】${guideline.detail.practiceTip}`;
+      if (onStream) {
+        onStream(fallback);
+      }
+      return fallback;
+    }
+
+    return cleaned || guideline.recommendation;
   } catch (err: any) {
     console.warn('[WebLLM Gemma 2 Minds RAG Stream Fallback]:', err);
     const completion = await engine.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.6,
-      top_p: 0.9,
+      temperature: 0.2,
+      top_p: 0.85,
       max_tokens: 350,
       stop: ['<end_of_turn>', '<start_of_turn>'],
     });
