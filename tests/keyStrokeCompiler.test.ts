@@ -11,6 +11,7 @@ import {
   katakanaToRomaji,
   keyStrokeCompiler,
 } from '../src/services/KeyStrokeCompiler';
+import { preprocessMedicalText } from '../src/utils/medicalTextPreprocessor';
 
 describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキーストローク', () => {
   const compiler = new KeyStrokeCompiler();
@@ -113,4 +114,46 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       expect(katakanaToRomaji('カロナール')).toBe('karona-ru');
     });
   });
+
+  describe('6. ユーザー提示の実機SOAPカルテ臨床文（100%完全検証）', () => {
+    it('SOAP全行が前処理および長単位オートマトンを経て安全かつ正確にタグ付けされること', () => {
+      const rawSoap =
+        '【S】3日前より38.2℃の発熱、咽頭痛、乾性咳嗽あり。市販総合感冒薬内服するも改善乏しく来院。\n' +
+        '【O】BT 37.8℃, PR 82bpm, BP 124/76mmHg, SpO2 98%(room air)\n' +
+        '咽頭発赤(+), 扁桃腫大(-), 呼吸音清, 腹部平坦・軟\n' +
+        '【A】急性上気道炎 (感冒)\n' +
+        '【P】対症療法 (アセトアミノフェン錠500mg 1回1錠 頓服, デキストロメトルファン錠15mg 1回1錠 毎食後 5日分)\n' +
+        '水分摂取励行、発熱持続時は再診指示。';
+
+      const preprocessed = preprocessMedicalText(rawSoap);
+      const res = compiler.compileText(preprocessed.processedText, { includeImeReset: false });
+
+      // 1. ALT codesは完全に0件
+      expect(res.altCount).toBe(0);
+      expect(res.streamText).not.toContain('[ALT]');
+
+      // 2. 医療頻出難読・複合語がすべて適切なタグでカバーされていること
+      expect(res.streamText).toContain('[Z]kannsei[/Z][Z]gaisou[/Z]'); // 乾性咳嗽
+      expect(res.streamText).toContain('[Z]inntou[/Z][Z]hosseki[/Z]'); // 咽頭発赤
+      expect(res.streamText).toContain('[Z]henntou[/Z][Z]syudai[/Z]'); // 扁桃腫大
+      expect(res.streamText).toContain('[Z]kokyuuonn[/Z][Z]sei[/Z]'); // 呼吸音清
+      expect(res.streamText).toContain('[Z]hukubu[/Z][Z]heitann[/Z]'); // 腹部平坦
+      expect(res.streamText).toContain('[Z]kyuusei[/Z][Z]jyoukidouenn[/Z]'); // 急性上気道炎
+      expect(res.streamText).toContain('[K]asetoaminofuxenn[/K]'); // アセトアミノフェン
+      expect(res.streamText).toContain('[K]dekisutorometorufuxann[/K]'); // デキストロメトルファン
+      expect(res.streamText).toContain('[Z]maisyoku[/Z][Z]ato[/Z]'); // 毎食後（真移植後防止の分割）
+      expect(res.streamText).toContain('[Z]suibunn[/Z][Z]sessyu[/Z][Z]reikou[/Z]'); // 水分摂取励行
+      expect(res.streamText).toContain('[Z]saisinn[/Z][Z]siji[/Z]'); // 再診指示
+      expect(res.streamText).toContain('[Z]sihann[/Z][Z]sougou[/Z][Z]kannbouyaku[/Z][Z]naihuku[/Z]'); // 市販総合感冒薬内服
+
+      // 3. 【】および・の正常タグ化
+      expect(res.streamText).toContain('[A]【[/A]');
+      expect(res.streamText).toContain('[A]】[/A]');
+      expect(res.streamText).toContain('[H]・[/H]');
+
+      // 4. 改行が安全な[ENTER]タグにコンパイルされていること
+      expect(res.streamText).toContain('[ENTER]');
+    });
+  });
 });
+

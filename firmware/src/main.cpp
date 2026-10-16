@@ -1210,6 +1210,10 @@ bool dispatchSafeKeystrokes() {
       romaji[rlen] = '\0';
       if (rlen > 0) {
         g_typingEngine.sendHiraganaH(romaji);
+        // 句読点 ([H]、[/H] / [H]。[/H]) 直後のスペーススキップ（電カルへの不要空白挿入防止）
+        if ((strcmp(romaji, "、") == 0 || strcmp(romaji, "。") == 0) && i < total && buf[i] == ' ') {
+          i++;
+        }
       }
       continue;
     }
@@ -1559,20 +1563,17 @@ bool dispatchSafeKeystrokes() {
       if (memcmp(&buf[i], "、", 3) == 0) { sendSafeChar(','); i += 3; continue; }
       if (memcmp(&buf[i], "。", 3) == 0) { sendSafeChar('.'); i += 3; continue; }
       if (memcmp(&buf[i], "【", 3) == 0) {
-        sendSafeChar('[');
-        delay(25);
-        safeWrite(KEY_RETURN);
-        delay(35);
-        forceReleaseAllModifiers();
+        g_typingEngine.sendAsciiF10("【");
         i += 3;
         continue;
       }
       if (memcmp(&buf[i], "】", 3) == 0) {
-        sendSafeChar(']');
-        delay(25);
-        safeWrite(KEY_RETURN);
-        delay(35);
-        forceReleaseAllModifiers();
+        g_typingEngine.sendAsciiF10("】");
+        i += 3;
+        continue;
+      }
+      if (memcmp(&buf[i], "・", 3) == 0) {
+        g_typingEngine.sendHiraganaH("・");
         i += 3;
         continue;
       }

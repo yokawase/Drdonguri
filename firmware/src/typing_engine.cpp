@@ -76,10 +76,22 @@ void DonguriTypingEngine::sendKatakanaF7(const char* romaji) {
   forceReleaseAll();
 }
 
+static void flushAsciiF10Segment(DonguriTypingEngine* engine, bool& hasNonSpace) {
+  if (!hasNonSpace) return;
+  delay(20);
+  engine->safeWrite(KEY_F10);
+  delay(25);
+  engine->safeWrite(KEY_RETURN);
+  delay(35);
+  engine->forceReleaseAll();
+  hasNonSpace = false;
+}
+
 void DonguriTypingEngine::sendAsciiF10(const char* ascii) {
   if (ascii == nullptr || ascii[0] == '\0') return;
 
   bool hasNonSpace = false;
+  char prevAsciiChar = 0;
   size_t i = 0;
   while (ascii[i] != '\0') {
     uint8_t c0 = (uint8_t)ascii[i];
@@ -94,40 +106,63 @@ void DonguriTypingEngine::sendAsciiF10(const char* ascii) {
       else if (c1 == 0xBC) greekRomaji = "myu-";
 
       if (greekRomaji != nullptr) {
-        if (hasNonSpace) {
-          delay(20);
-          safeWrite(KEY_F10);
-          delay(25);
-          safeWrite(KEY_RETURN);
-          delay(35);
-          forceReleaseAll();
-          hasNonSpace = false;
-        }
+        flushAsciiF10Segment(this, hasNonSpace);
+        prevAsciiChar = 0;
         sendGreekG(greekRomaji);
         i += 2;
         continue;
       }
     }
 
-    if (c0 < 0x80) {
-      if (ascii[i] != ' ' && ascii[i] != '\t') {
+    // UTF-8 隅付き括弧 【 (0xE3 0x80 0x90) / 】 (0xE3 0x80 0x91) を半角 [ / ] としてF10確定
+    if (c0 == 0xE3 && ascii[i + 1] != '\0' && ascii[i + 2] != '\0') {
+      uint8_t c1 = (uint8_t)ascii[i + 1];
+      uint8_t c2 = (uint8_t)ascii[i + 2];
+      if (c1 == 0x80 && (c2 == 0x90 || c2 == 0x91)) {
+        flushAsciiF10Segment(this, hasNonSpace);
+        sendSafeChar(c2 == 0x90 ? '[' : ']');
         hasNonSpace = true;
+        flushAsciiF10Segment(this, hasNonSpace);
+        prevAsciiChar = 0;
+        i += 3;
+        continue;
       }
-      sendSafeChar(ascii[i]);
+    }
+
+    if (c0 < 0x80) {
+      char ch = ascii[i];
+      if (ch == ' ' || ch == '\t') {
+        flushAsciiF10Segment(this, hasNonSpace);
+        prevAsciiChar = 0;
+        sendSafeChar(ch);
+        i++;
+        continue;
+      }
+
+      // 括弧・カンマ・コロンは単独でF10確定してIME文節分裂を防止
+      if (ch == '(' || ch == ')' || ch == '[' || ch == ']' || ch == ',') {
+        flushAsciiF10Segment(this, hasNonSpace);
+        sendSafeChar(ch);
+        hasNonSpace = true;
+        flushAsciiF10Segment(this, hasNonSpace);
+        prevAsciiChar = 0;
+        i++;
+        continue;
+      }
+
+      // 小文字(a-z)の直後に大文字(A-Z)が来る場合 (例: mmHg, SpO2) はMS-IMEのShift文節分割を防ぐため一旦F10確定
+      if ((ch >= 'A' && ch <= 'Z') && (prevAsciiChar >= 'a' && prevAsciiChar <= 'z')) {
+        flushAsciiF10Segment(this, hasNonSpace);
+      }
+
+      sendSafeChar(ch);
+      hasNonSpace = true;
+      prevAsciiChar = ch;
     }
     i++;
   }
 
-  if (hasNonSpace) {
-    delay(20);
-    // F10キー（半角変換）打鍵
-    safeWrite(KEY_F10);
-    delay(25);
-    // Enterキー（確定）打鍵
-    safeWrite(KEY_RETURN);
-    delay(35);
-    forceReleaseAll();
-  }
+  flushAsciiF10Segment(this, hasNonSpace);
 }
 
 void DonguriTypingEngine::sendKanjiZ(const char* romaji) {
@@ -244,7 +279,21 @@ void DonguriTypingEngine::sendGreekG(const char* romaji) {
 void DonguriTypingEngine::safeWrite(uint8_t key) {
   KeyReport rep;
   memset(&rep, 0, sizeof(KeyReport));
-  rep.keys[0] = key;
+  if (key == ' ') {
+    rep.keys[0] = 0x2C; // HID Usage: Spacebar (0x20 is '3' in HID!)
+  } else if (key == '\n' || key == '\r') {
+    rep.keys[0] = 0x28; // HID Usage: Enter
+  } else if (key == '\t') {
+    rep.keys[0] = 0x2B; // HID Usage: Tab
+  } else if (key == '\b') {
+    rep.keys[0] = 0x2A; // HID Usage: Backspace
+  } else if (key >= 136) {
+    // Arduino USBHIDKeyboard の特殊キー定数 (KEY_RETURN=0xB0, KEY_F7=0xC8, KEY_F10=0xCB 等) は
+    // HID Usage ID に +136 (0x88) されているため減算して正規のHID Usage IDへ変換する
+    rep.keys[0] = (uint8_t)(key - 136);
+  } else {
+    rep.keys[0] = key;
+  }
   _kbd.sendReport(&rep);
   delay(TYPING_INTER_REPORT_DELAY_MS);
 
@@ -296,11 +345,11 @@ void DonguriTypingEngine::sendSafeChar(char c) {
       rep.keys[0] = 0x2C; // Space
       break;
     case '\t':
-      rep.keys[0] = KEY_TAB;
+      rep.keys[0] = 0x2B; // Tab (HID Usage 0x2B)
       break;
     case '\n':
     case '\r':
-      rep.keys[0] = KEY_RETURN;
+      rep.keys[0] = 0x28; // Enter (HID Usage 0x28)
       break;
     case '-':
       rep.keys[0] = 0x2D; // '-' (JIS)
@@ -473,6 +522,10 @@ void DonguriTypingEngine::dispatchStream(const char* stream, size_t length, Typi
       romaji[rlen] = '\0';
       if (rlen > 0) {
         sendHiraganaH(romaji);
+        // 句読点 ([H]、[/H] / [H]。[/H]) の直後に付与されたストリーム視覚区切り用スペース1文字は物理打鍵しない
+        if ((strcmp(romaji, "、") == 0 || strcmp(romaji, "。") == 0) && i < length && stream[i] == ' ') {
+          i++;
+        }
       }
       continue;
     }
@@ -598,13 +651,24 @@ void DonguriTypingEngine::dispatchStream(const char* stream, size_t length, Typi
       if (strncmp(&stream[i], "<ALT_ENTER>", 11) == 0 || strncmp(&stream[i], "[ALT_ENTER]", 11) == 0) {
         KeyReport rep;
         memset(&rep, 0, sizeof(KeyReport));
-        rep.modifiers = 0x04; // Alt
-        rep.keys[0] = KEY_RETURN;
+        rep.modifiers = 0x04; // Left Alt
+        rep.keys[0] = 0x28;   // HID Enter Usage ID
         _kbd.sendReport(&rep);
         delay(TYPING_INTER_REPORT_DELAY_MS);
         forceReleaseAll();
         clearAltMenuTrap();
         i += 11;
+        continue;
+      }
+      if (strncmp(&stream[i], "<CTRL_ENTER>", 12) == 0 || strncmp(&stream[i], "[CTRL_ENTER]", 12) == 0) {
+        KeyReport rep;
+        memset(&rep, 0, sizeof(KeyReport));
+        rep.modifiers = 0x01; // Left Ctrl
+        rep.keys[0] = 0x28;   // HID Enter Usage ID
+        _kbd.sendReport(&rep);
+        delay(TYPING_INTER_REPORT_DELAY_MS);
+        forceReleaseAll();
+        i += 12;
         continue;
       }
       if (strncmp(&stream[i], "<TAB>", 5) == 0 || strncmp(&stream[i], "[TAB]", 5) == 0) {
