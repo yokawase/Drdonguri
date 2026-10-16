@@ -4,8 +4,7 @@ import {
   playMacBeep, 
   playSosumi 
 } from '../utils/macAudio';
-import { LATEST_FIRMWARE_VERSION } from '../data/firmwareSource';
-import { APP_VERSION } from '../version';
+import { APP_VERSION, LATEST_FIRMWARE_VERSION } from '../version';
 import { AdaptiveMode, DeviceType } from '../hooks/useAdaptiveLayout';
 import { AdaptiveModeSwitcher } from './AdaptiveModeSwitcher';
 import { Menu, X, Smartphone, Tablet, Monitor } from 'lucide-react';
@@ -26,7 +25,6 @@ interface MacMenuBarProps {
   onOpenOcr: () => void;
   onOpenCds: () => void;
   onOpenImeBoost: () => void;
-  onOpenAltHil?: () => void;
   onOpenMedPilot?: () => void;
   onOpenPreprocessor: () => void;
   onOpenAbout: () => void;
@@ -62,7 +60,6 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
   onOpenOcr,
   onOpenCds,
   onOpenImeBoost,
-  onOpenAltHil,
   onOpenMedPilot,
   onOpenPreprocessor,
   onOpenAbout,
@@ -260,14 +257,6 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
                     >
                       <span>🩺 MedPilot 0.5ms形態素 ＆ HotSync</span>
                       <span className="text-[10px] bg-emerald-700 text-white px-1 rounded-sm">HotSync</span>
-                    </button>
-                  )}
-                  {onOpenAltHil && (
-                    <button
-                      onClick={() => handleItemClick(onOpenAltHil)}
-                      className="mac-btn text-left p-1.5 flex items-center gap-1 col-span-2 bg-amber-100 border-black font-bold text-amber-950"
-                    >
-                      <span>⚡ 100%日本語 HILテスト (Alt Numpad)</span>
                     </button>
                   )}
                   {onOpenMedicalSearch && (
@@ -608,15 +597,6 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
                 >
                   <span>🩺 MedPilot 0.5ms形態素 ＆ HotSync</span>
                   <span className="text-[10px] bg-emerald-600 text-white px-1 font-bold">HotSync</span>
-                </button>
-              )}
-              {onOpenAltHil && (
-                <button
-                  onClick={() => handleItemClick(onOpenAltHil)}
-                  className="w-full text-left px-3 py-1 bg-amber-50 hover:bg-black hover:text-white cursor-pointer font-bold flex justify-between border-y border-amber-300/60 my-0.5 text-amber-950 hover:text-white"
-                >
-                  <span>⚡ 100%日本語 HILテスト (Alt Numpad)</span>
-                  <span className="text-[10px] bg-amber-400 text-black px-1 font-bold">HIL</span>
                 </button>
               )}
               <div className="border-b border-black my-1 border-dotted" />

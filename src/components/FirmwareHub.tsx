@@ -13,6 +13,8 @@ import {
   LATEST_FIRMWARE_VERSION, 
   FIRMWARE_RELEASE_TITLE, 
   FIRMWARE_RELEASE_DATE,
+  MAIN_CPP_SOURCE,
+  PLATFORMIO_INI_SOURCE,
   COMPILE_PIPELINE_SH_SOURCE,
   COMPILE_PIPELINE_PY_SOURCE,
   PARTITIONS_8MB_CSV_SOURCE,
@@ -21,14 +23,14 @@ import {
 import { playMacBeep } from '../utils/macAudio';
 
 interface FirmwareHubProps {
-  mainCppCode: string;
-  platformioIniCode: string;
+  mainCppCode?: string;
+  platformioIniCode?: string;
   onClose?: () => void;
 }
 
 export const FirmwareHub: React.FC<FirmwareHubProps> = ({
-  mainCppCode,
-  platformioIniCode,
+  mainCppCode = MAIN_CPP_SOURCE,
+  platformioIniCode = PLATFORMIO_INI_SOURCE,
   onClose,
 }) => {
   const [activeCodeTab, setActiveCodeTab] = useState<'main' | 'ini' | 'pipeline' | 'py' | 'part' | 'ps1'>('main');

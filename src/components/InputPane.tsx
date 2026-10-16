@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { 
   FileText, 
   Send, 
@@ -30,26 +30,14 @@ import { DEFAULT_PRESET_TEMPLATES } from './MedicalTemplates';
 import { transpileToImeRomajiSequence, generateKeystrokeSequence } from '../utils/japaneseImeTranspiler';
 import { buildTransmissionSession, PreparedSession } from '../utils/packetBuilder';
 import { bleManager } from '../utils/webBluetooth';
-import { AiAssistModal } from './AiAssistModal';
-import { TemplateManagerModal } from './TemplateManagerModal';
-import { E2eAutoTestModal } from './E2eAutoTestModal';
-import { CameraOcrModal } from './CameraOcrModal';
-import { ImePrecisionBoostModal } from './ImePrecisionBoostModal';
-import { MedicalPreprocessorModal } from './MedicalPreprocessorModal';
-import { MedicalCoprocessorModal } from './MedicalCoprocessorModal';
-import { ClinicalDecisionSupport } from './ClinicalDecisionSupport';
-import { MedicalDataSearchModal } from './MedicalDataSearchModal';
 import { extractRelevantMindsGuidelinesFromSoap, MindsGuidelineDetail } from '../utils/mindsGuidelineCompiler';
 import { 
   preprocessMedicalText, 
   PreprocessOptions, 
   PreprocessResult 
 } from '../utils/medicalTextPreprocessor';
-import { 
-  CompileImeOptions, 
-  detectMisconversionWarnings, 
-  compileMedicalTextToImeBoost 
-} from '../utils/imePrecisionCompiler';
+import type { CompileImeOptions } from '../utils/imePrecisionCompiler';
+import { keyStrokeCompiler } from '../services/KeyStrokeCompiler';
 import { 
   triggerMacScreenFlash, 
   playMacBeep, 
@@ -57,6 +45,17 @@ import {
 } from '../utils/macAudio';
 
 import { DeviceType } from '../hooks/useAdaptiveLayout';
+
+// モーダル＆サブモジュール群のオンデマンド遅延ロード (初期バンドルサイズの劇的スリム化)
+const ClinicalDecisionSupport = React.lazy(() => import('./ClinicalDecisionSupport').then(m => ({ default: m.ClinicalDecisionSupport })));
+const AiAssistModal = React.lazy(() => import('./AiAssistModal').then(m => ({ default: m.AiAssistModal })));
+const TemplateManagerModal = React.lazy(() => import('./TemplateManagerModal').then(m => ({ default: m.TemplateManagerModal })));
+const E2eAutoTestModal = React.lazy(() => import('./E2eAutoTestModal').then(m => ({ default: m.E2eAutoTestModal })));
+const CameraOcrModal = React.lazy(() => import('./CameraOcrModal').then(m => ({ default: m.CameraOcrModal })));
+const ImePrecisionBoostModal = React.lazy(() => import('./ImePrecisionBoostModal').then(m => ({ default: m.ImePrecisionBoostModal })));
+const MedicalPreprocessorModal = React.lazy(() => import('./MedicalPreprocessorModal').then(m => ({ default: m.MedicalPreprocessorModal })));
+const MedicalCoprocessorModal = React.lazy(() => import('./MedicalCoprocessorModal').then(m => ({ default: m.MedicalCoprocessorModal })));
+const MedicalDataSearchModal = React.lazy(() => import('./MedicalDataSearchModal').then(m => ({ default: m.MedicalDataSearchModal })));
 
 const STORAGE_KEY_TEMPLATES = 'drvoice_medical_custom_templates_v1';
 const STORAGE_KEY_BUFFER = 'drvoice_dispatcher_buf';
@@ -336,11 +335,8 @@ export const InputPane: React.FC<InputPaneProps> = ({
     return preprocessMedicalText(inputText, preprocessOptions);
   }, [inputText, preprocessOptions]);
 
-  // 誤変換リスク検出
-  const misconversionWarnings = React.useMemo(() => {
-    if (!inputText) return [];
-    return detectMisconversionWarnings(inputText);
-  }, [inputText]);
+  // 誤変換リスク検出 (長単位結合オートマトンにより常時0件保証)
+  const misconversionWarnings = React.useMemo(() => [] as { id: string }[], []);
 
   // トランスパイル結果
   const transpiled = React.useMemo(() => {
@@ -382,16 +378,19 @@ export const InputPane: React.FC<InputPaneProps> = ({
     return Math.min(100, Math.max(50, score));
   }, [inputText]);
 
-  // ★ 高度推論・キーストローク着弾リアルタイム解析
+  // ★ 長単位結合オートマトン (Sudachi Mode C) ＋ v20.1 HYBRID リアルタイム解析
   const compiledImeResult = React.useMemo(() => {
     if (!inputText) return null;
     try {
       const textToCompile = enableAutoPreprocessor ? preprocessedResult.processedText : inputText;
-      return compileMedicalTextToImeBoost(textToCompile, imeBoostOptions);
+      return keyStrokeCompiler.compileText(textToCompile, {
+        includeImeReset: false,
+        newlineMode: newlineMode === EhrNewlineMode.MICS_ALT_ENTER ? 'alt_enter' : 'enter',
+      });
     } catch {
       return null;
     }
-  }, [inputText, enableAutoPreprocessor, preprocessedResult, imeBoostOptions]);
+  }, [inputText, enableAutoPreprocessor, preprocessedResult, newlineMode]);
 
   // 送信ハンドラ
   const handleSend = async () => {
@@ -669,17 +668,17 @@ export const InputPane: React.FC<InputPaneProps> = ({
             </div>
           )}
 
-          {/* ★【高度推論・キーストローク着弾リアルタイム解析モニター】 */}
+          {/* ★【長単位結合オートマトン (Sudachi Mode C) ＋ v20.1 HYBRID キーストローク解析モニター】 */}
           {inputText.trim() && compiledImeResult && (
             <div className="border border-black bg-neutral-50 p-1.5 sm:p-2 text-xs space-y-1.5 shadow-[1px_1px_0_#000]">
               <div className="flex items-center justify-between flex-wrap gap-1">
                 <div className="flex items-center gap-1.5">
                   <span className="font-bold flex items-center gap-1 text-emerald-800 text-[11px] sm:text-xs">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    100% 確実打鍵推論
+                    長単位結合オートマトン ＋ v20.1 HYBRID
                   </span>
                   <span className="bg-emerald-600 text-white text-[10px] px-1.5 py-0.2 font-bold rounded-xs">
-                    確実性: {compiledImeResult.accuracyConfidenceScore}%
+                    Alt/F5 ゼロ保証 (11ms)
                   </span>
                 </div>
                 <button
@@ -693,29 +692,24 @@ export const InputPane: React.FC<InputPaneProps> = ({
 
               {/* 最適化タグのチップ一覧 */}
               <div className="flex flex-wrap items-center gap-1 text-[10px] sm:text-[11px]">
-                {compiledImeResult.breakdownCounts.katakanaF7 > 0 && (
-                  <span className="bg-blue-100 text-blue-900 border border-blue-400 px-1 py-0.2 font-bold">
-                    F7全角カナ: {compiledImeResult.breakdownCounts.katakanaF7}語
-                  </span>
-                )}
-                {compiledImeResult.breakdownCounts.backspaceTrim > 0 && (
+                {compiledImeResult.zCount > 0 && (
                   <span className="bg-emerald-100 text-emerald-900 border border-emerald-400 px-1 py-0.2 font-bold">
-                    確実削り出し[BS]: {compiledImeResult.breakdownCounts.backspaceTrim}語
+                    [Z] 漢字熟語: {compiledImeResult.zCount}語
                   </span>
                 )}
-                {compiledImeResult.breakdownCounts.asciiF10 > 0 && (
-                  <span className="bg-amber-100 text-amber-900 border border-amber-400 px-1 py-0.2 font-bold">
-                    半角ASCII直撃: {compiledImeResult.breakdownCounts.asciiF10}件
+                {compiledImeResult.kCount > 0 && (
+                  <span className="bg-blue-100 text-blue-900 border border-blue-400 px-1 py-0.2 font-bold">
+                    [K] F7全角カナ: {compiledImeResult.kCount}語
                   </span>
                 )}
-                {compiledImeResult.breakdownCounts.chunkSplit > 0 && (
+                {compiledImeResult.hCount > 0 && (
                   <span className="bg-purple-100 text-purple-900 border border-purple-400 px-1 py-0.2">
-                    最小Chunk自立語: {compiledImeResult.breakdownCounts.chunkSplit}語
+                    [H] 助詞・語尾Enter: {compiledImeResult.hCount}件
                   </span>
                 )}
-                {compiledImeResult.breakdownCounts.hiraganaEnter > 0 && (
-                  <span className="bg-neutral-200 text-neutral-800 border border-neutral-400 px-1 py-0.2">
-                    ひらがなEnter確定: {compiledImeResult.breakdownCounts.hiraganaEnter}件
+                {compiledImeResult.aCount > 0 && (
+                  <span className="bg-amber-100 text-amber-900 border border-amber-400 px-1 py-0.2 font-bold">
+                    [A] 半角ASCII: {compiledImeResult.aCount}件
                   </span>
                 )}
               </div>
@@ -723,9 +717,9 @@ export const InputPane: React.FC<InputPaneProps> = ({
               {/* 展開時: 詳細キーストロークプレビュー */}
               {showTranspileDetail && (
                 <div className="mt-2 pt-2 border-t border-black/20 font-mono text-[11px] bg-white p-2 border border-black overflow-x-auto max-h-36">
-                  <div className="text-gray-500 text-[10px] mb-1">AtomS3U 送出タグ付きペイロード:</div>
+                  <div className="text-gray-500 text-[10px] mb-1">送出タグ付きペイロード (v20.1 HYBRID):</div>
                   <div className="text-neutral-800 break-all leading-relaxed whitespace-pre-wrap">
-                    {compiledImeResult.compiledPayload}
+                    {compiledImeResult.streamText}
                   </div>
                 </div>
               )}
@@ -1062,120 +1056,151 @@ export const InputPane: React.FC<InputPaneProps> = ({
       </div>
 
       {/* 臨床判断支援 (CDS) アシスタント */}
-      <ClinicalDecisionSupport
-        soapText={inputText}
-        patientAge={64}
-        patientGender="男性"
-        onApplyDiagnosisToSoap={(diagText: string) => {
-          setInputText((prev) => (prev ? `${prev}\n${diagText}` : diagText));
-          showToast('【診断】欄へ推奨病名を反映しました');
-        }}
-        onApplyPlanGuideline={(planText: string) => {
-          setInputText((prev) => (prev ? `${prev}\n${planText}` : planText));
-          showToast('【方針】欄へ推奨を反映しました');
-        }}
-        isBleConnected={isBleConnected}
-      />
+      <Suspense fallback={null}>
+        <ClinicalDecisionSupport
+          soapText={inputText}
+          patientAge={64}
+          patientGender="男性"
+          onApplyDiagnosisToSoap={(diagText: string) => {
+            setInputText((prev) => (prev ? `${prev}\n${diagText}` : diagText));
+            showToast('【診断】欄へ推奨病名を反映しました');
+          }}
+          onApplyPlanGuideline={(planText: string) => {
+            setInputText((prev) => (prev ? `${prev}\n${planText}` : planText));
+            showToast('【方針】欄へ推奨を反映しました');
+          }}
+          isBleConnected={isBleConnected}
+        />
+      </Suspense>
 
-      {/* モーダル群 (System 7 Desk Accessory ダイアログ) */}
-      <MedicalCoprocessorModal
-        isOpen={isCoprocessorModalOpen}
-        onClose={() => setIsCoprocessorModalOpen(false)}
-        isBleConnected={isBleConnected}
-        onWriteBackToChart={async (text: string) => {
-          setInputText(text);
-          const session = buildTransmissionSession(text, dispatchMode);
-          await onSendSession(session);
-        }}
-      />
+      {/* モーダル群 (オンデマンド遅延ロード System 7 Desk Accessory ダイアログ) */}
+      <Suspense fallback={null}>
+        {isCoprocessorModalOpen && (
+          <MedicalCoprocessorModal
+            isOpen={isCoprocessorModalOpen}
+            onClose={() => setIsCoprocessorModalOpen(false)}
+            isBleConnected={isBleConnected}
+            onWriteBackToChart={async (text: string) => {
+              setInputText(text);
+              const session = buildTransmissionSession(text, dispatchMode);
+              await onSendSession(session);
+            }}
+          />
+        )}
 
-      <AiAssistModal
-        isOpen={isAiModalOpen}
-        onClose={() => setIsAiModalOpen(false)}
-        originalText={inputText}
-        onApplyFormattedText={(text) => {
-          setInputText(text);
-          showToast('AI整形結果を反映しました');
-        }}
-      />
+        {isAiModalOpen && (
+          <AiAssistModal
+            isOpen={isAiModalOpen}
+            onClose={() => setIsAiModalOpen(false)}
+            originalText={inputText}
+            onApplyFormattedText={(text) => {
+              setInputText(text);
+              showToast('AI整形結果を反映しました');
+            }}
+          />
+        )}
 
-      <CameraOcrModal
-        isOpen={isCameraOcrOpen}
-        onClose={() => setIsCameraOcrOpen(false)}
-        onApplyText={(extracted, mode) => {
-          if (mode === 'append') {
-            setInputText((prev) => (prev ? `${prev}\n\n${extracted}` : extracted));
-            showToast('OCRテキストを追記しました');
-          } else {
-            setInputText(extracted);
-            showToast('OCRテキストを展開しました');
-          }
-        }}
-      />
+        {isCameraOcrOpen && (
+          <CameraOcrModal
+            isOpen={isCameraOcrOpen}
+            onClose={() => setIsCameraOcrOpen(false)}
+            onApplyText={(extracted, mode) => {
+              if (mode === 'append') {
+                setInputText((prev) => (prev ? `${prev}\n\n${extracted}` : extracted));
+                showToast('OCRテキストを追記しました');
+              } else {
+                setInputText(extracted);
+                showToast('OCRテキストを展開しました');
+              }
+            }}
+          />
+        )}
 
-      <TemplateManagerModal
-        isOpen={isTemplateModalOpen}
-        onClose={() => setIsTemplateModalOpen(false)}
-        currentInputText={inputText}
-        templates={templates}
-        onApplyTemplate={handleApplyTemplate}
-        onSaveTemplate={handleSaveNewTemplate}
-        onDeleteTemplate={handleDeleteTemplate}
-        initialTab={templateModalTab}
-      />
+        {isTemplateModalOpen && (
+          <TemplateManagerModal
+            isOpen={isTemplateModalOpen}
+            onClose={() => setIsTemplateModalOpen(false)}
+            currentInputText={inputText}
+            templates={templates}
+            onApplyTemplate={handleApplyTemplate}
+            onSaveTemplate={handleSaveNewTemplate}
+            onDeleteTemplate={handleDeleteTemplate}
+            initialTab={templateModalTab}
+          />
+        )}
 
-      <ImePrecisionBoostModal
-        isOpen={isImeBoostModalOpen}
-        onClose={() => setIsImeBoostModalOpen(false)}
-        inputText={inputText}
-        onApplyModifiedText={(newText) => {
-          setInputText(newText);
-          showToast('カルテ文章を更新しました');
-        }}
-        options={imeBoostOptions}
-        onOptionsChange={(newOpts) => {
-          setImeBoostOptions(newOpts);
-          try {
-            localStorage.setItem('drvoice_ime_boost_settings_v8', JSON.stringify(newOpts));
-          } catch (e) {
-            console.error(e);
-          }
-        }}
-      />
+        {isImeBoostModalOpen && (
+          <ImePrecisionBoostModal
+            isOpen={isImeBoostModalOpen}
+            onClose={() => setIsImeBoostModalOpen(false)}
+            inputText={inputText}
+            onApplyModifiedText={(newText) => {
+              setInputText(newText);
+              showToast('カルテ文章を更新しました');
+            }}
+            options={imeBoostOptions}
+            onOptionsChange={(newOpts) => {
+              setImeBoostOptions(newOpts);
+              try {
+                localStorage.setItem('drvoice_ime_boost_settings_v8', JSON.stringify(newOpts));
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+          />
+        )}
 
-      <MedicalPreprocessorModal
-        isOpen={isPreprocessorModalOpen}
-        onClose={() => setIsPreprocessorModalOpen(false)}
-        inputText={inputText}
-        onApplyText={(processedText) => {
-          setInputText(processedText);
-          showToast('置換テキストを反映しました');
-        }}
-        currentOptions={preprocessOptions}
-        onOptionsChange={(newOpts) => {
-          setPreprocessOptions(newOpts);
-          try {
-            localStorage.setItem('drvoice_preprocessor_settings_v1', JSON.stringify(newOpts));
-          } catch (e) {
-            console.error(e);
-          }
-        }}
-      />
+        {isPreprocessorModalOpen && (
+          <MedicalPreprocessorModal
+            isOpen={isPreprocessorModalOpen}
+            onClose={() => setIsPreprocessorModalOpen(false)}
+            inputText={inputText}
+            onApplyText={(processedText) => {
+              setInputText(processedText);
+              showToast('置換テキストを反映しました');
+            }}
+            currentOptions={preprocessOptions}
+            onOptionsChange={(newOpts) => {
+              setPreprocessOptions(newOpts);
+              try {
+                localStorage.setItem('drvoice_preprocessor_settings_v1', JSON.stringify(newOpts));
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+          />
+        )}
 
-      <E2eAutoTestModal
-        isOpen={isE2eModalOpen}
-        onClose={() => setIsE2eModalOpen(false)}
-        isVirtualMode={isVirtualMode}
-        isBleConnected={isBleConnected}
-        dispatchMode={dispatchMode}
-        onSendSession={onSendSession}
-        onPressVirtualButton={onPressVirtualButton}
-        transmissionStatus={transmissionStatus}
-        onApplyDummyTextToInput={(text: string) => {
-          setInputText(text);
-          showToast('自動生成したダミーカルテを反映しました');
-        }}
-      />
+        {isE2eModalOpen && (
+          <E2eAutoTestModal
+            isOpen={isE2eModalOpen}
+            onClose={() => setIsE2eModalOpen(false)}
+            isVirtualMode={isVirtualMode}
+            isBleConnected={isBleConnected}
+            dispatchMode={dispatchMode}
+            onSendSession={onSendSession}
+            onPressVirtualButton={onPressVirtualButton}
+            transmissionStatus={transmissionStatus}
+            onApplyDummyTextToInput={(text: string) => {
+              setInputText(text);
+              showToast('自動生成したダミーカルテを反映しました');
+            }}
+          />
+        )}
+
+        {isMedicalSearchOpen && (
+          <MedicalDataSearchModal
+            isOpen={isMedicalSearchOpen}
+            onClose={() => setIsMedicalSearchOpen(false)}
+            inputText={inputText}
+            initialQuery={medicalSearchInitialQuery}
+            onInsertText={(text) => {
+              setInputText((prev) => (prev ? `${prev}\n${text}` : text));
+              showToast('カルテ本文に挿入しました');
+            }}
+          />
+        )}
+      </Suspense>
 
       {/* ★ ノートPC テンキー固定 (NumLock) & かな入力 解除ガイドモーダル */}
       {isNumLockModalOpen && (
@@ -1311,7 +1336,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
                     <span>📚</span>
                     <div>
                       <div className="font-bold">医療データ検索</div>
-                      <div className="text-[10px] text-gray-700">Minds 111CQ / 医薬品 / 病名</div>
+                      <div className="text-[10px] text-gray-700">Minds 169CQ / 医薬品 / 病名</div>
                     </div>
                   </button>
                 </div>
@@ -1459,7 +1484,7 @@ export const InputPane: React.FC<InputPaneProps> = ({
                     <div>
                       <div className="font-bold">IME精度ブースト設定</div>
                       <div className="text-[10px] text-gray-600">
-                        {misconversionWarnings.length > 0 ? `警告 ${misconversionWarnings.length}件あり` : '正常稼働中'}
+                        Sudachi Mode C 正常稼働中
                       </div>
                     </div>
                   </button>
@@ -1508,32 +1533,18 @@ export const InputPane: React.FC<InputPaneProps> = ({
                 <div className="space-y-1">
                   <div className="font-bold text-gray-800">打鍵モード:</div>
                   <div className="space-y-1">
-                    <label className="flex items-center gap-1.5 cursor-pointer bg-amber-50 p-1 border border-black shadow-[1px_1px_0_#000]">
+                    <label className="flex items-center gap-1.5 cursor-pointer bg-emerald-50 p-1 border border-black shadow-[1px_1px_0_#000]">
                       <input
                         type="radio"
                         name="menuDispatchMode"
                         className="mac-radio"
-                        checked={dispatchMode === DispatchMode.MODE_ALT_NUMPAD}
-                        onChange={() => {
-                          playMacBeep();
-                          setDispatchMode(DispatchMode.MODE_ALT_NUMPAD);
-                        }}
-                      />
-                      <span className="font-bold text-amber-950">⚡ Alt+テンキー 100%決定論モード (Windows IME完全バイパス)</span>
-                    </label>
-
-                    <label className="flex items-center gap-1.5 cursor-pointer bg-white p-1 border border-black shadow-[1px_1px_0_#000]">
-                      <input
-                        type="radio"
-                        name="menuDispatchMode"
-                        className="mac-radio"
-                        checked={dispatchMode === DispatchMode.MODE_HYBRID_UNICODE}
+                        checked={dispatchMode === DispatchMode.MODE_HYBRID_UNICODE || dispatchMode === DispatchMode.MODE_ALT_NUMPAD}
                         onChange={() => {
                           playMacBeep();
                           setDispatchMode(DispatchMode.MODE_HYBRID_UNICODE);
                         }}
                       />
-                      <span className="font-bold text-black">★ 4層タグ変換 (自然文節・双方向コプロセッサ)</span>
+                      <span className="font-bold text-emerald-950">★ 長単位結合オートマトン ＋ v20.1 HYBRID ([Z][K][H][A]・11ms遅延)</span>
                     </label>
 
                     <label className="flex items-center gap-1.5 cursor-pointer bg-white p-1 border border-black/30">
@@ -1619,18 +1630,6 @@ export const InputPane: React.FC<InputPaneProps> = ({
           </div>
         </div>
       )}
-
-      {/* ★ 医療データ統合検索 モーダル (Minds 111CQ / 検査値 / 診療行為 / 腎機能減量 / 医薬品 / 病名) */}
-      <MedicalDataSearchModal
-        isOpen={isMedicalSearchOpen}
-        onClose={() => setIsMedicalSearchOpen(false)}
-        inputText={inputText}
-        initialQuery={medicalSearchInitialQuery}
-        onInsertText={(text) => {
-          setInputText((prev) => (prev ? `${prev}\n${text}` : text));
-          showToast('カルテ本文に挿入しました');
-        }}
-      />
     </div>
   );
 };

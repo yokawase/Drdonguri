@@ -7,18 +7,7 @@
 
 import { KANA_ROMAJI_MAP } from '../utils/japaneseImeTranspiler';
 import { JIS_KANJI_ROMAJI } from '../data/jisKanjiRomajiTable';
-import { CP932_NUMPAD_MAP } from '../data/cp932Table';
-import { COMMON_CP932_MAP } from '../utils/altNumpadCompiler';
 import type { MorphToken } from '../workers/vibrato.worker';
-
-// 後方互換エクスポート
-export function getCp932Code(char: string): string | null {
-  if (COMMON_CP932_MAP[char]) return COMMON_CP932_MAP[char];
-  if (CP932_NUMPAD_MAP[char]) return CP932_NUMPAD_MAP[char];
-  const code = char.charCodeAt(0);
-  if (code >= 0x20 && code <= 0x7E) return `0${code}`;
-  return null;
-}
 
 export function katakanaToRomaji(katakana: string): string {
   return kanaToNormalizedRomaji(katakana);

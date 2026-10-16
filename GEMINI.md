@@ -8,7 +8,7 @@
 - **プロダクト名**: DrVoice どんぐり君！ (`dr-dongly` / `Drdonguri`)
 - **目的**: スマホ音声入力・テキストを、ESP32デバイス（AtomS3U / T-dongle-S3）経由で医療用電子カルテ端末にUSB-HID（キーボード）として超高速・無誤爆で直接打鍵転送するシステム。
 - **公開WebUI (PWA)**: [https://yokawase.github.io/Drdonguri/](https://yokawase.github.io/Drdonguri/)
-- **現在のバージョン**: **`v2.9.0`** (ファームウェア: `v22.1`)
+- **現在のバージョン**: **`v2.9.1`** (ファームウェア: `v22.1`)
 
 ---
 
@@ -57,24 +57,22 @@ T-Dongle-S3 32GB MicroSDおよびPWAセマンティック検索エンジンで�
 
 | ファイル / ディレクトリ | 役割・技術スタック |
 | :--- | :--- |
-| [`src/version.ts`](file:///home/medart-code/Drdonguri/src/version.ts) | アプリケーションバージョン (`2.6.0`)・ビルド時刻一元管理 |
+| [`src/version.ts`](file:///home/medart-code/Drdonguri/src/version.ts) | アプリケーションバージョン (`2.9.1`)・ビルド時刻一元管理 |
 | [`src/data/microSdMedicalCatalog.ts`](file:///home/medart-code/Drdonguri/src/data/microSdMedicalCatalog.ts) | 32GB MicroSD 10大医療カテゴリ構造化データ ＆ 29.8GB全領域配分マップ |
 | [`src/services/embeddingGemmaService.ts`](file:///home/medart-code/Drdonguri/src/services/embeddingGemmaService.ts) | Google DeepMind EmbeddingGemma 2 (740M MRL 128d) 臨床セマンティック検索エンジン |
-| [`src/data/embeddingGemmaVectors.ts`](file:///home/medart-code/Drdonguri/src/data/embeddingGemmaVectors.ts) | 10大医療マスター全225件の 128次元 MRL 事前計算ベクトルデータベース |
+| [`src/data/embeddingGemmaVectors.ts`](file:///home/medart-code/Drdonguri/src/data/embeddingGemmaVectors.ts) | 10大医療マスター全283件の 128次元 MRL 事前計算ベクトルデータベース |
 | [`src/workers/embeddingGemma.worker.ts`](file:///home/medart-code/Drdonguri/src/workers/embeddingGemma.worker.ts) | バックグラウンド高速コサイン類似度ランキング Web Worker |
-| [`src/components/MedPilotHotSyncModal.tsx`](file:///home/medart-code/Drdonguri/src/components/MedPilotHotSyncModal.tsx) | MedPilot 0.5ms形態素解析・臨床意思決定支援・100%決定論打鍵HotSync UI |
-| [`src/services/KeyStrokeCompiler.ts`](file:///home/medart-code/Drdonguri/src/services/KeyStrokeCompiler.ts) | 形態素トークン ➔ CP932 Alt+Numpad / F7 / F10 ハイブリッド打鍵トランスパイラ |
+| [`src/components/MedPilotHotSyncModal.tsx`](file:///home/medart-code/Drdonguri/src/components/MedPilotHotSyncModal.tsx) | MedPilot 0.5ms形態素解析・臨床意思決定支援・v20.1 HYBRID HotSync UI |
+| [`src/services/KeyStrokeCompiler.ts`](file:///home/medart-code/Drdonguri/src/services/KeyStrokeCompiler.ts) | 長単位結合オートマトン (Sudachi Mode C) ➔ v20.1 HYBRID (`[Z][K][H][A]`) トランスパイラ |
+| [`src/utils/packetBuilder.ts`](file:///home/medart-code/Drdonguri/src/utils/packetBuilder.ts) | `KeyStrokeCompiler` 直結 BLE セッション＆CRC16パケットビルダー |
 | [`src/services/BleManager.ts`](file:///home/medart-code/Drdonguri/src/services/BleManager.ts) | Web Bluetooth 永続自動再接続 ＆ 仮想プリンタ双方向通信マネージャー |
 | [`src/workers/vibrato.worker.ts`](file:///home/medart-code/Drdonguri/src/workers/vibrato.worker.ts) | 0.5ms形態素解析・モダリティ（否定/疑い/既往）Web Worker |
-| [`firmware/src/typing_engine.cpp`](file:///home/medart-code/Drdonguri/firmware/src/typing_engine.cpp) | 11msディレイ制御 ＆ Alt解放後ダミーShift空打ち（メニュー誤爆防止）HIDエンジン |
+| [`firmware/src/typing_engine.cpp`](file:///home/medart-code/Drdonguri/firmware/src/typing_engine.cpp) | 11msディレイ制御 ＆ v20.1 HYBRID (`[Z][K][H][A]`) HIDエンジン |
 | [`firmware/src/usb_descriptors.c`](file:///home/medart-code/Drdonguri/firmware/src/usb_descriptors.c) | USB-HID Keyboard ＋ 仮想プリンタ (07h) 複合クラスドライバ (MSC完全遮断) |
-| [`src/components/AltNumpadHilModal.tsx`](file:///home/medart-code/Drdonguri/src/components/AltNumpadHilModal.tsx) | Windows標準 Alt+テンキー 100%決定論 日本語転送 HIL実機テストベンチ |
-| [`src/utils/altNumpadCompiler.ts`](file:///home/medart-code/Drdonguri/src/utils/altNumpadCompiler.ts) | Alt+Numpad (Unicode/CP932) 100%決定論コードコンパイラ ＆ 臨床プリセット |
-| [`scripts/flash_alt_numpad_fw.py`](file:///home/medart-code/Drdonguri/scripts/flash_alt_numpad_fw.py) | T-Dongle-S3 ダウンロードモード自動検知＆ファームウェアフラッシャー |
 | [`src/components/MedicalDataSearchModal.tsx`](file:///home/medart-code/Drdonguri/src/components/MedicalDataSearchModal.tsx) | 10大医療データ統合検索モーダル ＆ 32GB SD配分マップ視覚化 ＆ WebLLM RAG |
 | [`src/data/medicalKnowledgeCatalog.ts`](file:///home/medart-code/Drdonguri/src/data/medicalKnowledgeCatalog.ts) | 医療マスターのインクリメンタル検索エンジン |
 | [`scripts/generate_embedding_gemma_vectors.ts`](file:///home/medart-code/Drdonguri/scripts/generate_embedding_gemma_vectors.ts) | EmbeddingGemma 2 MRL 128d ベクトル生成スクリプト |
-| [`src/services/webLlmService.ts`](file:///home/medart-code/Drdonguri/src/services/webLlmService.ts) | WebGPUによる完全ブラウザ内完結・通信不要のローカルLLM (Gemma 2 2B) |
+| [`src/services/webLlmService.ts`](file:///home/medart-code/Drdonguri/src/services/webLlmService.ts) | WebGPUによる完全ブラウザ内完結・通信不要のローカルLLM (Gemma 2 2B FP32) |
 | [`setup_denkaru_printer.ps1`](file:///home/medart-code/Drdonguri/setup_denkaru_printer.ps1) | T-dongle-S3 複合機（仮想プリンタ＋キーボード）のWindows伝カル自動開通スクリプト |
-| [`main.cpp`](file:///home/medart-code/Drdonguri/main.cpp) | AtomS3U / T-dongle-S3 ファームウェア本体（Alt+Numpad 100%決定論＆HYBRID打鍵） |
-| [`ANTIGRAVITY.md`](file:///home/medart-code/Drdonguri/ANTIGRAVITY.md) | 全開発ステップ（ステップ1〜19）の詳細開発履歴・技術仕様書 |
+| [`main.cpp`](file:///home/medart-code/Drdonguri/main.cpp) | AtomS3U / T-dongle-S3 ファームウェア本体 |
+| [`ANTIGRAVITY.md`](file:///home/medart-code/Drdonguri/ANTIGRAVITY.md) | 全開発ステップ（ステップ1〜25）の詳細開発履歴・技術仕様書 |

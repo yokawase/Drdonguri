@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { 
   FileText, 
   Cpu, 
@@ -10,17 +10,7 @@ import {
 } from 'lucide-react';
 import { MacMenuBar } from './components/MacMenuBar';
 import { MacDesktopIcons } from './components/MacDesktopIcons';
-import { AboutMacModal } from './components/AboutMacModal';
-import { MacCalculatorModal } from './components/MacCalculatorModal';
-import { MacScrapbookModal } from './components/MacScrapbookModal';
-import { MacKeyCapsModal } from './components/MacKeyCapsModal';
-import { MacSoundControlModal } from './components/MacSoundControlModal';
-import { MacBombDialog } from './components/MacBombDialog';
 import { InputPane } from './components/InputPane';
-import { DongleConsole } from './components/DongleConsole';
-import { FirmwareHub } from './components/FirmwareHub';
-import { AltNumpadHilModal } from './components/AltNumpadHilModal';
-import { MedPilotHotSyncModal } from './components/MedPilotHotSyncModal';
 import { VirtualDongleSimulator, LED_DEFINITIONS } from './utils/virtualDongle';
 import { BleDongleManager, bleManager } from './utils/webBluetooth';
 import { buildTransmissionSession, PreparedSession } from './utils/packetBuilder';
@@ -31,8 +21,18 @@ import {
   SessionTransmissionStatus, 
   CommunicationLogEntry 
 } from './types';
-import { MAIN_CPP_SOURCE, PLATFORMIO_INI_SOURCE, LATEST_FIRMWARE_VERSION } from './data/firmwareSource';
-import { APP_NAME, APP_VERSION, FULL_VERSION_LABEL, getFormattedBuildDate } from './version';
+import { APP_NAME, APP_VERSION, FULL_VERSION_LABEL, LATEST_FIRMWARE_VERSION, getFormattedBuildDate } from './version';
+
+// オンデマンド遅延ロード (初期バンドルサイズの劇的スリム化)
+const DongleConsole = React.lazy(() => import('./components/DongleConsole').then(m => ({ default: m.DongleConsole })));
+const FirmwareHub = React.lazy(() => import('./components/FirmwareHub').then(m => ({ default: m.FirmwareHub })));
+const MedPilotHotSyncModal = React.lazy(() => import('./components/MedPilotHotSyncModal').then(m => ({ default: m.MedPilotHotSyncModal })));
+const AboutMacModal = React.lazy(() => import('./components/AboutMacModal').then(m => ({ default: m.AboutMacModal })));
+const MacCalculatorModal = React.lazy(() => import('./components/MacCalculatorModal').then(m => ({ default: m.MacCalculatorModal })));
+const MacScrapbookModal = React.lazy(() => import('./components/MacScrapbookModal').then(m => ({ default: m.MacScrapbookModal })));
+const MacKeyCapsModal = React.lazy(() => import('./components/MacKeyCapsModal').then(m => ({ default: m.MacKeyCapsModal })));
+const MacSoundControlModal = React.lazy(() => import('./components/MacSoundControlModal').then(m => ({ default: m.MacSoundControlModal })));
+const MacBombDialog = React.lazy(() => import('./components/MacBombDialog').then(m => ({ default: m.MacBombDialog })));
 import { 
   triggerMacScreenFlash, 
   playMacBeep, 
@@ -115,7 +115,6 @@ export default function App() {
   const [isPreprocessorModalOpen, setIsPreprocessorModalOpen] = useState(false);
   const [isCoprocessorModalOpen, setIsCoprocessorModalOpen] = useState(false);
   const [isMedicalSearchOpen, setIsMedicalSearchOpen] = useState(false);
-  const [isAltNumpadHilOpen, setIsAltNumpadHilOpen] = useState(false);
   const [isMedPilotHotSyncOpen, setIsMedPilotHotSyncOpen] = useState(false);
 
   // 通知バナー
@@ -585,7 +584,6 @@ export default function App() {
         onOpenOcr={() => { setActiveTab('input'); setIsCameraOcrOpen(true); }}
         onOpenCds={() => { setActiveTab('input'); }}
         onOpenImeBoost={() => { setActiveTab('input'); setIsImeBoostModalOpen(true); }}
-        onOpenAltHil={() => setIsAltNumpadHilOpen(true)}
         onOpenMedPilot={() => setIsMedPilotHotSyncOpen(true)}
         onOpenPreprocessor={() => { setActiveTab('input'); setIsPreprocessorModalOpen(true); }}
         onOpenAbout={() => setIsAboutModalOpen(true)}
@@ -613,7 +611,6 @@ export default function App() {
         onOpenDongle={() => setActiveTab('dongle')}
         onOpenFirmware={() => setActiveTab('firmware')}
         onOpenCoprocessor={() => { setActiveTab('input'); setIsCoprocessorModalOpen(true); }}
-        onOpenAltHil={() => setIsAltNumpadHilOpen(true)}
         onOpenMedPilot={() => setIsMedPilotHotSyncOpen(true)}
         onClearChart={handleEmptyTrash}
         hasChartContent={Boolean(inputText.trim())}
@@ -663,22 +660,10 @@ export default function App() {
           <button
             onClick={() => {
               playMacBeep();
-              setIsAltNumpadHilOpen(true);
-            }}
-            className="mac-btn shrink-0 bg-amber-100 hover:bg-amber-200 border border-black font-bold flex items-center gap-1 text-xs shadow-[1px_1px_0_#000] text-amber-950"
-            title="Windows標準 Alt+テンキー (Alt Numpad) 100%決定論 日本語転送システムのHIL実機テストベンチを開く"
-          >
-            <span>⚡ 100%日本語 HILテスト</span>
-            <span className="text-[9px] bg-amber-400 text-black px-1 font-mono font-bold">Alt</span>
-          </button>
-
-          <button
-            onClick={() => {
-              playMacBeep();
               setIsMedPilotHotSyncOpen(true);
             }}
             className="mac-btn shrink-0 bg-emerald-100 hover:bg-emerald-200 border border-black font-bold flex items-center gap-1 text-xs shadow-[1px_1px_0_#000] text-emerald-950"
-            title="MedPilot: 0.5ms臨床形態素解析 ＆ 100%決定論Alt/F7 HotSyncコプロセッサを開く"
+            title="MedPilot: 0.5ms臨床形態素解析 ＆ Sudachi Mode C + v20.1 HYBRID HotSyncコプロセッサを開く"
           >
             <span>🩺 MedPilot HotSync</span>
             <span className="text-[9px] bg-emerald-700 text-white px-1 font-mono font-bold">0.5ms</span>
@@ -703,7 +688,7 @@ export default function App() {
               setIsMedicalSearchOpen(true);
             }}
             className="mac-btn shrink-0 bg-emerald-50 hover:bg-emerald-100 border border-black font-bold flex items-center gap-1 text-xs shadow-[1px_1px_0_#000]"
-            title="Minds 111疾患・検査値・診療行為・腎機能減量・医薬品・病名を即時検索"
+            title="Minds 169CQ・検査値・診療行為・腎機能減量・医薬品・病名を即時検索"
           >
             <span>📚 医療データ検索</span>
           </button>
@@ -787,32 +772,34 @@ export default function App() {
         )}
 
         {activeTab === 'dongle' && (
-          <DongleConsole
-            currentState={currentState}
-            ledStatus={ledStatus}
-            isUsbMounted={isUsbMounted}
-            isBleConnected={isBleConnected}
-            isVirtualMode={isVirtualMode}
-            transmissionStatus={transmissionStatus}
-            logs={logs}
-            onPressButton={handlePressButton}
-            onClearLogs={() => setLogs([])}
-            onToggleUsbMounted={handleToggleUsbMounted}
-            onSendPing={handleSendPing}
-            onSendWipe={handleSendWipe}
-            onSendLedTest={handleSendLedTest}
-            onRequestStatus={handleRequestStatus}
-            onRequestDictInfo={handleRequestDictInfo}
-            onClose={() => setActiveTab('input')}
-          />
+          <Suspense fallback={null}>
+            <DongleConsole
+              currentState={currentState}
+              ledStatus={ledStatus}
+              isUsbMounted={isUsbMounted}
+              isBleConnected={isBleConnected}
+              isVirtualMode={isVirtualMode}
+              transmissionStatus={transmissionStatus}
+              logs={logs}
+              onPressButton={handlePressButton}
+              onClearLogs={() => setLogs([])}
+              onToggleUsbMounted={handleToggleUsbMounted}
+              onSendPing={handleSendPing}
+              onSendWipe={handleSendWipe}
+              onSendLedTest={handleSendLedTest}
+              onRequestStatus={handleRequestStatus}
+              onRequestDictInfo={handleRequestDictInfo}
+              onClose={() => setActiveTab('input')}
+            />
+          </Suspense>
         )}
 
         {activeTab === 'firmware' && (
-          <FirmwareHub
-            mainCppCode={MAIN_CPP_SOURCE}
-            platformioIniCode={PLATFORMIO_INI_SOURCE}
-            onClose={() => setActiveTab('input')}
-          />
+          <Suspense fallback={null}>
+            <FirmwareHub
+              onClose={() => setActiveTab('input')}
+            />
+          </Suspense>
         )}
       </main>
 
@@ -912,73 +899,68 @@ export default function App() {
       )}
 
       {/* ======================================================================= */}
+      {/* 5〜8. オンデマンド遅延ロード モーダル群 */}
       {/* ======================================================================= */}
-      {/* 5. 「この Mac について (About This Macintosh)」モーダル */}
-      {/* ======================================================================= */}
-      <AboutMacModal
-        isOpen={isAboutModalOpen}
-        onClose={() => setIsAboutModalOpen(false)}
-        isVirtualMode={isVirtualMode}
-        isBleConnected={isBleConnected}
-      />
+      <Suspense fallback={null}>
+        {isAboutModalOpen && (
+          <AboutMacModal
+            isOpen={isAboutModalOpen}
+            onClose={() => setIsAboutModalOpen(false)}
+            isVirtualMode={isVirtualMode}
+            isBleConnected={isBleConnected}
+          />
+        )}
 
-      {/* ======================================================================= */}
-      {/* 6. System 7 Desk Accessories (計算機, スクラップブック, キー配列, サウンド操作盤) */}
-      {/* ======================================================================= */}
-      <MacCalculatorModal
-        isOpen={isCalculatorOpen}
-        onClose={() => setIsCalculatorOpen(false)}
-        onInsertText={handleInsertSnippet}
-      />
+        {isCalculatorOpen && (
+          <MacCalculatorModal
+            isOpen={isCalculatorOpen}
+            onClose={() => setIsCalculatorOpen(false)}
+            onInsertText={handleInsertSnippet}
+          />
+        )}
 
-      <MacScrapbookModal
-        isOpen={isScrapbookOpen}
-        onClose={() => setIsScrapbookOpen(false)}
-        onInsertText={handleInsertSnippet}
-      />
+        {isScrapbookOpen && (
+          <MacScrapbookModal
+            isOpen={isScrapbookOpen}
+            onClose={() => setIsScrapbookOpen(false)}
+            onInsertText={handleInsertSnippet}
+          />
+        )}
 
-      <MacKeyCapsModal
-        isOpen={isKeyCapsOpen}
-        onClose={() => setIsKeyCapsOpen(false)}
-        onInsertText={handleInsertSnippet}
-      />
+        {isKeyCapsOpen && (
+          <MacKeyCapsModal
+            isOpen={isKeyCapsOpen}
+            onClose={() => setIsKeyCapsOpen(false)}
+            onInsertText={handleInsertSnippet}
+          />
+        )}
 
-      <MacSoundControlModal
-        isOpen={isSoundControlOpen}
-        onClose={() => setIsSoundControlOpen(false)}
-      />
+        {isSoundControlOpen && (
+          <MacSoundControlModal
+            isOpen={isSoundControlOpen}
+            onClose={() => setIsSoundControlOpen(false)}
+          />
+        )}
 
-      {/* ======================================================================= */}
-      {/* 7. System 7 爆弾 / 確認ダイアログ (Bomb Dialog) */}
-      {/* ======================================================================= */}
-      <MacBombDialog
-        isOpen={isBombAlertOpen}
-        onClose={() => setIsBombAlertOpen(false)}
-        onConfirmRestart={bombDialogConfig.action}
-        title={bombDialogConfig.title}
-        message={bombDialogConfig.message}
-        errorCode={bombDialogConfig.errorCode}
-      />
+        {isBombAlertOpen && (
+          <MacBombDialog
+            isOpen={isBombAlertOpen}
+            onClose={() => setIsBombAlertOpen(false)}
+            onConfirmRestart={bombDialogConfig.action}
+            title={bombDialogConfig.title}
+            message={bombDialogConfig.message}
+            errorCode={bombDialogConfig.errorCode}
+          />
+        )}
 
-      {/* ======================================================================= */}
-      {/* 8. 100%日本語転送システム HIL実機テストベンチ (Alt Numpad) */}
-      {/* ======================================================================= */}
-      <AltNumpadHilModal
-        isOpen={isAltNumpadHilOpen}
-        onClose={() => setIsAltNumpadHilOpen(false)}
-        bleManager={bleManagerRef.current || bleManager}
-        isBleConnected={isBleConnected}
-        onConnectBle={handleConnectBle}
-      />
-
-      {/* ======================================================================= */}
-      {/* 9. MedPilot HotSync 知識均てん化 ＆ 決定論HotSyncコプロセッサ */}
-      {/* ======================================================================= */}
-      <MedPilotHotSyncModal
-        isOpen={isMedPilotHotSyncOpen}
-        onClose={() => setIsMedPilotHotSyncOpen(false)}
-        initialText={inputText}
-      />
+        {isMedPilotHotSyncOpen && (
+          <MedPilotHotSyncModal
+            isOpen={isMedPilotHotSyncOpen}
+            onClose={() => setIsMedPilotHotSyncOpen(false)}
+            initialText={inputText}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

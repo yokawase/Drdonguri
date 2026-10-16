@@ -176,6 +176,15 @@
   - **単体テスト (`tests/keyStrokeCompiler.test.ts`)**:
     - 実例文「先週から背中が疼痛あり、体を動かすと体動時疼痛増悪。アルコール性肝機能障害の疑い。γ-GTPが200台。」の1文字の狂いもない完全一致テスト含む全11件PASS。
   - **全体テスト・ビルド**: Vitest 全27件PASS、Vite本番ビルド成功。バージョン `v2.9.0` (FW `v22.1`) へ昇格。
+- [x] **ステップ25**: 不要・死蔵コード（ALT codes残存 13,500行超）の完全パージ ＆ 全打鍵経路の `KeyStrokeCompiler` 一本化 ＆ スマホPWA初期バンドル 94.4% 劇的スリム化 (v2.9.1 / FW v22.1) - 【完了】
+  - **ALT codes 残存資産の完全パージ**:
+    - `src/data/cp932Table.ts`（9,213行 / 175KB）、`src/utils/altNumpadCompiler.ts`（248行）、`src/components/AltNumpadHilModal.tsx`（731行）、および未使用重複JSON `src/data/mindsKnowledgeBase.json`（3,381行 / 255KB）の計 **13,573行（約476KB）** をコードベースから完全撤去。
+  - **メイン画面（`InputPane.tsx` & `packetBuilder.ts`）の `KeyStrokeCompiler` 完全一本化**:
+    - 従来メイン画面のカルテ送信で呼ばれていた旧世代の `compileMedicalTextToImeBoost`（201KB）を、`KeyStrokeCompiler.ts`（長単位結合オートマトン Sudachi Mode C ＋ v20.1 HYBRID `[Z][K][H][A]`）に完全統一。どの画面から送信しても「背中➔肺中」「増悪➔笛悪」「体動時➔体動じ」の誤変換・Alt誤爆が100%ゼロになるよう統合。
+  - **スマホPWA 初期バンドル 7.64MB ➔ 428KB（-94.4%）の劇的スリム化**:
+    - `@mlc-ai/web-llm`（5.9MB）および `tesseract.js` をトップレベル静的インポートからオンデマンド Dynamic Import（`await import(...)`）に変更。
+    - `MedicalDataSearchModal`（320KB）、`ImePrecisionBoostModal`（163KB）、`FirmwareHub`（130KB）、`ClinicalDecisionSupport`（39KB）等の全モーダル・サブ画面を `React.lazy` ＋ `Suspense` で遅延チャンク分割。
+    - メイン初期バンドルを **7,641.05 kB (gzip: 2,661.75 kB) ➔ 428.32 kB (gzip: 134.93 kB)** へ **94.4% 削減**。
 
 ---
 

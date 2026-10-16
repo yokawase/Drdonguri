@@ -1,7 +1,6 @@
-import {
-  CreateWebWorkerMLCEngine,
-  type MLCEngineInterface,
-  type InitProgressReport,
+import type {
+  MLCEngineInterface,
+  InitProgressReport,
 } from '@mlc-ai/web-llm';
 import type { MindsGuidelineDetail } from '../utils/mindsGuidelineCompiler';
 
@@ -35,7 +34,7 @@ export function isWebGpuSupported(): boolean {
 }
 
 /**
- * WebLLM エンジンをシングルトンとして取得・初期化
+ * WebLLM エンジンをシングルトンとして取得・初期化 (オンデマンド遅延ロード)
  */
 export async function getWebLlmEngine(
   onProgress?: (report: ModelLoadProgress) => void,
@@ -72,6 +71,8 @@ export async function getWebLlmEngine(
         currentWorker.terminate();
         currentWorker = null;
       }
+
+      const { CreateWebWorkerMLCEngine } = await import('@mlc-ai/web-llm');
 
       const worker = new Worker(
         new URL('../workers/webllm.worker.ts', import.meta.url),

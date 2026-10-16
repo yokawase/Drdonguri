@@ -1,4 +1,4 @@
-import { createWorker, type LoggerMessage } from 'tesseract.js';
+import type { LoggerMessage } from 'tesseract.js';
 import { refineOcrChartWithWebLLM, type ModelLoadProgress } from './webLlmService';
 
 export interface OcrProgressUpdate {
@@ -36,6 +36,7 @@ export async function performLocalCameraOcr(
   let rawOcrText = '';
 
   try {
+    const { createWorker } = await import('tesseract.js');
     worker = await createWorker(['jpn', 'eng'], 1, {
       logger: (m: LoggerMessage) => {
         if (onProgress && typeof m.progress === 'number') {

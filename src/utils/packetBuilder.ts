@@ -1,9 +1,9 @@
 import { calculateCrc16 } from './crc16';
 import { DispatchMode, EhrNewlineMode } from '../types';
-import { formatForEhrNewlines, transpileToImeRomajiSequence, generateKeystrokeSequence } from './japaneseImeTranspiler';
-import { compileMedicalTextToImeBoost, CompileImeOptions, kanjiWordToRomaji } from './imePrecisionCompiler';
+import { formatForEhrNewlines, generateKeystrokeSequence } from './japaneseImeTranspiler';
+import type { CompileImeOptions } from './imePrecisionCompiler';
 import { preprocessMedicalText, PreprocessOptions } from './medicalTextPreprocessor';
-import { compileTextToAltNumpad } from './altNumpadCompiler';
+import { keyStrokeCompiler } from '../services/KeyStrokeCompiler';
 
 export const MAX_PAYLOAD_SIZE = 4096;
 export const MAX_PACKETS = 16;
@@ -165,33 +165,22 @@ export function buildTransmissionSession(
   }
 
   // 3. 送信モード別のフォーマット処理
-  // ★【v16.6 MICS Navigator Alt+Enter改行＆ASCII高速化対応】
-  // [K]: カタカナ (F7 ➔ Enter)
-  // [H]: ひらがな・助詞 (Enter確定・Space禁止)
-  // [Z]: 漢字・熟語ローマ字 (Space変換 ➔ Enter確定: F5リロード誤爆0%)
-  // [A]: 半角ASCII直接（高速直接打鍵・Enter禁止でペイン閉鎖防止）
+  // ★【v20.1 HYBRIDキーストローク ＆ 長単位結合オートマトン（Sudachi Mode C思想）】
+  // [Z]: 漢字熟語・自立語語幹 (Space変換 ➔ Enter確定: 誤変換・F5・Alt誤爆0%)
+  // [K]: 全角カタカナ (F7 ➔ Enter)
+  // [H]: 付属語（助詞・語尾・句読点: 即時 Enter確定・Space禁止）
+  // [A]: 半角ASCII直接（高速直接打鍵・F10確定）
   let formattedText = processedText;
-  if (mode === DispatchMode.MODE_ALT_NUMPAD) {
-    // ★ Windows標準 Alt+テンキー 100%決定論モード (IME完全バイパス)
-    formattedText = compileTextToAltNumpad(processedText, {
-      mode: 'unicode',
-      keepAscii: true,
-      newlineMode,
-    });
-    if (newlineMode === EhrNewlineMode.MICS_ALT_ENTER) {
-      formattedText = `<EHR_MICS>\n${formattedText}`;
-    }
-  } else if (mode === DispatchMode.MODE_HYBRID_UNICODE || mode === DispatchMode.MODE_IME_ROMAJI) {
+  if (mode === DispatchMode.MODE_HYBRID_UNICODE || mode === DispatchMode.MODE_ALT_NUMPAD || mode === DispatchMode.MODE_IME_ROMAJI) {
     if (enableImeBoost) {
-      const compiled = compileMedicalTextToImeBoost(processedText, {
-        enableFunctionKeyRouting: true,
-        enableChunkDecomposition: false,
-        enableUnicodeF5Assist: false,     // F5リロード誤爆防止のためF5アシストは完全無効化
-        enableDoctorMacros: options.compileOptions?.enableDoctorMacros ?? true,
-        doctorMacros: options.compileOptions?.doctorMacros,
-        newlineMode,
+      const compiled = keyStrokeCompiler.compileText(processedText, {
+        includeImeReset: false,
+        newlineMode: newlineMode === EhrNewlineMode.MICS_ALT_ENTER ? 'alt_enter' : 'enter',
       });
-      formattedText = compiled.compiledPayload;
+      formattedText = compiled.streamText;
+      if (newlineMode === EhrNewlineMode.MICS_ALT_ENTER && !formattedText.startsWith('<EHR_MICS>')) {
+        formattedText = `<EHR_MICS>\n${formattedText}`;
+      }
     } else {
       const transpiled = generateKeystrokeSequence(processedText);
       formattedText = transpiled.sequence;
@@ -204,19 +193,6 @@ export function buildTransmissionSession(
     if (newlineMode === EhrNewlineMode.MICS_ALT_ENTER) {
       formattedText = `<EHR_MICS>\n${formattedText}`;
     }
-  }
-
-  // ★【Zero-Drop＆Zero-Misconversion 保証バリデータ】
-  // タグ外に生漢字が残存している場合は、すべて [Z]...[/Z]（安全なローマ字Space変換）にラップし、
-  // F5リロード誤爆を完全に防止しながらカルテ端末へ着弾させる
-  if (mode === DispatchMode.MODE_HYBRID_UNICODE || mode === DispatchMode.MODE_IME_ROMAJI) {
-    formattedText = formattedText.replace(/(\[(?:K|H|Z|G|A|U)\][\s\S]*?\[\/(?:K|H|Z|G|A|U)\]|\[BS\])|([一-龠]+)/g, (match, tagPart, kanjiPart) => {
-      if (tagPart) return tagPart;
-      if (kanjiPart) {
-        return `[Z]${kanjiWordToRomaji(kanjiPart)}[/Z]`;
-      }
-      return match;
-    });
   }
 
   const encoder = new TextEncoder();

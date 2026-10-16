@@ -1,6 +1,6 @@
 import React from 'react';
 import { playMacBeep, playSosumi } from '../utils/macAudio';
-import { LATEST_FIRMWARE_VERSION } from '../data/firmwareSource';
+import { LATEST_FIRMWARE_VERSION } from '../version';
 import { DeviceType } from '../hooks/useAdaptiveLayout';
 
 interface MacDesktopIconsProps {
@@ -8,7 +8,6 @@ interface MacDesktopIconsProps {
   onOpenDongle: () => void;
   onOpenFirmware: () => void;
   onOpenCoprocessor?: () => void;
-  onOpenAltHil?: () => void;
   onOpenMedPilot?: () => void;
   onClearChart: () => void;
   hasChartContent: boolean;
@@ -20,7 +19,6 @@ export const MacDesktopIcons: React.FC<MacDesktopIconsProps> = ({
   onOpenDongle,
   onOpenFirmware,
   onOpenCoprocessor,
-  onOpenAltHil,
   onOpenMedPilot,
   onClearChart,
   hasChartContent,
@@ -104,25 +102,6 @@ export const MacDesktopIcons: React.FC<MacDesktopIconsProps> = ({
           </div>
           <span className="bg-white border border-transparent px-1 group-hover:border-black group-active:bg-black group-active:text-white group-active:border-black text-center">
             双方向AI
-          </span>
-        </button>
-      )}
-
-      {/* 5. 100%日本語 HILテスト (Alt Numpad) */}
-      {onOpenAltHil && (
-        <button
-          onClick={() => {
-            playMacBeep();
-            onOpenAltHil();
-          }}
-          className="flex flex-col items-center gap-1 group cursor-pointer focus:outline-none"
-          title="100%決定論 日本語転送システム HIL実機テストベンチ (Alt Numpad)"
-        >
-          <div className="w-11 h-11 border border-black bg-amber-200 shadow-[1px_1px_0_#000] flex items-center justify-center text-xl group-active:bg-black group-active:text-white">
-            ⚡
-          </div>
-          <span className="bg-white border border-transparent px-1 group-hover:border-black group-active:bg-black group-active:text-white group-active:border-black text-center font-bold text-amber-950">
-            Alt HIL
           </span>
         </button>
       )}
