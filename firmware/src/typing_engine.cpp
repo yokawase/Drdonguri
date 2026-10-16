@@ -1,19 +1,6 @@
 #include "typing_engine.h"
 #include <string.h>
 
-static const uint8_t KEYPAD_SCANCODES[10] = {
-  HID_KEYPAD_0,
-  HID_KEYPAD_1,
-  HID_KEYPAD_2,
-  HID_KEYPAD_3,
-  HID_KEYPAD_4,
-  HID_KEYPAD_5,
-  HID_KEYPAD_6,
-  HID_KEYPAD_7,
-  HID_KEYPAD_8,
-  HID_KEYPAD_9
-};
-
 DonguriTypingEngine::DonguriTypingEngine(USBHIDKeyboard& keyboard)
   : _kbd(keyboard) {
 }
@@ -66,101 +53,94 @@ void DonguriTypingEngine::resetImeState() {
   }
 }
 
-void DonguriTypingEngine::sendAltNumpadCode(const char* digits) {
-  if (digits == nullptr || digits[0] == '\0') return;
-
-  KeyReport rep;
-  memset(&rep, 0, sizeof(KeyReport));
-
-  // 1. KEY_LEFT_ALT を押下保持 (Hold)
-  // KEYBOARD_MODIFIER_LEFTALT = 0x04 (TU_BIT(2))
-  rep.modifiers = 0x04;
-  _kbd.sendReport(&rep);
-  delay(TYPING_ALT_HOLD_DELAY_MS);
-
-  // 2. テンキーの各数字を順次打鍵 (押下 11ms ➔ 解放 11ms)
-  for (size_t i = 0; digits[i] != '\0'; i++) {
-    char c = digits[i];
-    uint8_t kp_code = 0;
-
-    if (c >= '0' && c <= '9') {
-      kp_code = KEYPAD_SCANCODES[c - '0'];
-    } else if (c == '+') {
-      kp_code = HID_KEYPAD_ADD;
-    } else {
-      continue;
-    }
-
-    // KeyDown (Alt押下保持 + テンキー押下)
-    rep.modifiers = 0x04;
-    rep.keys[0] = kp_code;
-    _kbd.sendReport(&rep);
-    delay(TYPING_INTER_REPORT_DELAY_MS);
-
-    // KeyUp (テンキーのみ解放、Altは保持)
-    rep.keys[0] = 0;
-    _kbd.sendReport(&rep);
-    delay(2);
-    _kbd.sendReport(&rep); // 二重送出
-    delay(TYPING_INTER_REPORT_DELAY_MS);
-  }
-
-  // 3. KEY_LEFT_ALT を解放 (Release) ➔ Windowsが文字コードを合成・確定着弾
-  memset(&rep, 0, sizeof(KeyReport));
-  _kbd.sendReport(&rep);
-  delay(2);
-  _kbd.sendReport(&rep);
-  delay(TYPING_INTER_REPORT_DELAY_MS);
-
-  // 4. Alt抜けによるメニュー誤爆防止: ダミーShift空打ち
-  clearAltMenuTrap();
-
-  // 文字確定インターバル
-  delay(TYPING_CHAR_COMMIT_DELAY_MS);
-}
-
 void DonguriTypingEngine::sendKatakanaF7(const char* romaji) {
   if (romaji == nullptr || romaji[0] == '\0') return;
 
-  // ローマ字文字列を順次打鍵
+  bool sentAny = false;
   for (size_t i = 0; romaji[i] != '\0'; i++) {
-    sendSafeChar(romaji[i]);
+    if (romaji[i] != ' ' && (uint8_t)romaji[i] < 0x80) {
+      sendSafeChar(romaji[i]);
+      sentAny = true;
+    }
   }
-  delay(TYPING_INTER_REPORT_DELAY_MS);
+  if (!sentAny) return;
+  delay(20);
 
   // F7キー（全角カタカナ変換）打鍵
   safeWrite(KEY_F7);
-  delay(TYPING_INTER_REPORT_DELAY_MS);
+  delay(25);
 
   // Enterキー（確定）打鍵
   safeWrite(KEY_RETURN);
-  delay(TYPING_INTER_REPORT_DELAY_MS);
+  delay(40);
+  forceReleaseAll();
 }
 
 void DonguriTypingEngine::sendAsciiF10(const char* ascii) {
   if (ascii == nullptr || ascii[0] == '\0') return;
 
-  // ASCII文字列を順次打鍵
-  for (size_t i = 0; ascii[i] != '\0'; i++) {
-    sendSafeChar(ascii[i]);
+  bool hasNonSpace = false;
+  size_t i = 0;
+  while (ascii[i] != '\0') {
+    uint8_t c0 = (uint8_t)ascii[i];
+    // UTF-8 ギリシャ文字 (α, β, γ, δ, μ: 0xCE 0xB1..0xBC) が [A]γ-GTP[/A] 等に混入した場合の安全変換
+    if (c0 == 0xCE && ascii[i + 1] != '\0') {
+      uint8_t c1 = (uint8_t)ascii[i + 1];
+      const char* greekRomaji = nullptr;
+      if (c1 == 0xB1) greekRomaji = "aruha";
+      else if (c1 == 0xB2) greekRomaji = "be-ta";
+      else if (c1 == 0xB3) greekRomaji = "ganma";
+      else if (c1 == 0xB4) greekRomaji = "deruta";
+      else if (c1 == 0xBC) greekRomaji = "myu-";
+
+      if (greekRomaji != nullptr) {
+        if (hasNonSpace) {
+          delay(20);
+          safeWrite(KEY_F10);
+          delay(25);
+          safeWrite(KEY_RETURN);
+          delay(35);
+          forceReleaseAll();
+          hasNonSpace = false;
+        }
+        sendGreekG(greekRomaji);
+        i += 2;
+        continue;
+      }
+    }
+
+    if (c0 < 0x80) {
+      if (ascii[i] != ' ' && ascii[i] != '\t') {
+        hasNonSpace = true;
+      }
+      sendSafeChar(ascii[i]);
+    }
+    i++;
   }
-  delay(TYPING_INTER_REPORT_DELAY_MS);
 
-  // F10キー（半角変換）打鍵
-  safeWrite(KEY_F10);
-  delay(TYPING_INTER_REPORT_DELAY_MS);
-
-  // Enterキー（確定）打鍵
-  safeWrite(KEY_RETURN);
-  delay(TYPING_INTER_REPORT_DELAY_MS);
+  if (hasNonSpace) {
+    delay(20);
+    // F10キー（半角変換）打鍵
+    safeWrite(KEY_F10);
+    delay(25);
+    // Enterキー（確定）打鍵
+    safeWrite(KEY_RETURN);
+    delay(35);
+    forceReleaseAll();
+  }
 }
 
 void DonguriTypingEngine::sendKanjiZ(const char* romaji) {
   if (romaji == nullptr || romaji[0] == '\0') return;
 
+  bool sentAny = false;
   for (size_t i = 0; romaji[i] != '\0'; i++) {
-    sendSafeChar(romaji[i]);
+    if (romaji[i] != ' ' && (uint8_t)romaji[i] < 0x80) {
+      sendSafeChar(romaji[i]);
+      sentAny = true;
+    }
   }
+  if (!sentAny) return;
   delay(20);
 
   // Space変換（第1候補）
@@ -176,9 +156,60 @@ void DonguriTypingEngine::sendKanjiZ(const char* romaji) {
 void DonguriTypingEngine::sendHiraganaH(const char* romaji) {
   if (romaji == nullptr || romaji[0] == '\0') return;
 
-  for (size_t i = 0; romaji[i] != '\0'; i++) {
-    sendSafeChar(romaji[i]);
+  bool sentAny = false;
+  size_t i = 0;
+  while (romaji[i] != '\0') {
+    uint8_t c0 = (uint8_t)romaji[i];
+    // UTF-8 3バイト句読点・長音記号 ([H]、[/H], [H]。[/H], [H]ー[/H] 等) の直接変換
+    if (c0 == 0xE3 && romaji[i + 1] != '\0' && romaji[i + 2] != '\0') {
+      uint8_t c1 = (uint8_t)romaji[i + 1];
+      uint8_t c2 = (uint8_t)romaji[i + 2];
+      if (c1 == 0x80 && c2 == 0x81) { // 「、」
+        sendSafeChar(',');
+        sentAny = true;
+        i += 3;
+        continue;
+      }
+      if (c1 == 0x80 && c2 == 0x82) { // 「。」
+        sendSafeChar('.');
+        sentAny = true;
+        i += 3;
+        continue;
+      }
+      if (c1 == 0x80 && c2 == 0x8C) { // 「「」
+        sendSafeChar('[');
+        sentAny = true;
+        i += 3;
+        continue;
+      }
+      if (c1 == 0x80 && c2 == 0x8D) { // 「」」
+        sendSafeChar(']');
+        sentAny = true;
+        i += 3;
+        continue;
+      }
+      if (c1 == 0x83 && c2 == 0xBC) { // 「ー」
+        sendSafeChar('-');
+        sentAny = true;
+        i += 3;
+        continue;
+      }
+      if (c1 == 0x83 && c2 == 0xBB) { // 「・」
+        sendSafeChar('/');
+        sentAny = true;
+        i += 3;
+        continue;
+      }
+    }
+
+    if (c0 < 0x80 && romaji[i] != ' ') {
+      sendSafeChar(romaji[i]);
+      sentAny = true;
+    }
+    i++;
   }
+
+  if (!sentAny) return;
   delay(20);
 
   // Enter即時確定（Spaceキー禁止・漢字化遮断）
@@ -190,9 +221,14 @@ void DonguriTypingEngine::sendHiraganaH(const char* romaji) {
 void DonguriTypingEngine::sendGreekG(const char* romaji) {
   if (romaji == nullptr || romaji[0] == '\0') return;
 
+  bool sentAny = false;
   for (size_t i = 0; romaji[i] != '\0'; i++) {
-    sendSafeChar(romaji[i]);
+    if (romaji[i] != ' ' && (uint8_t)romaji[i] < 0x80) {
+      sendSafeChar(romaji[i]);
+      sentAny = true;
+    }
   }
+  if (!sentAny) return;
   delay(20);
 
   // Space 2回 ➔ Enter確定（第2候補 α/β）
@@ -466,11 +502,9 @@ void DonguriTypingEngine::dispatchStream(const char* stream, size_t length, Typi
       continue;
     }
 
-    // 2. [ALT]035037[/ALT] または <ALT>035037</ALT> (後方互換)
+    // 2. [ALT]...[/ALT] (GEMINI.md 憲章第4条: Alt+NumpadはMenu Bar Trap防止のため物理遮断・安全スキップ)
     if (strncmp(&stream[i], "[ALT]", 5) == 0 || strncmp(&stream[i], "<ALT>", 5) == 0) {
       i += 5;
-      char digits[16] = {0};
-      size_t dlen = 0;
       while (i < length) {
         if (strncmp(&stream[i], "[/ALT]", 6) == 0 || strncmp(&stream[i], "</ALT>", 6) == 0) {
           i += 6;
@@ -479,16 +513,7 @@ void DonguriTypingEngine::dispatchStream(const char* stream, size_t length, Typi
         if (stream[i] == '[' || stream[i] == '<' || stream[i] == '\n' || stream[i] == '\r') {
           break;
         }
-        if ((stream[i] >= '0' && stream[i] <= '9') || stream[i] == '+') {
-          if (dlen < sizeof(digits) - 1) {
-            digits[dlen++] = stream[i];
-          }
-        }
         i++;
-      }
-      digits[dlen] = '\0';
-      if (dlen > 0) {
-        sendAltNumpadCode(digits);
       }
       continue;
     }
@@ -518,12 +543,18 @@ void DonguriTypingEngine::dispatchStream(const char* stream, size_t length, Typi
       continue;
     }
 
-    // 4. [F10]500mg[/F10] または <F10>500mg</F10>
-    if (strncmp(&stream[i], "[F10]", 5) == 0 || strncmp(&stream[i], "<F10>", 5) == 0) {
-      i += 5;
-      char ascii[64] = {0};
+    // 4. [A]...[/A] または [F10]...[/F10] (半角英数・ギリシャ記号: KEY_F10 ➔ Enter確定)
+    if (strncmp(&stream[i], "[A]", 3) == 0 || strncmp(&stream[i], "<A>", 3) == 0 ||
+        strncmp(&stream[i], "[F10]", 5) == 0 || strncmp(&stream[i], "<F10>", 5) == 0) {
+      size_t openLen = (stream[i+1] == 'F' || stream[i+1] == 'f') ? 5 : 3;
+      i += openLen;
+      char ascii[128] = {0};
       size_t alen = 0;
       while (i < length) {
+        if (strncmp(&stream[i], "[/A]", 4) == 0 || strncmp(&stream[i], "</A>", 4) == 0) {
+          i += 4;
+          break;
+        }
         if (strncmp(&stream[i], "[/F10]", 6) == 0 || strncmp(&stream[i], "</F10>", 6) == 0) {
           i += 6;
           break;
@@ -543,17 +574,12 @@ void DonguriTypingEngine::dispatchStream(const char* stream, size_t length, Typi
       continue;
     }
 
-    // 5. [RAW]...[/RAW] または [A]...[/A]
-    if (strncmp(&stream[i], "[RAW]", 5) == 0 || strncmp(&stream[i], "<RAW>", 5) == 0 ||
-        strncmp(&stream[i], "[A]", 3) == 0 || strncmp(&stream[i], "<A>", 3) == 0) {
-      size_t tagSkip = (stream[i+1] == 'R' || stream[i+1] == 'r') ? 5 : 3;
-      i += tagSkip;
+    // 5. [RAW]...[/RAW] (IME変換なし直接キー送出)
+    if (strncmp(&stream[i], "[RAW]", 5) == 0 || strncmp(&stream[i], "<RAW>", 5) == 0) {
+      i += 5;
       while (i < length) {
         if (strncmp(&stream[i], "[/RAW]", 6) == 0 || strncmp(&stream[i], "</RAW>", 6) == 0) {
           i += 6; break;
-        }
-        if (strncmp(&stream[i], "[/A]", 4) == 0 || strncmp(&stream[i], "</A>", 4) == 0) {
-          i += 4; break;
         }
         if (stream[i] == '[' || stream[i] == '<' || stream[i] == '\n' || stream[i] == '\r') {
           break;

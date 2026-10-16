@@ -438,28 +438,6 @@ void sendNumLockToggle() {
 }
 
 // ============================================================================
-// Windows標準「Alt + テンキー (Alt Numpad)」100%決定論打鍵エンジン
-// IMEの状態（ON/OFF、英数/かな）や学習履歴を完全バイパスし、OS RawInput層へ直接文字コードを注入
-// F5ファンクションキーを一切使用しないため、電子カルテ画面リロード事故を物理的にゼロ保証
-// ============================================================================
-static const uint8_t KEYPAD_MAP[10] = {
-  0x62, // HID_KEY_KEYPAD_0
-  0x59, // HID_KEY_KEYPAD_1
-  0x5A, // HID_KEY_KEYPAD_2
-  0x5B, // HID_KEY_KEYPAD_3
-  0x5C, // HID_KEY_KEYPAD_4
-  0x5D, // HID_KEY_KEYPAD_5
-  0x5E, // HID_KEY_KEYPAD_6
-  0x5F, // HID_KEY_KEYPAD_7
-  0x60, // HID_KEY_KEYPAD_8
-  0x61  // HID_KEY_KEYPAD_9
-};
-
-void sendAltNumpadCode(const char* digits) {
-  g_typingEngine.sendAltNumpadCode(digits);
-}
-
-// ============================================================================
 // 電カル監視ソフト対応: KeyUpレポート完全保証型 キー送出関数
 // 単なる Keyboard.write() ではOSのメッセージフック（Trend Micro/Skysea等）によってKeyUpが脱落し、
 // キーリピート暴発（かんjyy, ppおいんtt等）が発生するため、明示的に二重解放レポート(0x00)を送出する
@@ -1146,14 +1124,23 @@ bool dispatchSafeKeystrokes() {
     }
 
     // ------------------------------------------------------------------------
-    // B. 明示的制御タグの高速解析 ([K], [H], [Z], [A], [U], etc.)
+    // B. 明示的制御タグの高速解析 ([IME_RESET], [K], [H], [Z], [G], [A], [U], etc.)
+    //    DonguriTypingEngine (v20.1 HYBRID 11msエンジン) へ完全統合
     // ------------------------------------------------------------------------
+    // 0. [IME_RESET] / <IME_RESET> (JIS無変換キー2回空打ちによるIME状態強制リセット)
+    if (strncmp(&buf[i], "[IME_RESET]", 11) == 0 || strncmp(&buf[i], "<IME_RESET>", 11) == 0) {
+      g_typingEngine.resetImeState();
+      i += 11;
+      continue;
+    }
+
     // 1. [K]...[/K] (カタカナモード: F7 ➔ Enter)
     if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "<K>", 3) == 0) {
       g_tagK++;
       updateTypingProgress((total > 0) ? (i * 100) / total : 0);
       i += 3;
-      bool sentAnyChar = false;
+      char romaji[128] = {0};
+      size_t rlen = 0;
       while (i < total) {
         if (strncmp(&buf[i], "[/K]", 4) == 0 || strncmp(&buf[i], "</K>", 4) == 0) {
           i += 4;
@@ -1162,97 +1149,67 @@ bool dispatchSafeKeystrokes() {
         if (buf[i] == '[' || buf[i] == '<' || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
-        char rc = buf[i];
-        if (rc != ' ') {
-          if ((uint8_t)rc < 0x80) {
-            sendSafeChar(rc);
-            sentAnyChar = true;
-          }
+        if (rlen < sizeof(romaji) - 1) {
+          romaji[rlen++] = buf[i];
         }
         i++;
       }
-      if (sentAnyChar) {
-        delay(20);
-        safeWrite(KEY_F7);
-        delay(25);
-        safeWrite(KEY_RETURN);
-        delay(40);
-        forceReleaseAllModifiers();
+      romaji[rlen] = '\0';
+      if (rlen > 0) {
+        g_typingEngine.sendKatakanaF7(romaji);
       }
       continue;
     }
 
-    // 2. [H]...[/H] (ひらがな助詞モード: Enter即時確定、Space禁止、二重防護)
+    // 2. [H]...[/H] (ひらがな助詞・句読点モード: Enter即時確定、Space禁止)
     if (strncmp(&buf[i], "[H]", 3) == 0 || strncmp(&buf[i], "<H>", 3) == 0) {
       g_tagH++;
       updateTypingProgress((total > 0) ? (i * 100) / total : 0);
       i += 3;
-      bool sentAnyChar = false;
+      char romaji[128] = {0};
+      size_t rlen = 0;
       while (i < total) {
         if (strncmp(&buf[i], "[/H]", 4) == 0 || strncmp(&buf[i], "</H>", 4) == 0) {
           i += 4;
           break;
         }
-        if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 || 
-            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 || 
-            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 || 
+        if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 ||
+            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 ||
+            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 ||
             strncmp(&buf[i], "[/", 2) == 0 || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
 
-        // 万一生UTF-8ひらがなが混入した場合の安全フォールバック（助詞脱落＆空Enter暴発防止）
+        // 万一生UTF-8ひらがなが混入した場合の安全フォールバック
         if (isUtf8Hiragana(&buf[i])) {
-          // 促音「っ」
+          const char* sub = nullptr;
+          size_t step = 0;
           if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x81 && (uint8_t)buf[i+2] == 0xA3) {
-            sendSafeChar('l'); sendSafeChar('t'); sendSafeChar('u');
-            i += 3;
-            sentAnyChar = true;
-            continue;
+            sub = "ltu"; step = 3;
+          } else if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x82 && (uint8_t)buf[i+2] == 0x93) {
+            sub = "nn"; step = 3;
+          } else if (i + 6 <= total && (sub = findDigraphRomaji(&buf[i])) != nullptr) {
+            step = 6;
+          } else if (i + 3 <= total && (sub = findMonoKanaRomaji(&buf[i])) != nullptr) {
+            step = 3;
           }
-          // 撥音「ん」
-          if (i + 3 <= total && (uint8_t)buf[i] == 0xE3 && (uint8_t)buf[i+1] == 0x82 && (uint8_t)buf[i+2] == 0x93) {
-            sendSafeChar('n'); sendSafeChar('n');
-            i += 3;
-            sentAnyChar = true;
-            continue;
-          }
-          // ダイグラフ (きゃ, しゅ等: 6バイト)
-          if (i + 6 <= total) {
-            const char* di = findDigraphRomaji(&buf[i]);
-            if (di != nullptr) {
-              for (const char* p = di; *p != '\0'; p++) sendSafeChar(*p);
-              i += 6;
-              sentAnyChar = true;
-              continue;
+          if (sub != nullptr && step > 0) {
+            for (const char* p = sub; *p != '\0' && rlen < sizeof(romaji) - 1; p++) {
+              romaji[rlen++] = *p;
             }
-          }
-          // モノかな (3バイト)
-          if (i + 3 <= total) {
-            const char* mo = findMonoKanaRomaji(&buf[i]);
-            if (mo != nullptr) {
-              for (const char* p = mo; *p != '\0'; p++) sendSafeChar(*p);
-              i += 3;
-              sentAnyChar = true;
-              continue;
-            }
+            i += step;
+            continue;
           }
         }
 
-        char rc = buf[i];
-        if (rc != ' ') {
-          if ((uint8_t)rc < 0x80) {
-            sendSafeChar(rc);
-            sentAnyChar = true;
-          }
+        if (rlen < sizeof(romaji) - 1) {
+          romaji[rlen++] = buf[i];
         }
         i++;
       }
-      // ★文字が送出された場合のみ Enter で確定（空タグでの改行暴発を100%防止！）
-      if (sentAnyChar) {
-        delay(20);
-        safeWrite(KEY_RETURN);
-        delay(40);
-        forceReleaseAllModifiers();
+      romaji[rlen] = '\0';
+      if (rlen > 0) {
+        g_typingEngine.sendHiraganaH(romaji);
       }
       continue;
     }
@@ -1262,122 +1219,94 @@ bool dispatchSafeKeystrokes() {
       g_tagZ++;
       updateTypingProgress((total > 0) ? (i * 100) / total : 0);
       i += 3;
-      bool sentAnyChar = false;
+      char romaji[128] = {0};
+      size_t rlen = 0;
       while (i < total) {
         if (strncmp(&buf[i], "[/Z]", 4) == 0 || strncmp(&buf[i], "</Z>", 4) == 0) {
           i += 4;
           break;
         }
-        if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 || 
-            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 || 
-            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 || 
+        if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 ||
+            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 ||
+            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 ||
             strncmp(&buf[i], "[/", 2) == 0 || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
-        char rc = buf[i];
-        if (rc != ' ') {
-          if ((uint8_t)rc < 0x80) {
-            sendSafeChar(rc);
-            sentAnyChar = true;
-          }
+        if (rlen < sizeof(romaji) - 1) {
+          romaji[rlen++] = buf[i];
         }
         i++;
       }
-      if (sentAnyChar) {
-        delay(20); // 候補パレット安定ウェイト
-        safeWrite(' ');
-        delay(35); // 候補窓展開ウェイト
-        safeWrite(KEY_RETURN);
-        delay(40);
-        forceReleaseAllModifiers();
+      romaji[rlen] = '\0';
+      if (rlen > 0) {
+        g_typingEngine.sendKanjiZ(romaji);
       }
       continue;
     }
 
-    // 3.5 [G]...[/G] (ギリシャ文字変換モード: Space2回 ➔ Enterで第2候補記号α/βを直接物理確定！)
+    // 3.5 [G]...[/G] (ギリシャ文字変換モード: Space2回 ➔ Enterで第2候補記号α/βを直接物理確定)
     if (strncmp(&buf[i], "[G]", 3) == 0 || strncmp(&buf[i], "<G>", 3) == 0) {
       g_tagZ++;
       updateTypingProgress((total > 0) ? (i * 100) / total : 0);
       i += 3;
-      bool sentAnyChar = false;
+      char romaji[64] = {0};
+      size_t rlen = 0;
       while (i < total) {
         if (strncmp(&buf[i], "[/G]", 4) == 0 || strncmp(&buf[i], "</G>", 4) == 0) {
           i += 4;
           break;
         }
-        if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 || 
-            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 || 
-            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 || 
+        if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 ||
+            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 ||
+            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 ||
             strncmp(&buf[i], "[/", 2) == 0 || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
-        char rc = buf[i];
-        if (rc != ' ') {
-          if ((uint8_t)rc < 0x80) {
-            sendSafeChar(rc);
-            sentAnyChar = true;
-          }
+        if (rlen < sizeof(romaji) - 1) {
+          romaji[rlen++] = buf[i];
         }
         i++;
       }
-      if (sentAnyChar) {
-        delay(20);
-        safeWrite(' '); // 第1候補（カタカナ）
-        delay(30);
-        safeWrite(' '); // 第2候補（記号 α / β）
-        delay(35);
-        safeWrite(KEY_RETURN); // 確定
-        delay(40);
-        forceReleaseAllModifiers();
+      romaji[rlen] = '\0';
+      if (rlen > 0) {
+        g_typingEngine.sendGreekG(romaji);
       }
       continue;
     }
 
-    // 4. [A]...[/A] (半角ASCIIモード: 英数字・記号時はF10+EnterでMS-IME全角化完全防止＆直接送出)
+    // 4. [A]...[/A] (半角ASCII・医療略語モード: F10+EnterでMS-IME全角化完全防止＆ギリシャ文字対応)
     if (strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "<A>", 3) == 0) {
       g_tagA++;
       updateTypingProgress((total > 0) ? (i * 100) / total : 0);
       i += 3;
-      bool hasNonSpace = false;
+      char ascii[128] = {0};
+      size_t alen = 0;
       while (i < total) {
         if (strncmp(&buf[i], "[/A]", 4) == 0 || strncmp(&buf[i], "</A>", 4) == 0) {
           i += 4;
           break;
         }
-        if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 || 
-            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 || 
-            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 || 
+        if (strncmp(&buf[i], "[K]", 3) == 0 || strncmp(&buf[i], "[H]", 3) == 0 ||
+            strncmp(&buf[i], "[Z]", 3) == 0 || strncmp(&buf[i], "[G]", 3) == 0 ||
+            strncmp(&buf[i], "[A]", 3) == 0 || strncmp(&buf[i], "[BS]", 4) == 0 ||
             strncmp(&buf[i], "[/", 2) == 0 || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
-        char ac = buf[i];
-        if (ac != ' ' && ac != '\t') {
-          hasNonSpace = true;
+        if (alen < sizeof(ascii) - 1) {
+          ascii[alen++] = buf[i];
         }
-        sendSafeChar(ac);
         i++;
       }
-      // 英数字・記号が含まれていた場合、MS-IMEが日本語入力中なら未確定全角になっているため、
-      // F10で半角英数・半角記号に強制変換し、Enterで未確定文字列を確定する！
-      if (hasNonSpace) {
-        delay(20);
-        safeWrite(KEY_F10);
-        delay(25);
-        safeWrite(KEY_RETURN);
-        delay(35);
-        forceReleaseAllModifiers();
+      ascii[alen] = '\0';
+      if (alen > 0) {
+        g_typingEngine.sendAsciiF10(ascii);
       }
       continue;
     }
 
-    // 4.8 [ALT]...[/ALT] (Windows標準 Alt+テンキー 100%決定論打鍵モード)
-    // IMEを完全バイパスし、Unicode / CP932の10進数コードを直接OSに合成させる
+    // 4.8 [ALT]...[/ALT] (GEMINI.md 憲章第4条: Alt+NumpadはMenu Bar Trap防止のため物理遮断・安全消費)
     if (strncmp(&buf[i], "[ALT]", 5) == 0 || strncmp(&buf[i], "<ALT>", 5) == 0) {
-      g_tagZ++;
-      updateTypingProgress((total > 0) ? (i * 100) / total : 0);
       i += 5;
-      char digits[16] = {0};
-      size_t dlen = 0;
       while (i < total) {
         if (strncmp(&buf[i], "[/ALT]", 6) == 0 || strncmp(&buf[i], "</ALT>", 6) == 0) {
           i += 6;
@@ -1386,16 +1315,7 @@ bool dispatchSafeKeystrokes() {
         if (buf[i] == '[' || buf[i] == '<' || buf[i] == '\n' || buf[i] == '\r') {
           break;
         }
-        if ((buf[i] >= '0' && buf[i] <= '9') || buf[i] == '+') {
-          if (dlen < sizeof(digits) - 1) {
-            digits[dlen++] = buf[i];
-          }
-        }
         i++;
-      }
-      digits[dlen] = '\0';
-      if (dlen > 0) {
-        sendAltNumpadCode(digits);
       }
       continue;
     }
@@ -2104,13 +2024,20 @@ void loop() {
   BleQueueItem item;
   while (xQueueReceive(bleQueue, &item, 0) == pdTRUE) {
 
-    // 0. ダイレクト [ALT] / [A] テキストストリーム (HILテスト文章即時打鍵)
-    if (item.length >= 3 && (item.data[0] == '[' || item.data[0] == '<') && 
-        (strncmp((const char*)item.data, "[ALT]", 5) == 0 || strncmp((const char*)item.data, "<ALT>", 5) == 0 ||
-         strncmp((const char*)item.data, "[A]", 3) == 0 || strncmp((const char*)item.data, "<A>", 3) == 0)) {
+    // 0. ダイレクト v20.1 HYBRID テキストストリーム ([IME_RESET], [Z], [K], [H], [A], [G] 等の即時打鍵)
+    if (item.length >= 3 && (item.data[0] == '[' || item.data[0] == '<') &&
+        (strncmp((const char*)item.data, "[IME_RESET]", 11) == 0 || strncmp((const char*)item.data, "<IME_RESET>", 11) == 0 ||
+         strncmp((const char*)item.data, "[Z]", 3) == 0 || strncmp((const char*)item.data, "<Z>", 3) == 0 ||
+         strncmp((const char*)item.data, "[K]", 3) == 0 || strncmp((const char*)item.data, "<K>", 3) == 0 ||
+         strncmp((const char*)item.data, "[H]", 3) == 0 || strncmp((const char*)item.data, "<H>", 3) == 0 ||
+         strncmp((const char*)item.data, "[A]", 3) == 0 || strncmp((const char*)item.data, "<A>", 3) == 0 ||
+         strncmp((const char*)item.data, "[G]", 3) == 0 || strncmp((const char*)item.data, "<G>", 3) == 0 ||
+         strncmp((const char*)item.data, "[F7]", 4) == 0 || strncmp((const char*)item.data, "<F7>", 4) == 0 ||
+         strncmp((const char*)item.data, "[F10]", 5) == 0 || strncmp((const char*)item.data, "<F10>", 5) == 0 ||
+         strncmp((const char*)item.data, "[RAW]", 5) == 0 || strncmp((const char*)item.data, "<RAW>", 5) == 0)) {
       dispatchDirectTextStream((const char*)item.data, item.length);
       setLedColor(0, isBleConnected ? 64 : 0, isBleConnected ? 0 : 64);
-      sendBleAck("ALT_STREAM_SENT", 0);
+      sendBleAck("HYBRID_STREAM_SENT", 0);
       continue;
     }
 
@@ -2121,13 +2048,9 @@ void loop() {
       memcpy(cmdBuf, item.data, copyLen);
       cmdBuf[copyLen] = '\0';
 
-      // 0. Alt+Numpad 即時打鍵コマンド (例: CMD:ALT:24771 や CMD:ALT:034975)
+      // 0. Alt+Numpad コマンドの物理遮断 (GEMINI.md 憲章第4条: Menu Bar Trap防止のため完全無効化)
       if (strncmp(cmdBuf, "CMD:ALT:", 8) == 0) {
-        const char* altCode = cmdBuf + 8;
-        setLedColor(64, 0, 0); // 打鍵中（赤）
-        sendAltNumpadCode(altCode);
-        setLedColor(0, isBleConnected ? 64 : 0, isBleConnected ? 0 : 64);
-        sendBleAck("ALT_NUMPAD_SENT", 0, altCode);
+        sendBleAck("ERR_ALT_DISABLED", 0);
         continue;
       }
 

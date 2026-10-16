@@ -185,6 +185,17 @@
     - `@mlc-ai/web-llm`（5.9MB）および `tesseract.js` をトップレベル静的インポートからオンデマンド Dynamic Import（`await import(...)`）に変更。
     - `MedicalDataSearchModal`（320KB）、`ImePrecisionBoostModal`（163KB）、`FirmwareHub`（130KB）、`ClinicalDecisionSupport`（39KB）等の全モーダル・サブ画面を `React.lazy` ＋ `Suspense` で遅延チャンク分割。
     - メイン初期バンドルを **7,641.05 kB (gzip: 2,661.75 kB) ➔ 428.32 kB (gzip: 134.93 kB)** へ **94.4% 削減**。
+- [x] **ステップ26**: ファームウェア重複 `main.cpp`（2,451行）の一元化 ＆ `sendAltNumpadCode` の物理層完全除去 ＆ v20.1 HYBRID 句読点・ギリシャ文字着弾精度100%化 (v2.9.2 / FW v22.2) - 【完了】
+  - **ルート直下 `main.cpp` の完全撤去と Single Source of Truth 化**:
+    - ルート直下の `/main.cpp`（2,451行）と `/firmware/src/main.cpp`（2,451行）の100%重複を解消し、`/firmware/src/main.cpp` に完全一本化。
+  - **ファームウェア物理層からの Alt+Numpad (`KEY_LEFT_ALT` + テンキー) 完全除去・物理遮断**:
+    - `firmware/src/typing_engine.h`, `firmware/src/typing_engine.cpp`, `firmware/src/main.cpp` から `HID_KEYPAD_*`, `KEYPAD_SCANCODES`, `KEYPAD_MAP`, `sendAltNumpadCode` を完全削除。
+    - 万一外部から `[ALT]...[/ALT]` タグや `CMD:ALT:` コマンドが送信されても、物理層で `KEY_LEFT_ALT` を一切押下せず安全に破棄（`ERR_ALT_DISABLED`）するハードウェア遮断を実装。
+  - **`dispatchSafeKeystrokes()` のタグ処理重複解消 ＆ 3大エッジケース修正**:
+    - `firmware/src/main.cpp` 内の `[IME_RESET]`, `[K]`, `[H]`, `[Z]`, `[G]`, `[A]` 解析処理を `DonguriTypingEngine` (`g_typingEngine`) のメソッド呼び出しへ統合し、約140行の重複ロジックをスリム化。
+    - `sendHiraganaH()`: `KeyStrokeCompiler` が出力する UTF-8 句読点・長音（`[H]、[/H]`, `[H]。[/H]`, `[H]ー[/H]`, `[H]「[/H]`, `[H]」[/H]`）を JIS 句読点キー（`,`, `.`, `-`, `[`, `]`）へ変換して Enter 確定するよう強化。
+    - `sendAsciiF10()`: `[A]γ-GTP[/A]` のように `[A]` タグ内に UTF-8 ギリシャ文字（`α`, `β`, `γ`, `δ`, `μ`）が含まれる場合、`sendGreekG("ganma")` 等で第2候補ギリシャ文字を確定した後に残りの `-GTP` を `F10 + Enter` で半角確定するよう強化。
+    - `loop()` のダイレクトストリーム判定を `[IME_RESET]`, `[Z]`, `[K]`, `[H]`, `[A]`, `[G]` 全タグ対応に拡張。
 
 ---
 

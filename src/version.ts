@@ -10,15 +10,15 @@ export const APP_NAME = 'Dr.Dongly';
 export const APP_NAME_JA = 'DrVoice どんぐり君！';
 
 // アプリケーションバージョン (package.json と同期)
-export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.9.1';
+export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.9.2';
 
 // ビルドタイムスタンプ (Vite ビルド時に自動更新)
 export const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : new Date().toISOString();
 
-// 最新ファームウェアバージョン (長単位結合オートマトン＆v20.1 HYBRID打鍵[Z][K][H][A]対応版)
-export const LATEST_FIRMWARE_VERSION = 'v22.1';
+// 最新ファームウェアバージョン (長単位結合オートマトン＆v20.1 HYBRID打鍵[Z][K][H][A]・FWスリム化＆Alt物理遮断版)
+export const LATEST_FIRMWARE_VERSION = 'v22.2';
 export const FIRMWARE_RELEASE_DATE = '2026-10-16';
-export const FIRMWARE_RELEASE_TITLE = 'v22.1（長単位結合オートマトン＆v20.1 HYBRID打鍵[Z][K][H][A]・ALT codes排除版）';
+export const FIRMWARE_RELEASE_TITLE = 'v22.2（FWスリム化・main.cpp一元化・Alt+Numpad物理遮断＆句読点/ギリシャ文字完全対応版）';
 
 // ローカルAI & 臨床セマンティック検索エンジン構成
 export const AI_ENGINE_INFO = 'EmbeddingGemma 2 (740M MRL 128d) ＆ WebLLM (Gemma 2 2B)';

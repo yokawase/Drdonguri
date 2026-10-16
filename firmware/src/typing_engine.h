@@ -48,19 +48,6 @@
 #define KEY_JIS_CONVERT      0x8A  // 変換キー (USB HID Usage 0x8A: Keyboard International4 / Convert)
 #define KEY_JIS_KANA         0x88  // かな/カナキー (USB HID Usage 0x88: Keyboard International2 / Katakana/Hiragana)
 
-// テンキーHIDスキャンコード
-#define HID_KEYPAD_0         0x62
-#define HID_KEYPAD_1         0x59
-#define HID_KEYPAD_2         0x5A
-#define HID_KEYPAD_3         0x5B
-#define HID_KEYPAD_4         0x5C
-#define HID_KEYPAD_5         0x5D
-#define HID_KEYPAD_6         0x5E
-#define HID_KEYPAD_7         0x5F
-#define HID_KEYPAD_8         0x60
-#define HID_KEYPAD_9         0x61
-#define HID_KEYPAD_ADD       0x57  // テンキー '+'
-
 // 外部インターフェース型定義
 typedef void (*TypingProgressCallback)(int current, int total);
 
@@ -79,37 +66,33 @@ public:
   // 3. IMEモード強制初期化シーケンス（無変換キー連打）
   void resetImeState();
 
-  // 4. Alt+Numpad 100%決定論打鍵（CP932 10進数コード注入）
-  void sendAltNumpadCode(const char* digits);
-
-  // 5. カタカナ最適化打鍵（ローマ字打鍵 ➔ F7全角カタカナ変換 ➔ Enter確定）
+  // 4. [K] カタカナ最適化打鍵（ローマ字打鍵 ➔ F7全角カタカナ変換 ➔ Enter確定）
   void sendKatakanaF7(const char* romaji);
 
-  // 6. 半角英数打鍵（直接ASCII打鍵 ➔ F10半角変換 ➔ Enter確定）
+  // 5. [A] 半角英数・ギリシャ混在打鍵（直接ASCII打鍵 ➔ F10半角変換 ➔ Enter確定）
   void sendAsciiF10(const char* ascii);
 
-  // 7. [Z] 漢字熟語・自立語打鍵（ローマ字打鍵 ➔ Space変換 ➔ Enter確定）
+  // 6. [Z] 漢字熟語・自立語打鍵（ローマ字打鍵 ➔ Space変換 ➔ Enter確定）
   void sendKanjiZ(const char* romaji);
 
-  // 8. [H] 助詞・語尾・ひらがな打鍵（ローマ字打鍵 ➔ Enter即時確定 / Space禁止）
+  // 7. [H] 助詞・語尾・句読点・ひらがな打鍵（ローマ字/約物打鍵 ➔ Enter即時確定 / Space禁止）
   void sendHiraganaH(const char* romaji);
 
-  // 9. [G] ギリシャ文字・医学記号打鍵（ローマ字打鍵 ➔ Space2回 ➔ Enter確定）
+  // 8. [G] ギリシャ文字・医学記号打鍵（ローマ字打鍵 ➔ Space2回 ➔ Enter確定）
   void sendGreekG(const char* romaji);
 
-  // 10. 安全な単一ASCII文字打鍵 (JIS記号補正付き)
+  // 9. 安全な単一ASCII文字打鍵 (JIS記号補正付き)
   void sendSafeChar(char c);
 
-  // 11. 安全な単一キー送出（KeyUp二重保証）
+  // 10. 安全な単一キー送出（KeyUp二重保証）
   void safeWrite(uint8_t key);
 
-  // 12. メタタグ付きハイブリッド打鍵ストリームの解析送出
+  // 11. メタタグ付きハイブリッド打鍵ストリームの解析送出
   // [Z]...[/Z], [K]...[/K], [H]...[/H], [A]...[/A], [G]...[/G], [IME_RESET], etc.
   void dispatchStream(const char* stream, size_t length, TypingProgressCallback progressCb = nullptr);
 
 private:
   USBHIDKeyboard& _kbd;
-  void sendKeypadDigit(char c);
 };
 
 #endif // TYPING_ENGINE_H
