@@ -20,7 +20,7 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
     it('ユーザー提示の臨床文章が指定のペイロードと1文字の狂いもなく完全一致すること', () => {
       const input = '先週から背中が疼痛あり、体を動かすと体動時疼痛増悪。アルコール性肝機能障害の疑い。γ-GTPが200台。';
       const expected =
-        '[Z]sensyuu[/Z][H]kara[/H][Z]senaka[/Z][H]ga[/H][Z]toutuu[/Z][H]ari[/H][H]、[/H] [Z]karada[/Z][H]wo[/H][Z]ugoka[/Z][H]suto[/H][Z]taidouji[/Z][Z]toutuu[/Z][Z]zouaku[/Z][H]。[/H] [K]aruko-ru[/K][Z]seikankinousyougai[/Z][H]no[/H][Z]utagawi[/Z][H]。[/H] [A]γ-GTP[/A][H]ga[/H][A]200[/A][Z]dai[/Z][H]。[/H]';
+        '[Z]sensyuu[/Z][H]kara[/H][Z]senaka[/Z][H]ga[/H][Z]toutuu[/Z][H]ari[/H][H]、[/H] [Z]karada[/Z][H]wo[/H][Z]ugoka[/Z][H]suto[/H][Z]taidouji[/Z][Z]toutuu[/Z][Z]zouaku[/Z][H]。[/H] [K]aruko-ru[/K][Z]seikankinousyougai[/Z][H]no[/H][Z]utagai[/Z][H]。[/H] [A]γ-GTP[/A][H]ga[/H][A]200[/A][Z]dai[/Z][H]。[/H]';
 
       const res = compiler.compileText(input, { includeImeReset: false });
 
@@ -29,7 +29,7 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       expect(res.altCount).toBe(0);
       expect(res.streamText.includes('[ALT]')).toBe(false);
       // タグカウントの整合性
-      expect(res.zCount).toBe(11); // sensyuu, senaka, toutuu, karada, ugoka, taidouji, toutuu, zouaku, seikankinousyougai, utagawi, dai
+      expect(res.zCount).toBe(11); // sensyuu, senaka, toutuu, karada, ugoka, taidouji, toutuu, zouaku, seikankinousyougai, utagai, dai
       expect(res.kCount).toBe(1);  // aruko-ru
       expect(res.hCount).toBe(11); // kara, ga, ari, 、(読点), wo, suto, 。(句点), no, 。(句点), ga, 。(句点)
       expect(res.aCount).toBe(2);  // γ-GTP, 200
@@ -180,31 +180,32 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       expect(res.streamText).not.toContain('tsubusu');
       expect(res.streamText).not.toContain('hanatoki');
 
-      // 正しい医療専門ローマ字で一括出力されていること
-      expect(res.streamText).toContain('[Z]naishikyousyoken[/Z]'); // 内視鏡所見
-      expect(res.streamText).toContain('[Z]soukiigan[/Z]'); // 早期胃癌
-      expect(res.streamText).toContain('[Z]kannougata[/Z]'); // 陥凹型
-      expect(res.streamText).toContain('[Z]hennennnemmaku[/Z]'); // 辺縁粘膜
+      // 最適チャンク分解および [G] タグ（Space 2回 ➔ Enter確定）でMS-IME第1候補の日常語誤爆を完全回避すること
+      expect(res.streamText).toContain('[Z]naishikyou[/Z][G]syoken[/G]'); // 内視鏡所見 (所見をSpace 2回で確定し「初見」誤爆を排除)
+      expect(res.streamText).toContain('[Z]souki[/Z][G]igan[/G]'); // 早期胃癌 (胃癌をSpace 2回で確定し「早期胃がん」誤爆を排除)
+      expect(res.streamText).toContain('[G]kannou[/G][Z]gata[/Z]'); // 陥凹型 (「観桜」誤爆を排除)
+      expect(res.streamText).toContain('[Z]hennenn[/Z][Z]nennmaku[/Z]'); // 辺縁粘膜 (nennmaku で「熱膜」誤爆を排除)
       expect(res.streamText).toContain('[Z]hidasyuutyuu[/Z]'); // ひだ集中
-      expect(res.streamText).toContain('[Z]kyoukaimeiryou[/Z]'); // 境界明瞭
-      expect(res.streamText).toContain('[Z]taisyoku[/Z]'); // 褪色
-      expect(res.streamText).toContain('[Z]bisaikekkankoutikuijyou[/Z]'); // 微細血管構築異常
+      expect(res.streamText).toContain('[G]kyoukai[/G][Z]meiryou[/Z]'); // 境界明瞭 (境界をSpace 2回で確定し「協会」誤爆を排除)
+      expect(res.streamText).toContain('[G]taisyoku[/G]'); // 褪色 (Space 2回で確定し「退職」誤爆を排除)
+      expect(res.streamText).toContain('[Z]bisai[/Z][Z]kekkan[/Z][Z]koutiku[/Z][G]ijyou[/G]'); // 微細血管構築異常 (「構築以上」誤爆を排除)
       expect(res.streamText).toContain('[Z]tozetu[/Z]'); // 途絶
       expect(res.streamText).toContain('[Z]kambetusikkan[/Z]'); // 鑑別疾患
-      expect(res.streamText).toContain('[Z]ikaiyou[/Z]'); // 胃潰瘍
-      expect(res.streamText).toContain('[Z]syoukaseikaiyou[/Z]'); // 消化性潰瘍
-      expect(res.streamText).toContain('[Z]hankonnki[/Z]'); // 瘢痕期
-      expect(res.streamText).toContain('[Z]iryouuseipori-pu[/Z]'); // 胃良性ポリープ
-      expect(res.streamText).toContain('[Z]tenkeisyoken[/Z]'); // 典型所見
-      expect(res.streamText).toContain('[Z]ikakubusyouwann[/Z]'); // 胃角部小弯
-      expect(res.streamText).toContain('[Z]zenteibu[/Z]'); // 前庭部
+      expect(res.streamText).toContain('[Z]i[/Z][Z]kaiyou[/Z]'); // 胃潰瘍 (「い潰すよう」誤爆を排除)
+      expect(res.streamText).toContain('[Z]syoukasei[/Z][Z]kaiyou[/Z]'); // 消化性潰瘍
+      expect(res.streamText).toContain('[Z]hankonn[/Z][Z]ki[/Z]'); // 瘢痕期 (「半今期」誤爆を排除)
+      expect(res.streamText).toContain('[Z]i[/Z][Z]ryousei[/Z][K]pori-pu[/K]'); // 胃良性ポリープ (ryousei で「医療雨製」誤爆を排除)
+      expect(res.streamText).toContain('[Z]tenkei[/Z][G]syoken[/G]'); // 典型所見 (所見をSpace 2回で確定し「初見」誤爆を排除)
+      expect(res.streamText).toContain('[G]ikaku[/G][Z]bu[/Z][Z]syouwann[/Z]'); // 胃角部小弯 (「威嚇武将ワン」誤爆を排除)
+      expect(res.streamText).toContain('[G]zentei[/G][Z]bu[/Z]'); // 前庭部 (「前提部」誤爆を排除)
       expect(res.streamText).toContain('[Z]asai[/Z]'); // 浅い
-      expect(res.streamText).toContain('[Z]fuseikannoubyouhenn[/Z]'); // 不整陥凹病変
-      expect(res.streamText).toContain('[Z]rinsyouhanndann[/Z]'); // 臨床判断
-      expect(res.streamText).toContain('[Z]manseiisyukuseiienn[/Z]'); // 慢性萎縮性胃炎
-      expect(res.streamText).toContain('[Z]gennkyokusei[/Z]'); // 限局性
-      expect(res.streamText).toContain('[Z]biran[/Z]'); // びらん
-      expect(res.streamText).toContain('[Z]tekiouseisa[/Z]'); // 適応精査
+      expect(res.streamText).toContain('[Z]fusei[/Z][G]kannou[/G][Z]byouhenn[/Z]'); // 不整陥凹病変 (「不正観桜病変」誤爆を排除)
+      expect(res.streamText).toContain('[Z]seisa[/Z][Z]you[/Z]'); // 精査要 (「正作用」誤爆を排除)
+      expect(res.streamText).toContain('[Z]rinsyou[/Z][Z]hanndann[/Z]'); // 臨床判断
+      expect(res.streamText).toContain('[Z]souki[/Z][G]igan[/G][Z]utagai[/Z]'); // 早期胃癌疑い (utagai で「疑うぃ」誤爆を排除)
+      expect(res.streamText).toContain('[Z]mansei[/Z][Z]isyukusei[/Z][Z]ienn[/Z]'); // 慢性萎縮性胃炎
+      expect(res.streamText).toContain('[Z]gennkyokusei[/Z][H]biran[/H]'); // 限局性びらん
+      expect(res.streamText).toContain('[A]ESD[/A][Z]tekiouseisa[/Z]'); // ESD適応精査
     });
   });
 });

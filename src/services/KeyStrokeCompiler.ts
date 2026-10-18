@@ -144,7 +144,7 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   'アルコール': 'aruko-ru',
   '肝機能障害': 'kankinousyougai',
   '性肝機能障害': 'seikankinousyougai',
-  '疑い': 'utagawi',
+  '疑い': 'utagai',
   '台': 'dai',
   '動か': 'ugoka',
   
@@ -257,9 +257,9 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '典型': 'tenkei',
   '陥凹型': 'kannougata',
   '陥凹': 'kannou',
-  '辺縁粘膜': 'hennennnemmaku',
+  '辺縁粘膜': 'hennennnennmaku',
   '辺縁': 'hennenn',
-  '粘膜': 'nemmaku',
+  '粘膜': 'nennmaku',
   'ひだ集中': 'hidasyuutyuu',
   '集中': 'syuutyuu',
   '途読': 'todoku',
@@ -334,7 +334,7 @@ for (const [term, romaji] of Object.entries(MEDICAL_KANJI_ROMAJI_MAP)) {
 // -----------------------------------------------------------------------------
 // MS-IMEで1語一括変換すると誤爆しやすい複合語の「最適チャンク分割」辞書
 // -----------------------------------------------------------------------------
-export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 'A'; text: string; romaji: string }>> = {
+export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 'A' | 'G'; text: string; romaji: string }>> = {
   '市販総合感冒薬内服': [
     { tag: 'Z', text: '市販', romaji: 'sihann' },
     { tag: 'Z', text: '総合', romaji: 'sougou' },
@@ -385,6 +385,115 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 
   '再診指示': [
     { tag: 'Z', text: '再診', romaji: 'saisinn' },
     { tag: 'Z', text: '指示', romaji: 'siji' },
+  ],
+
+  // 消化器・内視鏡 臨床所見 最適チャンク分解 (MS-IME第1・第2候補 決定論的確定)
+  '内視鏡所見': [
+    { tag: 'Z', text: '内視鏡', romaji: 'naishikyou' },
+    { tag: 'G', text: '所見', romaji: 'syoken' }, // Space2回で100%「所見」確定 (初見誤爆を完全排除)
+  ],
+  '典型所見': [
+    { tag: 'Z', text: '典型', romaji: 'tenkei' },
+    { tag: 'G', text: '所見', romaji: 'syoken' },
+  ],
+  '早期胃癌': [
+    { tag: 'Z', text: '早期', romaji: 'souki' },
+    { tag: 'G', text: '胃癌', romaji: 'igan' }, // Space2回で100%「胃癌」確定 (早期胃がん誤爆防止)
+  ],
+  '陥凹型': [
+    { tag: 'G', text: '陥凹', romaji: 'kannou' }, // Space2回で100%「陥凹」確定 (観桜誤爆防止)
+    { tag: 'Z', text: '型', romaji: 'gata' },
+  ],
+  '不整陥凹病変': [
+    { tag: 'Z', text: '不整', romaji: 'fusei' },
+    { tag: 'G', text: '陥凹', romaji: 'kannou' },
+    { tag: 'Z', text: '病変', romaji: 'byouhenn' },
+  ],
+  '不整陥凹': [
+    { tag: 'Z', text: '不整', romaji: 'fusei' },
+    { tag: 'G', text: '陥凹', romaji: 'kannou' },
+  ],
+  '陥凹病変': [
+    { tag: 'G', text: '陥凹', romaji: 'kannou' },
+    { tag: 'Z', text: '病変', romaji: 'byouhenn' },
+  ],
+  '辺縁粘膜': [
+    { tag: 'Z', text: '辺縁', romaji: 'hennenn' },
+    { tag: 'Z', text: '粘膜', romaji: 'nennmaku' }, // nennmaku で熱膜誤爆防止
+  ],
+  '境界明瞭': [
+    { tag: 'G', text: '境界', romaji: 'kyoukai' }, // Space2回で100%「境界」確定 (協会誤爆防止)
+    { tag: 'Z', text: '明瞭', romaji: 'meiryou' },
+  ],
+  '微細血管構築異常': [
+    { tag: 'Z', text: '微細', romaji: 'bisai' },
+    { tag: 'Z', text: '血管', romaji: 'kekkan' },
+    { tag: 'Z', text: '構築', romaji: 'koutiku' },
+    { tag: 'G', text: '異常', romaji: 'ijyou' }, // Space2回で100%「異常」確定 (以上誤爆防止)
+  ],
+  '構築異常': [
+    { tag: 'Z', text: '構築', romaji: 'koutiku' },
+    { tag: 'G', text: '異常', romaji: 'ijyou' },
+  ],
+  '胃潰瘍': [
+    { tag: 'Z', text: '胃', romaji: 'i' },
+    { tag: 'Z', text: '潰瘍', romaji: 'kaiyou' },
+  ],
+  '消化性潰瘍': [
+    { tag: 'Z', text: '消化性', romaji: 'syoukasei' },
+    { tag: 'Z', text: '潰瘍', romaji: 'kaiyou' },
+  ],
+  '瘢痕期': [
+    { tag: 'Z', text: '瘢痕', romaji: 'hankonn' },
+    { tag: 'Z', text: '期', romaji: 'ki' },
+  ],
+  '胃良性ポリープ': [
+    { tag: 'Z', text: '胃', romaji: 'i' },
+    { tag: 'Z', text: '良性', romaji: 'ryousei' },
+    { tag: 'K', text: 'ポリープ', romaji: 'pori-pu' },
+  ],
+  '胃角部小弯': [
+    { tag: 'G', text: '胃角', romaji: 'ikaku' }, // Space2回で「胃角」確定 (威嚇武将ワン誤爆防止)
+    { tag: 'Z', text: '部', romaji: 'bu' },
+    { tag: 'Z', text: '小弯', romaji: 'syouwann' },
+  ],
+  '前庭部': [
+    { tag: 'G', text: '前庭', romaji: 'zentei' }, // Space2回で100%「前庭」確定 (前提部誤爆防止)
+    { tag: 'Z', text: '部', romaji: 'bu' },
+  ],
+  '精査要': [
+    { tag: 'Z', text: '精査', romaji: 'seisa' },
+    { tag: 'Z', text: '要', romaji: 'you' }, // 正作用誤爆防止
+  ],
+  '臨床判断': [
+    { tag: 'Z', text: '臨床', romaji: 'rinsyou' },
+    { tag: 'Z', text: '判断', romaji: 'hanndann' },
+  ],
+  '慢性萎縮性胃炎': [
+    { tag: 'Z', text: '慢性', romaji: 'mansei' },
+    { tag: 'Z', text: '萎縮性', romaji: 'isyukusei' },
+    { tag: 'Z', text: '胃炎', romaji: 'ienn' },
+  ],
+  '限局性びらん': [
+    { tag: 'Z', text: '限局性', romaji: 'gennkyokusei' },
+    { tag: 'H', text: 'びらん', romaji: 'biran' },
+  ],
+  'ESD適応精査': [
+    { tag: 'A', text: 'ESD', romaji: 'ESD' },
+    { tag: 'Z', text: '適応', romaji: 'tekiou' },
+    { tag: 'Z', text: '精査', romaji: 'seisa' },
+  ],
+  '早期胃癌疑い': [
+    { tag: 'Z', text: '早期', romaji: 'souki' },
+    { tag: 'G', text: '胃癌', romaji: 'igan' },
+    { tag: 'Z', text: '疑い', romaji: 'utagai' },
+  ],
+  '途読': [
+    { tag: 'Z', text: '途', romaji: 'to' },
+    { tag: 'Z', text: '読', romaji: 'doku' },
+  ],
+  '褪色': [
+    { tag: 'G', text: '褪色', romaji: 'taisyoku' }, // Space2回で100%「褪色」確定 (退職誤爆防止)
   ],
 };
 
@@ -751,6 +860,15 @@ export class KeyStrokeCompiler {
               });
               aCount++;
               totalKeystrokes += chunk.romaji.length;
+            } else if (chunk.tag === 'G') {
+              blocks.push({
+                type: 'z_kanji',
+                tag: 'G',
+                rawText: chunk.text,
+                compiledPayload: `[G]${chunk.romaji}[/G]`,
+              });
+              zCount++;
+              totalKeystrokes += chunk.romaji.length + 3; // Space*2 + Enter
             }
           }
           i += phrase.length;

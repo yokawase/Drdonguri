@@ -152,21 +152,6 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       return;
     }
 
-    // 録音開始前のブラウザマイク権限確認・初期化（Chromeの未確定エラー/排他競合を完全クリア）
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        // すぐに全トラックを解放（SpeechRecognitionとのハード競合を回避）
-        stream.getTracks().forEach((track) => track.stop());
-      } catch (micErr: any) {
-        console.warn('Microphone permission check warning:', micErr);
-        if (micErr?.name === 'NotAllowedError' || micErr?.name === 'PermissionDeniedError') {
-          alert('マイクへのアクセスが拒否されています。ブラウザ設定またはアドレスバーの鍵/設定アイコンから「マイクの許可」を有効にしてください。');
-          return;
-        }
-      }
-    }
-
     // 録音開始
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -177,6 +162,11 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
     }
 
     try {
+      // 録音状態を先行してアクティブ化
+      isRecordingRef.current = true;
+      setIsRecording(true);
+      startWaveformLoop();
+
       const recognition = new SpeechRecognition();
       recognition.lang = 'ja-JP';
       recognition.continuous = true;
@@ -186,7 +176,6 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       recognition.onstart = () => {
         isRecordingRef.current = true;
         setIsRecording(true);
-        startWaveformLoop();
       };
 
       recognition.onspeechstart = () => {
@@ -224,32 +213,29 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       recognition.onerror = (event: any) => {
         console.warn('SpeechRecognition error:', event.error);
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          // 録音中に発生した過渡的エラーの場合は過剰アラートを出さずに安全停止
-          if (!isRecordingRef.current) {
-            alert('マイクへのアクセスが拒否されています。ブラウザのアドレスバーの鍵アイコンから「マイクの許可」を有効にしてください。');
-          }
           isRecordingRef.current = false;
           setIsRecording(false);
           stopWaveformLoop();
+          alert('マイクへのアクセスが拒否されています。ブラウザのアドレスバーの鍵アイコンから「マイクの許可」を有効にしてください。');
         } else if (event.error === 'no-speech') {
-          // 無音検出は無視して継続
+          // 無音検出は正常動作としてセッション維持
         } else if (event.error === 'aborted') {
-          // ユーザー中断は正常終了扱い
+          // 意図的中断
         }
       };
 
       recognition.onend = () => {
-        // Chromeの無音自動切断に対抗するオートリスタートループ (セッション解放ウェイト 350ms を確保)
+        // ユーザーが手動停止していない場合はセッションを自動再開
         if (isRecordingRef.current) {
           setTimeout(() => {
             if (isRecordingRef.current) {
               try {
                 recognition.start();
               } catch (e) {
-                console.warn('Auto-restart recognition failed:', e);
+                // すでに開始されている場合は無視
               }
             }
-          }, 350);
+          }, 150);
         } else {
           setIsRecording(false);
           stopWaveformLoop();
@@ -260,10 +246,10 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       recognitionRef.current = recognition;
     } catch (err: any) {
       console.error('Speech recognition initiation failed:', err);
-      alert(`音声認識の起動に失敗しました: ${err?.message || err}`);
       isRecordingRef.current = false;
       setIsRecording(false);
       stopWaveformLoop();
+      alert(`音声認識の起動に失敗しました: ${err?.message || err}`);
     }
   }, [setInputText, startWaveformLoop, stopWaveformLoop]);
 

@@ -301,6 +301,16 @@
   - **Linux Mint MATE での電カル受信・推奨プリンタードライバー策定**:
     - Windows の「Generic / Text Only」ドライバーと完全等価な CUPS 設定として、メーカー: **Generic**、モデル: **Raw Queue**（`raw`）を推奨環境として正式策定。フィルターを介さずプレーンテキスト生データを直接USB仮想プリンターへ流し込む手順を確立。
 
+- [x] **ステップ36**: MS-IME第1候補日常語バイパス最適チャンク分割 ＆ [G]（Space 2回）確定エンジン導入 ＆ 音声入力即時終了の解消 (v2.12.5 / FW v22.4) - 【完了】
+  - **MS-IME日常語第1候補の壁の打破と最適チャンク分割 (`KeyStrokeCompiler.ts`)**:
+    - 現象: 音読み化後も、MS-IMEで日常語が第1候補にある熟語（「初見」「退職」「協会」「以上」「前提」「観桜」「正作用」等）において、長大熟語を一括打鍵すると誤変換が発生（「内視鏡初見」「退職」「協会明瞭」「構築以上」「威嚇武将ワン」「前提部」「不正観桜病変」「正作用」等）。また「疑い」が `utagawi` ➔「疑うぃ」、「粘膜」が `nemmaku` ➔「熱膜」に誤爆。
+    - 解決策1（ローマ字正規化）: `utagawi` ➔ `utagai`、`nemmaku` ➔ `nennmaku`、`ryouusei` ➔ `ryousei` へピンポイント修正。
+    - 解決策2（最適チャンク分割 `MULTI_CHUNK_LEXICON`）: 長大熟語をMS-IMEが確実に認識できる最小単位の自立語チャンクへ分解（「胃潰瘍」➔ `[Z]i[/Z][Z]kaiyou[/Z]`、「瘢痕期」➔ `[Z]hankonn[/Z][Z]ki[/Z]`、「胃良性ポリープ」➔ `[Z]i[/Z][Z]ryousei[/Z][K]pori-pu[/K]`、「精査要」➔ `[Z]seisa[/Z][Z]you[/Z]`）。
+    - 解決策3（[G]タグ・Space 2回確定エンジンの活用）: ファームウェアに内蔵された `sendGreekG`（Space 2回 ➔ Enter確定）を `MULTI_CHUNK_LEXICON` に統合。「所見 (`[G]syoken[/G]`)」「胃癌 (`[G]igan[/G]`)」「陥凹 (`[G]kannou[/G]`)」「境界 (`[G]kyoukai[/G]`)」「褪色 (`[G]taisyoku[/G]`)」「異常 (`[G]ijyou[/G]`)」「胃角 (`[G]ikaku[/G]`)」「前庭 (`[G]zentei[/G]`)」を第2候補直接確定させることで、MS-IMEの第1候補日常語を飛び越えて100%確実に医学用語を確定。
+  - **音声入力が即座に終了する不具合の根本解決 (`NativePwaEdgeLayout.tsx`)**:
+    - 原因: 録音直前に権限事前確認として呼んでいた `getUserMedia({ audio: true })` ➔ `track.stop()` がChromeのオーディオデバイスを解放中（クローズ）状態にし、その直後に起動された `SpeechRecognition` と競合して排他エラー（`aborted` / `audio-capture`）を引き起こし、即時 `onend` が発火していた。
+    - 対策: `getUserMedia` の先行呼び出しを完全撤去。Chrome Web Speech API のネイティブ権限ハンドリングに委譲し、タップ直後からスムーズかつ途切れない音声入力セッションを実現。
+
 ---
 
 
