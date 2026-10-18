@@ -309,7 +309,15 @@
     - 解決策3（[G]タグ・Space 2回確定エンジンの活用）: ファームウェアに内蔵された `sendGreekG`（Space 2回 ➔ Enter確定）を `MULTI_CHUNK_LEXICON` に統合。「所見 (`[G]syoken[/G]`)」「胃癌 (`[G]igan[/G]`)」「陥凹 (`[G]kannou[/G]`)」「境界 (`[G]kyoukai[/G]`)」「褪色 (`[G]taisyoku[/G]`)」「異常 (`[G]ijyou[/G]`)」「胃角 (`[G]ikaku[/G]`)」「前庭 (`[G]zentei[/G]`)」を第2候補直接確定させることで、MS-IMEの第1候補日常語を飛び越えて100%確実に医学用語を確定。
   - **音声入力が即座に終了する不具合の根本解決 (`NativePwaEdgeLayout.tsx`)**:
     - 原因: 録音直前に権限事前確認として呼んでいた `getUserMedia({ audio: true })` ➔ `track.stop()` がChromeのオーディオデバイスを解放中（クローズ）状態にし、その直後に起動された `SpeechRecognition` と競合して排他エラー（`aborted` / `audio-capture`）を引き起こし、即時 `onend` が発火していた。
-    - 対策: `getUserMedia` の先行呼び出しを完全撤去。Chrome Web Speech API のネイティブ権限ハンドリングに委譲し、タップ直後からスムーズかつ途切れない音声入力セッションを実現。
+- [x] **ステップ37**: 電カル双方向受信 ＆ ローカルAI臨床方針相談 白背景・白文字不整合の完全根絶 ＆ 新UIルール（ダークテーマ）完全統一 (v2.12.6 / FW v22.4) - 【完了】
+  - **電カル双方向受信コプロセッサ (`MedicalCoprocessorModal.tsx`) の全面ダークテーマ化**:
+    - 原因: 外枠が `bg-[#0F172A] text-slate-100` であったのに対し、内部の左右ペイン（生データ吸い上げ・AI自律構造化）およびフッターがレトロな `bg-white border-black` のままであり、親の白文字色を継承して「白背景に白文字」となって視認不能になっていた。
+    - 対策: `bg-[#1E293B] border-slate-700/80 rounded-2xl` のネイティブカードUIに全面刷新。入力エリアは `bg-[#0F172A] border-slate-700 text-slate-100`、吸い上げボタンはアンバー、SOAP再構成はパープル、新規カルテ書き戻しはエメラルドグリーンへ統一。
+  - **ローカルAI臨床方針相談 (`AiAssistModal.tsx`) の全面ダークテーマ化**:
+    - 原因: 整形スタイルセレクター、元テキストプレビュー、プログレス表示、結果出力エリアが `bg-white border-black` / `bg-gray-100` であり、テキストが白背景で見えなくなっていた。
+    - 対策: スタイルセレクターを `bg-[#1E293B] rounded-xl`、アクティブ選択をパープルシャドウ、元テキストプレビューを `bg-[#1E293B] text-slate-200`、出力テキストエリアを `bg-[#0F172A] text-slate-100 border-slate-700`、プログレスバーを `from-purple-500 to-indigo-500` のモダンバーへ刷新。
+  - **カメラカルテOCR (`CameraOcrModal.tsx`) のテキスト出力エリア・フッターの統一**:
+    - 出力テキストエリアおよびフッターの `bg-slate-50 / bg-white` を `bg-[#0F172A] / bg-[#1E293B]` へ刷新し、アプリ全体のUI一貫性を100%確保。
 
 ---
 

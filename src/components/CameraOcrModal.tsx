@@ -444,8 +444,8 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                 </span>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                   isRefinedByLlm
-                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                    : 'text-amber-700 bg-amber-50 border-amber-200'
+                    ? 'text-emerald-300 bg-emerald-950/60 border-emerald-600/50'
+                    : 'text-amber-300 bg-amber-950/60 border-amber-600/50'
                 }`}>
                   {isRefinedByLlm ? 'Gemma 2 校正完了' : isProcessing ? 'AI校正中...' : '生OCRテキスト'}
                 </span>
@@ -454,7 +454,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                 value={extractedText}
                 onChange={(e) => setExtractedText(e.target.value)}
                 rows={7}
-                className="w-full p-3 font-mono text-xs bg-slate-50 border border-slate-300 rounded-xl leading-relaxed focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 text-slate-900"
+                className="w-full p-3 font-mono text-xs bg-[#0F172A] border border-slate-700 rounded-xl leading-relaxed text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400"
               />
             </div>
           )}
@@ -462,7 +462,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
 
         {/* Footer (Apply text buttons) */}
         {extractedText && (
-          <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row gap-2 shrink-0">
+          <div className="p-4 bg-[#1E293B] border-t border-slate-800 flex flex-col sm:flex-row gap-2 shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -480,9 +480,9 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                 onApplyText(extractedText, 'append');
                 onClose();
               }}
-              className="flex-1 py-3 px-4 bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-2xl border border-slate-300 flex items-center justify-center gap-2 transition-all cursor-pointer text-xs active:scale-98"
+              className="flex-1 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-2xl border border-slate-700 flex items-center justify-center gap-2 transition-all cursor-pointer text-xs active:scale-98"
             >
-              <FileText className="w-4 h-4 text-slate-500" />
+              <FileText className="w-4 h-4 text-slate-400" />
               <span>末尾に追記する</span>
             </button>
           </div>

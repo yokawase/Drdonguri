@@ -149,16 +149,16 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
           </div>
 
           {cacheStatus && (
-            <div className="p-1.5 bg-yellow-50 border border-yellow-400 text-yellow-900 text-[10px] font-bold">
+            <div className="p-2 bg-amber-950/40 border border-amber-600/50 text-amber-300 rounded-xl text-[10px] font-bold">
               ⚡ {cacheStatus}
             </div>
           )}
 
           {/* Format style selector */}
-          <div className="border border-black p-2.5 bg-white space-y-1.5">
-            <div className="flex justify-between items-center font-bold">
+          <div className="border border-slate-700/80 p-3 bg-[#1E293B] rounded-xl space-y-2">
+            <div className="flex justify-between items-center font-bold text-xs text-slate-200">
               <span>整形スタイルを選択:</span>
-              <span className="text-[10px] text-gray-600 font-normal">
+              <span className="text-[10px] text-slate-400 font-normal">
                 {isEngineLoaded() ? '● ロード済 (即時推論)' : '○ 初回のみ高速ダウンロード'}
               </span>
             </div>
@@ -169,7 +169,11 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                   playMacBeep();
                   setStyle('soap');
                 }}
-                className={`mac-btn py-1.5 text-xs ${style === 'soap' ? 'bg-black text-white font-bold' : ''}`}
+                className={`py-2 px-2 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                  style === 'soap'
+                    ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]'
+                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                }`}
               >
                 SOAP形式
               </button>
@@ -179,7 +183,11 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                   playMacBeep();
                   setStyle('concise');
                 }}
-                className={`mac-btn py-1.5 text-xs ${style === 'concise' ? 'bg-black text-white font-bold' : ''}`}
+                className={`py-2 px-2 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                  style === 'concise'
+                    ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]'
+                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                }`}
               >
                 箇条書き要約
               </button>
@@ -189,7 +197,11 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
                   playMacBeep();
                   setStyle('interview');
                 }}
-                className={`mac-btn py-1.5 text-xs ${style === 'interview' ? 'bg-black text-white font-bold' : ''}`}
+                className={`py-2 px-2 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                  style === 'interview'
+                    ? 'bg-purple-600 border-purple-500 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]'
+                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                }`}
               >
                 問診・現病歴
               </button>
@@ -198,29 +210,29 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
 
           {/* Original text preview */}
           <div className="space-y-1">
-            <div className="flex justify-between font-bold text-[11px]">
+            <div className="flex justify-between font-bold text-[11px] text-slate-300">
               <span>元テキスト:</span>
-              <span>{originalText.length} 文字</span>
+              <span className="text-slate-400 font-mono">{originalText.length} 文字</span>
             </div>
-            <div className="border border-black p-2 bg-white max-h-20 overflow-y-auto font-mono text-[11px] leading-relaxed shadow-[inset_1px_1px_0_#000]">
-              {originalText || <span className="text-gray-400">（テキスト未入力：サンプルテキストで実行します）</span>}
+            <div className="border border-slate-700/80 p-2.5 bg-[#1E293B] rounded-xl max-h-24 overflow-y-auto font-mono text-[11px] leading-relaxed text-slate-200">
+              {originalText || <span className="text-slate-500">（テキスト未入力：サンプルテキストで実行します）</span>}
             </div>
           </div>
 
-          {/* Progress / Loading UI (フラッシュ点滅を完全撤廃し、安定したMac風プログレス表示) */}
+          {/* Progress / Loading UI */}
           {isLoading && (
-            <div className="border-2 border-black p-2.5 bg-gray-100 space-y-1.5">
+            <div className="border border-purple-600/40 p-3 bg-purple-950/30 rounded-xl space-y-2">
               <div className="flex justify-between text-[11px] font-bold">
-                <span>⚡ {loadStatus || 'WebLLM 処理中...'}</span>
-                <span>{progressPercent}%</span>
+                <span className="text-purple-300">⚡ {loadStatus || 'WebLLM 処理中...'}</span>
+                <span className="text-purple-300 font-mono">{progressPercent}%</span>
               </div>
-              <div className="w-full bg-white border border-black h-3.5 p-0.5">
+              <div className="w-full bg-slate-800 border border-slate-700 rounded-full h-2.5 overflow-hidden p-0.5">
                 <div
-                  className="bg-black h-full transition-all duration-150"
+                  className="bg-gradient-to-r from-purple-500 to-indigo-500 h-full rounded-full transition-all duration-150"
                   style={{ width: `${Math.max(5, progressPercent)}%` }}
                 />
               </div>
-              <p className="text-[10px] text-gray-600">
+              <p className="text-[10px] text-slate-400">
                 ※端末内WebGPUで完全ローカル推論中。外部通信なし・個人情報保護
               </p>
             </div>
@@ -228,26 +240,26 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
 
           {/* Error notice */}
           {error && (
-            <div className="border-2 border-black p-2 bg-white text-xs font-bold text-red-600">
+            <div className="border border-rose-600/50 p-2.5 bg-rose-950/50 text-xs font-bold text-rose-300 rounded-xl">
               ⚠️ {error}
             </div>
           )}
 
-          {/* Result preview (ストリーミング中はリアルタイムに文字が追加される) */}
+          {/* Result preview */}
           {(resultText || isLoading) && (
             <div className="space-y-1">
-              <div className="flex justify-between items-center font-bold text-[11px]">
+              <div className="flex justify-between items-center font-bold text-[11px] text-slate-300">
                 <span>
                   校正結果 ({style === 'soap' ? 'SOAP形式' : style === 'concise' ? '箇条書き' : '問診形式'}):
                 </span>
-                {isLoading && <span className="text-[10px] text-emerald-700 animate-pulse">● リアルタイム生成中</span>}
+                {isLoading && <span className="text-[10px] text-emerald-400 animate-pulse font-bold">● リアルタイム生成中</span>}
               </div>
               <textarea
                 value={resultText}
                 onChange={(e) => setResultText(e.target.value)}
                 placeholder="AIがリアルタイムに校正テキストを出力します..."
                 rows={6}
-                className="w-full border border-black p-2 bg-white font-mono text-xs leading-relaxed focus:outline-none shadow-[inset_1px_1px_0_#000]"
+                className="w-full border border-slate-700/80 p-3 bg-[#0F172A] rounded-xl font-mono text-xs text-slate-100 leading-relaxed placeholder:text-slate-500 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
               />
             </div>
           )}
