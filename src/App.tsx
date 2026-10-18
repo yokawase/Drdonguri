@@ -165,7 +165,23 @@ export default function App() {
       showToast('info', '送信完了！カルテPC側への自動打鍵を開始しています...');
     } catch (err: any) {
       setIsSending(false);
-      showToast('error', `送信エラー: ${err?.message || err}`);
+      if (err?.message === 'TRANSMISSION_ABORTED') {
+        showToast('warning', '電子カルテへの転送を中断しました。');
+      } else {
+        showToast('error', `送信エラー: ${err?.message || err}`);
+      }
+    }
+  };
+
+  // 転送中断ハンドラ
+  const handleAbortTransfer = async () => {
+    try {
+      await bleManager.abortTransmission();
+      setIsSending(false);
+      showToast('warning', '電子カルテへの転送を中断しました（ドングルメモリ消去済）。');
+    } catch (err: any) {
+      setIsSending(false);
+      showToast('error', `中断処理エラー: ${err?.message || err}`);
     }
   };
 
@@ -210,6 +226,7 @@ export default function App() {
         isSending={isSending}
         onConnectBle={handleConnectBle}
         onSendSession={handleSendDirect}
+        onAbortTransfer={handleAbortTransfer}
         onOpenSearch={handleOpenSearch}
         onOpenCoprocessor={() => setIsCoprocessorModalOpen(true)}
         onOpenWebLlm={() => setIsAiModalOpen(true)}

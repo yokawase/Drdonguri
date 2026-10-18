@@ -544,65 +544,79 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('score'); }}
-              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
-                filterType === 'score' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap cursor-pointer flex items-center gap-1.5 transition-colors ${
+                filterType === 'score'
+                  ? 'bg-amber-500 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
               }`}
             >
-              <Calculator className="w-3 h-3 text-orange-600" />
+              <Calculator className="w-3.5 h-3.5 text-amber-400" />
               <span>🧮 臨床スコア</span>
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('lab'); }}
-              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
-                filterType === 'lab' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap cursor-pointer flex items-center gap-1.5 transition-colors ${
+                filterType === 'lab'
+                  ? 'bg-rose-500 text-white shadow-[0_0_12px_rgba(244,63,94,0.3)]'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
               }`}
             >
-              <Activity className="w-3 h-3 text-rose-600" />
+              <Activity className="w-3.5 h-3.5 text-rose-400" />
               <span>🔬 検査値＆基準値</span>
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('proc'); }}
-              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
-                filterType === 'proc' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap cursor-pointer flex items-center gap-1.5 transition-colors ${
+                filterType === 'proc'
+                  ? 'bg-sky-500 text-slate-950 shadow-[0_0_12px_rgba(56,189,248,0.3)]'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
               }`}
             >
-              <ClipboardList className="w-3 h-3 text-blue-600" />
+              <ClipboardList className="w-3.5 h-3.5 text-sky-400" />
               <span>💉 診療行為・指導料</span>
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('renal'); }}
-              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
-                filterType === 'renal' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap cursor-pointer flex items-center gap-1.5 transition-colors ${
+                filterType === 'renal'
+                  ? 'bg-amber-600 text-white shadow-[0_0_12px_rgba(217,119,6,0.3)]'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
               }`}
             >
-              <ShieldAlert className="w-3 h-3 text-amber-600" />
+              <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
               <span>⚠️ 腎機能別減量</span>
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('minds'); }}
-              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
-                filterType === 'minds' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap cursor-pointer flex items-center gap-1.5 transition-colors ${
+                filterType === 'minds'
+                  ? 'bg-emerald-500 text-slate-950 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
               }`}
             >
-              <BookOpen className="w-3 h-3 text-emerald-600" />
+              <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
               <span>Minds (169CQ)</span>
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('disease'); }}
-              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
-                filterType === 'disease' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap cursor-pointer flex items-center gap-1.5 transition-colors ${
+                filterType === 'disease'
+                  ? 'bg-indigo-500 text-white shadow-[0_0_12px_rgba(99,102,241,0.3)]'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
               }`}
             >
-              <FileText className="w-3 h-3 text-indigo-600" />
+              <FileText className="w-3.5 h-3.5 text-indigo-400" />
               <span>傷病名</span>
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('sdmap'); }}
-              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
-                filterType === 'sdmap' ? 'bg-indigo-950 text-white' : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-950 border-indigo-400'
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap cursor-pointer flex items-center gap-1.5 transition-colors ${
+                filterType === 'sdmap'
+                  ? 'bg-purple-600 text-white shadow-[0_0_12px_rgba(147,51,234,0.3)]'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
               }`}
             >
-              <HardDrive className="w-3 h-3 text-indigo-500" />
+              <HardDrive className="w-3.5 h-3.5 text-purple-400" />
               <span>💾 32GB SDマップ</span>
             </button>
           </div>
@@ -612,29 +626,29 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* 32GB MicroSD 全領域配分マップ ビュー */}
           {filterType === 'sdmap' ? (
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 font-sans bg-slate-50">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 font-sans bg-[#0F172A]">
               {/* マップヘッダー ＆ 物理仕様バナー */}
-              <div className="bg-indigo-950 text-white p-3 border-2 border-black shadow-[3px_3px_0_#000] space-y-2">
+              <div className="bg-[#1E293B] text-slate-100 p-3.5 border border-purple-500/40 rounded-xl shadow-lg space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <HardDrive className="w-5 h-5 text-indigo-300" />
-                    <span className="font-bold text-sm sm:text-base">LilyGO T-Dongle-S3 32GB MicroSD 全領域配分マップ</span>
+                    <HardDrive className="w-5 h-5 text-purple-400" />
+                    <span className="font-bold text-sm sm:text-base text-white">LilyGO T-Dongle-S3 32GB MicroSD 全領域配分マップ</span>
                   </div>
-                  <span className="px-2 py-0.5 bg-emerald-500 text-black text-[10px] font-mono font-bold">
+                  <span className="px-2 py-0.5 bg-emerald-500 text-slate-950 text-[10px] font-mono font-bold rounded">
                     Zero-Write 読取専用保護
                   </span>
                 </div>
-                <p className="text-xs text-indigo-200 leading-relaxed">
+                <p className="text-xs text-slate-300 leading-relaxed">
                   物理容量 32GB (FAT32実効 29.8GB) を極限まで活用。臨床原本PDF・ローカルAIモデル重み・全品目添付文書・高解像度アトラスを完全収録し、電子カルテ端末でのオフライン超高速検索を実現します。
                 </p>
 
                 {/* ストレージ容量バー */}
                 <div className="space-y-1 pt-1">
-                  <div className="flex justify-between text-[11px] font-mono text-indigo-200">
+                  <div className="flex justify-between text-[11px] font-mono text-slate-400">
                     <span>収録済医療データ: 29.8 GB / 29.8 GB (100%)</span>
                     <span>FAT破損防止 Zero-Write 設計</span>
                   </div>
-                  <div className="w-full h-3 bg-indigo-900 border border-indigo-700 flex overflow-hidden">
+                  <div className="w-full h-3 bg-slate-900 border border-slate-700 rounded flex overflow-hidden">
                     {MICRO_SD_STORAGE_MAP.map((part, pidx) => {
                       const colors = [
                         'bg-blue-500',
@@ -675,27 +689,27 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                   return (
                     <div
                       key={pidx}
-                      className="border border-black bg-white p-3 shadow-[2px_2px_0_#000] flex flex-col justify-between space-y-2 hover:border-indigo-600 transition-colors"
+                      className="border border-slate-700/80 bg-[#1E293B] rounded-xl p-3 shadow-lg flex flex-col justify-between space-y-2 hover:border-purple-500/70 transition-colors"
                     >
                       <div className="space-y-1">
                         <div className="flex items-start justify-between gap-1">
-                          <span className="font-bold text-xs text-slate-900">
+                          <span className="font-bold text-xs text-white">
                             {part.categoryName}
                           </span>
-                          <span className="shrink-0 font-mono font-bold text-xs text-indigo-700 bg-indigo-50 px-1.5 py-0.5 border border-indigo-200">
+                          <span className="shrink-0 font-mono font-bold text-xs text-purple-300 bg-purple-950/70 px-1.5 py-0.5 border border-purple-700/50 rounded">
                             {part.sizeGb} GB ({part.percentage}%)
                           </span>
                         </div>
-                        <div className="text-[10px] font-mono text-gray-500 bg-gray-50 px-1.5 py-0.5 border border-gray-200">
+                        <div className="text-[10px] font-mono text-slate-400 bg-slate-900/80 px-1.5 py-0.5 border border-slate-800 rounded">
                           {part.path}
                         </div>
-                        <p className="text-[11px] text-gray-700 leading-relaxed">
+                        <p className="text-[11px] text-slate-300 leading-relaxed">
                           {part.description}
                         </p>
                       </div>
 
-                      <div className="flex items-center justify-between pt-1 border-t border-gray-200 text-[10px]">
-                        <span className="font-semibold text-gray-600">
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-800 text-[10px]">
+                        <span className="font-semibold text-slate-400">
                           {part.itemCountDescription}
                         </span>
                         {targetTab !== 'all' && (
@@ -704,7 +718,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                               playMacBeep();
                               setFilterType(targetTab);
                             }}
-                            className="px-2 py-0.5 border border-black bg-white hover:bg-black hover:text-white font-bold shadow-[1px_1px_0_#000] text-[10px] cursor-pointer"
+                            className="px-2.5 py-1 border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg text-[10px] cursor-pointer transition-colors"
                           >
                             データ閲覧 ➔
                           </button>
@@ -717,35 +731,35 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
             </div>
           ) : filterType === 'pill' ? (
             /* 💊 錠剤識別（表裏）専用ビュー */
-            <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-2.5 font-sans bg-slate-50">
+            <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-2.5 font-sans bg-[#0F172A]">
               {/* 錠剤絞り込みサブツールバー */}
-              <div className="bg-white border-2 border-black p-2.5 shadow-[2px_2px_0_#000] space-y-2">
+              <div className="bg-[#1E293B] border border-slate-700/80 rounded-xl p-3 shadow-lg space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-teal-950">
-                    <Pill className="w-4 h-4 text-teal-600" />
+                  <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-teal-300">
+                    <Pill className="w-4 h-4 text-teal-400" />
                     <span>医薬品添付文書 ＆ 錠剤識別写真 (PMDA約22,000品目・表裏刻印)</span>
                   </div>
-                  <span className="text-[11px] font-mono text-teal-800 bg-teal-50 px-2 py-0.5 border border-teal-200">
+                  <span className="text-[11px] font-mono text-teal-300 bg-teal-950/70 px-2 py-0.5 border border-teal-700/50 rounded-lg">
                     該当: {pillSearchResults.length} 件
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-700 mb-0.5">刻印記号 (表/裏):</label>
+                    <label className="block text-[10px] font-bold text-slate-300 mb-1">刻印記号 (表/裏):</label>
                     <input
                       type="text"
                       value={pillImprintFilter}
                       onChange={(e) => setPillImprintFilter(e.target.value)}
                       placeholder="例: TCK, 105, 5mg..."
-                      className="w-full border border-black px-2 py-1 text-xs focus:bg-yellow-50 shadow-[1px_1px_0_#000]"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-700 mb-0.5">形状・剤形:</label>
+                    <label className="block text-[10px] font-bold text-slate-300 mb-1">形状・剤形:</label>
                     <select
                       value={pillShapeFilter}
                       onChange={(e) => setPillShapeFilter(e.target.value)}
-                      className="w-full border border-black px-2 py-1 text-xs bg-white shadow-[1px_1px_0_#000] cursor-pointer"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-amber-500 cursor-pointer"
                     >
                       <option value="all">すべての形状</option>
                       <option value="円形">円形 (丸型)</option>
@@ -755,7 +769,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-700 mb-0.5">割線の有無:</label>
+                    <label className="block text-[10px] font-bold text-slate-300 mb-1">割線の有無:</label>
                     <div className="flex gap-1">
                       {[
                         { label: 'すべて', val: 'all' },
@@ -766,8 +780,10 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                           key={opt.val}
                           type="button"
                           onClick={() => { playMacBeep(); setPillScoredFilter(opt.val as any); }}
-                          className={`flex-1 py-1 border border-black text-[11px] font-bold cursor-pointer shadow-[1px_1px_0_#000] ${
-                            pillScoredFilter === opt.val ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+                          className={`flex-1 py-1.5 rounded-lg border text-[11px] font-bold cursor-pointer transition-colors ${
+                            pillScoredFilter === opt.val
+                              ? 'bg-amber-500 text-slate-950 border-amber-500'
+                              : 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800'
                           }`}
                         >
                           {opt.label}
@@ -780,7 +796,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
 
               {/* 錠剤カード一覧 */}
               {pillSearchResults.length === 0 ? (
-                <div className="p-8 text-center text-gray-500 text-xs">
+                <div className="p-8 text-center text-slate-400 text-xs">
                   一致する刻印・薬剤情報が見つかりませんでした。刻印記号または薬品名を変えてお試しください。
                 </div>
               ) : (
@@ -795,11 +811,11 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                     return (
                       <div
                         key={drug.id}
-                        className="border-2 border-black bg-white p-3 shadow-[3px_3px_0_#000] flex flex-col md:flex-row gap-3 hover:border-teal-700 transition-colors"
+                        className="border border-slate-700/80 bg-[#1E293B] rounded-xl p-3 shadow-lg flex flex-col md:flex-row gap-3 hover:border-teal-500/70 transition-colors"
                       >
                         {/* 錠剤写真 ＆ 表裏フリップ */}
-                        <div className="flex flex-col items-center justify-center bg-gray-50 border border-gray-300 p-2 shrink-0 w-full md:w-44">
-                          <div className="relative w-32 h-32 bg-white border border-gray-300 flex items-center justify-center overflow-hidden shadow-inner group">
+                        <div className="flex flex-col items-center justify-center bg-slate-900/80 border border-slate-800 rounded-xl p-2 shrink-0 w-full md:w-44">
+                          <div className="relative w-32 h-32 bg-slate-950 border border-slate-800 rounded-lg flex items-center justify-center overflow-hidden shadow-inner group">
                             <img
                               src={displayedImg}
                               alt={drug.brandName}
@@ -808,7 +824,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                                 (e.target as HTMLImageElement).src = drug.frontImageUrl;
                               }}
                             />
-                            <div className="absolute top-1 left-1 bg-black/80 text-white text-[9px] px-1.5 py-0.2 font-mono font-bold">
+                            <div className="absolute top-1 left-1 bg-black/80 text-white text-[9px] px-1.5 py-0.5 rounded font-mono font-bold">
                               {isFlipped ? '裏面 [BACK]' : '表面 [FRONT]'}
                             </div>
                           </div>
@@ -817,7 +833,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                             <button
                               type="button"
                               onClick={() => togglePillFlip(drug.id)}
-                              className="flex-1 py-1 border border-black bg-teal-50 hover:bg-teal-100 text-[10px] font-bold text-teal-950 flex items-center justify-center gap-1 shadow-[1px_1px_0_#000] cursor-pointer"
+                              className="flex-1 py-1.5 border border-slate-700 bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-colors"
                               title="表写真 ⇄ 裏写真 切り替え"
                             >
                               <RefreshCw className="w-2.5 h-2.5" />
@@ -833,17 +849,17 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                             <div className="flex items-start justify-between gap-2">
                               <div>
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="text-[10px] font-bold px-1.5 py-0.2 border bg-teal-100 text-teal-950 border-teal-300">
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-teal-950/70 text-teal-300 border-teal-700/50">
                                     {drug.category}
                                   </span>
-                                  <span className="font-bold text-sm sm:text-base text-slate-900">
+                                  <span className="font-bold text-sm sm:text-base text-white">
                                     {drug.brandName}
                                   </span>
-                                  <span className="text-xs text-gray-600">
+                                  <span className="text-xs text-slate-400">
                                     ({drug.genericName})
                                   </span>
                                 </div>
-                                <div className="text-[10px] text-gray-500 font-mono mt-0.5">
+                                <div className="text-[10px] text-slate-500 font-mono mt-0.5">
                                   YJ: {drug.yjCode} | JAN: {drug.janCode || '未登録'}
                                 </div>
                               </div>
@@ -852,62 +868,62 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleOpenPackagePdf(drug.pdfPath)}
-                                  className="px-2 py-1 text-[11px] font-bold border border-black bg-sky-50 hover:bg-sky-100 text-sky-950 shadow-[1px_1px_0_#000] flex items-center gap-1 cursor-pointer"
+                                  className="px-2 py-1 text-[11px] font-bold border border-slate-700 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
                                   title="PMDA公式 医薬品添付文書PDF原本を開く"
                                 >
-                                  <FileText className="w-3 h-3 text-sky-600" />
+                                  <FileText className="w-3 h-3 text-sky-400" />
                                   <span className="hidden sm:inline">添付文書PDF</span>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleInsert(chartText, drug.id)}
-                                  className="px-2 py-1 text-[11px] font-bold border border-black bg-white hover:bg-black hover:text-white shadow-[1px_1px_0_#000] flex items-center gap-1 cursor-pointer"
+                                  className="px-2 py-1 text-[11px] font-bold border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
                                   title="カルテ本文に処方・用法を挿入"
                                 >
-                                  {isItemInserted ? <Check className="w-3 h-3 text-emerald-600" /> : <Plus className="w-3 h-3" />}
+                                  {isItemInserted ? <Check className="w-3 h-3 text-emerald-400" /> : <Plus className="w-3 h-3" />}
                                   <span>処方挿入</span>
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleCopy(chartText, drug.id)}
-                                  className="px-1.5 py-1 text-[11px] border border-black bg-white hover:bg-black hover:text-white shadow-[1px_1px_0_#000] cursor-pointer"
+                                  className="px-1.5 py-1 text-[11px] border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer transition-colors"
                                   title="コピー"
                                 >
-                                  {isItemCopied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                                  {isItemCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                                 </button>
                               </div>
                             </div>
 
                             {/* 刻印バッジ・スペックマトリクス */}
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1 text-[11px]">
-                              <div className="bg-teal-50/70 border border-teal-200 p-1.5">
-                                <span className="block text-[9.5px] font-bold text-teal-800">表刻印記号</span>
-                                <span className="font-mono font-black text-xs text-teal-950">{drug.imprintFront || '（なし）'}</span>
+                              <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-1.5">
+                                <span className="block text-[9.5px] font-bold text-teal-400">表刻印記号</span>
+                                <span className="font-mono font-black text-xs text-white">{drug.imprintFront || '（なし）'}</span>
                               </div>
-                              <div className="bg-teal-50/70 border border-teal-200 p-1.5">
-                                <span className="block text-[9.5px] font-bold text-teal-800">裏刻印記号</span>
-                                <span className="font-mono font-black text-xs text-teal-950">{drug.imprintBack || '（なし）'}</span>
+                              <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-1.5">
+                                <span className="block text-[9.5px] font-bold text-teal-400">裏刻印記号</span>
+                                <span className="font-mono font-black text-xs text-white">{drug.imprintBack || '（なし）'}</span>
                               </div>
-                              <div className="bg-gray-50 border border-gray-200 p-1.5">
-                                <span className="block text-[9.5px] font-bold text-gray-700">外観・形状・割線</span>
-                                <span className="text-gray-900 font-semibold">{drug.colorAndShape} / {drug.hasScoredLine ? '割線有' : '割線無'}</span>
+                              <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-1.5">
+                                <span className="block text-[9.5px] font-bold text-slate-400">外観・形状・割線</span>
+                                <span className="text-slate-200 font-semibold">{drug.colorAndShape} / {drug.hasScoredLine ? '割線有' : '割線無'}</span>
                               </div>
-                              <div className="bg-gray-50 border border-gray-200 p-1.5">
-                                <span className="block text-[9.5px] font-bold text-gray-700">直径 / 厚み</span>
-                                <span className="font-mono text-gray-900">{drug.diameterMm ? `${drug.diameterMm}mm` : '-'} / {drug.thicknessMm ? `${drug.thicknessMm}mm` : '-'}</span>
+                              <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-1.5">
+                                <span className="block text-[9.5px] font-bold text-slate-400">直径 / 厚み</span>
+                                <span className="font-mono text-slate-300">{drug.diameterMm ? `${drug.diameterMm}mm` : '-'} / {drug.thicknessMm ? `${drug.thicknessMm}mm` : '-'}</span>
                               </div>
                             </div>
 
                             {/* 用法用量 ＆ 腎機能注意 */}
-                            <div className="text-xs bg-slate-50 p-2 border border-slate-200 space-y-1 mt-1">
-                              <div><span className="font-bold text-slate-900">標準用法用量: </span><span className="text-slate-800">{drug.standardDose}</span></div>
+                            <div className="text-xs bg-slate-900/60 p-2.5 border border-slate-800 rounded-lg space-y-1.5 mt-1">
+                              <div><span className="font-bold text-slate-300">標準用法用量: </span><span className="text-slate-200">{drug.standardDose}</span></div>
                               {drug.renalDoseInfo && (
-                                <div className="text-amber-900 bg-amber-50 p-1 border border-amber-200 flex items-start gap-1 text-[11px]">
-                                  <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                <div className="text-amber-200 bg-amber-950/40 p-1.5 border border-amber-600/40 rounded flex items-start gap-1 text-[11px]">
+                                  <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
                                   <span><span className="font-bold">腎機能別減量: </span>{drug.renalDoseInfo}</span>
                                 </div>
                               )}
-                              <div className="text-[11px] text-gray-600"><span className="font-bold">主要注意: </span>{drug.majorCautions}</div>
+                              <div className="text-[11px] text-slate-400"><span className="font-bold text-slate-300">主要注意: </span>{drug.majorCautions}</div>
                             </div>
                           </div>
                         </div>
@@ -919,29 +935,31 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
             </div>
           ) : filterType === 'atlas' ? (
             /* 🖼️ 臨床アトラス専用ギャラリービュー */
-            <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-2.5 font-sans bg-slate-50">
+            <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-2.5 font-sans bg-[#0F172A]">
               {/* アトラス絞り込みサブツールバー */}
-              <div className="bg-white border-2 border-black p-2.5 shadow-[2px_2px_0_#000] flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-purple-950">
-                  <Camera className="w-4 h-4 text-purple-600" />
+              <div className="bg-[#1E293B] border border-slate-700/80 rounded-xl p-3 shadow-lg flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-rose-300">
+                  <Camera className="w-4 h-4 text-rose-400" />
                   <span>臨床アトラス画像集 (皮膚科・内視鏡・12誘導心電図 約4,000点 WebP)</span>
                 </div>
 
                 {/* カテゴリ切り替えチップ */}
-                <div className="flex items-center gap-1 text-xs">
+                <div className="flex items-center gap-1.5 text-xs">
                   {(['全件', '心電図', '皮膚科', '内視鏡'] as const).map((cat) => (
                     <button
                       key={cat}
                       type="button"
                       onClick={() => { playMacBeep(); setAtlasCategoryFilter(cat); }}
-                      className={`px-2 py-0.5 border border-black font-bold text-[11px] cursor-pointer shadow-[1px_1px_0_#000] ${
-                        atlasCategoryFilter === cat ? 'bg-purple-950 text-white' : 'bg-white hover:bg-purple-100 text-purple-950'
+                      className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold cursor-pointer transition-colors ${
+                        atlasCategoryFilter === cat
+                          ? 'bg-rose-500 text-white border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
+                          : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-700'
                       }`}
                     >
                       {cat}
                     </button>
                   ))}
-                  <span className="text-[11px] font-mono text-purple-800 bg-purple-50 px-2 py-0.5 border border-purple-200 ml-1">
+                  <span className="text-[11px] font-mono text-rose-300 bg-rose-950/70 px-2 py-0.5 border border-rose-700/50 rounded-lg ml-1">
                     {atlasSearchResults.length} 点
                   </span>
                 </div>
@@ -949,7 +967,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
 
               {/* ギャラリーグリッド (2〜3列) */}
               {atlasSearchResults.length === 0 ? (
-                <div className="p-8 text-center text-gray-500 text-xs">
+                <div className="p-8 text-center text-slate-400 text-xs">
                   一致するアトラス画像が見つかりませんでした。カテゴリを「全件」にするかキーワードを変更してください。
                 </div>
               ) : (
@@ -959,20 +977,20 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                     const isItemInserted = insertedId === atlas.id;
                     const chartText = bleMedicalIndexService.formatAtlasForMedicalRecord(atlas);
 
-                    let catBadge = 'bg-purple-100 text-purple-900 border-purple-300';
-                    if (atlas.category === '心電図') catBadge = 'bg-rose-100 text-rose-900 border-rose-300';
-                    else if (atlas.category === '皮膚科') catBadge = 'bg-amber-100 text-amber-900 border-amber-300';
-                    else if (atlas.category === '内視鏡') catBadge = 'bg-blue-100 text-blue-900 border-blue-300';
+                    let catBadge = 'bg-purple-950/80 text-purple-300 border-purple-700/60';
+                    if (atlas.category === '心電図') catBadge = 'bg-rose-950/80 text-rose-300 border-rose-700/60';
+                    else if (atlas.category === '皮膚科') catBadge = 'bg-amber-950/80 text-amber-300 border-amber-700/60';
+                    else if (atlas.category === '内視鏡') catBadge = 'bg-sky-950/80 text-sky-300 border-sky-700/60';
 
                     return (
                       <div
                         key={atlas.id}
-                        className="border-2 border-black bg-white shadow-[2px_2px_0_#000] flex flex-col justify-between overflow-hidden hover:border-purple-600 transition-colors"
+                        className="border border-slate-700/80 bg-[#1E293B] rounded-xl shadow-lg flex flex-col justify-between overflow-hidden hover:border-rose-500/70 transition-colors"
                       >
                         {/* サムネイル画像コンテナ (クリックで大判モーダル) */}
                         <div
                           onClick={() => handleOpenAtlasModal(atlas)}
-                          className="relative aspect-4/3 bg-slate-900 flex items-center justify-center cursor-pointer group overflow-hidden"
+                          className="relative aspect-4/3 bg-slate-950 flex items-center justify-center cursor-pointer group overflow-hidden"
                           title="クリックして1024px大判プレビュー ＆ 方眼紙グリッド測定"
                         >
                           <img
@@ -980,16 +998,16 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                             alt={atlas.title}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                           />
-                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white font-bold text-xs">
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white font-bold text-xs">
                             <Maximize2 className="w-4 h-4" />
                             <span>1024px 大判拡大</span>
                           </div>
                           <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
-                            <span className={`text-[10px] font-bold px-1.5 py-0.2 border shadow-[1px_1px_0_#000] ${catBadge}`}>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${catBadge}`}>
                               {atlas.category}
                             </span>
                             {atlas.hasEcgGrid && (
-                              <span className="text-[9px] font-mono font-bold bg-rose-600 text-white px-1 py-0.2">
+                              <span className="text-[9px] font-mono font-bold bg-rose-600 text-white px-1.5 py-0.5 rounded">
                                 方眼紙グリッド対応
                               </span>
                             )}
@@ -997,46 +1015,46 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                         </div>
 
                         {/* カード詳細情報 */}
-                        <div className="p-2.5 flex-1 flex flex-col justify-between space-y-2">
+                        <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
                           <div className="space-y-1">
-                            <div className="font-bold text-xs text-slate-900 line-clamp-1">
+                            <div className="font-bold text-xs sm:text-sm text-white line-clamp-1">
                               {atlas.title}
                             </div>
-                            <p className="text-[11px] text-gray-700 line-clamp-2 leading-relaxed">
+                            <p className="text-[11px] text-slate-300 line-clamp-2 leading-relaxed">
                               {atlas.typicalFeatures}
                             </p>
-                            <div className="text-[10px] text-purple-900 font-semibold bg-purple-50 px-1.5 py-0.5 border border-purple-200 line-clamp-1">
+                            <div className="text-[10px] text-purple-300 font-semibold bg-purple-950/50 px-2 py-1 rounded-lg border border-purple-800/40 line-clamp-1">
                               鑑別: {atlas.differentialDiagnosis}
                             </div>
                           </div>
 
                           {/* アクションボタン */}
-                          <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-800">
                             <button
                               type="button"
                               onClick={() => handleOpenAtlasModal(atlas)}
-                              className="px-2 py-1 text-[10px] font-bold border border-black bg-yellow-100 hover:bg-black hover:text-white shadow-[1px_1px_0_#000] flex items-center gap-1 cursor-pointer"
+                              className="px-2.5 py-1 text-[10px] font-bold border border-amber-500/50 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
                             >
-                              <Eye className="w-3 h-3" />
+                              <Eye className="w-3 h-3 text-amber-400" />
                               <span>大判表示</span>
                             </button>
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
                                 onClick={() => handleInsert(chartText, atlas.id)}
-                                className="px-2 py-1 text-[10px] font-bold border border-black bg-white hover:bg-black hover:text-white shadow-[1px_1px_0_#000] flex items-center gap-1 cursor-pointer"
+                                className="px-2.5 py-1 text-[10px] font-bold border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
                                 title="カルテ所見に反映"
                               >
-                                {isItemInserted ? <Check className="w-3 h-3 text-emerald-600" /> : <Plus className="w-3 h-3" />}
+                                {isItemInserted ? <Check className="w-3 h-3 text-emerald-400" /> : <Plus className="w-3 h-3" />}
                                 <span>カルテ反映</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleCopy(chartText, atlas.id)}
-                                className="px-1.5 py-1 text-[10px] border border-black bg-white hover:bg-black hover:text-white shadow-[1px_1px_0_#000] cursor-pointer"
+                                className="px-2 py-1 text-[10px] border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer transition-colors"
                                 title="コピー"
                               >
-                                {isItemCopied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                                {isItemCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                               </button>
                             </div>
                           </div>
@@ -1049,12 +1067,12 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
             </div>
           ) : (
             /* 通常の検索結果リスト */
-            <div className={`flex-1 overflow-y-auto p-2 sm:p-3 space-y-2.5 ${activeMindsItem ? 'md:max-w-[55%]' : 'w-full'}`}>
+            <div className={`flex-1 overflow-y-auto p-2 sm:p-3 space-y-2.5 bg-[#0F172A] ${activeMindsItem ? 'md:max-w-[55%]' : 'w-full'}`}>
               {searchResults.length === 0 ? (
-                <div className="p-8 text-center text-gray-500 font-sans text-xs space-y-2">
-                  <Search className="w-8 h-8 mx-auto text-gray-400 stroke-1" />
-                  <p className="font-bold">一致する臨床データが見つかりませんでした</p>
-                  <p className="text-[11px]">救急中毒（「農薬」「アセトアミノフェン」）、アトラス（「前壁STEMI」）、持参薬刻印（「タケキャブ」）、スコア（「CHADS2」）等でお試しください。</p>
+                <div className="p-8 text-center text-slate-400 font-sans text-xs space-y-2">
+                  <Search className="w-8 h-8 mx-auto text-slate-500 stroke-1" />
+                  <p className="font-bold text-slate-300">一致する臨床データが見つかりませんでした</p>
+                  <p className="text-[11px] text-slate-400">救急中毒（「農薬」「アセトアミノフェン」）、アトラス（「前壁STEMI」）、持参薬刻印（「タケキャブ」）、スコア（「CHADS2」）等でお試しください。</p>
                 </div>
               ) : (
                 searchResults.map((item, idx) => {
@@ -1065,66 +1083,66 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                   const sem = item as SemanticSearchResult;
 
                   // アイテムごとのカラー設定
-                  let badgeStyle = 'bg-gray-100 text-gray-900 border-gray-300';
+                  let badgeStyle = 'bg-slate-800 text-slate-300 border-slate-700';
                   let badgeLabel = '情報';
                   if (item.type === 'emer' || sem.emergencyData) {
-                    badgeStyle = 'bg-red-100 text-red-950 border-red-300';
+                    badgeStyle = 'bg-red-950/80 text-red-300 border-red-700/60';
                     badgeLabel = '🚑 救急中毒';
                   } else if (item.type === 'atlas' || sem.atlasData) {
-                    badgeStyle = 'bg-purple-100 text-purple-950 border-purple-300';
+                    badgeStyle = 'bg-purple-950/80 text-purple-300 border-purple-700/60';
                     badgeLabel = '🖼️ アトラス';
                   } else if (item.type === 'drug_id' || sem.drugIdData) {
-                    badgeStyle = 'bg-teal-100 text-teal-950 border-teal-300';
+                    badgeStyle = 'bg-teal-950/80 text-teal-300 border-teal-700/60';
                     badgeLabel = '💊 持参薬識別';
                   } else if (item.type === 'score' || sem.scoreData) {
-                    badgeStyle = 'bg-orange-100 text-orange-950 border-orange-300';
+                    badgeStyle = 'bg-amber-950/80 text-amber-300 border-amber-700/60';
                     badgeLabel = '🧮 臨床スコア';
                   } else if (item.type === 'lab') {
-                    badgeStyle = 'bg-rose-100 text-rose-900 border-rose-300';
+                    badgeStyle = 'bg-rose-950/80 text-rose-300 border-rose-700/60';
                     badgeLabel = '🔬 検査値';
                   } else if (item.type === 'proc') {
-                    badgeStyle = 'bg-blue-100 text-blue-900 border-blue-300';
+                    badgeStyle = 'bg-sky-950/80 text-sky-300 border-sky-700/60';
                     badgeLabel = '💉 診療行為';
                   } else if (item.type === 'renal') {
-                    badgeStyle = 'bg-amber-100 text-amber-900 border-amber-300';
+                    badgeStyle = 'bg-amber-950/80 text-amber-300 border-amber-700/60';
                     badgeLabel = '⚠️ 腎機能減量';
                   } else if (item.type === 'minds') {
-                    badgeStyle = 'bg-emerald-100 text-emerald-900 border-emerald-300';
+                    badgeStyle = 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60';
                     badgeLabel = 'Minds CQ';
                   } else if (item.type === 'drug') {
-                    badgeStyle = 'bg-sky-100 text-sky-900 border-sky-300';
+                    badgeStyle = 'bg-sky-950/80 text-sky-300 border-sky-700/60';
                     badgeLabel = '医薬品';
                   } else if (item.type === 'disease') {
-                    badgeStyle = 'bg-indigo-100 text-indigo-900 border-indigo-300';
+                    badgeStyle = 'bg-indigo-950/80 text-indigo-300 border-indigo-700/60';
                     badgeLabel = '病名';
                   }
 
                   return (
                     <div
                       key={uniqueKey}
-                      className="border border-black bg-white p-2.5 shadow-[2px_2px_0_#000] space-y-1.5 hover:border-black/70 transition-all font-sans"
+                      className="border border-slate-700/80 bg-[#1E293B] rounded-xl p-3 shadow-lg space-y-2 hover:border-slate-600 transition-all font-sans text-slate-100"
                     >
                       {/* ヘッダー情報 */}
                       <div className="flex items-start justify-between gap-2">
                         <div className="space-y-0.5">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`text-[10px] font-bold px-1.5 py-0.2 border ${badgeStyle}`}>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${badgeStyle}`}>
                               {badgeLabel}
                             </span>
                             {sem.semanticScore !== undefined && sem.semanticScore > 0 && (
                               <span
-                                className="text-[9px] font-mono font-bold px-1.5 py-0.5 border border-purple-400 bg-purple-50 text-purple-900 flex items-center gap-1 shadow-[1px_1px_0_#000]"
+                                className="text-[9px] font-mono font-bold px-1.5 py-0.5 border border-purple-500/60 bg-purple-950/70 text-purple-300 rounded flex items-center gap-1"
                                 title={`EmbeddingGemma 2 (740M MRL 128d) 意味的コサイン類似度: ${Math.round(sem.semanticScore * 100)}%`}
                               >
-                                <Brain className="w-2.5 h-2.5 text-purple-700" />
+                                <Brain className="w-2.5 h-2.5 text-purple-400" />
                                 <span>{Math.round(sem.semanticScore * 100)}% Match</span>
                               </span>
                             )}
-                            <span className="font-bold text-xs sm:text-sm text-black">
+                            <span className="font-bold text-xs sm:text-sm text-white">
                               {item.title}
                             </span>
                           </div>
-                          <div className="text-[11px] text-gray-600 font-medium">
+                          <div className="text-[11px] text-slate-400 font-medium">
                             {item.subtitle}
                           </div>
                         </div>
@@ -1134,62 +1152,62 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                           {item.type === 'minds' && item.mindsData && (
                             <button
                               onClick={() => handleConsultWebLlm(item.mindsData!)}
-                              className="px-2 py-1 text-[11px] font-bold border border-black bg-yellow-100 hover:bg-black hover:text-white shadow-[1px_1px_0_#000] flex items-center gap-1 cursor-pointer"
+                              className="px-2 py-1 text-[11px] font-bold border border-amber-500/50 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
                               title="このガイドラインをWebLLMに渡して臨床アドバイスを推論"
                             >
-                              <Brain className="w-3 h-3 text-indigo-700" />
+                              <Brain className="w-3 h-3 text-amber-400" />
                               <span className="hidden sm:inline">AI推論</span>
                             </button>
                           )}
                           <button
                             onClick={() => handleInsert(insertText, uniqueKey)}
-                            className="px-2 py-1 text-[11px] font-bold border border-black bg-white hover:bg-black hover:text-white shadow-[1px_1px_0_#000] flex items-center gap-1 cursor-pointer"
+                            className="px-2 py-1 text-[11px] font-bold border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
                             title="カルテ本文に挿入"
                           >
-                            {isItemInserted ? <Check className="w-3 h-3 text-emerald-600" /> : <Plus className="w-3 h-3" />}
+                            {isItemInserted ? <Check className="w-3 h-3 text-emerald-400" /> : <Plus className="w-3 h-3" />}
                             <span>挿入</span>
                           </button>
                           <button
                             onClick={() => handleCopy(insertText, uniqueKey)}
-                            className="px-1.5 py-1 text-[11px] border border-black bg-white hover:bg-black hover:text-white shadow-[1px_1px_0_#000] cursor-pointer"
+                            className="px-1.5 py-1 text-[11px] border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg cursor-pointer transition-colors"
                             title="コピー"
                           >
-                            {isItemCopied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                            {isItemCopied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                           </button>
                         </div>
                       </div>
 
                       {/* コード / 属性 */}
-                      <div className="text-[10px] text-gray-500 font-mono bg-gray-50 px-1.5 py-0.5 border border-gray-200">
+                      <div className="text-[10px] text-slate-400 font-mono bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800">
                         {item.codeOrAttr}
                       </div>
 
                       {/* 救急・中毒プロトコル詳細 */}
                       {sem.emergencyData && (
-                        <div className="bg-red-50/70 border border-red-200 p-2 text-xs space-y-1.5">
-                          <div className="flex items-center gap-1.5 text-red-950 font-bold text-[11px]">
-                            <Siren className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                        <div className="bg-red-950/30 border border-red-800/50 rounded-lg p-2.5 text-xs space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-red-200 font-bold text-[11px]">
+                            <Siren className="w-3.5 h-3.5 text-red-400 shrink-0" />
                             <span>解毒・拮抗薬:</span>
-                            <span className="text-red-700 bg-white px-1.5 py-0.5 border border-red-300 font-bold">{sem.emergencyData.antidoteOrTreatment}</span>
+                            <span className="text-red-300 bg-red-950/70 px-1.5 py-0.5 border border-red-700/60 rounded font-bold">{sem.emergencyData.antidoteOrTreatment}</span>
                           </div>
-                          <div className="text-[11px] text-gray-800 bg-white p-1.5 border border-red-100">
-                            <span className="font-bold text-gray-900">初期処置: </span>{sem.emergencyData.initialProtocol}
+                          <div className="text-[11px] text-slate-200 bg-slate-900/70 p-2 rounded border border-slate-800">
+                            <span className="font-bold text-white">初期処置: </span>{sem.emergencyData.initialProtocol}
                           </div>
-                          <div className="flex items-center justify-between text-[10px] text-gray-600 bg-red-100/40 px-1.5 py-0.5">
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 bg-slate-900/40 px-2 py-0.5 rounded">
                             <span>指標: {sem.emergencyData.triageOrScore}</span>
-                            <span className="font-mono text-gray-500">SD: {sem.emergencyData.sdFilePath}</span>
+                            <span className="font-mono text-slate-400">SD: {sem.emergencyData.sdFilePath}</span>
                           </div>
                         </div>
                       )}
 
                       {/* 臨床アトラス・ECG詳細 */}
                       {sem.atlasData && (
-                        <div className="bg-purple-50/70 border border-purple-200 p-2 text-xs space-y-1.5">
+                        <div className="bg-purple-950/30 border border-purple-800/50 rounded-lg p-2.5 text-xs space-y-1.5">
                           <div className="flex items-start gap-2.5">
                             {/* サムネイル */}
                             <div
                               onClick={() => handleOpenAtlasModal(sem.atlasData!)}
-                              className="relative w-20 h-16 bg-slate-900 border border-purple-300 shrink-0 cursor-pointer overflow-hidden group"
+                              className="relative w-20 h-16 bg-slate-950 border border-purple-800/60 rounded-lg shrink-0 cursor-pointer overflow-hidden group"
                               title="クリックして1024px大判表示"
                             >
                               <img
@@ -1197,55 +1215,55 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                                 alt={sem.atlasData.title}
                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                               />
-                              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
                                 <Maximize2 className="w-3.5 h-3.5" />
                               </div>
                             </div>
 
                             <div className="flex-1 space-y-1">
-                              <div className="flex items-center justify-between text-[11px] font-bold text-purple-950">
+                              <div className="flex items-center justify-between text-[11px] font-bold text-purple-300">
                                 <div className="flex items-center gap-1">
-                                  <Camera className="w-3.5 h-3.5 text-purple-600" />
+                                  <Camera className="w-3.5 h-3.5 text-purple-400" />
                                   <span>典型所見:</span>
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <button
                                     type="button"
                                     onClick={() => handleOpenAtlasModal(sem.atlasData!)}
-                                    className="px-1.5 py-0.5 bg-yellow-100 hover:bg-black hover:text-white border border-black text-[10px] font-bold cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-0.5"
+                                    className="px-2 py-0.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-[10px] font-bold rounded cursor-pointer flex items-center gap-0.5 transition-colors"
                                   >
-                                    <Eye className="w-2.5 h-2.5" />
+                                    <Eye className="w-2.5 h-2.5 text-amber-400" />
                                     <span>大判表示</span>
                                   </button>
-                                  <span className="font-mono text-[9px] bg-white px-1 py-0.2 border border-purple-200 text-purple-700 hidden sm:inline">
+                                  <span className="font-mono text-[9px] bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 text-purple-300 hidden sm:inline">
                                     {sem.atlasData.sdFilePath}
                                   </span>
                                 </div>
                               </div>
-                              <div className="text-[11px] text-gray-800 bg-white p-1 border border-purple-100">
+                              <div className="text-[11px] text-slate-200 bg-slate-900/70 p-2 rounded border border-slate-800">
                                 {sem.atlasData.typicalFeatures}
                               </div>
                             </div>
                           </div>
 
-                          <div className="text-[10px] text-purple-900 bg-purple-100/50 px-1.5 py-0.5 flex items-center justify-between">
+                          <div className="text-[10px] text-purple-300 bg-purple-950/50 px-2 py-1 rounded border border-purple-800/40 flex items-center justify-between">
                             <span>鑑別: {sem.atlasData.differentialDiagnosis}</span>
-                            <span className="font-semibold text-purple-800">{sem.atlasData.clinicalSignificance}</span>
+                            <span className="font-semibold text-purple-200">{sem.atlasData.clinicalSignificance}</span>
                           </div>
                         </div>
                       )}
 
                       {/* 持参薬識別詳細 */}
                       {sem.drugIdData && (
-                        <div className="bg-teal-50/70 border border-teal-200 p-2 text-xs space-y-1.5">
+                        <div className="bg-teal-950/30 border border-teal-800/50 rounded-lg p-2.5 text-xs space-y-1.5">
                           <div className="flex items-center justify-between flex-wrap gap-1">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-[11px] font-bold text-teal-950">刻印コード:</span>
-                              <span className="bg-white border-2 border-teal-600 text-teal-900 font-mono font-black text-xs px-2 py-0.5 shadow-[1px_1px_0_#000]" title="表刻印">
+                              <span className="text-[11px] font-bold text-teal-300">刻印コード:</span>
+                              <span className="bg-slate-900 border border-teal-500 text-teal-300 font-mono font-black text-xs px-2 py-0.5 rounded" title="表刻印">
                                 表: {sem.drugIdData.imprintFront || sem.drugIdData.imprintCode}
                               </span>
                               {sem.drugIdData.imprintBack && (
-                                <span className="bg-white border border-teal-500 text-teal-800 font-mono font-bold text-xs px-1.5 py-0.5" title="裏刻印">
+                                <span className="bg-slate-900 border border-teal-600 text-teal-400 font-mono font-bold text-xs px-1.5 py-0.5 rounded" title="裏刻印">
                                   裏: {sem.drugIdData.imprintBack}
                                 </span>
                               )}
@@ -1254,49 +1272,49 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                               <button
                                 type="button"
                                 onClick={() => handleOpenPackagePdf(sem.drugIdData?.pdfPath)}
-                                className="px-1.5 py-0.5 bg-sky-50 hover:bg-sky-100 border border-black text-[10px] font-bold text-sky-950 cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1"
+                                className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[10px] font-bold text-sky-400 rounded cursor-pointer flex items-center gap-1 transition-colors"
                                 title="添付文書原本PDFを開く"
                               >
-                                <FileText className="w-2.5 h-2.5 text-sky-600" />
+                                <FileText className="w-2.5 h-2.5 text-sky-400" />
                                 <span>添付文書PDF</span>
                               </button>
-                              <span className="text-[11px] text-teal-800 font-medium">{sem.drugIdData.colorAndShape}</span>
+                              <span className="text-[11px] text-teal-300 font-medium">{sem.drugIdData.colorAndShape}</span>
                             </div>
                           </div>
-                          <div className="text-[11px] text-gray-800 bg-white p-1.5 border border-teal-100 flex justify-between">
+                          <div className="text-[11px] text-slate-200 bg-slate-900/70 p-2 rounded border border-slate-800 flex justify-between">
                             <span>標準用法: {sem.drugIdData.standardDose}</span>
-                            <span className="text-[10px] text-gray-500 font-mono hidden sm:inline">添付文書: {sem.drugIdData.sdFilePath}</span>
+                            <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">添付文書: {sem.drugIdData.sdFilePath}</span>
                           </div>
                         </div>
                       )}
 
                       {/* 臨床スコアリング詳細 */}
                       {sem.scoreData && (
-                        <div className="bg-orange-50/70 border border-orange-200 p-2 text-xs space-y-1.5">
-                          <div className="flex items-center gap-1 text-orange-950 font-bold text-[11px]">
-                            <Calculator className="w-3.5 h-3.5 text-orange-600" />
+                        <div className="bg-amber-950/30 border border-amber-800/50 rounded-lg p-2.5 text-xs space-y-1.5">
+                          <div className="flex items-center gap-1 text-amber-200 font-bold text-[11px]">
+                            <Calculator className="w-3.5 h-3.5 text-amber-400" />
                             <span>計算式・判定項目:</span>
-                            <span className="text-gray-900 font-mono font-medium">{sem.scoreData.calculationFormula}</span>
+                            <span className="text-slate-300 font-mono font-medium">{sem.scoreData.calculationFormula}</span>
                           </div>
-                          <div className="text-[11px] text-gray-800 bg-white p-1.5 border border-orange-100 space-y-0.5">
-                            <div><span className="font-bold text-orange-950">リスク判定:</span> {sem.scoreData.riskEvaluation}</div>
-                            <div><span className="font-bold text-emerald-800">推奨アクション:</span> {sem.scoreData.clinicalAction}</div>
+                          <div className="text-[11px] text-slate-200 bg-slate-900/70 p-2 rounded border border-slate-800 space-y-0.5">
+                            <div><span className="font-bold text-amber-300">リスク判定:</span> {sem.scoreData.riskEvaluation}</div>
+                            <div><span className="font-bold text-emerald-400">推奨アクション:</span> {sem.scoreData.clinicalAction}</div>
                           </div>
                         </div>
                       )}
 
                       {/* 腎機能減量カットオフテーブル表示 */}
                       {item.type === 'renal' && item.renalData && (
-                        <div className="bg-amber-50/60 border border-amber-200 p-2 text-xs space-y-1">
-                          <div className="font-bold text-amber-950 text-[11px] flex items-center gap-1">
-                            <ShieldAlert className="w-3 h-3 text-amber-700" />
+                        <div className="bg-amber-950/30 border border-amber-800/50 rounded-lg p-2.5 text-xs space-y-1">
+                          <div className="font-bold text-amber-300 text-[11px] flex items-center gap-1">
+                            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
                             <span>eGFR / CrCl 減量基準</span>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]">
                             {item.renalData.cutoffs.map((cutoff, cidx) => (
-                              <div key={cidx} className="bg-white px-2 py-1 border border-amber-200 flex justify-between">
-                                <span className="font-bold text-gray-700">{cutoff.range}</span>
-                                <span className="text-rose-700 font-semibold">{cutoff.dose}</span>
+                              <div key={cidx} className="bg-slate-900 px-2 py-1 border border-slate-800 rounded flex justify-between">
+                                <span className="font-bold text-slate-300">{cutoff.range}</span>
+                                <span className="text-rose-400 font-semibold">{cutoff.dose}</span>
                               </div>
                             ))}
                           </div>
@@ -1304,14 +1322,14 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                       )}
 
                       {/* 本文 (推奨・注意・臨床的意義・要件) */}
-                      <div className="text-xs text-gray-800 leading-relaxed bg-white p-1.5 border border-black/10">
+                      <div className="text-xs text-slate-200 leading-relaxed bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
                         {item.content}
                       </div>
 
                       {/* 追加情報 (カルテ定型文 / 実践Tips / パニック値) */}
                       {item.extraInfo && (
-                        <div className="text-[11px] text-slate-800 bg-slate-50 p-1.5 border border-slate-200 flex items-start gap-1">
-                          <Info className="w-3 h-3 text-blue-600 shrink-0 mt-0.5" />
+                        <div className="text-[11px] text-slate-300 bg-slate-900/80 p-2 rounded-lg border border-slate-800 flex items-start gap-1.5">
+                          <Info className="w-3.5 h-3.5 text-sky-400 shrink-0 mt-0.5" />
                           <span className="font-mono text-[10.5px]">{item.extraInfo}</span>
                         </div>
                       )}
@@ -1324,28 +1342,28 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
 
           {/* 右側: ローカルWebLLM 臨床相談ワークスペース (ガイドライン選択時) */}
           {activeMindsItem && (
-            <div className="border-t-2 md:border-t-0 md:border-l-2 border-black flex-1 flex flex-col bg-slate-50 overflow-hidden">
-              <div className="p-2.5 bg-black text-white flex items-center justify-between text-xs font-bold">
-                <div className="flex items-center gap-1.5">
-                  <Brain className="w-3.5 h-3.5 text-yellow-300" />
-                  <span>ローカルWebLLM 臨床意思決定支援 (RAG)</span>
+            <div className="border-t md:border-t-0 md:border-l border-slate-800 flex-1 flex flex-col bg-[#0F172A] overflow-hidden">
+              <div className="p-3 bg-[#1E293B] text-slate-100 flex items-center justify-between text-xs font-bold border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Brain className="w-4 h-4 text-amber-400" />
+                  <span className="text-white">ローカルWebLLM 臨床意思決定支援 (RAG)</span>
                 </div>
                 <button
                   onClick={() => setActiveMindsItem(null)}
-                  className="px-1.5 py-0.2 bg-white text-black hover:bg-gray-200 text-[10px] font-bold cursor-pointer"
+                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-bold cursor-pointer transition-colors"
                 >
                   ✕ 閉じる
                 </button>
               </div>
 
-              <div className="p-3 border-b border-black/20 bg-white space-y-1">
-                <div className="text-xs font-bold text-slate-900">
+              <div className="p-3 border-b border-slate-800 bg-[#1E293B]/70 space-y-1">
+                <div className="text-xs font-bold text-white">
                   {activeMindsItem.diseaseName} CQ{activeMindsItem.cqNum}
                 </div>
-                <div className="text-[11px] text-slate-600">
+                <div className="text-[11px] text-slate-300">
                   {activeMindsItem.cqTitle}
                 </div>
-                <div className="text-[10px] text-slate-500 font-mono">
+                <div className="text-[10px] text-slate-400 font-mono">
                   {activeMindsItem.detail.guidelineTitle} ({activeMindsItem.detail.society})
                 </div>
               </div>
@@ -1354,16 +1372,16 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
               <div className="flex-1 p-3 overflow-y-auto space-y-2 text-xs font-sans">
                 {isLlmGenerating && !llmStreamingOutput && (
                   <div className="p-4 text-center space-y-2">
-                    <RefreshCw className="w-5 h-5 animate-spin mx-auto text-sky-600" />
-                    <p className="font-bold text-slate-700">WebGPU ローカルLLMがカルテとガイドラインを推論中...</p>
-                    <p className="text-[11px] text-slate-500">外部送信なし・ブラウザ内完結の超安全オフライン推論</p>
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto text-sky-400" />
+                    <p className="font-bold text-slate-200">WebGPU ローカルLLMがカルテとガイドラインを推論中...</p>
+                    <p className="text-[11px] text-slate-400">外部送信なし・ブラウザ内完結の超安全オフライン推論</p>
                   </div>
                 )}
 
                 {llmError && (
-                  <div className="p-3 bg-red-50 border border-red-300 text-red-800 text-xs rounded space-y-1">
+                  <div className="p-3 bg-rose-950/40 border border-rose-600/50 text-rose-300 text-xs rounded-xl space-y-1">
                     <div className="font-bold flex items-center gap-1">
-                      <AlertTriangle className="w-4 h-4 text-red-600" />
+                      <AlertTriangle className="w-4 h-4 text-rose-400" />
                       <span>推論エラー</span>
                     </div>
                     <div>{llmError}</div>
@@ -1372,11 +1390,11 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
 
                 {llmStreamingOutput && (
                   <div className="space-y-2">
-                    <div className="font-bold text-slate-900 flex items-center gap-1 text-[11px]">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <div className="font-bold text-amber-400 flex items-center gap-1.5 text-[11px]">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                       <span>ガイドライン準拠の臨床推論アドバイス:</span>
                     </div>
-                    <div className="bg-white p-3 border border-black shadow-[2px_2px_0_#000] text-xs leading-relaxed whitespace-pre-wrap text-slate-800">
+                    <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-xs leading-relaxed whitespace-pre-wrap text-slate-100">
                       {llmStreamingOutput}
                     </div>
                   </div>
@@ -1385,11 +1403,11 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
 
               {/* 下部アクションバー */}
               {llmStreamingOutput && (
-                <div className="p-2.5 bg-white border-t border-black flex items-center justify-between gap-2">
+                <div className="p-2.5 bg-[#1E293B] border-t border-slate-800 flex items-center justify-between gap-2">
                   <button
                     onClick={() => handleConsultWebLlm(activeMindsItem)}
                     disabled={isLlmGenerating}
-                    className="px-2.5 py-1.5 border border-black bg-white hover:bg-gray-100 text-xs font-bold shadow-[1px_1px_0_#000] cursor-pointer"
+                    className="px-3 py-1.5 border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg cursor-pointer transition-colors"
                   >
                     再推論
                   </button>
@@ -1398,7 +1416,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                       const textToInsert = `\n【Minds臨床方針 ${activeMindsItem.diseaseName}】\n${llmStreamingOutput}\n`;
                       handleInsert(textToInsert, 'webllm-result');
                     }}
-                    className="px-3 py-1.5 border border-black bg-black text-white hover:bg-gray-800 text-xs font-bold shadow-[2px_2px_0_#000] flex items-center gap-1 cursor-pointer"
+                    className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg shadow-md flex items-center gap-1 cursor-pointer transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>カルテ【A/P】に反映</span>

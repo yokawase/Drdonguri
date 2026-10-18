@@ -19,7 +19,9 @@ import {
   ChevronRight,
   Sparkles,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Trash2,
+  OctagonX
 } from 'lucide-react';
 import { APP_VERSION, LATEST_FIRMWARE_VERSION } from '../version';
 
@@ -30,6 +32,7 @@ interface NativePwaEdgeLayoutProps {
   isSending: boolean;
   onConnectBle: () => void;
   onSendSession: () => void;
+  onAbortTransfer?: () => void;
   onOpenSearch: (initialTab?: any) => void;
   onOpenCoprocessor?: () => void;
   onOpenWebLlm: () => void;
@@ -55,6 +58,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
   isSending,
   onConnectBle,
   onSendSession,
+  onAbortTransfer,
   onOpenSearch,
   onOpenCoprocessor,
   onOpenWebLlm,
@@ -113,7 +117,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
   }, []);
 
   // 音声認識（Web Speech API / SpeechRecognition）の初期化と制御
-  const toggleSpeechRecognition = useCallback(() => {
+  const toggleSpeechRecognition = useCallback(async () => {
     triggerHaptic(isRecordingRef.current ? [20, 40, 20] : 30);
 
     if (isRecordingRef.current) {
@@ -146,6 +150,21 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       interimTranscriptRef.current = '';
       finalTranscriptRef.current = '';
       return;
+    }
+
+    // 録音開始前のブラウザマイク権限確認・初期化（Chromeの未確定エラー/排他競合を完全クリア）
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // すぐに全トラックを解放（SpeechRecognitionとのハード競合を回避）
+        stream.getTracks().forEach((track) => track.stop());
+      } catch (micErr: any) {
+        console.warn('Microphone permission check warning:', micErr);
+        if (micErr?.name === 'NotAllowedError' || micErr?.name === 'PermissionDeniedError') {
+          alert('マイクへのアクセスが拒否されています。ブラウザ設定またはアドレスバーの鍵/設定アイコンから「マイクの許可」を有効にしてください。');
+          return;
+        }
+      }
     }
 
     // 録音開始
@@ -205,29 +224,32 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       recognition.onerror = (event: any) => {
         console.warn('SpeechRecognition error:', event.error);
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          alert('マイクへのアクセスが拒否されています。ブラウザのアドレスバーの鍵アイコンから「マイクの許可」を有効にしてください。');
+          // 録音中に発生した過渡的エラーの場合は過剰アラートを出さずに安全停止
+          if (!isRecordingRef.current) {
+            alert('マイクへのアクセスが拒否されています。ブラウザのアドレスバーの鍵アイコンから「マイクの許可」を有効にしてください。');
+          }
           isRecordingRef.current = false;
           setIsRecording(false);
           stopWaveformLoop();
         } else if (event.error === 'no-speech') {
           // 無音検出は無視して継続
+        } else if (event.error === 'aborted') {
+          // ユーザー中断は正常終了扱い
         }
       };
 
       recognition.onend = () => {
-        // Chromeの無音自動切断に対抗するオートリスタートループ
+        // Chromeの無音自動切断に対抗するオートリスタートループ (セッション解放ウェイト 350ms を確保)
         if (isRecordingRef.current) {
-          try {
-            recognition.start();
-          } catch (e) {
-            console.warn('Auto-restart recognition failed:', e);
-            // 数百ミリ秒置いて再試行
-            setTimeout(() => {
-              if (isRecordingRef.current) {
-                try { recognition.start(); } catch {}
+          setTimeout(() => {
+            if (isRecordingRef.current) {
+              try {
+                recognition.start();
+              } catch (e) {
+                console.warn('Auto-restart recognition failed:', e);
               }
-            }, 300);
-          }
+            }
+          }, 350);
         } else {
           setIsRecording(false);
           stopWaveformLoop();
@@ -340,16 +362,55 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 臨床所見・SOAP整形テキスト
               </h2>
             </div>
-            {isRecording ? (
-              <span className="text-[11px] font-bold text-rose-500 animate-pulse flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-rose-500" />
-                録音中...
-              </span>
-            ) : (
-              <span className="text-[10px] font-mono text-sky-400/80 tracking-tight">
-                Zero-Data Cloud
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {isSending ? (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-950/70 border border-rose-500/50 text-rose-300 text-[10px] font-bold animate-pulse">
+                  <RefreshCw className="w-2.5 h-2.5 animate-spin text-rose-400" />
+                  <span>電カル打鍵中...</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      triggerHaptic([30, 50]);
+                      onAbortTransfer?.();
+                    }}
+                    className="ml-1 px-1.5 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-[9px] font-bold cursor-pointer transition-colors"
+                    title="転送を中断"
+                  >
+                    中断
+                  </button>
+                </div>
+              ) : isRecording ? (
+                <span className="text-[11px] font-bold text-rose-500 animate-pulse flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  録音中...
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono text-sky-400/80 tracking-tight hidden sm:inline">
+                  Zero-Data Cloud
+                </span>
+              )}
+
+              {/* カルテ消去ボタン (新UIルール準拠) */}
+              {inputText.trim() && !isSending && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    triggerHaptic(20);
+                    if (window.confirm('入力中のカルテテキストをすべて消去しますか？')) {
+                      setInputText('');
+                      setIsEditing(false);
+                    }
+                  }}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-slate-700/60 hover:border-rose-500/50 transition-colors cursor-pointer"
+                  title="入力内容を消去"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>消去</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* テキストコンテンツ領域 (タップで編集切り替え可能) */}
@@ -506,28 +567,42 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
             </span>
           </div>
 
-          {/* 【右側】電カルへ送信 (スカイブルー) */}
+          {/* 【右側】電カルへ送信 / 転送中断 (スカイブルー / ローズ) */}
           <div className="flex flex-col items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic([30, 60, 30]);
-                onSendSession();
-              }}
-              disabled={isSending || !inputText.trim()}
-              className={`w-14 h-14 rounded-full bg-[#1E293B] border border-sky-400/60 text-sky-400 hover:bg-sky-400/10 active:scale-90 transition-all flex items-center justify-center shadow-lg group ${
-                isSending || !inputText.trim() ? 'opacity-40 cursor-not-allowed' : ''
-              }`}
-              title="電子カルテ端末へUSB-HID自動打鍵転送"
-            >
-              {isSending ? (
-                <RefreshCw className="w-6 h-6 animate-spin text-sky-300" />
-              ) : (
+            {isSending ? (
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic([40, 80]);
+                  onAbortTransfer?.();
+                }}
+                className="w-14 h-14 rounded-full bg-rose-600 hover:bg-rose-500 border border-rose-400 text-white active:scale-90 transition-all flex items-center justify-center shadow-[0_0_20px_rgba(244,63,94,0.6)] animate-pulse group cursor-pointer"
+                title="電子カルテへの転送・打鍵を安全に中断"
+              >
+                <OctagonX className="w-7 h-7" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic([30, 60, 30]);
+                  onSendSession();
+                }}
+                disabled={!inputText.trim()}
+                className={`w-14 h-14 rounded-full bg-[#1E293B] border border-sky-400/60 text-sky-400 hover:bg-sky-400/10 active:scale-90 transition-all flex items-center justify-center shadow-lg group cursor-pointer ${
+                  !inputText.trim() ? 'opacity-40 cursor-not-allowed' : ''
+                }`}
+                title="電子カルテ端末へUSB-HID自動打鍵転送"
+              >
                 <Send className="w-6 h-6 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-              )}
-            </button>
-            <span className="text-[11px] font-semibold text-sky-400 tracking-tight">
-              電カル送信
+              </button>
+            )}
+            <span
+              className={`text-[11px] font-semibold tracking-tight transition-colors ${
+                isSending ? 'text-rose-400 font-bold animate-pulse' : 'text-sky-400'
+              }`}
+            >
+              {isSending ? '転送中断' : '電カル送信'}
             </span>
           </div>
         </div>

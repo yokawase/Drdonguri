@@ -274,8 +274,20 @@
     - HTTPS（GitHub Pages）から HTTP ローカルIP（`192.168.4.1`）へのバックグラウンド `fetch` / `<img>` がブラウザの Mixed Content ポリシーで暗黙遮断される課題を根本解決。
     - 対策1（ファームウェア `firmware/src/main.cpp`）: WebServer に `Access-Control-Allow-Private-Network: true` レスポンスヘッダーを追加し、T-Dongle-S3 実機へ書き込み完了。
     - 対策2（PWA `sdCardStreamingService.ts` ＆ `MedicalDataSearchModal.tsx`）: トップレベルナビゲーション（`window.open` による別タブ直結アクセス）用メソッド `openDirectUrl` を実装。「実機SoftAP直結」ボタンを追加し、Mixed Content を回避して大判WebPや原本PDFを直接開くガイドを整備。
+- [x] **ステップ33**: 臨床データ総合検索タブ＆全コンテンツ新UIダークテーマ完全移行 ＆ 電カル転送中断＆カルテ消去スマート配置 ＆ マイク初期化・誤爆アラート根絶 (v2.12.2 / FW v22.3) - 【完了】
+  - **臨床データ総合検索画面のタブ「白背景に白文字」解消 ＆ 全コンテンツ新UI完全移行 (`MedicalDataSearchModal.tsx`)**:
+    - フィルタータブ群（`score`, `lab`, `proc`, `renal`, `minds`, `disease`, `sdmap`）が旧Mac風の `bg-white` のまま文字色白と衝突していた問題を、スプリットコンプリメンタリー配色ダークテーマ（`rounded-xl`, ディープスレート `#0F172A`/`#1E293B`, アクセントカラー各色）へ完全刷新。
+    - `sdmap`（32GB MicroSDマップ）、`pill`（錠剤識別・表裏写真）、`atlas`（臨床アトラス）、および通常検索結果一覧（Unified Search）、WebLLM相談パネルの内部に存在していた白背景・黒枠（`border-black bg-white`）の残骸をすべてダークテーマ（`rounded-xl`, `bg-[#1E293B]`, `border-slate-700/80`, `text-slate-100`/`text-slate-300`）へ統一。
+  - **電カル転送中断ボタン ＆ カルテ消去ボタンのスマート配置 (`NativePwaEdgeLayout.tsx` & `webBluetooth.ts` & `App.tsx`)**:
+    - **カルテ消去ボタン**: 臨床所見カードのヘッダー部右側にゴミ箱アイコン（`Trash2`）の「消去」ボタンをスマートに配置。誤タップ防止確認ダイアログ付きでワンタップ消去。
+    - **電カル転送中断ボタン**: 送信中（`isSending`）に親指ボトムアクションバー右側の「電カル送信」ボタンが赤色の「転送中断」ボタン（`OctagonX`、`bg-rose-600 animate-pulse`）へモーフィング。さらにカードヘッダーにも「電カル打鍵中... [中断]」バッジを表示。
+    - `BleDongleManager` に `abortTransmission()` を追加し、中断時にマイコンへ `CMD:WIPE`（打鍵即時中止＆メモリ消去＆緑色待機復帰）を送出。
+  - **音声入力「マイクアクセス可」時の誤爆アラート根絶 (`NativePwaEdgeLayout.tsx`)**:
+    - 録音開始前に `navigator.mediaDevices.getUserMedia({ audio: true })` で明示的にマイク権限を確認・初期化し即座にトラック解放。ブラウザのマイク権限状態を確実に同期。
+    - `onend` オートリスタート時に 350ms のセッション解放ウェイトを確保し、Chrome の過渡的 `not-allowed` 誤爆を根絶。セッション途中の過渡的エラーでの過剰アラートを抑止。
 
 ---
+
 
 
 

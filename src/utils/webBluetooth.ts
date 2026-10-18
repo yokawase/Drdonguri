@@ -54,6 +54,22 @@ export class BleDongleManager {
   private printerBuffer: number[] = [];
   private printerDataListeners: PrinterDataCallback[] = [];
   private printerCompleteListeners: PrinterJobCompleteCallback[] = [];
+  private isTransmissionAborted: boolean = false;
+
+  /**
+   * 送信中断 (打鍵中止 & ドングルメモリ消去)
+   */
+  public async abortTransmission(): Promise<void> {
+    this.isTransmissionAborted = true;
+    this.log('sys', 'ABORT', 'ユーザーにより電子カルテ転送の中断が指示されました。ドングルへWIPE指示を送出します...');
+    try {
+      if (this.isConnected()) {
+        await this.sendCommand('CMD:WIPE');
+      }
+    } catch (e: any) {
+      console.warn('Abort WIPE failed:', e);
+    }
+  }
 
   public isConnected(): boolean {
     return !!(this.server && this.server.connected && this.characteristic);
@@ -581,8 +597,9 @@ export class BleDongleManager {
     session: PreparedSession,
     onProgress?: (progressPercent: number, stage: string) => void
   ): Promise<boolean> {
-    // 送信前に必ず排他ロックをリセット
+    // 送信前に必ず排他ロックをリセット & 中断フラグクリア
     this.isWriting = false;
+    this.isTransmissionAborted = false;
 
     if (!this.isConnected()) {
       try {
@@ -607,10 +624,12 @@ export class BleDongleManager {
 
         // 2. ピンポイント再送要求 (RETRY)
         if (event.ackType === 'RETRY' && event.detail) {
+          if (this.isTransmissionAborted) return;
           const missingSeqs = parseMissingBitmap(event.detail, session.totalPackets);
           this.log('sys', 'RETRY', `マイコンから再送要求検知: 未着スロット [${missingSeqs.join(', ')}]`);
           try {
             for (const seq of missingSeqs) {
+              if (this.isTransmissionAborted) return;
               const slot = session.slotPackets[seq];
               if (slot) {
                 this.log('tx', `RETRY#${seq}`, `未着スロット#${seq} をピンポイント再送 (${slot.payloadLen}B)...`);
@@ -653,6 +672,8 @@ export class BleDongleManager {
       });
 
       try {
+        if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
+
         // ステップ1: セッション初期化フレーム (8バイト) 送信
         this.log('tx', 'INIT', `セッション初期化フレーム送信 (SID:${session.sessionId}, Pkts:${session.totalPackets}, Bytes:${session.totalBytes}, CRC:0x${session.totalCrc16.toString(16).toUpperCase()})`, toHexDump(session.initPacket));
         if (onProgress) onProgress(5, 'セッション初期化中...');
@@ -663,6 +684,7 @@ export class BleDongleManager {
           // マイコンからの SESSION_READY を待機 (最大600ms)
           const waitStart = Date.now();
           while (!isReadyForSlots && Date.now() - waitStart < 600) {
+            if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
             await new Promise(r => setTimeout(r, 20));
           }
 
@@ -675,6 +697,8 @@ export class BleDongleManager {
 
         // ステップ2: 各スロットパケット順次送信 (安定インターバル 35ms)
         for (let i = 0; i < session.slotPackets.length; i++) {
+          if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
+
           const slot = session.slotPackets[i];
           const pct = Math.floor(10 + ((i + 1) / session.slotPackets.length) * 85);
           if (onProgress) onProgress(pct, `スロット #${i + 1}/${session.totalPackets} 送信中...`);
@@ -683,6 +707,8 @@ export class BleDongleManager {
           await this.writeData(slot.fullPacket);
           await new Promise(r => setTimeout(r, 35));
         }
+
+        if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
 
         if (!this.isNotifyActive) {
           await new Promise(r => setTimeout(r, 150));
@@ -696,8 +722,17 @@ export class BleDongleManager {
         if (onProgress) onProgress(95, '全パケット送信完了。マイコン照合待機中...');
 
         // マイコンからの ALL_PACKETS_READY / RETRY 受信待機フェイルセーフタイムアウト (5.0秒)
+        const checkInterval = setInterval(() => {
+          if (this.isTransmissionAborted) {
+            clearInterval(checkInterval);
+            removeAck();
+            reject(new Error('TRANSMISSION_ABORTED'));
+          }
+        }, 100);
+
         setTimeout(() => {
-          if (!isCompleted) {
+          clearInterval(checkInterval);
+          if (!isCompleted && !this.isTransmissionAborted) {
             isCompleted = true;
             removeAck();
             resolve(true);
