@@ -90,7 +90,7 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
     it('否定モダリティ文（右下腹部痛、急性虫垂炎、否定的、発熱なし）', () => {
       const input = '右下腹部痛あり。急性虫垂炎は否定的。発熱なし。';
       const res = compiler.compileText(input, { includeImeReset: false });
-      expect(res.streamText).toBe('[Z]migikahukubutuu[/Z][H]ari[/H][H]。[/H] [Z]kyuuseityuusyuien[/Z][H]ha[/H][Z]hiteiteki[/Z][H]。[/H] [Z]hatunetu[/Z][H]nasi[/H][H]。[/H]');
+      expect(res.streamText).toBe('[Z]migikahukubutuu[/Z][H]ari[/H][H]。[/H] [Z]kyuuseityuusyuien[/Z][H]ha[/H][Z]hiteiteki[/Z][H]。[/H] [Z]hatunetu[/Z][H]nashi[/H][H]。[/H]');
     });
 
     it('処方・用法（カロナール錠500mg 1回1錠 疼痛時頓服）', () => {
@@ -102,7 +102,7 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
     it('術後・経過（術後経過良好。創部感染なし。）', () => {
       const input = '術後経過良好。創部感染なし。';
       const res = compiler.compileText(input, { includeImeReset: false });
-      expect(res.streamText).toBe('[Z]jutugo[/Z][Z]keikaryoukou[/Z][H]。[/H] [Z]soubu[/Z][Z]kansenn[/Z][H]nasi[/H][H]。[/H]');
+      expect(res.streamText).toBe('[Z]jutugo[/Z][Z]keikaryoukou[/Z][H]。[/H] [Z]soubu[/Z][Z]kansenn[/Z][H]nashi[/H][H]。[/H]');
     });
   });
 
@@ -181,31 +181,31 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       expect(res.streamText).not.toContain('tsubusu');
       expect(res.streamText).not.toContain('hanatoki');
 
-      // 最適チャンク分解および [G] タグ（Space 2回 ➔ Enter確定）でMS-IME第1候補の日常語誤爆を完全回避すること
-      expect(res.streamText).toContain('[Z]naishikyou[/Z][G]syoken[/G]'); // 内視鏡所見 (所見をSpace 2回で確定し「初見」誤爆を排除)
-      expect(res.streamText).toContain('[Z]souki[/Z][G]igan[/G]'); // 早期胃癌 (胃癌をSpace 2回で確定し「早期胃がん」誤爆を排除)
-      expect(res.streamText).toContain('[G]kannou[/G][Z]gata[/Z]'); // 陥凹型 (「観桜」誤爆を排除)
-      expect(res.streamText).toContain('[Z]hennenn[/Z][Z]nennmaku[/Z]'); // 辺縁粘膜 (nennmaku で「熱膜」誤爆を排除)
+      // 最適チャンク分解およびヘボン式によりMS-IME日常語誤爆を完全回避すること (GタグSpace2回依存全廃)
+      expect(res.streamText).toContain('[Z]naishikyou[/Z][Z]shoken[/Z]'); // 内視鏡所見 (ヘボン式・Space1回)
+      expect(res.streamText).toContain('[Z]soukiigan[/Z]'); // 早期胃癌
+      expect(res.streamText).toContain('[Z]kannougata[/Z]'); // 陥凹型
+      expect(res.streamText).toContain('[Z]henennnennmaku[/Z]'); // 辺縁粘膜
       expect(res.streamText).toContain('[Z]hidasyuutyuu[/Z]'); // ひだ集中
-      expect(res.streamText).toContain('[G]kyoukai[/G][Z]meiryou[/Z]'); // 境界明瞭 (境界をSpace 2回で確定し「協会」誤爆を排除)
-      expect(res.streamText).toContain('[G]taisyoku[/G]'); // 褪色 (Space 2回で確定し「退職」誤爆を排除)
-      expect(res.streamText).toContain('[Z]bisai[/Z][Z]kekkan[/Z][Z]koutiku[/Z][G]ijyou[/G]'); // 微細血管構築異常 (「構築以上」誤爆を排除)
+      expect(res.streamText).toContain('[Z]kyoukaimeiryou[/Z]'); // 境界明瞭
+      expect(res.streamText).toContain('[Z]taishoku[/Z]'); // 褪色
+      expect(res.streamText).toContain('[Z]bisaikekkan[/Z][Z]koutikuijyou[/Z]'); // 微細血管構築異常
       expect(res.streamText).toContain('[Z]tozetu[/Z]'); // 途絶
       expect(res.streamText).toContain('[Z]kambetusikkan[/Z]'); // 鑑別疾患
-      expect(res.streamText).toContain('[Z]i[/Z][Z]kaiyou[/Z]'); // 胃潰瘍 (「い潰すよう」誤爆を排除)
-      expect(res.streamText).toContain('[Z]syoukasei[/Z][Z]kaiyou[/Z]'); // 消化性潰瘍
-      expect(res.streamText).toContain('[Z]hankonn[/Z][Z]ki[/Z]'); // 瘢痕期 (「半今期」誤爆を排除)
-      expect(res.streamText).toContain('[Z]i[/Z][Z]ryousei[/Z][K]pori-pu[/K]'); // 胃良性ポリープ (ryousei で「医療雨製」誤爆を排除)
-      expect(res.streamText).toContain('[Z]tenkei[/Z][G]syoken[/G]'); // 典型所見 (所見をSpace 2回で確定し「初見」誤爆を排除)
-      expect(res.streamText).toContain('[G]ikaku[/G][Z]bu[/Z][Z]syouwann[/Z]'); // 胃角部小弯 (「威嚇武将ワン」誤爆を排除)
-      expect(res.streamText).toContain('[G]zentei[/G][Z]bu[/Z]'); // 前庭部 (「前提部」誤爆を排除)
+      expect(res.streamText).toContain('[Z]ikaiyou[/Z]'); // 胃潰瘍
+      expect(res.streamText).toContain('[Z]shoukaseikaiyou[/Z]'); // 消化性潰瘍
+      expect(res.streamText).toContain('[Z]hankon[/Z][Z]ki[/Z]'); // 瘢痕期
+      expect(res.streamText).toContain('[Z]i[/Z][Z]ryousei[/Z][K]pori-pu[/K]'); // 胃良性ポリープ
+      expect(res.streamText).toContain('[Z]tenkei[/Z][Z]shoken[/Z]'); // 典型所見
+      expect(res.streamText).toContain('[Z]ikakubu[/Z][Z]shouwan[/Z]'); // 胃角部小弯
+      expect(res.streamText).toContain('[Z]zenteibu[/Z]'); // 前庭部
       expect(res.streamText).toContain('[Z]asai[/Z]'); // 浅い
-      expect(res.streamText).toContain('[Z]fusei[/Z][G]kannou[/G][Z]byouhenn[/Z]'); // 不整陥凹病変 (「不正観桜病変」誤爆を排除)
-      expect(res.streamText).toContain('[Z]seisa[/Z][Z]you[/Z]'); // 精査要 (「正作用」誤爆を排除)
-      expect(res.streamText).toContain('[Z]rinsyou[/Z][Z]hanndann[/Z]'); // 臨床判断
-      expect(res.streamText).toContain('[Z]souki[/Z][G]igan[/G][Z]utagai[/Z]'); // 早期胃癌疑い (utagai で「疑うぃ」誤爆を排除)
-      expect(res.streamText).toContain('[Z]mansei[/Z][Z]isyukusei[/Z][Z]ienn[/Z]'); // 慢性萎縮性胃炎
-      expect(res.streamText).toContain('[Z]gennkyokusei[/Z][H]biran[/H]'); // 限局性びらん
+      expect(res.streamText).toContain('[Z]fusei[/Z][Z]kannou[/Z][Z]byouhen[/Z]'); // 不整陥凹病変
+      expect(res.streamText).toContain('[Z]seisa[/Z][Z]you[/Z]'); // 精査要
+      expect(res.streamText).toContain('[Z]rinshouhandan[/Z]'); // 臨床判断
+      expect(res.streamText).toContain('[Z]soukiigan[/Z][Z]utagai[/Z]'); // 早期胃癌疑い
+      expect(res.streamText).toContain('[Z]mansei[/Z][Z]ishukusei[/Z][Z]ien[/Z]'); // 慢性萎縮性胃炎
+      expect(res.streamText).toContain('[Z]genkyokusei[/Z][H]biran[/H]'); // 限局性びらん
       expect(res.streamText).toContain('[A]ESD[/A][Z]tekiouseisa[/Z]'); // ESD適応精査
     });
 
@@ -233,30 +233,28 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       expect(res.streamText).not.toContain('josoto'); // 除外（女外）
       expect(res.streamText).not.toContain('ennsyouhan[/Z][Z]ou'); // 炎症反応（炎症版王）
 
-      // 最適チャンク分解＆[G]タグ（第2候補確定）による100%正当変換の検証
+      // 最適チャンク分解＆ヘボン式標準打鍵による100%正当変換の検証 (Gタグ廃止)
       expect(res.streamText).toContain('[Z]kyou[/Z]'); // 今日
       expect(res.streamText).toContain('[H]yokattadesu[/H]'); // よかったです（一括Enter確定）
-      expect(res.streamText).toContain('[A]53[/A][G]sai[/G]'); // 53歳 (Space 2回で「差異」誤爆排除)
-      expect(res.streamText).toContain('[Z]syusou[/Z]'); // 首相
+      expect(res.streamText).toContain('[A]53[/A][Z]sai[/Z]'); // 53歳
+      expect(res.streamText).toContain('[Z]shusou[/Z]'); // 首相
       expect(res.streamText).toContain('[Z]tokidoki[/Z]'); // 時々 (踊り字々処理)
       expect(res.streamText).toContain('[Z]hutsuu[/Z]'); // 普通
-      expect(res.streamText).toContain('[G]jyusinn[/G]'); // 受診 (Space 2回で「受信」誤爆排除)
-      expect(res.streamText).toContain('[G]tyuusei[/G]'); // 中性 (Space 2回で「中世」誤爆排除)
-      expect(res.streamText).toContain('[Z]rigaku[/Z][G]syoken[/G]'); // 理学所見 (Space 2回で「初見」誤爆排除)
-      expect(res.streamText).toContain('[K]baitaru[/K][G]tokki[/G][H]nasi[/H]'); // バイタル特記なし (Space 2回で「突起」誤爆排除)
-      expect(res.streamText).toContain('[Z]taidou[/Z][Z]ji[/Z]'); // 体動時 (「大導寺」誤爆排除)
-      expect(res.streamText).toContain('[Z]haibu[/Z][Z]tuu[/Z]'); // 背部痛 (「セブ通」誤爆排除)
-      expect(res.streamText).toContain('[Z]kinkimmakusei[/Z][Z]toutuu[/Z]'); // 筋筋膜性疼痛 (「筋す字幕」誤爆排除)
-      expect(res.streamText).toContain('[G]naizou[/G][Z]sikkan[/Z]'); // 内臓疾患 (Space 2回で「内蔵」誤爆排除)
-      expect(res.streamText).toContain('[Z]jyogai[/Z][Z]you[/Z]'); // 除外要 (「女外用」誤爆排除)
-      expect(res.streamText).toContain('[Z]chintuuyaku[/Z][G]syoho[/G]'); // 鎮痛薬処方 (Space 2回で「初歩」誤爆排除)
-      expect(res.streamText).toContain('[Z]sai[/Z][Z]kenn[/Z]'); // 再検 (「債権」誤爆排除)
-      expect(res.streamText).toContain('[Z]ennsyou[/Z][G]hannnou[/G]'); // 炎症反応 (Space 2回 & hannnouで「版王」誤爆排除)
-      expect(res.streamText).toContain('[Z]hukubu[/Z][Z]tyouonnpa[/Z]'); // 腹部超音波
-      expect(res.streamText).toContain('[Z]seisa[/Z][Z]kentou[/Z]'); // 精査検討
+      expect(res.streamText).toContain('[Z]touinjushin[/Z]'); // 当院受診
+      expect(res.streamText).toContain('[Z]chuusei[/Z]'); // 中性
+      expect(res.streamText).toContain('[Z]rigakushoken[/Z]'); // 理学所見
+      expect(res.streamText).toContain('[K]baitaru[/K][Z]tokki[/Z][H]nashi[/H]'); // バイタル特記なし
+      expect(res.streamText).toContain('[Z]taidou[/Z][Z]ji[/Z][Z]haibutsuu[/Z]'); // 体動時背部痛 (大導寺誤爆を完全防止)
+      expect(res.streamText).toContain('[Z]kinkimmakusei[/Z][Z]toutuu[/Z]'); // 筋筋膜性疼痛
+      expect(res.streamText).toContain('[Z]naizoushikkan[/Z]'); // 内臓疾患
+      expect(res.streamText).toContain('[Z]jogai[/Z][Z]you[/Z]'); // 除外要
+      expect(res.streamText).toContain('[Z]chintuuyakushoho[/Z]'); // 鎮痛薬処方
+      expect(res.streamText).toContain('[Z]saiken[/Z]'); // 再検
+      expect(res.streamText).toContain('[Z]ensyouhannou[/Z]'); // 炎症反応
+      expect(res.streamText).toContain('[Z]fukubuchouonpa[/Z][Z]seisakentou[/Z]'); // 腹部超音波精査検討
     });
 
-    it('9. 医療提供体制・医療経済学・学術所見（Mozc＋医療辞書形態素解析による100%正当変換検証）', () => {
+    it('9. 医療提供体制・医療経済学・学術所見（Mozc＋医療辞書形態素解析・ヘボン式・動的一体化による100%正当変換検証）', () => {
       const academicText =
         '現代の医療提供体制において、医療費抑制を志向する国家財政政策、医療機関の財務的困窮、' +
         'そして臨床現場における低価値医療（Low-Value Care: LVC）の蔓延は、' +
@@ -282,83 +280,82 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       expect(res.streamText).not.toContain('jitikomu'); // 持ち込む（字ちコミむ）
       expect(res.streamText).not.toContain('juukotomono'); // 従事者（中こともの）
 
-      // Mozc＋医療辞書形態素解析による正しいローマ字とタグ付けの検証
+      // ヘボン式・動的活用語尾一体化（志向する、過度な、課され、本稿では）による正しい打鍵検証
       expect(res.streamText).toContain('[Z]gendai[/Z]'); // 現代
       expect(res.streamText).toContain('[Z]iryouteikyoutaisei[/Z]'); // 医療提供体制 (長単位結合)
       expect(res.streamText).toContain('[Z]iryouhi[/Z]'); // 医療費
       expect(res.streamText).toContain('[Z]yokusei[/Z]'); // 抑制
-      expect(res.streamText).toContain('[Z]sikou[/Z]'); // 志向
-      expect(res.streamText).toContain('[Z]kokkazaiseiseisaku[/Z]'); // 国家財政政策 (長単位結合)
-      expect(res.streamText).toContain('[Z]iryoukikann[/Z]'); // 医療機関
-      expect(res.streamText).toContain('[Z]zaimutekikonnkyuu[/Z]'); // 財務的困窮 (長単位結合)
+      expect(res.streamText).toContain('[Z]shikousuru[/Z]'); // 志向する (サ変一体化で「思考する」誤爆を完全排除)
+      expect(res.streamText).toContain('[Z]kokkazaiseiseisaku[/Z]'); // 国家財政政策
+      expect(res.streamText).toContain('[Z]iryoukikan[/Z]'); // 医療機関
+      expect(res.streamText).toContain('[Z]zaimutekikonkyuu[/Z]'); // 財務的困窮
       expect(res.streamText).toContain('[Z]teikatiiryou[/Z]'); // 低価値医療
       expect(res.streamText).toContain('[A]Low-Value[/A]'); // 英数字直接
-      expect(res.streamText).toContain('[Z]mannenn[/Z]'); // 蔓延
-      expect(res.streamText).toContain('[Z]kobetu[/Z]'); // 個別
-      expect(res.streamText).toContain('[Z]jisyou[/Z]'); // 事象
+      expect(res.streamText).toContain('[Z]manen[/Z]'); // 蔓延
+      expect(res.streamText).toContain('[Z]kobetsu[/Z]'); // 個別
+      expect(res.streamText).toContain('[Z]jishou[/Z]'); // 事象
       expect(res.streamText).toContain('[Z]kouzouteki[/Z]'); // 構造的
-      expect(res.streamText).toContain('[Z]rennketu[/Z]'); // 連結
-      expect(res.streamText).toContain('[Z]itirenn[/Z]'); // 一連
-      expect(res.streamText).toContain('[Z]byourigakutekirennsa[/Z]'); // 病理学的連鎖
+      expect(res.streamText).toContain('[Z]renketsushita[/Z]'); // 連結した
+      expect(res.streamText).toContain('[Z]ichiren[/Z]'); // 一連
+      expect(res.streamText).toContain('[Z]byourigakutekirensa[/Z]'); // 病理学的連鎖
       expect(res.streamText).toContain('[Z]toraeru[/Z]'); // 捉える
-      expect(res.streamText).toContain('[Z]jinnkoukouzou[/Z]'); // 人口構造
-      expect(res.streamText).toContain('[Z]kyuugeki[/Z]'); // 急激
+      expect(res.streamText).toContain('[Z]jinkoukouzou[/Z]'); // 人口構造
+      expect(res.streamText).toContain('[Z]kyuugekina[/Z]'); // 急激な (形容動詞一体化)
       expect(res.streamText).toContain('[Z]koureika[/Z]'); // 高齢化
       expect(res.streamText).toContain('[Z]kyuuhuhi[/Z]'); // 給付費
-      expect(res.streamText).toContain('[Z]boutyou[/Z]'); // 膨張
+      expect(res.streamText).toContain('[Z]bouchou[/Z]'); // 膨張
       expect(res.streamText).toContain('[Z]haikei[/Z]'); // 背景
       expect(res.streamText).toContain('[Z]kouteikakaku[/Z]'); // 公定価格
-      expect(res.streamText).toContain('[Z]byousyousakugennaturyoku[/Z]'); // 病床削減圧力
+      expect(res.streamText).toContain('[Z]byoushousakugenatsuryoku[/Z]'); // 病床削減圧力
       expect(res.streamText).toContain('[K]makuro[/K]'); // マクロ
-      expect(res.streamText).toContain('[Z]keieikibann[/Z]'); // 経営基盤
-      expect(res.streamText).toContain('[Z]zeijyaku[/Z]'); // 脆弱
-      expect(res.streamText).toContain('[Z]tyuushoubyouinn[/Z]'); // 中小病院
+      expect(res.streamText).toContain('[Z]keieikiban[/Z]'); // 経営基盤
+      expect(res.streamText).toContain('[Z]zeijyakuna[/Z]'); // 脆弱な (形容動詞一体化)
+      expect(res.streamText).toContain('[Z]chuushoubyouin[/Z]'); // 中小病院
       expect(res.streamText).toContain('[Z]kyuusoku[/Z]'); // 急速
-      expect(res.streamText).toContain('[Z]kokatu[/Z]'); // 枯渇
-      expect(res.streamText).toContain('[Z]ginnkouyuusi[/Z]'); // 銀行融資
-      expect(res.streamText).toContain('[Z]tozetu[/Z]'); // 途絶
-      expect(res.streamText).toContain('[Z]ennmeisaku[/Z]'); // 延命策
-      expect(res.streamText).toContain('[Z]sinnryouhousyuusaikenn[/Z]'); // 診療報酬債権
-      expect(res.streamText).toContain('[Z]gaibusaiseisihonn[/Z]'); // 外部再生資本
+      expect(res.streamText).toContain('[Z]kokatsu[/Z]'); // 枯渇
+      expect(res.streamText).toContain('[Z]ginkouyuushi[/Z]'); // 銀行融資
+      expect(res.streamText).toContain('[Z]tozetushita[/Z]'); // 途絶した
+      expect(res.streamText).toContain('[Z]enmeisaku[/Z]'); // 延命策 (炎名作誤爆排除)
+      expect(res.streamText).toContain('[Z]shinryouhoushuusaiken[/Z]'); // 診療報酬債権
+      expect(res.streamText).toContain('[Z]gaibusaiseishihon[/Z]'); // 外部再生資本
       expect(res.streamText).toContain('[Z]kainyuu[/Z]'); // 介入
       expect(res.streamText).toContain('[K]mezo[/K]'); // メゾ
-      expect(res.streamText).toContain('[Z]hennyou[/Z]'); // 変容
-      expect(res.streamText).toContain('[Z]jiritutekigabanannsu[/Z]'); // 自律的ガバナンス
+      expect(res.streamText).toContain('[Z]henyou[/Z]'); // 変容
+      expect(res.streamText).toContain('[Z]jiritsutekigabanansu[/Z]'); // 自律的ガバナンス
       expect(res.streamText).toContain('[Z]keigaika[/Z]'); // 形骸化
-      expect(res.streamText).toContain('[Z]sihonnkaisyuu[/Z]'); // 資本回収
-      expect(res.streamText).toContain('[Z]saiyuusenn[/Z]'); // 最優先
-      expect(res.streamText).toContain('[Z]keieikannri[/Z]'); // 経営管理
-      expect(res.streamText).toContain('[Z]motikomu[/Z]'); // 持ち込む
-      expect(res.streamText).toContain('[Z]iryoujyuujisya[/Z]'); // 医療従事者
-      expect(res.streamText).toContain('[Z]dekidakatennsuu[/Z]'); // 出来高点数
-      expect(res.streamText).toContain('[Z]kyokudaika[/Z]'); // 極大化
-      expect(res.streamText).toContain('[Z]sinnryouaturyoku[/Z]'); // 診療圧力
-      expect(res.streamText).toContain('[Z]kado[/Z]'); // 過度
+      expect(res.streamText).toContain('[Z]shihonkaishuu[/Z]'); // 資本回収
+      expect(res.streamText).toContain('[Z]saiyuusen[/Z]'); // 最優先
+      expect(res.streamText).toContain('[Z]keieikanri[/Z]'); // 経営管理
+      expect(res.streamText).toContain('[Z]mochikomu[/Z]'); // 持ち込む
+      expect(res.streamText).toContain('[Z]iryoujuujisha[/Z]'); // 医療従事者
+      expect(res.streamText).toContain('[Z]dekidakadensuu[/Z]'); // 出来高点数
+      expect(res.streamText).toContain('[Z]kyokudaikasuru[/Z]'); // 極大化する
+      expect(res.streamText).toContain('[Z]shinryouatsuryoku[/Z]'); // 診療圧力
+      expect(res.streamText).toContain('[Z]kadona[/Z]'); // 過度な (「角な」誤爆排除・形容動詞一体化)
       expect(res.streamText).toContain('[K]kosuto[/K]'); // コスト
-      expect(res.streamText).toContain('[Z]sakugenn[/Z]'); // 削減
-      expect(res.streamText).toContain('[Z]kasa[/Z][H]re[/H]'); // 課され
-      expect(res.streamText).toContain('[Z]igakutekigaizennsei[/Z]'); // 医学的蓋然性
+      expect(res.streamText).toContain('[Z]sakugen[/Z]'); // 削減
+      expect(res.streamText).toContain('[Z]kasare[/Z]'); // 課され (「傘れ」誤爆排除・動詞受身一体化)
+      expect(res.streamText).toContain('[Z]igakutekigaizensei[/Z]'); // 医学的蓋然性
       expect(res.streamText).toContain('[Z]kaku[/Z]'); // 欠く
       expect(res.streamText).toContain('[Z]kajyou[/Z][Z]teikyou[/Z]'); // 過剰提供
-      expect(res.streamText).toContain('[Z]iryourinnri[/Z]'); // 医療倫理
+      expect(res.streamText).toContain('[Z]iryourinri[/Z]'); // 医療倫理
       expect(res.streamText).toContain('[Z]houkai[/Z]'); // 崩壊
       expect(res.streamText).toContain('[K]mikuro[/K]'); // ミクロ
-      expect(res.streamText).toContain('[Z]hatann[/Z]'); // 破綻
-      expect(res.streamText).toContain('[Z]honnkou[/Z]'); // 本稿
+      expect(res.streamText).toContain('[Z]hatan[/Z]'); // 破綻
+      expect(res.streamText).toContain('[Z]honkoudeha[/Z]'); // 本稿では (「本校」誤爆排除・連体一体化)
       expect(res.streamText).toContain('[Z]iryoukeizaigaku[/Z]'); // 医療経済学
-      expect(res.streamText).toContain('[Z]hokennseisakugaku[/Z]'); // 保健政策学
-      expect(res.streamText).toContain('[Z]byouinnsosikironn[/Z]'); // 病院組織論
-      expect(res.streamText).toContain('[Z]seimeirinnrigaku[/Z]'); // 生命倫理学
-      expect(res.streamText).toContain('[Z]tiken[/Z]'); // 知見
+      expect(res.streamText).toContain('[Z]hokenseisakugaku[/Z]'); // 保健政策学
+      expect(res.streamText).toContain('[Z]byouinsoshikiron[/Z]'); // 病院組織論
+      expect(res.streamText).toContain('[Z]seimeirinrigaku[/Z]'); // 生命倫理学
+      expect(res.streamText).toContain('[Z]chiken[/Z]'); // 知見 (ヘボン式で「ち県」誤爆排除)
       expect(res.streamText).toContain('[Z]tougou[/Z]'); // 統合
-      expect(res.streamText).toContain('[Z]sannsourennsa[/Z]'); // 三層連鎖
+      expect(res.streamText).toContain('[Z]sansourensa[/Z]'); // 三層連鎖 (「山荘連鎖」誤爆排除)
       expect(res.streamText).toContain('[Z]umidasu[/Z]'); // 生み出す
       expect(res.streamText).toContain('[Z]kouzoutekibyouri[/Z]'); // 構造的病理
-      expect(res.streamText).toContain('[Z]kaimei[/Z]'); // 解明
+      expect(res.streamText).toContain('[Z]kaimeisuru[/Z]'); // 解明する
       expect(res.streamText).toContain('[Z]seidokaikaku[/Z]'); // 制度改革
-      expect(res.streamText).toContain('[Z]muke[/Z][H]ta[/H]'); // 向けた
-      expect(res.streamText).toContain('[Z]gakujyututekironntenn[/Z]'); // 学術的論点
-      expect(res.streamText).toContain('[Z]teiji[/Z]'); // 提示
+      expect(res.streamText).toContain('[Z]gakujutsutekironten[/Z]'); // 学術的論点
+      expect(res.streamText).toContain('[Z]teijisuru[/Z]'); // 提示する
     });
   });
 });

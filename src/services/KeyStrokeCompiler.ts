@@ -421,64 +421,55 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 
     { tag: 'Z', text: '指示', romaji: 'siji' },
   ],
 
-  // 消化器・内視鏡 臨床所見 最適チャンク分解 (MS-IME第1・第2候補 決定論的確定)
+  // 消化器・内視鏡 臨床所見 最適チャンク分解 (ヘボン式・Gタグ全廃・MS-IME標準互換)
   '内視鏡所見': [
     { tag: 'Z', text: '内視鏡', romaji: 'naishikyou' },
-    { tag: 'G', text: '所見', romaji: 'syoken' }, // Space2回で100%「所見」確定 (初見誤爆を完全排除)
+    { tag: 'Z', text: '所見', romaji: 'shoken' },
   ],
   '典型所見': [
     { tag: 'Z', text: '典型', romaji: 'tenkei' },
-    { tag: 'G', text: '所見', romaji: 'syoken' },
+    { tag: 'Z', text: '所見', romaji: 'shoken' },
   ],
   '早期胃癌': [
-    { tag: 'Z', text: '早期', romaji: 'souki' },
-    { tag: 'G', text: '胃癌', romaji: 'igan' }, // Space2回で100%「胃癌」確定 (早期胃がん誤爆防止)
+    { tag: 'Z', text: '早期胃癌', romaji: 'soukiigan' },
   ],
   '陥凹型': [
-    { tag: 'G', text: '陥凹', romaji: 'kannou' }, // Space2回で100%「陥凹」確定 (観桜誤爆防止)
-    { tag: 'Z', text: '型', romaji: 'gata' },
+    { tag: 'Z', text: '陥凹型', romaji: 'kannougata' },
   ],
   '不整陥凹病変': [
     { tag: 'Z', text: '不整', romaji: 'fusei' },
-    { tag: 'G', text: '陥凹', romaji: 'kannou' },
-    { tag: 'Z', text: '病変', romaji: 'byouhenn' },
+    { tag: 'Z', text: '陥凹', romaji: 'kannou' },
+    { tag: 'Z', text: '病変', romaji: 'byouhen' },
   ],
   '不整陥凹': [
     { tag: 'Z', text: '不整', romaji: 'fusei' },
-    { tag: 'G', text: '陥凹', romaji: 'kannou' },
+    { tag: 'Z', text: '陥凹', romaji: 'kannou' },
   ],
   '陥凹病変': [
-    { tag: 'G', text: '陥凹', romaji: 'kannou' },
-    { tag: 'Z', text: '病変', romaji: 'byouhenn' },
+    { tag: 'Z', text: '陥凹', romaji: 'kannou' },
+    { tag: 'Z', text: '病変', romaji: 'byouhen' },
   ],
   '辺縁粘膜': [
-    { tag: 'Z', text: '辺縁', romaji: 'hennenn' },
-    { tag: 'Z', text: '粘膜', romaji: 'nennmaku' }, // nennmaku で熱膜誤爆防止
+    { tag: 'Z', text: '辺縁粘膜', romaji: 'henennnennmaku' },
   ],
   '境界明瞭': [
-    { tag: 'G', text: '境界', romaji: 'kyoukai' }, // Space2回で100%「境界」確定 (協会誤爆防止)
-    { tag: 'Z', text: '明瞭', romaji: 'meiryou' },
+    { tag: 'Z', text: '境界明瞭', romaji: 'kyoukaimeiryou' },
   ],
   '微細血管構築異常': [
-    { tag: 'Z', text: '微細', romaji: 'bisai' },
-    { tag: 'Z', text: '血管', romaji: 'kekkan' },
-    { tag: 'Z', text: '構築', romaji: 'koutiku' },
-    { tag: 'G', text: '異常', romaji: 'ijyou' }, // Space2回で100%「異常」確定 (以上誤爆防止)
+    { tag: 'Z', text: '微細血管', romaji: 'bisaikekkan' },
+    { tag: 'Z', text: '構築異常', romaji: 'koutikuijyou' },
   ],
   '構築異常': [
-    { tag: 'Z', text: '構築', romaji: 'koutiku' },
-    { tag: 'G', text: '異常', romaji: 'ijyou' },
+    { tag: 'Z', text: '構築異常', romaji: 'koutikuijyou' },
   ],
   '胃潰瘍': [
-    { tag: 'Z', text: '胃', romaji: 'i' },
-    { tag: 'Z', text: '潰瘍', romaji: 'kaiyou' },
+    { tag: 'Z', text: '胃潰瘍', romaji: 'ikaiyou' },
   ],
   '消化性潰瘍': [
-    { tag: 'Z', text: '消化性', romaji: 'syoukasei' },
-    { tag: 'Z', text: '潰瘍', romaji: 'kaiyou' },
+    { tag: 'Z', text: '消化性潰瘍', romaji: 'shoukaseikaiyou' },
   ],
   '瘢痕期': [
-    { tag: 'Z', text: '瘢痕', romaji: 'hankonn' },
+    { tag: 'Z', text: '瘢痕', romaji: 'hankon' },
     { tag: 'Z', text: '期', romaji: 'ki' },
   ],
   '胃良性ポリープ': [
@@ -487,39 +478,34 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 
     { tag: 'K', text: 'ポリープ', romaji: 'pori-pu' },
   ],
   '胃角部小弯': [
-    { tag: 'G', text: '胃角', romaji: 'ikaku' }, // Space2回で「胃角」確定 (威嚇武将ワン誤爆防止)
-    { tag: 'Z', text: '部', romaji: 'bu' },
-    { tag: 'Z', text: '小弯', romaji: 'syouwann' },
+    { tag: 'Z', text: '胃角部', romaji: 'ikakubu' },
+    { tag: 'Z', text: '小弯', romaji: 'shouwan' },
   ],
   '前庭部': [
-    { tag: 'G', text: '前庭', romaji: 'zentei' }, // Space2回で100%「前庭」確定 (前提部誤爆防止)
-    { tag: 'Z', text: '部', romaji: 'bu' },
+    { tag: 'Z', text: '前庭部', romaji: 'zenteibu' },
   ],
   '精査要': [
     { tag: 'Z', text: '精査', romaji: 'seisa' },
-    { tag: 'Z', text: '要', romaji: 'you' }, // 正作用誤爆防止
+    { tag: 'Z', text: '要', romaji: 'you' },
   ],
   '臨床判断': [
-    { tag: 'Z', text: '臨床', romaji: 'rinsyou' },
-    { tag: 'Z', text: '判断', romaji: 'hanndann' },
+    { tag: 'Z', text: '臨床判断', romaji: 'rinshouhandan' },
   ],
   '慢性萎縮性胃炎': [
     { tag: 'Z', text: '慢性', romaji: 'mansei' },
-    { tag: 'Z', text: '萎縮性', romaji: 'isyukusei' },
-    { tag: 'Z', text: '胃炎', romaji: 'ienn' },
+    { tag: 'Z', text: '萎縮性', romaji: 'ishukusei' },
+    { tag: 'Z', text: '胃炎', romaji: 'ien' },
   ],
   '限局性びらん': [
-    { tag: 'Z', text: '限局性', romaji: 'gennkyokusei' },
+    { tag: 'Z', text: '限局性', romaji: 'genkyokusei' },
     { tag: 'H', text: 'びらん', romaji: 'biran' },
   ],
   'ESD適応精査': [
     { tag: 'A', text: 'ESD', romaji: 'ESD' },
-    { tag: 'Z', text: '適応', romaji: 'tekiou' },
-    { tag: 'Z', text: '精査', romaji: 'seisa' },
+    { tag: 'Z', text: '適応精査', romaji: 'tekiouseisa' },
   ],
   '早期胃癌疑い': [
-    { tag: 'Z', text: '早期', romaji: 'souki' },
-    { tag: 'G', text: '胃癌', romaji: 'igan' },
+    { tag: 'Z', text: '早期胃癌', romaji: 'soukiigan' },
     { tag: 'Z', text: '疑い', romaji: 'utagai' },
   ],
   '途読': [
@@ -527,7 +513,7 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 
     { tag: 'Z', text: '読', romaji: 'doku' },
   ],
   '褪色': [
-    { tag: 'G', text: '褪色', romaji: 'taisyoku' }, // Space2回で100%「褪色」確定 (退職誤爆防止)
+    { tag: 'Z', text: '褪色', romaji: 'taishoku' },
   ],
   '今日': [
     { tag: 'Z', text: '今日', romaji: 'kyou' },
@@ -536,54 +522,50 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 
     { tag: 'Z', text: '時々', romaji: 'tokidoki' },
   ],
   '普通': [
-    { tag: 'Z', text: '普通', romaji: 'hutsuu' }, // 太織誤爆防止
+    { tag: 'Z', text: '普通', romaji: 'hutsuu' },
   ],
   '首相': [
-    { tag: 'Z', text: '首相', romaji: 'syusou' },
+    { tag: 'Z', text: '首相', romaji: 'shusou' },
   ],
   '主訴': [
-    { tag: 'G', text: '主訴', romaji: 'syuso' }, // Space2回で100%「主訴」確定
+    { tag: 'Z', text: '主訴', romaji: 'shuso' },
   ],
   '受診': [
-    { tag: 'G', text: '受診', romaji: 'jyusinn' }, // Space2回で100%「受診」確定 (受信誤爆防止)
+    { tag: 'Z', text: '受診', romaji: 'jushin' },
   ],
   '当院受診': [
-    { tag: 'Z', text: '当院', romaji: 'touinn' },
-    { tag: 'G', text: '受診', romaji: 'jyusinn' },
+    { tag: 'Z', text: '当院受診', romaji: 'touinjushin' },
   ],
   '中性': [
-    { tag: 'G', text: '中性', romaji: 'tyuusei' }, // Space2回で100%「中性」確定 (中世誤爆防止)
+    { tag: 'Z', text: '中性', romaji: 'chuusei' },
   ],
   '理学所見': [
-    { tag: 'Z', text: '理学', romaji: 'rigaku' },
-    { tag: 'G', text: '所見', romaji: 'syoken' },
+    { tag: 'Z', text: '理学所見', romaji: 'rigakushoken' },
   ],
   '所見': [
-    { tag: 'G', text: '所見', romaji: 'syoken' }, // Space2回で100%「所見」確定 (初見誤爆を完全排除)
+    { tag: 'Z', text: '所見', romaji: 'shoken' },
   ],
   '特記なし': [
-    { tag: 'G', text: '特記', romaji: 'tokki' }, // Space2回で100%「特記」確定 (突起誤爆防止)
-    { tag: 'H', text: 'なし', romaji: 'nasi' },
+    { tag: 'Z', text: '特記', romaji: 'tokki' },
+    { tag: 'H', text: 'なし', romaji: 'nashi' },
   ],
   '特記': [
-    { tag: 'G', text: '特記', romaji: 'tokki' },
+    { tag: 'Z', text: '特記', romaji: 'tokki' },
   ],
   '体動時背部痛': [
     { tag: 'Z', text: '体動', romaji: 'taidou' },
     { tag: 'Z', text: '時', romaji: 'ji' },
-    { tag: 'Z', text: '背部', romaji: 'haibu' },
-    { tag: 'Z', text: '痛', romaji: 'tuu' },
+    { tag: 'Z', text: '背部痛', romaji: 'haibutsuu' },
   ],
   '体動時': [
     { tag: 'Z', text: '体動', romaji: 'taidou' },
-    { tag: 'Z', text: '時', romaji: 'ji' }, // 大導寺誤爆を完全排除
+    { tag: 'Z', text: '時', romaji: 'ji' },
   ],
   '背部痛': [
-    { tag: 'Z', text: '背部', romaji: 'haibu' },
-    { tag: 'Z', text: '痛', romaji: 'tuu' },
+    { tag: 'Z', text: '背部痛', romaji: 'haibutsuu' },
   ],
   '背部': [
-    { tag: 'Z', text: '背部', romaji: 'haibu' }, // セブ誤爆防止
+    { tag: 'Z', text: '背部', romaji: 'haibu' },
   ],
   '筋筋膜性疼痛': [
     { tag: 'Z', text: '筋筋膜性', romaji: 'kinkimmakusei' },
@@ -596,56 +578,48 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 
     { tag: 'Z', text: '筋筋膜', romaji: 'kinkimmaku' },
   ],
   '内臓疾患': [
-    { tag: 'G', text: '内臓', romaji: 'naizou' }, // Space2回で100%「内臓」確定 (内蔵誤爆防止)
-    { tag: 'Z', text: '疾患', romaji: 'sikkan' },
+    { tag: 'Z', text: '内臓疾患', romaji: 'naizoushikkan' },
   ],
   '内臓': [
-    { tag: 'G', text: '内臓', romaji: 'naizou' },
+    { tag: 'Z', text: '内臓', romaji: 'naizou' },
   ],
   '除外要': [
-    { tag: 'Z', text: '除外', romaji: 'jyogai' },
-    { tag: 'Z', text: '要', romaji: 'you' }, // 女外用誤爆防止
+    { tag: 'Z', text: '除外', romaji: 'jogai' },
+    { tag: 'Z', text: '要', romaji: 'you' },
   ],
   '除外': [
-    { tag: 'Z', text: '除外', romaji: 'jyogai' },
+    { tag: 'Z', text: '除外', romaji: 'jogai' },
   ],
   '鎮痛薬処方': [
-    { tag: 'Z', text: '鎮痛薬', romaji: 'chintuuyaku' },
-    { tag: 'G', text: '処方', romaji: 'syoho' }, // Space2回で100%「処方」確定 (初歩誤爆防止)
+    { tag: 'Z', text: '鎮痛薬処方', romaji: 'chintuuyakushoho' },
   ],
   '処方': [
-    { tag: 'G', text: '処方', romaji: 'syoho' },
+    { tag: 'Z', text: '処方', romaji: 'shoho' },
   ],
   '安静指導': [
-    { tag: 'Z', text: '安静', romaji: 'annsei' },
-    { tag: 'Z', text: '指導', romaji: 'sidou' },
+    { tag: 'Z', text: '安静指導', romaji: 'anseishidou' },
   ],
   '肝機能再検': [
-    { tag: 'Z', text: '肝機能', romaji: 'kannkinou' },
-    { tag: 'Z', text: '再', romaji: 'sai' },
-    { tag: 'Z', text: '検', romaji: 'kenn' }, // 債権誤爆防止
+    { tag: 'Z', text: '肝機能', romaji: 'kankinou' },
+    { tag: 'Z', text: '再検', romaji: 'saiken' },
   ],
   '再検': [
-    { tag: 'Z', text: '再', romaji: 'sai' },
-    { tag: 'Z', text: '検', romaji: 'kenn' },
+    { tag: 'Z', text: '再検', romaji: 'saiken' },
   ],
   '炎症反応': [
-    { tag: 'Z', text: '炎症', romaji: 'ennsyou' },
-    { tag: 'G', text: '反応', romaji: 'hannnou' }, // Space2回で100%「反応」確定 (版王誤爆防止, hannnou)
+    { tag: 'Z', text: '炎症反応', romaji: 'ensyouhannou' },
   ],
   '反応': [
-    { tag: 'G', text: '反応', romaji: 'hannnou' },
+    { tag: 'Z', text: '反応', romaji: 'hannou' },
   ],
   '腹部超音波': [
-    { tag: 'Z', text: '腹部', romaji: 'hukubu' },
-    { tag: 'Z', text: '超音波', romaji: 'tyouonnpa' },
+    { tag: 'Z', text: '腹部超音波', romaji: 'fukubuchouonpa' },
   ],
   '精査検討': [
-    { tag: 'Z', text: '精査', romaji: 'seisa' },
-    { tag: 'Z', text: '検討', romaji: 'kentou' },
+    { tag: 'Z', text: '精査検討', romaji: 'seisakentou' },
   ],
   '歳': [
-    { tag: 'G', text: '歳', romaji: 'sai' }, // Space2回で100%「歳」確定 (差異誤爆防止)
+    { tag: 'Z', text: '歳', romaji: 'sai' },
   ],
 };
 
@@ -1047,17 +1021,40 @@ export class KeyStrokeCompiler {
           let offset = l;
 
           if (offset < remaining.length) {
-            const nextChar = remaining[offset];
-            if (MEDICAL_SUFFIXES.includes(nextChar)) {
-              const combined = compound + nextChar;
-              if (COMPOUND_LEXICON[combined]) {
-                compound = combined;
-                romaji = COMPOUND_LEXICON[combined];
-                offset += 1;
-              } else if (SUFFIX_READING[nextChar]) {
-                compound = combined;
-                romaji = romaji + SUFFIX_READING[nextChar];
-                offset += 1;
+            const nextPart = remaining.substring(offset);
+            if (nextPart.startsWith('な') && !nextPart.startsWith('ない') && !nextPart.startsWith('など') && !nextPart.startsWith('なし') && !nextPart.startsWith('なら')) {
+              compound += 'な';
+              romaji += 'na';
+              offset += 1;
+            } else if (nextPart.startsWith('する')) {
+              compound += 'する';
+              romaji += 'suru';
+              offset += 2;
+            } else if (nextPart.startsWith('した')) {
+              compound += 'した';
+              romaji += 'shita';
+              offset += 2;
+            } else if (nextPart.startsWith('され')) {
+              compound += 'され';
+              romaji += 'sare';
+              offset += 2;
+            } else if (nextPart.startsWith('して')) {
+              compound += 'して';
+              romaji += 'shite';
+              offset += 2;
+            } else {
+              const nextChar = remaining[offset];
+              if (MEDICAL_SUFFIXES.includes(nextChar)) {
+                const combined = compound + nextChar;
+                if (COMPOUND_LEXICON[combined]) {
+                  compound = combined;
+                  romaji = COMPOUND_LEXICON[combined];
+                  offset += 1;
+                } else if (SUFFIX_READING[nextChar]) {
+                  compound = combined;
+                  romaji = romaji + SUFFIX_READING[nextChar];
+                  offset += 1;
+                }
               }
             }
           }
@@ -1085,16 +1082,7 @@ export class KeyStrokeCompiler {
           const romaji = MORPH_ROMAJI[sub];
           const tag = MORPH_TAGS[sub] || 'Z';
 
-          if (tag === 'G') {
-            blocks.push({
-              type: 'z_kanji',
-              tag: 'G',
-              rawText: sub,
-              compiledPayload: `[G]${romaji}[/G]`,
-            });
-            zCount++;
-            totalKeystrokes += romaji.length + 3; // Space*2 + Enter
-          } else if (tag === 'K') {
+          if (tag === 'K') {
             blocks.push({
               type: 'k_katakana',
               tag: 'K',
@@ -1113,19 +1101,54 @@ export class KeyStrokeCompiler {
             hCount++;
             totalKeystrokes += romaji.length + 1; // Enter
           } else {
+            let combinedText = sub;
+            let combinedRomaji = romaji;
+            let consumedLen = l;
+
+            const nextPart = remaining.substring(l);
+            // 1. サ変複合動詞 (自立語 + する/した/され/して/している)
+            // 例: 「志向」+「する」 ➔ [Z]shikousuru[/Z]
+            if (nextPart.startsWith('する')) {
+              combinedText += 'する';
+              combinedRomaji += 'suru';
+              consumedLen += 2;
+            } else if (nextPart.startsWith('した')) {
+              combinedText += 'した';
+              combinedRomaji += 'shita';
+              consumedLen += 2;
+            } else if (nextPart.startsWith('され')) {
+              combinedText += 'され';
+              combinedRomaji += 'sare';
+              consumedLen += 2;
+            } else if (nextPart.startsWith('して')) {
+              combinedText += 'して';
+              combinedRomaji += 'shite';
+              consumedLen += 2;
+            } else if (nextPart.startsWith('な') && !nextPart.startsWith('ない') && !nextPart.startsWith('など') && !nextPart.startsWith('なし') && !nextPart.startsWith('なら')) {
+              // 2. 形容動詞連体形 (自立語 + な)
+              // 例: 「過度」+「な」 ➔ [Z]kadona[/Z]
+              combinedText += 'な';
+              combinedRomaji += 'na';
+              consumedLen += 1;
+            } else if (sub.endsWith('さ') && nextPart.startsWith('れ')) {
+              // 3. 動詞受身 (例: 「課さ」+「れ」 ➔ [Z]kasare[/Z])
+              combinedText += 'れ';
+              combinedRomaji += 're';
+              consumedLen += 1;
+            }
+
             blocks.push({
               type: 'z_kanji',
               tag: 'Z',
-              rawText: sub,
-              compiledPayload: `[Z]${romaji}[/Z]`,
+              rawText: combinedText,
+              compiledPayload: `[Z]${combinedRomaji}[/Z]`,
             });
             zCount++;
-            totalKeystrokes += romaji.length + 2; // Space + Enter
+            totalKeystrokes += combinedRomaji.length + 2; // Space + Enter
+            i += consumedLen;
+            matchedMorphLexicon = true;
+            break;
           }
-
-          i += l;
-          matchedMorphLexicon = true;
-          break;
         }
       }
       if (matchedMorphLexicon) continue;

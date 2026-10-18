@@ -1308,8 +1308,8 @@ export const SINGLE_KANJI_MAP: Record<string, string> = {
 export const KANA_ROMAJI_MAP: Record<string, string> = {
   // 拗音・促音複合 (3文字・2文字)
   'きゃ': 'kya', 'きゅ': 'kyu', 'きょ': 'kyo',
-  'しゃ': 'sya', 'しゅ': 'syu', 'しょ': 'syo',
-  'ちゃ': 'tya', 'ちゅ': 'tyu', 'ちょ': 'tyo',
+  'しゃ': 'sha', 'しゅ': 'shu', 'しょ': 'sho',
+  'ちゃ': 'cha', 'ちゅ': 'chu', 'ちょ': 'cho',
   'にゃ': 'nya', 'にゅ': 'nyu', 'にょ': 'nyo',
   'ひゃ': 'hya', 'ひゅ': 'hyu', 'ひょ': 'hyo',
   'みゃ': 'mya', 'みゅ': 'myu', 'みょ': 'myo',
@@ -1327,8 +1327,8 @@ export const KANA_ROMAJI_MAP: Record<string, string> = {
   // 清音・濁音・半濁音
   'あ': 'a', 'い': 'i', 'う': 'u', 'え': 'e', 'お': 'o',
   'か': 'ka', 'き': 'ki', 'く': 'ku', 'け': 'ke', 'こ': 'ko',
-  'さ': 'sa', 'し': 'si', 'す': 'su', 'せ': 'se', 'そ': 'so',
-  'た': 'ta', 'ち': 'ti', 'つ': 'tu', 'て': 'te', 'と': 'to',
+  'さ': 'sa', 'し': 'shi', 'す': 'su', 'せ': 'se', 'そ': 'so',
+  'た': 'ta', 'ち': 'chi', 'つ': 'tsu', 'て': 'te', 'と': 'to',
   'な': 'na', 'に': 'ni', 'ぬ': 'nu', 'ね': 'ne', 'の': 'no',
   'は': 'ha', 'ひ': 'hi', 'ふ': 'fu', 'へ': 'he', 'ほ': 'ho',
   'ま': 'ma', 'み': 'mi', 'む': 'mu', 'め': 'me', 'も': 'mo',
@@ -1337,7 +1337,7 @@ export const KANA_ROMAJI_MAP: Record<string, string> = {
   'わ': 'wa', 'を': 'wo', 'ん': 'nn',
   'が': 'ga', 'ぎ': 'gi', 'ぐ': 'gu', 'げ': 'ge', 'ご': 'go',
   'ざ': 'za', 'じ': 'ji', 'ず': 'zu', 'ぜ': 'ze', 'ぞ': 'zo',
-  'だ': 'da', 'ぢ': 'di', 'づ': 'du', 'で': 'de', 'ど': 'do',
+  'だ': 'da', 'ぢ': 'ji', 'づ': 'zu', 'で': 'de', 'ど': 'do',
   'ば': 'ba', 'び': 'bi', 'ぶ': 'bu', 'べ': 'be', 'ぼ': 'bo',
   'ぱ': 'pa', 'ぴ': 'pi', 'ぷ': 'pu', 'ぺ': 'pe', 'ぽ': 'po',
   
