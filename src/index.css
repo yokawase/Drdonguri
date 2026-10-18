@@ -1,21 +1,71 @@
 @import "tailwindcss";
+@config "../tailwind.config.js";
+
+@theme {
+  --color-dongly-base: #0F172A;
+  --color-dongly-base-card: #1E293B;
+  --color-dongly-base-subtle: #334155;
+  --color-dongly-base-border: rgba(51, 65, 85, 0.6);
+
+  --color-dongly-amber: #F59E0B;
+  --color-dongly-amber-hover: #D97706;
+  --color-dongly-amber-glow: rgba(245, 158, 11, 0.25);
+  --color-dongly-amber-dark: #78350F;
+
+  --color-dongly-coral: #F43F5E;
+  --color-dongly-coral-subtle: rgba(244, 63, 94, 0.15);
+  --color-dongly-coral-border: rgba(244, 63, 94, 0.40);
+
+  --color-dongly-status-ble: #10B981;
+  --color-dongly-status-ble-glow: rgba(16, 185, 129, 0.2);
+  --color-dongly-status-send: #38BDF8;
+
+  --color-dongly-text-primary: #F8FAFC;
+  --color-dongly-text-secondary: #94A3B8;
+  --color-dongly-text-muted: #64748B;
+
+  --shadow-fab-amber: 0 10px 25px -5px rgba(245, 158, 11, 0.3), 0 8px 10px -6px rgba(245, 158, 11, 0.2);
+  --shadow-fab-recording: 0 10px 25px -5px rgba(225, 29, 72, 0.5), 0 8px 10px -6px rgba(225, 29, 72, 0.3);
+}
+
+/* ========================================================================= */
+/* ネイティブ風PWA仕様 (セーフエリア対応・スクロールバウンス抑止・ジェスチャー) */
+/* ========================================================================= */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+html, body {
+  /* スクロールバウンス完全抑止 (Overscroll / Elastic scroll prevention) */
+  overscroll-behavior-y: none;
+  overscroll-behavior-x: none;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  /* 誤タップズーム・ダブルタップ拡大の防止 */
+  touch-action: manipulation;
+  /* iOS タップハイライト抑止 */
+  -webkit-tap-highlight-color: transparent;
+}
 
 @layer base {
   body {
-    font-family: 'DotGothic16', 'Monaco', 'Geneva', monospace, system-ui;
+    font-family: 'Zen Kaku Gothic New', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     color: #000000;
+  }
+  
+  .font-classic {
+    font-family: 'DotGothic16', 'Monaco', 'Geneva', monospace, system-ui;
     image-rendering: pixelated;
     -webkit-font-smoothing: none;
     -moz-osx-font-smoothing: unset;
     font-smooth: never;
   }
   
-  code, pre, .font-mono, textarea, input {
-    font-family: 'Monaco', 'DotGothic16', 'Courier New', monospace;
-    image-rendering: pixelated;
-    -webkit-font-smoothing: none;
-    -moz-osx-font-smoothing: unset;
-    font-smooth: never;
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', 'Monaco', 'DotGothic16', monospace;
   }
 }
 
@@ -267,6 +317,34 @@
 }
 
 /* iOS Safe Area ユーティリティ */
-.safe-bottom {
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+.safe-top {
+  padding-top: max(env(safe-area-inset-top, 0px), 0.75rem);
 }
+.safe-bottom {
+  padding-bottom: max(calc(env(safe-area-inset-bottom, 0px) + 0.5rem), 1rem);
+}
+.safe-left {
+  padding-left: max(env(safe-area-inset-left, 0px), 0.5rem);
+}
+.safe-right {
+  padding-right: max(env(safe-area-inset-right, 0px), 0.5rem);
+}
+
+/* リアルタイム音声波形アニメーション */
+@keyframes waveform-wave-1 {
+  0% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1.3); }
+  100% { transform: scaleY(0.4); }
+}
+@keyframes waveform-wave-2 {
+  0% { transform: scaleY(0.8); }
+  50% { transform: scaleY(0.3); }
+  100% { transform: scaleY(1.1); }
+}
+.animate-waveform-1 {
+  animation: waveform-wave-1 0.8s ease-in-out infinite alternate;
+}
+.animate-waveform-2 {
+  animation: waveform-wave-2 1.1s ease-in-out infinite alternate;
+}
+

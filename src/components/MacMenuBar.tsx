@@ -42,6 +42,7 @@ interface MacMenuBarProps {
   deviceType?: DeviceType;
   adaptiveMode?: AdaptiveMode;
   onSelectAdaptiveMode?: (mode: AdaptiveMode) => void;
+  onSwitchToPwa?: () => void;
 }
 
 export const MacMenuBar: React.FC<MacMenuBarProps> = ({
@@ -77,6 +78,7 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
   deviceType = 'desktop',
   adaptiveMode = 'auto',
   onSelectAdaptiveMode,
+  onSwitchToPwa,
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -751,6 +753,21 @@ export const MacMenuBar: React.FC<MacMenuBarProps> = ({
           >
             <span>📚</span>
             <span>医療データ検索</span>
+          </button>
+        )}
+
+        {/* スマホPWA Edgeモード切替ボタン */}
+        {onSwitchToPwa && (
+          <button
+            onClick={() => {
+              playMacBeep();
+              onSwitchToPwa();
+            }}
+            className="flex items-center gap-1 border border-black px-2 py-0.5 bg-[#0F172A] text-amber-400 hover:bg-slate-900 shadow-[1px_1px_0_#000] cursor-pointer font-bold text-[10px]"
+            title="スマホPWA Edge UI (スプリットコンプリメンタリー配色・音声入力FAB) に切り替え"
+          >
+            <span>📱</span>
+            <span>PWA Edge</span>
           </button>
         )}
 

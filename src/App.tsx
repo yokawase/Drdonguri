@@ -23,6 +23,8 @@ import {
 } from './types';
 import { APP_NAME, APP_VERSION, FULL_VERSION_LABEL, LATEST_FIRMWARE_VERSION, getFormattedBuildDate } from './version';
 
+import { NativePwaEdgeLayout } from './components/NativePwaEdgeLayout';
+
 // オンデマンド遅延ロード (初期バンドルサイズの劇的スリム化)
 const DongleConsole = React.lazy(() => import('./components/DongleConsole').then(m => ({ default: m.DongleConsole })));
 const FirmwareHub = React.lazy(() => import('./components/FirmwareHub').then(m => ({ default: m.FirmwareHub })));
@@ -33,6 +35,11 @@ const MacScrapbookModal = React.lazy(() => import('./components/MacScrapbookModa
 const MacKeyCapsModal = React.lazy(() => import('./components/MacKeyCapsModal').then(m => ({ default: m.MacKeyCapsModal })));
 const MacSoundControlModal = React.lazy(() => import('./components/MacSoundControlModal').then(m => ({ default: m.MacSoundControlModal })));
 const MacBombDialog = React.lazy(() => import('./components/MacBombDialog').then(m => ({ default: m.MacBombDialog })));
+const MedicalDataSearchModal = React.lazy(() => import('./components/MedicalDataSearchModal').then(m => ({ default: m.MedicalDataSearchModal })));
+const MedicalCoprocessorModal = React.lazy(() => import('./components/MedicalCoprocessorModal').then(m => ({ default: m.MedicalCoprocessorModal })));
+const AiAssistModal = React.lazy(() => import('./components/AiAssistModal').then(m => ({ default: m.AiAssistModal })));
+const TemplateManagerModal = React.lazy(() => import('./components/TemplateManagerModal').then(m => ({ default: m.TemplateManagerModal })));
+const CameraOcrModal = React.lazy(() => import('./components/CameraOcrModal').then(m => ({ default: m.CameraOcrModal })));
 import { 
   triggerMacScreenFlash, 
   playMacBeep, 
@@ -85,6 +92,27 @@ export default function App() {
 
   // System 7 Classic II モード (1ビットモノクロ)
   const [isMonoClassic, setIsMonoClassic] = useState<boolean>(true);
+
+  // UIモード: 'pwa' (ネイティブ風PWA仕様) | 'classic' (System 7 Classic Mac)
+  const [uiMode, setUiMode] = useState<'pwa' | 'classic'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('drdongly_ui_mode_pref');
+      if (saved === 'pwa' || saved === 'classic') return saved;
+      // モバイル環境ならデフォルトで完全ネイティブPWA仕様
+      return window.innerWidth < 768 ? 'pwa' : 'classic';
+    }
+    return 'classic';
+  });
+
+  const handleSetUiMode = (mode: 'pwa' | 'classic') => {
+    setUiMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('drdongly_ui_mode_pref', mode);
+    }
+  };
+
+  const [isDongleModalOpen, setIsDongleModalOpen] = useState(false);
+  const [isFirmwareModalOpen, setIsFirmwareModalOpen] = useState(false);
 
   //  この Mac について (About This Macintosh)
   const [isAboutModalOpen, setIsAboutModalOpen] = useState<boolean>(false);
@@ -560,6 +588,184 @@ export default function App() {
     handleSendSession(session);
   };
 
+  const handleSendDirect = async () => {
+    if (!inputText.trim()) {
+      playMacBeep();
+      return;
+    }
+    try {
+      const session = buildTransmissionSession(inputText, dispatchMode, {
+        enablePreprocessor: true,
+        enableImeBoost: true,
+      });
+      await handleSendSession(session);
+    } catch (err: any) {
+      setBannerNotice({
+        type: 'error',
+        message: `送信エラー: ${err.message}`,
+      });
+    }
+  };
+
+  // =========================================================================
+  // ★ ネイティブ風PWA仕様 (スマホ最適化 / スプリットコンプリメンタリー)
+  // =========================================================================
+  if (uiMode === 'pwa') {
+    return (
+      <div className="w-full h-[100dvh] overflow-hidden bg-[#0F172A] overscroll-none touch-manipulation">
+        <NativePwaEdgeLayout
+          inputText={inputText}
+          setInputText={setInputText}
+          isBleConnected={isBleConnected}
+          isSending={isSending}
+          onConnectBle={handleConnectBle}
+          onSendSession={handleSendDirect}
+          onOpenSearch={() => setIsMedicalSearchOpen(true)}
+          onOpenCoprocessor={() => setIsCoprocessorModalOpen(true)}
+          onOpenWebLlm={() => setIsAiModalOpen(true)}
+          onOpenTemplates={() => setIsTemplateModalOpen(true)}
+          onOpenDongleConsole={() => setIsDongleModalOpen(true)}
+          onOpenMedPilot={() => setIsMedPilotHotSyncOpen(true)}
+          onOpenFirmware={() => setIsFirmwareModalOpen(true)}
+          onSwitchToClassicMac={() => handleSetUiMode('classic')}
+          onOpenAboutMac={() => setIsAboutModalOpen(true)}
+        />
+
+        {/* 共通モーダル群 (PWA Edge 上でもシームレスに起動) */}
+        <Suspense fallback={null}>
+          {isMedicalSearchOpen && (
+            <MedicalDataSearchModal
+              isOpen={isMedicalSearchOpen}
+              onClose={() => setIsMedicalSearchOpen(false)}
+              inputText={inputText}
+              onInsertText={(text) => {
+                setInputText((prev) => (prev ? `${prev}\n${text}` : text));
+              }}
+            />
+          )}
+
+          {isCoprocessorModalOpen && (
+            <MedicalCoprocessorModal
+              isOpen={isCoprocessorModalOpen}
+              onClose={() => setIsCoprocessorModalOpen(false)}
+              isBleConnected={isBleConnected}
+              onWriteBackToChart={async (text: string) => {
+                setInputText(text);
+                const session = buildTransmissionSession(text, dispatchMode);
+                await handleSendSession(session);
+              }}
+            />
+          )}
+
+          {isAiModalOpen && (
+            <AiAssistModal
+              isOpen={isAiModalOpen}
+              onClose={() => setIsAiModalOpen(false)}
+              originalText={inputText}
+              onApplyFormattedText={(text: string) => {
+                setInputText(text);
+              }}
+            />
+          )}
+
+          {isTemplateModalOpen && (
+            <TemplateManagerModal
+              isOpen={isTemplateModalOpen}
+              onClose={() => setIsTemplateModalOpen(false)}
+              currentInputText={inputText}
+              templates={[]}
+              onApplyTemplate={(content: string, mode: 'replace' | 'append') => {
+                if (mode === 'append') {
+                  setInputText((prev) => (prev ? `${prev}\n\n${content}` : content));
+                } else {
+                  setInputText(content);
+                }
+              }}
+              onSaveTemplate={() => {}}
+              onDeleteTemplate={() => {}}
+            />
+          )}
+
+          {isCameraOcrOpen && (
+            <CameraOcrModal
+              isOpen={isCameraOcrOpen}
+              onClose={() => setIsCameraOcrOpen(false)}
+              onApplyText={(extracted: string, mode: 'replace' | 'append') => {
+                if (mode === 'append') {
+                  setInputText((prev) => (prev ? `${prev}\n\n${extracted}` : extracted));
+                } else {
+                  setInputText(extracted);
+                }
+              }}
+            />
+          )}
+
+          {isMedPilotHotSyncOpen && (
+            <MedPilotHotSyncModal
+              isOpen={isMedPilotHotSyncOpen}
+              onClose={() => setIsMedPilotHotSyncOpen(false)}
+              initialText={inputText}
+            />
+          )}
+
+          {isDongleModalOpen && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 animate-in fade-in">
+              <div className="w-full max-w-xl max-h-[90vh] bg-white border-2 border-black rounded shadow-2xl flex flex-col overflow-hidden">
+                <div className="flex items-center justify-between p-2.5 bg-slate-900 text-white font-bold text-xs">
+                  <span>🌰 どんぐり君 ハードウェア管理 & 通信コンソール</span>
+                  <button onClick={() => setIsDongleModalOpen(false)} className="px-2 py-0.5 bg-slate-800 rounded hover:bg-slate-700">✕</button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2">
+                  <DongleConsole
+                    currentState={currentState}
+                    ledStatus={ledStatus}
+                    isUsbMounted={isUsbMounted}
+                    isBleConnected={isBleConnected}
+                    isVirtualMode={isVirtualMode}
+                    transmissionStatus={transmissionStatus}
+                    logs={logs}
+                    onPressButton={handlePressButton}
+                    onClearLogs={() => setLogs([])}
+                    onToggleUsbMounted={handleToggleUsbMounted}
+                    onSendPing={handleSendPing}
+                    onSendWipe={handleSendWipe}
+                    onSendLedTest={handleSendLedTest}
+                    onRequestStatus={handleRequestStatus}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isFirmwareModalOpen && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 animate-in fade-in">
+              <div className="w-full max-w-2xl max-h-[90vh] bg-white border-2 border-black rounded shadow-2xl flex flex-col overflow-hidden">
+                <div className="flex items-center justify-between p-2.5 bg-slate-900 text-white font-bold text-xs">
+                  <span>💾 ファームウェア・OTA ハブ (v{LATEST_FIRMWARE_VERSION})</span>
+                  <button onClick={() => setIsFirmwareModalOpen(false)} className="px-2 py-0.5 bg-slate-800 rounded hover:bg-slate-700">✕</button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2">
+                  <FirmwareHub
+                    onClose={() => setIsFirmwareModalOpen(false)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isAboutModalOpen && (
+            <AboutMacModal
+              isOpen={isAboutModalOpen}
+              onClose={() => setIsAboutModalOpen(false)}
+              isVirtualMode={isVirtualMode}
+              isBleConnected={isBleConnected}
+            />
+          )}
+        </Suspense>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`min-h-screen ${isMonoClassic ? 'classic-desktop' : 'bg-slate-100'} flex flex-col ${isMobile ? 'pb-20' : 'pb-16 md:pb-6'} select-none`}
@@ -601,6 +807,7 @@ export default function App() {
         deviceType={deviceType}
         adaptiveMode={adaptiveMode}
         onSelectAdaptiveMode={setAdaptiveMode}
+        onSwitchToPwa={() => handleSetUiMode('pwa')}
       />
 
       {/* ======================================================================= */}
