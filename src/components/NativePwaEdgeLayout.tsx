@@ -260,211 +260,502 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
     <div className="relative w-full h-[100dvh] bg-[#0F172A] text-slate-100 flex flex-col justify-between overflow-hidden select-none font-sans overscroll-none touch-manipulation pt-[env(safe-area-inset-top,0px)]">
 
       {/* ========================================================================= */}
-      {/* 2. ヘッダー部: ロゴ + BLE接続ステータスバッジ */}
+      {/* 2. ヘッダー部: ロゴ + デスクトップナビ + BLE接続ステータスバッジ */}
       {/* ========================================================================= */}
-      <header className="w-full px-4 py-2 flex items-center justify-between shrink-0 border-b border-slate-800/80 bg-[#0F172A]/90 backdrop-blur-md z-10">
-        {/* 左側: ハンバーガーメニュー & ロゴ */}
-        <div className="flex items-center gap-2.5">
+      <header className="w-full px-4 py-2 shrink-0 border-b border-slate-800/80 bg-[#0F172A]/90 backdrop-blur-md z-10">
+        <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
+          {/* 左側: ハンバーガーメニュー & ロゴ */}
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(15);
+                setIsDrawerOpen(true);
+              }}
+              className="p-1.5 -ml-1 text-slate-300 hover:text-white active:scale-95 transition-transform"
+              aria-label="メニューを開く"
+            >
+              <Menu className="w-6 h-6 stroke-[2]" />
+            </button>
+
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-bold tracking-tight text-white font-sans">
+                Dr.Dongly
+              </span>
+              <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-800 text-sky-400 border border-slate-700/80">
+                Edge
+              </span>
+            </div>
+          </div>
+
+          {/* デスクトップ専用: ヘッダー中央クイックナビ (lg:flex hidden) */}
+          <nav className="hidden lg:flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(15);
+                onOpenSearch('all');
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700/60 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+            >
+              <Search className="w-3.5 h-3.5 text-amber-400" />
+              <span>臨床検索</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(15);
+                onOpenSearch('pill');
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700/60 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+            >
+              <span>💊</span>
+              <span>医薬品添付文書</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(15);
+                onOpenSearch('atlas');
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700/60 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+            >
+              <span>📈</span>
+              <span>12誘導ECG</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(15);
+                onOpenSearch('minds');
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700/60 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+            >
+              <span>📚</span>
+              <span>Minds</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(15);
+                onOpenTemplates();
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700/60 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+            >
+              <BookTemplate className="w-3.5 h-3.5 text-amber-400" />
+              <span>定型文</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(15);
+                onOpenWebLlm();
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-950/50 hover:bg-purple-900/50 border border-purple-500/40 text-xs font-medium text-purple-300 hover:text-purple-200 transition-colors"
+            >
+              <Cpu className="w-3.5 h-3.5 text-purple-400" />
+              <span>ローカルAI</span>
+            </button>
+          </nav>
+
+          {/* 右側: 【t-dongle-S3とBLE接続】トグルボタン */}
           <button
             type="button"
             onClick={() => {
-              triggerHaptic(15);
-              setIsDrawerOpen(true);
+              triggerHaptic(20);
+              onConnectBle();
             }}
-            className="p-1.5 -ml-1 text-slate-300 hover:text-white active:scale-95 transition-transform"
-            aria-label="メニューを開く"
-          >
-            <Menu className="w-6 h-6 stroke-[2]" />
-          </button>
-
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold tracking-tight text-white font-sans">
-              Dr.Dongly
-            </span>
-            <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-800 text-sky-400 border border-slate-700/80">
-              Edge
-            </span>
-          </div>
-        </div>
-
-        {/* 右側: 【t-dongle-S3とBLE接続】トグルボタン */}
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic(20);
-            onConnectBle();
-          }}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95 ${
-            isBleConnected
-              ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
-              : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:border-slate-600'
-          }`}
-          title="ESP32ドングル（T-Dongle-S3 / AtomS3U）とBLE接続"
-        >
-          <span
-            className={`w-2 h-2 rounded-full ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95 ${
               isBleConnected
-                ? 'bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]'
-                : 'bg-slate-500'
+                ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
+                : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:border-slate-600'
             }`}
-          />
-          <span className="font-sans text-[11px] sm:text-xs">
-            {isBleConnected ? 'T-Dongle-S3 接続中' : 'T-Dongle-S3 未接続'}
-          </span>
-        </button>
+            title="ESP32ドングル（T-Dongle-S3 / AtomS3U）とBLE接続"
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isBleConnected
+                  ? 'bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]'
+                  : 'bg-slate-500'
+              }`}
+            />
+            <span className="font-sans text-[11px] sm:text-xs">
+              {isBleConnected ? 'T-Dongle-S3 接続中' : 'T-Dongle-S3 未接続'}
+            </span>
+          </button>
+        </div>
       </header>
 
       {/* ========================================================================= */}
-      {/* 3. メインコンテンツ部 (スクロール可能・バウンス抑止) */}
+      {/* 3. メインコンテンツ部 (スクロール可能・バウンス抑止・レスポンシブ2ペイン) */}
       {/* ========================================================================= */}
-      <main className="flex-1 w-full px-3.5 py-2 overflow-y-auto overscroll-contain flex flex-col gap-2.5">
-        {/* ガイドライン・処方禁忌 ローカル検索バー */}
-        <div className="relative w-full shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic(15);
-              onOpenSearch();
-            }}
-            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-[#1E293B]/80 hover:bg-[#1E293B] border border-slate-700/60 focus-within:border-amber-500 rounded-xl text-left transition-all group shadow-inner"
-          >
-            <Search className="w-4 h-4 text-slate-400 group-hover:text-amber-400 transition-colors shrink-0" />
-            <span className="text-xs text-slate-400 truncate">
-              {searchQuery || 'ガイドライン・Minds・処方禁忌をローカル検索...'}
-            </span>
-            <span className="ml-auto text-[10px] font-mono text-slate-500 border border-slate-700 rounded px-1.5 py-0.5">
-              32GB
-            </span>
-          </button>
-        </div>
+      <main className="flex-1 w-full max-w-7xl mx-auto px-3.5 py-2 overflow-y-auto overscroll-contain flex flex-col lg:grid lg:grid-cols-12 lg:gap-6 lg:p-4 lg:overflow-hidden">
+        {/* 左側カラム (モバイル: 全幅, デスクトップ: 8カラム) */}
+        <div className="flex-1 flex flex-col gap-2.5 h-full overflow-hidden lg:col-span-8">
+          {/* ガイドライン・処方禁忌 ローカル検索バー */}
+          <div className="relative w-full shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(15);
+                onOpenSearch();
+              }}
+              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-[#1E293B]/80 hover:bg-[#1E293B] border border-slate-700/60 focus-within:border-amber-500 rounded-xl text-left transition-all group shadow-inner"
+            >
+              <Search className="w-4 h-4 text-slate-400 group-hover:text-amber-400 transition-colors shrink-0" />
+              <span className="text-xs text-slate-400 truncate">
+                {searchQuery || 'ガイドライン・Minds・処方禁忌をローカル検索...'}
+              </span>
+              <span className="ml-auto text-[10px] font-mono text-slate-500 border border-slate-700 rounded px-1.5 py-0.5">
+                32GB
+              </span>
+            </button>
+          </div>
 
-        {/* 臨床所見・SOAP整形テキスト カード */}
-        <div className="flex-1 w-full bg-[#1E293B]/50 border border-slate-800 rounded-2xl p-3.5 flex flex-col overflow-hidden shadow-lg backdrop-blur-sm relative">
-          {/* カードヘッダー */}
-          <div className="flex items-center justify-between pb-2 border-b border-slate-800/80 mb-2 shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-4 bg-amber-500 rounded-[2px] inline-block shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
-              <h2 className="text-xs font-bold text-slate-200 tracking-wide font-sans">
-                臨床所見・SOAP整形テキスト
-              </h2>
-            </div>
-            <div className="flex items-center gap-2">
-              {isSending ? (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-950/70 border border-rose-500/50 text-rose-300 text-[10px] font-bold animate-pulse">
-                  <RefreshCw className="w-2.5 h-2.5 animate-spin text-rose-400" />
-                  <span>電カル打鍵中...</span>
+          {/* 臨床所見・SOAP整形テキスト カード */}
+          <div className="flex-1 w-full bg-[#1E293B]/50 border border-slate-800 rounded-2xl p-3.5 lg:p-4 flex flex-col overflow-hidden shadow-lg backdrop-blur-sm relative">
+            {/* カードヘッダー */}
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800/80 mb-2 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-4 bg-amber-500 rounded-[2px] inline-block shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                <h2 className="text-xs lg:text-sm font-bold text-slate-200 tracking-wide font-sans">
+                  臨床所見・SOAP整形テキスト
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                {isSending ? (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-950/70 border border-rose-500/50 text-rose-300 text-[10px] font-bold animate-pulse">
+                    <RefreshCw className="w-2.5 h-2.5 animate-spin text-rose-400" />
+                    <span>電カル打鍵中...</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        triggerHaptic([30, 50]);
+                        onAbortTransfer?.();
+                      }}
+                      className="ml-1 px-1.5 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-[9px] font-bold cursor-pointer transition-colors"
+                      title="転送を中断"
+                    >
+                      中断
+                    </button>
+                  </div>
+                ) : isRecording ? (
+                  <span className="text-[11px] font-bold text-rose-500 animate-pulse flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-rose-500" />
+                    録音中...
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-mono text-sky-400/80 tracking-tight hidden sm:inline">
+                    Zero-Data Cloud
+                  </span>
+                )}
+
+                {/* カルテ消去ボタン (新UIルール準拠) */}
+                {inputText.trim() && !isSending && (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      triggerHaptic([30, 50]);
-                      onAbortTransfer?.();
+                      triggerHaptic(20);
+                      if (window.confirm('入力中のカルテテキストをすべて消去しますか？')) {
+                        setInputText('');
+                        setIsEditing(false);
+                      }
                     }}
-                    className="ml-1 px-1.5 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-[9px] font-bold cursor-pointer transition-colors"
-                    title="転送を中断"
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-slate-700/60 hover:border-rose-500/50 transition-colors cursor-pointer"
+                    title="入力内容を消去"
                   >
-                    中断
+                    <Trash2 className="w-3 h-3" />
+                    <span>消去</span>
                   </button>
-                </div>
-              ) : isRecording ? (
-                <span className="text-[11px] font-bold text-rose-500 animate-pulse flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-rose-500" />
-                  録音中...
-                </span>
+                )}
+              </div>
+            </div>
+
+            {/* テキストコンテンツ領域 (タップで編集切り替え可能) */}
+            <div
+              className="flex-1 overflow-y-auto overscroll-contain pr-1 text-[13px] lg:text-sm leading-relaxed font-sans text-slate-200 select-text"
+              onClick={() => {
+                if (!isEditing) {
+                  setIsEditing(true);
+                  setTimeout(() => textareaRef.current?.focus(), 50);
+                }
+              }}
+            >
+              {isEditing ? (
+                <textarea
+                  ref={textareaRef}
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onBlur={() => {
+                    if (!inputText.trim()) setIsEditing(false);
+                  }}
+                  placeholder="所見を入力、またはマイクボタンをタップして音声入力してください..."
+                  className="w-full h-full bg-transparent text-slate-100 text-xs sm:text-[13px] lg:text-sm leading-relaxed resize-none focus:outline-none font-mono selection:bg-amber-500/30"
+                  style={{ minHeight: '180px' }}
+                />
               ) : (
-                <span className="text-[10px] font-mono text-sky-400/80 tracking-tight hidden sm:inline">
-                  Zero-Data Cloud
-                </span>
+                <div className="space-y-1.5 cursor-text">
+                  {displayLines.map((line, idx) => {
+                    const trimmed = line.trim();
+                    const isCyanTag = /^【(主訴|現病歴|既往歴|内服薬|身体所見)】/.test(trimmed);
+                    const isAmberTag = /^【(アセスメント|プラン.*?)】/.test(trimmed);
+                    
+                    if (isCyanTag || isAmberTag) {
+                      const tagEnd = line.indexOf('】') + 1;
+                      const tag = line.slice(0, tagEnd);
+                      const rest = line.slice(tagEnd);
+                      return (
+                        <div key={idx} className="pt-2 font-medium">
+                          <span className={`font-bold mr-2 ${isCyanTag ? 'text-sky-400' : 'text-amber-400'}`}>
+                            {tag}
+                          </span>
+                          <span className="text-slate-100">{rest}</span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={idx} className={trimmed ? 'text-slate-200' : 'h-2'}>
+                        {line}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
 
-              {/* カルテ消去ボタン (新UIルール準拠) */}
-              {inputText.trim() && !isSending && (
+              {/* 音声入力中のリアルタイムプレビュー */}
+              {isRecording && (
+                <div className="mt-3 p-2.5 rounded-lg bg-rose-950/40 border border-rose-800/60 animate-in fade-in">
+                  <div className="text-[11px] font-bold text-rose-400 mb-1 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                    [音声入力中]
+                  </div>
+                  <div className="text-xs sm:text-[13px] text-rose-200 font-sans leading-relaxed">
+                    {interimTranscript || 'マイクへ向かってカルテ所見をお話しください...'}
+                    <span className="inline-block w-2 h-3.5 bg-rose-400 ml-1 animate-pulse align-middle" />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 右側カラム (モバイル: 非表示, デスクトップ: 4カラム常時展開クイック臨床パネル) */}
+        <aside className="hidden lg:flex lg:col-span-4 flex-col gap-3.5 h-full overflow-y-auto pr-1">
+          {/* クイックアクション1: 32GB MicroSD 臨床データ */}
+          <div className="bg-[#1E293B]/50 border border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 shadow-lg backdrop-blur-sm">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+              <span className="text-xs font-bold text-slate-200 tracking-wider uppercase flex items-center gap-1.5">
+                <span>📚</span>
+                <span>32GB 臨床データクイックアクセス</span>
+              </span>
+              <span className="text-[10px] font-mono text-sky-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                MicroSD
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(15);
+                  onOpenSearch('pill');
+                }}
+                className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-all group hover:border-slate-600"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">💊</span>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-200 group-hover:text-amber-300 transition-colors">
+                      医薬品添付文書 ＆ 錠剤識別
+                    </div>
+                    <div className="text-[10px] text-teal-400 font-mono">
+                      PMDA約22,000品目・表裏刻印写真
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(15);
+                  onOpenSearch('atlas');
+                }}
+                className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-all group hover:border-slate-600"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">📈</span>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-200 group-hover:text-rose-300 transition-colors">
+                      12誘導心電図 ＆ 臨床波形解析
+                    </div>
+                    <div className="text-[10px] text-rose-400 font-mono">
+                      実測ミリ波形・1mm/5mm方眼紙測定
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(15);
+                  onOpenSearch('minds');
+                }}
+                className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-all group hover:border-slate-600"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">📚</span>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-200 group-hover:text-emerald-300 transition-colors">
+                      Minds ガイドライン ＆ 救急DMAT
+                    </div>
+                    <div className="text-[10px] text-emerald-400 font-mono">
+                      169CQ 全文原本・中毒解毒処置
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+              </button>
+            </div>
+          </div>
+
+          {/* クイックアクション2: カルテ入力支援 ＆ AIツール */}
+          <div className="bg-[#1E293B]/50 border border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 shadow-lg backdrop-blur-sm">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+              <span className="text-xs font-bold text-slate-200 tracking-wider uppercase flex items-center gap-1.5">
+                <span>⚡</span>
+                <span>入力支援 ＆ エッジAIツール</span>
+              </span>
+              <span className="text-[10px] font-mono text-purple-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                WebLLM
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(15);
+                  onOpenTemplates();
+                }}
+                className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-all group hover:border-slate-600"
+              >
+                <div className="flex items-center gap-2.5">
+                  <BookTemplate className="w-4 h-4 text-amber-400 shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold text-slate-200 group-hover:text-amber-300 transition-colors">
+                      SOAPテンプレート ＆ 略語マスター
+                    </div>
+                    <div className="text-[10px] text-amber-400 font-mono">
+                      内科・外来定型文 ワンタップ展開
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(15);
+                  onOpenWebLlm();
+                }}
+                className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-all group hover:border-slate-600"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold text-slate-200 group-hover:text-purple-300 transition-colors">
+                      ローカルAI 臨床方針相談
+                    </div>
+                    <div className="text-[10px] text-purple-400 font-mono">
+                      WebGPU Gemma 2 2B 完全オフライン
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+              </button>
+
+              {onOpenCameraOcr && (
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    triggerHaptic(20);
-                    if (window.confirm('入力中のカルテテキストをすべて消去しますか？')) {
-                      setInputText('');
-                      setIsEditing(false);
-                    }
+                  onClick={() => {
+                    triggerHaptic(15);
+                    onOpenCameraOcr();
                   }}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-slate-700/60 hover:border-rose-500/50 transition-colors cursor-pointer"
-                  title="入力内容を消去"
+                  className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-all group hover:border-slate-600"
                 >
-                  <Trash2 className="w-3 h-3" />
-                  <span>消去</span>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-base">📷</span>
+                    <div>
+                      <div className="text-xs font-semibold text-slate-200 group-hover:text-sky-300 transition-colors">
+                        処方箋・カルテ カメラOCR取込
+                      </div>
+                      <div className="text-[10px] text-sky-400 font-mono">
+                        書類・薬剤名テキスト自動抽出
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+                </button>
+              )}
+
+              {onOpenCoprocessor && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(15);
+                    onOpenCoprocessor();
+                  }}
+                  className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-all group hover:border-slate-600"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Download className="w-4 h-4 text-rose-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-semibold text-slate-200 group-hover:text-rose-300 transition-colors">
+                        電カル双方向受信コプロセッサ
+                      </div>
+                      <div className="text-[10px] text-rose-400 font-mono">
+                        仮想プリンタ (07h) カルテ吸い上げ
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
                 </button>
               )}
             </div>
           </div>
 
-          {/* テキストコンテンツ領域 (タップで編集切り替え可能) */}
-          <div
-            className="flex-1 overflow-y-auto overscroll-contain pr-1 text-[13px] leading-relaxed font-sans text-slate-200 select-text"
-            onClick={() => {
-              if (!isEditing) {
-                setIsEditing(true);
-                setTimeout(() => textareaRef.current?.focus(), 50);
-              }
-            }}
-          >
-            {isEditing ? (
-              <textarea
-                ref={textareaRef}
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onBlur={() => {
-                  if (!inputText.trim()) setIsEditing(false);
-                }}
-                placeholder="所見を入力、またはマイクボタンをタップして音声入力してください..."
-                className="w-full h-full bg-transparent text-slate-100 text-xs sm:text-[13px] leading-relaxed resize-none focus:outline-none font-mono selection:bg-amber-500/30"
-                style={{ minHeight: '180px' }}
-              />
-            ) : (
-              <div className="space-y-1.5 cursor-text">
-                {displayLines.map((line, idx) => {
-                  const trimmed = line.trim();
-                  const isCyanTag = /^【(主訴|現病歴|既往歴|内服薬|身体所見)】/.test(trimmed);
-                  const isAmberTag = /^【(アセスメント|プラン.*?)】/.test(trimmed);
-                  
-                  if (isCyanTag || isAmberTag) {
-                    const tagEnd = line.indexOf('】') + 1;
-                    const tag = line.slice(0, tagEnd);
-                    const rest = line.slice(tagEnd);
-                    return (
-                      <div key={idx} className="pt-2 font-medium">
-                        <span className={`font-bold mr-2 ${isCyanTag ? 'text-sky-400' : 'text-amber-400'}`}>
-                          {tag}
-                        </span>
-                        <span className="text-slate-100">{rest}</span>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div key={idx} className={trimmed ? 'text-slate-200' : 'h-2'}>
-                      {line}
-                    </div>
-                  );
-                })}
+          {/* クイックアクション3: 医療安全 ＆ 接続状態 */}
+          <div className="bg-[#1E293B]/40 border border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 shadow-lg backdrop-blur-sm text-xs">
+            <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase pb-1 border-b border-slate-800/80">
+              通信 ＆ 医療安全ステータス
+            </span>
+            <div className="space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">BLE 打鍵転送:</span>
+                <span className={`font-mono font-bold ${isBleConnected ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  {isBleConnected ? 'DrDongly-S3 接続中' : '未接続'}
+                </span>
               </div>
-            )}
-
-            {/* 音声入力中のリアルタイムプレビュー (画像3を再現) */}
-            {isRecording && (
-              <div className="mt-3 p-2.5 rounded-lg bg-rose-950/40 border border-rose-800/60 animate-in fade-in">
-                <div className="text-[11px] font-bold text-rose-400 mb-1 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
-                  [音声入力中]
-                </div>
-                <div className="text-xs sm:text-[13px] text-rose-200 font-sans leading-relaxed">
-                  {interimTranscript || 'マイクへ向かってカルテ所見をお話しください...'}
-                  <span className="inline-block w-2 h-3.5 bg-rose-400 ml-1 animate-pulse align-middle" />
-                </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Wi-Fi SoftAP:</span>
+                <span className="font-mono text-slate-300">192.168.4.1 (Atlas/PDF)</span>
               </div>
-            )}
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">院内情報保護:</span>
+                <span className="text-emerald-400 font-semibold">Zero-Data Cloud (完全閉域)</span>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[11px] text-slate-500 font-mono">
+                <span>Firmware: v{LATEST_FIRMWARE_VERSION}</span>
+                <span>PWA: v{APP_VERSION}</span>
+              </div>
+            </div>
           </div>
-        </div>
+        </aside>
       </main>
 
       {/* ========================================================================= */}
@@ -473,7 +764,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       <nav className="w-full pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-2 px-6 bg-[#0F172A]/95 border-t border-slate-800/80 backdrop-blur-md shrink-0 flex flex-col items-center relative z-20">
         {/* 音声録音中のオシロスコープ波形（FAB上部） */}
         {isRecording && (
-          <div className="w-full max-w-xs h-10 flex items-center justify-center mb-1 animate-in fade-in">
+          <div className="w-full max-w-xs sm:max-w-sm h-10 flex items-center justify-center mb-1 animate-in fade-in">
             <svg className="w-full h-10 overflow-visible" viewBox="0 0 240 40" fill="none">
               {/* 第1波形 (主波形: ローズレッド) */}
               <path
@@ -496,7 +787,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
           </div>
         )}
 
-        <div className="w-full flex items-center justify-between max-w-sm mx-auto">
+        <div className="w-full flex items-center justify-between max-w-sm sm:max-w-md mx-auto">
           {/* 【左側】電カルから受信 (コーラルピンク) */}
           <div className="flex flex-col items-center gap-1.5">
             <button
