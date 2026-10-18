@@ -51,6 +51,10 @@ T-Dongle-S3 32GB MicroSDおよびPWAセマンティック検索エンジンで�
 - 1つのチャットは **約15〜25ターン** を目安とし、1つのマイルストーン（バージョンリリースや特定機能の完成）が完了した時点で新しいチャットに切り替えることを推奨します。
 - 過去の決定事項は本ファイル（`GEMINI.md`）および [`ANTIGRAVITY.md`](file:///home/medart-code/Drdonguri/ANTIGRAVITY.md) に永続化されています。
 
+### ⑥ ファームウェア更新時のT-dongle-S3実機自動書き込み義務（絶対遵守）
+- **ファームウェア変更時の即時Flash義務**: `firmware/src/` 配下のソースコード（`main.cpp`, `typing_engine.cpp`, `usb_descriptors.c`, `donguri_display.cpp` 等）や設定ファイルを改修・更新した際は、**必ず PlatformIO を使用して接続中の T-Dongle-S3 実機（`/dev/ttyACM0` 等）へ即座に Flash Upload（`pio run -e lilygo-t-dongle-s3 -t upload --upload-port <port>`）を実行すること**。
+- アップロードが `[SUCCESS]` となり、RTS ピン経由での実機ハードウェアリセットが完了したことを確認するまでを一連の必須作業とする。ユーザーからの指示を待たずに自律的に実行すること。
+
 ---
 
 ## 3. 主要アーキテクチャ & ファイル構成
