@@ -1,7 +1,7 @@
 {
   "name": "dr-dongly",
   "private": true,
-  "version": "2.12.8",
+  "version": "2.12.9",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",

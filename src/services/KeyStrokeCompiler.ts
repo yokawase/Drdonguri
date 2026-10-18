@@ -7,6 +7,7 @@
 
 import { KANA_ROMAJI_MAP, MEDICAL_KANJI_ROMAJI_MAP } from '../utils/japaneseImeTranspiler';
 import { JIS_KANJI_ROMAJI } from '../data/jisKanjiRomajiTable';
+import { MORPH_ROMAJI, MORPH_TAGS } from '../data/morphologicalLexicon';
 import type { MorphToken } from '../workers/vibrato.worker';
 
 export function katakanaToRomaji(katakana: string): string {
@@ -1036,8 +1037,8 @@ export class KeyStrokeCompiler {
       }
       if (matchedMultiChunk) continue;
 
-      // H-1. 辞書最長一致探索 (最長24文字〜2文字)
-      let matchedLexicon = false;
+      // H-1. 既存の臨床・検証済み辞書 (COMPOUND_LEXICON) 最長一致探索 (最長24文字〜2文字)
+      let matchedCompound = false;
       for (let l = Math.min(24, remaining.length); l >= 2; l--) {
         const sub = remaining.substring(0, l);
         if (COMPOUND_LEXICON[sub]) {
@@ -1045,7 +1046,6 @@ export class KeyStrokeCompiler {
           let romaji = COMPOUND_LEXICON[sub];
           let offset = l;
 
-          // 直後に接尾辞（時、症、炎、痛など）が連続しているかチェックし完全融合
           if (offset < remaining.length) {
             const nextChar = remaining[offset];
             if (MEDICAL_SUFFIXES.includes(nextChar)) {
@@ -1071,11 +1071,64 @@ export class KeyStrokeCompiler {
           zCount++;
           totalKeystrokes += romaji.length + 2;
           i += offset;
-          matchedLexicon = true;
+          matchedCompound = true;
           break;
         }
       }
-      if (matchedLexicon) continue;
+      if (matchedCompound) continue;
+
+      // H-1.5. 12.6万語大規模形態素辞書 (Mozc ＋ 厚労省マスター ＋ 臨床特化医療辞書) 最長一致探索 (最長16文字〜1文字)
+      let matchedMorphLexicon = false;
+      for (let l = Math.min(16, remaining.length); l >= 1; l--) {
+        const sub = remaining.substring(0, l);
+        if (MORPH_ROMAJI[sub]) {
+          const romaji = MORPH_ROMAJI[sub];
+          const tag = MORPH_TAGS[sub] || 'Z';
+
+          if (tag === 'G') {
+            blocks.push({
+              type: 'z_kanji',
+              tag: 'G',
+              rawText: sub,
+              compiledPayload: `[G]${romaji}[/G]`,
+            });
+            zCount++;
+            totalKeystrokes += romaji.length + 3; // Space*2 + Enter
+          } else if (tag === 'K') {
+            blocks.push({
+              type: 'k_katakana',
+              tag: 'K',
+              rawText: sub,
+              compiledPayload: `[K]${romaji}[/K]`,
+            });
+            kCount++;
+            totalKeystrokes += romaji.length + 2; // F7 + Enter
+          } else if (tag === 'H') {
+            blocks.push({
+              type: 'h_hiragana',
+              tag: 'H',
+              rawText: sub,
+              compiledPayload: `[H]${romaji}[/H]`,
+            });
+            hCount++;
+            totalKeystrokes += romaji.length + 1; // Enter
+          } else {
+            blocks.push({
+              type: 'z_kanji',
+              tag: 'Z',
+              rawText: sub,
+              compiledPayload: `[Z]${romaji}[/Z]`,
+            });
+            zCount++;
+            totalKeystrokes += romaji.length + 2; // Space + Enter
+          }
+
+          i += l;
+          matchedMorphLexicon = true;
+          break;
+        }
+      }
+      if (matchedMorphLexicon) continue;
 
       // H-2. 助詞・付属語 (ひらがな)
       let matchedParticle = false;
@@ -1097,44 +1150,11 @@ export class KeyStrokeCompiler {
       }
       if (matchedParticle) continue;
 
-      // H-3. 連続する漢字列（未知の複合語）の長単位自動結合 (最大2〜3文字 & 音読み優先)
-      const kanjiRun = remaining.match(/^[\u4E00-\u9FFF\u3005]{2,}/);
-      if (kanjiRun) {
-        const fullRun = kanjiRun[0];
-        // 既知の辞書語彙が途中で始まる場合はその手前で切断、なければ最大3文字でクラスタリング
-        let chunkLen = Math.min(3, fullRun.length);
-        for (let checkOffset = 1; checkOffset < fullRun.length; checkOffset++) {
-          const restFromOffset = remaining.substring(checkOffset);
-          if (MULTI_CHUNK_LEXICON[restFromOffset.substring(0, 4)] || COMPOUND_LEXICON[restFromOffset.substring(0, 4)] ||
-              MULTI_CHUNK_LEXICON[restFromOffset.substring(0, 3)] || COMPOUND_LEXICON[restFromOffset.substring(0, 3)] ||
-              MULTI_CHUNK_LEXICON[restFromOffset.substring(0, 2)] || COMPOUND_LEXICON[restFromOffset.substring(0, 2)]) {
-            chunkLen = checkOffset;
-            break;
-          }
-        }
-
-        const kj = fullRun.substring(0, chunkLen);
-        let runRomaji = '';
-        for (const char of kj) {
-          runRomaji += ONYOMI_KANJI_FALLBACK[char] || JIS_KANJI_ROMAJI[char] || char;
-        }
-        blocks.push({
-          type: 'z_kanji',
-          tag: 'Z',
-          rawText: kj,
-          compiledPayload: `[Z]${runRomaji}[/Z]`,
-        });
-        zCount++;
-        totalKeystrokes += runRomaji.length + 2;
-        i += kj.length;
-        continue;
-      }
-
-      // H-4. 1文字自立語漢字 (体, 台, 等)
+      // H-3. 辞書外の未知漢字フォールバック (1文字ずつ安全出力)
       const singleKanji = remaining.match(/^[\u4E00-\u9FFF\u3005]/);
       if (singleKanji) {
         const ch = singleKanji[0];
-        const romaji = COMPOUND_LEXICON[ch] || ONYOMI_KANJI_FALLBACK[ch] || JIS_KANJI_ROMAJI[ch] || ch;
+        const romaji = JIS_KANJI_ROMAJI[ch] || ONYOMI_KANJI_FALLBACK[ch] || ch;
         blocks.push({
           type: 'z_kanji',
           tag: 'Z',

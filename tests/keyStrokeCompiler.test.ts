@@ -255,6 +255,111 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       expect(res.streamText).toContain('[Z]hukubu[/Z][Z]tyouonnpa[/Z]'); // 腹部超音波
       expect(res.streamText).toContain('[Z]seisa[/Z][Z]kentou[/Z]'); // 精査検討
     });
+
+    it('9. 医療提供体制・医療経済学・学術所見（Mozc＋医療辞書形態素解析による100%正当変換検証）', () => {
+      const academicText =
+        '現代の医療提供体制において、医療費抑制を志向する国家財政政策、医療機関の財務的困窮、' +
+        'そして臨床現場における低価値医療（Low-Value Care: LVC）の蔓延は、' +
+        '個別の事象ではなく構造的に連結した一連の病理学的連鎖として捉える必要がある。' +
+        '人口構造の急激な高齢化と社会保障給付費の膨張を背景とした公定価格の抑制や病床削減圧力というマクロ的環境は、' +
+        '経営基盤の脆弱な中小病院のキャッシュフローを急速に枯渇させている。' +
+        '銀行融資が途絶した医療機関が延命策として頼る診療報酬債権ファクタリングや外部再生資本の介入というメゾ的変容は、' +
+        '医療機関の自律的ガバナンスを形骸化させ、資本回収を最優先とする経営管理を現場に持ち込む。' +
+        'その結果として、現場の医療従事者には出来高点数を極大化するための診療圧力や過度なコスト削減が課され、' +
+        '医学的蓋然性を欠くLVCの過剰提供と医療倫理の崩壊というミクロ的破綻へと至る。' +
+        '本稿では、医療経済学、保健政策学、病院組織論、および生命倫理学の知見を統合し、' +
+        'この三層連鎖が生み出す構造的病理を解明するとともに、制度改革に向けた学術的論点を提示する。';
+
+      const res = compiler.compileText(academicText, { includeImeReset: false });
+
+      // 過去に発生していた奇怪な誤変換キメラ文字列（亭友、国言え、級月日、工程値書く、出ライタ化、ち県、絵に後作、つる炎、山荘、字ちコミむ等）の完全根絶
+      expect(res.streamText).not.toContain('teitomo'); // 提供（亭友）
+      expect(res.streamText).not.toContain('kokuie'); // 国家（国言え）
+      expect(res.streamText).not.toContain('kyuutukihi'); // 給付費（級月日）
+      expect(res.streamText).not.toContain('deraitaka'); // 出来高（出ライタ化）
+      expect(res.streamText).not.toContain('enikousaku'); // 延命策（絵に後作）
+      expect(res.streamText).not.toContain('tsuruen'); // 蔓延（つる炎）
+      expect(res.streamText).not.toContain('jitikomu'); // 持ち込む（字ちコミむ）
+      expect(res.streamText).not.toContain('juukotomono'); // 従事者（中こともの）
+
+      // Mozc＋医療辞書形態素解析による正しいローマ字とタグ付けの検証
+      expect(res.streamText).toContain('[Z]gendai[/Z]'); // 現代
+      expect(res.streamText).toContain('[Z]iryouteikyoutaisei[/Z]'); // 医療提供体制 (長単位結合)
+      expect(res.streamText).toContain('[Z]iryouhi[/Z]'); // 医療費
+      expect(res.streamText).toContain('[Z]yokusei[/Z]'); // 抑制
+      expect(res.streamText).toContain('[Z]sikou[/Z]'); // 志向
+      expect(res.streamText).toContain('[Z]kokkazaiseiseisaku[/Z]'); // 国家財政政策 (長単位結合)
+      expect(res.streamText).toContain('[Z]iryoukikann[/Z]'); // 医療機関
+      expect(res.streamText).toContain('[Z]zaimutekikonnkyuu[/Z]'); // 財務的困窮 (長単位結合)
+      expect(res.streamText).toContain('[Z]teikatiiryou[/Z]'); // 低価値医療
+      expect(res.streamText).toContain('[A]Low-Value[/A]'); // 英数字直接
+      expect(res.streamText).toContain('[Z]mannenn[/Z]'); // 蔓延
+      expect(res.streamText).toContain('[Z]kobetu[/Z]'); // 個別
+      expect(res.streamText).toContain('[Z]jisyou[/Z]'); // 事象
+      expect(res.streamText).toContain('[Z]kouzouteki[/Z]'); // 構造的
+      expect(res.streamText).toContain('[Z]rennketu[/Z]'); // 連結
+      expect(res.streamText).toContain('[Z]itirenn[/Z]'); // 一連
+      expect(res.streamText).toContain('[Z]byourigakutekirennsa[/Z]'); // 病理学的連鎖
+      expect(res.streamText).toContain('[Z]toraeru[/Z]'); // 捉える
+      expect(res.streamText).toContain('[Z]jinnkoukouzou[/Z]'); // 人口構造
+      expect(res.streamText).toContain('[Z]kyuugeki[/Z]'); // 急激
+      expect(res.streamText).toContain('[Z]koureika[/Z]'); // 高齢化
+      expect(res.streamText).toContain('[Z]kyuuhuhi[/Z]'); // 給付費
+      expect(res.streamText).toContain('[Z]boutyou[/Z]'); // 膨張
+      expect(res.streamText).toContain('[Z]haikei[/Z]'); // 背景
+      expect(res.streamText).toContain('[Z]kouteikakaku[/Z]'); // 公定価格
+      expect(res.streamText).toContain('[Z]byousyousakugennaturyoku[/Z]'); // 病床削減圧力
+      expect(res.streamText).toContain('[K]makuro[/K]'); // マクロ
+      expect(res.streamText).toContain('[Z]keieikibann[/Z]'); // 経営基盤
+      expect(res.streamText).toContain('[Z]zeijyaku[/Z]'); // 脆弱
+      expect(res.streamText).toContain('[Z]tyuushoubyouinn[/Z]'); // 中小病院
+      expect(res.streamText).toContain('[Z]kyuusoku[/Z]'); // 急速
+      expect(res.streamText).toContain('[Z]kokatu[/Z]'); // 枯渇
+      expect(res.streamText).toContain('[Z]ginnkouyuusi[/Z]'); // 銀行融資
+      expect(res.streamText).toContain('[Z]tozetu[/Z]'); // 途絶
+      expect(res.streamText).toContain('[Z]ennmeisaku[/Z]'); // 延命策
+      expect(res.streamText).toContain('[Z]sinnryouhousyuusaikenn[/Z]'); // 診療報酬債権
+      expect(res.streamText).toContain('[Z]gaibusaiseisihonn[/Z]'); // 外部再生資本
+      expect(res.streamText).toContain('[Z]kainyuu[/Z]'); // 介入
+      expect(res.streamText).toContain('[K]mezo[/K]'); // メゾ
+      expect(res.streamText).toContain('[Z]hennyou[/Z]'); // 変容
+      expect(res.streamText).toContain('[Z]jiritutekigabanannsu[/Z]'); // 自律的ガバナンス
+      expect(res.streamText).toContain('[Z]keigaika[/Z]'); // 形骸化
+      expect(res.streamText).toContain('[Z]sihonnkaisyuu[/Z]'); // 資本回収
+      expect(res.streamText).toContain('[Z]saiyuusenn[/Z]'); // 最優先
+      expect(res.streamText).toContain('[Z]keieikannri[/Z]'); // 経営管理
+      expect(res.streamText).toContain('[Z]motikomu[/Z]'); // 持ち込む
+      expect(res.streamText).toContain('[Z]iryoujyuujisya[/Z]'); // 医療従事者
+      expect(res.streamText).toContain('[Z]dekidakatennsuu[/Z]'); // 出来高点数
+      expect(res.streamText).toContain('[Z]kyokudaika[/Z]'); // 極大化
+      expect(res.streamText).toContain('[Z]sinnryouaturyoku[/Z]'); // 診療圧力
+      expect(res.streamText).toContain('[Z]kado[/Z]'); // 過度
+      expect(res.streamText).toContain('[K]kosuto[/K]'); // コスト
+      expect(res.streamText).toContain('[Z]sakugenn[/Z]'); // 削減
+      expect(res.streamText).toContain('[Z]kasa[/Z][H]re[/H]'); // 課され
+      expect(res.streamText).toContain('[Z]igakutekigaizennsei[/Z]'); // 医学的蓋然性
+      expect(res.streamText).toContain('[Z]kaku[/Z]'); // 欠く
+      expect(res.streamText).toContain('[Z]kajyou[/Z][Z]teikyou[/Z]'); // 過剰提供
+      expect(res.streamText).toContain('[Z]iryourinnri[/Z]'); // 医療倫理
+      expect(res.streamText).toContain('[Z]houkai[/Z]'); // 崩壊
+      expect(res.streamText).toContain('[K]mikuro[/K]'); // ミクロ
+      expect(res.streamText).toContain('[Z]hatann[/Z]'); // 破綻
+      expect(res.streamText).toContain('[Z]honnkou[/Z]'); // 本稿
+      expect(res.streamText).toContain('[Z]iryoukeizaigaku[/Z]'); // 医療経済学
+      expect(res.streamText).toContain('[Z]hokennseisakugaku[/Z]'); // 保健政策学
+      expect(res.streamText).toContain('[Z]byouinnsosikironn[/Z]'); // 病院組織論
+      expect(res.streamText).toContain('[Z]seimeirinnrigaku[/Z]'); // 生命倫理学
+      expect(res.streamText).toContain('[Z]tiken[/Z]'); // 知見
+      expect(res.streamText).toContain('[Z]tougou[/Z]'); // 統合
+      expect(res.streamText).toContain('[Z]sannsourennsa[/Z]'); // 三層連鎖
+      expect(res.streamText).toContain('[Z]umidasu[/Z]'); // 生み出す
+      expect(res.streamText).toContain('[Z]kouzoutekibyouri[/Z]'); // 構造的病理
+      expect(res.streamText).toContain('[Z]kaimei[/Z]'); // 解明
+      expect(res.streamText).toContain('[Z]seidokaikaku[/Z]'); // 制度改革
+      expect(res.streamText).toContain('[Z]muke[/Z][H]ta[/H]'); // 向けた
+      expect(res.streamText).toContain('[Z]gakujyututekironntenn[/Z]'); // 学術的論点
+      expect(res.streamText).toContain('[Z]teiji[/Z]'); // 提示
+    });
   });
 });
 
