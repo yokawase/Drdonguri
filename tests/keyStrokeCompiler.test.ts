@@ -20,7 +20,7 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
     it('ユーザー提示の臨床文章が指定のペイロードと1文字の狂いもなく完全一致すること', () => {
       const input = '先週から背中が疼痛あり、体を動かすと体動時疼痛増悪。アルコール性肝機能障害の疑い。γ-GTPが200台。';
       const expected =
-        '[Z]sensyuu[/Z][H]kara[/H][Z]senaka[/Z][H]ga[/H][Z]toutuu[/Z][H]ari[/H][H]、[/H] [Z]karada[/Z][H]wo[/H][Z]ugoka[/Z][H]suto[/H][Z]taidouji[/Z][Z]toutuu[/Z][Z]zouaku[/Z][H]。[/H] [K]aruko-ru[/K][Z]seikankinousyougai[/Z][H]no[/H][Z]utagai[/Z][H]。[/H] [A]γ-GTP[/A][H]ga[/H][A]200[/A][Z]dai[/Z][H]。[/H]';
+        '[Z]sensyuu[/Z][H]kara[/H][Z]senaka[/Z][H]ga[/H][Z]toutuu[/Z][H]ari[/H][H]、[/H] [Z]karada[/Z][H]wo[/H][Z]ugoka[/Z][H]suto[/H][Z]taidou[/Z][Z]ji[/Z][Z]toutuu[/Z][Z]zouaku[/Z][H]。[/H] [K]aruko-ru[/K][Z]seikankinousyougai[/Z][H]no[/H][Z]utagai[/Z][H]。[/H] [A]γ-GTP[/A][H]ga[/H][A]200[/A][Z]dai[/Z][H]。[/H]';
 
       const res = compiler.compileText(input, { includeImeReset: false });
 
@@ -29,7 +29,7 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       expect(res.altCount).toBe(0);
       expect(res.streamText.includes('[ALT]')).toBe(false);
       // タグカウントの整合性
-      expect(res.zCount).toBe(11); // sensyuu, senaka, toutuu, karada, ugoka, taidouji, toutuu, zouaku, seikankinousyougai, utagai, dai
+      expect(res.zCount).toBe(12); // sensyuu, senaka, toutuu, karada, ugoka, taidou, ji, toutuu, zouaku, seikankinousyougai, utagai, dai
       expect(res.kCount).toBe(1);  // aruko-ru
       expect(res.hCount).toBe(11); // kara, ga, ari, 、(読点), wo, suto, 。(句点), no, 。(句点), ga, 。(句点)
       expect(res.aCount).toBe(2);  // γ-GTP, 200
@@ -50,10 +50,11 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       expect(res.streamText).not.toContain('fue');
     });
 
-    it('「体動時」が「体動じ」にならず、接尾辞「時」が自立語と完全融合して [Z]taidouji[/Z] となること', () => {
+    it('「体動時」が「大導寺」にならず、自立語単位で [Z]taidou[/Z][Z]ji[/Z] と分離出力されること', () => {
       const res = compiler.compileText('体動時', { includeImeReset: false });
-      expect(res.streamText).toBe('[Z]taidouji[/Z]');
+      expect(res.streamText).toBe('[Z]taidou[/Z][Z]ji[/Z]');
       expect(res.streamText).not.toContain('[H]ji[/H]');
+      expect(res.streamText).not.toBe('[Z]taidouji[/Z]'); // 大導寺誤爆を完全防止
     });
 
     it('「動かすと」が語幹 [Z]ugoka[/Z] と 活用語尾＋助詞 [H]suto[/H] に分離されること', () => {
@@ -206,6 +207,53 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       expect(res.streamText).toContain('[Z]mansei[/Z][Z]isyukusei[/Z][Z]ienn[/Z]'); // 慢性萎縮性胃炎
       expect(res.streamText).toContain('[Z]gennkyokusei[/Z][H]biran[/H]'); // 限局性びらん
       expect(res.streamText).toContain('[A]ESD[/A][Z]tekiouseisa[/Z]'); // ESD適応精査
+    });
+
+    it('8. 急性腹痛・背部痛・内科臨床所見（ユーザー提示症例完全適合・100%変換率検証）', () => {
+      const text =
+        '【S】\n' +
+        '・今日は今日はよかったです53歳53歳 男性53歳 男性首相 腹痛昨日から時々時々普通に出現当院受診し急性急性 中性 疑い\n\n' +
+        '【O】\n' +
+        '・理学所見・バイタル特記なし\n\n' +
+        '【A】\n' +
+        '・体動時背部痛（筋筋膜性疼痛疑い・内臓疾患の除外要）\n\n' +
+        '【P】\n' +
+        '・対症療法（鎮痛薬処方・安静指導）\n' +
+        '・血液検査（肝機能再検・炎症反応）および腹部超音波精査検討';
+
+      const res = compiler.compileText(text, { includeImeReset: false });
+
+      // 誤爆ローマ字（大導寺、セブ、す字幕、女外用、初歩、債権、版王、太織、突起、受信、中世、首そう等）が完全根絶されていること
+      expect(res.streamText).not.toContain('imanichi'); // 今日（いまにち）
+      expect(res.streamText).not.toContain('futoori'); // 普通（太織）
+      expect(res.streamText).not.toContain('kubisou'); // 首相（首そう）
+      expect(res.streamText).not.toContain('taidouji'); // 体動時（大導寺）
+      expect(res.streamText).not.toContain('sebutuu'); // 背部痛（セブ通）
+      expect(res.streamText).not.toContain('sujisuji'); // 筋筋膜（すじすじ）
+      expect(res.streamText).not.toContain('josoto'); // 除外（女外）
+      expect(res.streamText).not.toContain('ennsyouhan[/Z][Z]ou'); // 炎症反応（炎症版王）
+
+      // 最適チャンク分解＆[G]タグ（第2候補確定）による100%正当変換の検証
+      expect(res.streamText).toContain('[Z]kyou[/Z]'); // 今日
+      expect(res.streamText).toContain('[H]yokattadesu[/H]'); // よかったです（一括Enter確定）
+      expect(res.streamText).toContain('[A]53[/A][G]sai[/G]'); // 53歳 (Space 2回で「差異」誤爆排除)
+      expect(res.streamText).toContain('[Z]syusou[/Z]'); // 首相
+      expect(res.streamText).toContain('[Z]tokidoki[/Z]'); // 時々 (踊り字々処理)
+      expect(res.streamText).toContain('[Z]hutsuu[/Z]'); // 普通
+      expect(res.streamText).toContain('[G]jyusinn[/G]'); // 受診 (Space 2回で「受信」誤爆排除)
+      expect(res.streamText).toContain('[G]tyuusei[/G]'); // 中性 (Space 2回で「中世」誤爆排除)
+      expect(res.streamText).toContain('[Z]rigaku[/Z][G]syoken[/G]'); // 理学所見 (Space 2回で「初見」誤爆排除)
+      expect(res.streamText).toContain('[K]baitaru[/K][G]tokki[/G][H]nasi[/H]'); // バイタル特記なし (Space 2回で「突起」誤爆排除)
+      expect(res.streamText).toContain('[Z]taidou[/Z][Z]ji[/Z]'); // 体動時 (「大導寺」誤爆排除)
+      expect(res.streamText).toContain('[Z]haibu[/Z][Z]tuu[/Z]'); // 背部痛 (「セブ通」誤爆排除)
+      expect(res.streamText).toContain('[Z]kinkimmakusei[/Z][Z]toutuu[/Z]'); // 筋筋膜性疼痛 (「筋す字幕」誤爆排除)
+      expect(res.streamText).toContain('[G]naizou[/G][Z]sikkan[/Z]'); // 内臓疾患 (Space 2回で「内蔵」誤爆排除)
+      expect(res.streamText).toContain('[Z]jyogai[/Z][Z]you[/Z]'); // 除外要 (「女外用」誤爆排除)
+      expect(res.streamText).toContain('[Z]chintuuyaku[/Z][G]syoho[/G]'); // 鎮痛薬処方 (Space 2回で「初歩」誤爆排除)
+      expect(res.streamText).toContain('[Z]sai[/Z][Z]kenn[/Z]'); // 再検 (「債権」誤爆排除)
+      expect(res.streamText).toContain('[Z]ennsyou[/Z][G]hannnou[/G]'); // 炎症反応 (Space 2回 & hannnouで「版王」誤爆排除)
+      expect(res.streamText).toContain('[Z]hukubu[/Z][Z]tyouonnpa[/Z]'); // 腹部超音波
+      expect(res.streamText).toContain('[Z]seisa[/Z][Z]kentou[/Z]'); // 精査検討
     });
   });
 });

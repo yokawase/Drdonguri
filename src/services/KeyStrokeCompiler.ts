@@ -286,10 +286,43 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '瘢痕期': 'hankonnki',
   '瘢痕': 'hankonn',
   '胃良性ポリープ': 'iryouuseipori-pu',
-  '良性ポリープ': 'ryouuseipori-pu',
-  '良性': 'ryouusei',
+  '良性ポリープ': 'ryouseipori-pu',
+  '良性': 'ryousei',
   'ポリープ': 'pori-pu',
   'リンパ腫': 'rimpasyu',
+  '今日': 'kyou',
+  '時々': 'tokidoki',
+  '普通': 'hutsuu',
+  '出現': 'syutugenn',
+  '首相': 'syusou',
+  '主訴': 'syuso',
+  '背部痛': 'haibutuu',
+  '背部': 'haibu',
+  '筋筋膜性疼痛': 'kinkimmakuseitoutuu',
+  '筋筋膜性': 'kinkimmakusei',
+  '筋筋膜': 'kinkimmaku',
+  '内臓疾患': 'naizousikkan',
+  '内臓': 'naizou',
+  '除外要': 'jyogaiyou',
+  '除外': 'jyogai',
+  '受診': 'jyusinn',
+  '当院受診': 'touinnjyusinn',
+  '中性': 'tyuusei',
+  '理学所見': 'rigakusyoken',
+  '特記なし': 'tokkinasi',
+  '特記': 'tokki',
+  '鎮痛薬処方': 'chintuuyakusyoho',
+  '安静指導': 'annseisidou',
+  '安静': 'annsei',
+  '指導': 'sidou',
+  '肝機能再検': 'kannkinousaikenn',
+  '再検': 'saikenn',
+  '炎症反応': 'ennsyouhannnou',
+  '反応': 'hannnou',
+  '腹部超音波': 'fukubutyouonnpa',
+  '超音波': 'tyouonnpa',
+  '精査検討': 'seisakentou',
+  '検討': 'kentou',
   '胃角部小弯': 'ikakubusyouwann',
   '胃角部': 'ikakubu',
   '胃角': 'ikaku',
@@ -495,6 +528,124 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 
   '褪色': [
     { tag: 'G', text: '褪色', romaji: 'taisyoku' }, // Space2回で100%「褪色」確定 (退職誤爆防止)
   ],
+  '今日': [
+    { tag: 'Z', text: '今日', romaji: 'kyou' },
+  ],
+  '時々': [
+    { tag: 'Z', text: '時々', romaji: 'tokidoki' },
+  ],
+  '普通': [
+    { tag: 'Z', text: '普通', romaji: 'hutsuu' }, // 太織誤爆防止
+  ],
+  '首相': [
+    { tag: 'Z', text: '首相', romaji: 'syusou' },
+  ],
+  '主訴': [
+    { tag: 'G', text: '主訴', romaji: 'syuso' }, // Space2回で100%「主訴」確定
+  ],
+  '受診': [
+    { tag: 'G', text: '受診', romaji: 'jyusinn' }, // Space2回で100%「受診」確定 (受信誤爆防止)
+  ],
+  '当院受診': [
+    { tag: 'Z', text: '当院', romaji: 'touinn' },
+    { tag: 'G', text: '受診', romaji: 'jyusinn' },
+  ],
+  '中性': [
+    { tag: 'G', text: '中性', romaji: 'tyuusei' }, // Space2回で100%「中性」確定 (中世誤爆防止)
+  ],
+  '理学所見': [
+    { tag: 'Z', text: '理学', romaji: 'rigaku' },
+    { tag: 'G', text: '所見', romaji: 'syoken' },
+  ],
+  '所見': [
+    { tag: 'G', text: '所見', romaji: 'syoken' }, // Space2回で100%「所見」確定 (初見誤爆を完全排除)
+  ],
+  '特記なし': [
+    { tag: 'G', text: '特記', romaji: 'tokki' }, // Space2回で100%「特記」確定 (突起誤爆防止)
+    { tag: 'H', text: 'なし', romaji: 'nasi' },
+  ],
+  '特記': [
+    { tag: 'G', text: '特記', romaji: 'tokki' },
+  ],
+  '体動時背部痛': [
+    { tag: 'Z', text: '体動', romaji: 'taidou' },
+    { tag: 'Z', text: '時', romaji: 'ji' },
+    { tag: 'Z', text: '背部', romaji: 'haibu' },
+    { tag: 'Z', text: '痛', romaji: 'tuu' },
+  ],
+  '体動時': [
+    { tag: 'Z', text: '体動', romaji: 'taidou' },
+    { tag: 'Z', text: '時', romaji: 'ji' }, // 大導寺誤爆を完全排除
+  ],
+  '背部痛': [
+    { tag: 'Z', text: '背部', romaji: 'haibu' },
+    { tag: 'Z', text: '痛', romaji: 'tuu' },
+  ],
+  '背部': [
+    { tag: 'Z', text: '背部', romaji: 'haibu' }, // セブ誤爆防止
+  ],
+  '筋筋膜性疼痛': [
+    { tag: 'Z', text: '筋筋膜性', romaji: 'kinkimmakusei' },
+    { tag: 'Z', text: '疼痛', romaji: 'toutuu' },
+  ],
+  '筋筋膜性': [
+    { tag: 'Z', text: '筋筋膜性', romaji: 'kinkimmakusei' },
+  ],
+  '筋筋膜': [
+    { tag: 'Z', text: '筋筋膜', romaji: 'kinkimmaku' },
+  ],
+  '内臓疾患': [
+    { tag: 'G', text: '内臓', romaji: 'naizou' }, // Space2回で100%「内臓」確定 (内蔵誤爆防止)
+    { tag: 'Z', text: '疾患', romaji: 'sikkan' },
+  ],
+  '内臓': [
+    { tag: 'G', text: '内臓', romaji: 'naizou' },
+  ],
+  '除外要': [
+    { tag: 'Z', text: '除外', romaji: 'jyogai' },
+    { tag: 'Z', text: '要', romaji: 'you' }, // 女外用誤爆防止
+  ],
+  '除外': [
+    { tag: 'Z', text: '除外', romaji: 'jyogai' },
+  ],
+  '鎮痛薬処方': [
+    { tag: 'Z', text: '鎮痛薬', romaji: 'chintuuyaku' },
+    { tag: 'G', text: '処方', romaji: 'syoho' }, // Space2回で100%「処方」確定 (初歩誤爆防止)
+  ],
+  '処方': [
+    { tag: 'G', text: '処方', romaji: 'syoho' },
+  ],
+  '安静指導': [
+    { tag: 'Z', text: '安静', romaji: 'annsei' },
+    { tag: 'Z', text: '指導', romaji: 'sidou' },
+  ],
+  '肝機能再検': [
+    { tag: 'Z', text: '肝機能', romaji: 'kannkinou' },
+    { tag: 'Z', text: '再', romaji: 'sai' },
+    { tag: 'Z', text: '検', romaji: 'kenn' }, // 債権誤爆防止
+  ],
+  '再検': [
+    { tag: 'Z', text: '再', romaji: 'sai' },
+    { tag: 'Z', text: '検', romaji: 'kenn' },
+  ],
+  '炎症反応': [
+    { tag: 'Z', text: '炎症', romaji: 'ennsyou' },
+    { tag: 'G', text: '反応', romaji: 'hannnou' }, // Space2回で100%「反応」確定 (版王誤爆防止, hannnou)
+  ],
+  '反応': [
+    { tag: 'G', text: '反応', romaji: 'hannnou' },
+  ],
+  '腹部超音波': [
+    { tag: 'Z', text: '腹部', romaji: 'hukubu' },
+    { tag: 'Z', text: '超音波', romaji: 'tyouonnpa' },
+  ],
+  '精査検討': [
+    { tag: 'Z', text: '精査', romaji: 'seisa' },
+    { tag: 'Z', text: '検討', romaji: 'kentou' },
+  ],
+  '歳': [
+    { tag: 'G', text: '歳', romaji: 'sai' }, // Space2回で100%「歳」確定 (差異誤爆防止)
+  ],
 };
 
 // 熟語フォールバック用 医療音読み優先テーブル（訓読み誤爆・キメラ連結を完全根絶）
@@ -525,6 +676,13 @@ export const ONYOMI_KANJI_FALLBACK: Record<string, string> = {
   '院': 'inn', '水': 'sui', '分': 'bunn', '摂': 'setu', '取': 'syu',
   '励': 'rei', '行': 'kou', '持': 'ji', '続': 'zoku', '時': 'ji',
   '再': 'sai', '診': 'sinn', '指': 'si', '示': 'ji',
+  '背': 'hai', '筋': 'kinn', '外': 'gai', '除': 'jyo', '臓': 'zou',
+  '普': 'fu', '通': 'tuu', '首': 'syu', '相': 'sou', '訴': 'so',
+  '特': 'toku', '記': 'ki', '反': 'hann', '今': 'konn', '日': 'niti',
+  '理': 'ri', '学': 'gaku', '検': 'kenn', '液': 'eki', '超': 'tyou',
+  '波': 'ha', '導': 'dou', '歳': 'sai', '差': 'sa', '昨': 'saku',
+  '出': 'syutu', '現': 'genn', '受': 'jyu', '信': 'sinn', '針': 'sinn',
+  '安': 'ann', '静': 'sei', '鎮': 'tinn', '討': 'tou', '男': 'dann',
 };
 
 // 医療接尾辞リスト（直前の自立語へ完全融合する接尾辞）
@@ -940,7 +1098,7 @@ export class KeyStrokeCompiler {
       if (matchedParticle) continue;
 
       // H-3. 連続する漢字列（未知の複合語）の長単位自動結合 (最大2〜3文字 & 音読み優先)
-      const kanjiRun = remaining.match(/^[\u4E00-\u9FFF]{2,}/);
+      const kanjiRun = remaining.match(/^[\u4E00-\u9FFF\u3005]{2,}/);
       if (kanjiRun) {
         const fullRun = kanjiRun[0];
         // 既知の辞書語彙が途中で始まる場合はその手前で切断、なければ最大3文字でクラスタリング
@@ -973,10 +1131,10 @@ export class KeyStrokeCompiler {
       }
 
       // H-4. 1文字自立語漢字 (体, 台, 等)
-      const singleKanji = remaining.match(/^[\u4E00-\u9FFF]/);
+      const singleKanji = remaining.match(/^[\u4E00-\u9FFF\u3005]/);
       if (singleKanji) {
         const ch = singleKanji[0];
-        const romaji = COMPOUND_LEXICON[ch] || JIS_KANJI_ROMAJI[ch] || ch;
+        const romaji = COMPOUND_LEXICON[ch] || ONYOMI_KANJI_FALLBACK[ch] || JIS_KANJI_ROMAJI[ch] || ch;
         blocks.push({
           type: 'z_kanji',
           tag: 'Z',
@@ -989,20 +1147,20 @@ export class KeyStrokeCompiler {
         continue;
       }
 
-      // H-5. ひらがな1文字フォールバック
-      const singleHira = remaining.match(/^[\u3041-\u3096]/);
-      if (singleHira) {
-        const ch = singleHira[0];
-        const romaji = kanaToNormalizedRomaji(ch);
+      // H-5. 連続するひらがな列の一括 [H] 送出 (即時 Enter 確定)
+      const hiraRun = remaining.match(/^[\u3041-\u3096]+/);
+      if (hiraRun) {
+        const hText = hiraRun[0];
+        const romaji = kanaToNormalizedRomaji(hText);
         blocks.push({
           type: 'h_hiragana',
           tag: 'H',
-          rawText: ch,
+          rawText: hText,
           compiledPayload: `[H]${romaji}[/H]`,
         });
         hCount++;
         totalKeystrokes += romaji.length + 1;
-        i += 1;
+        i += hText.length;
         continue;
       }
 

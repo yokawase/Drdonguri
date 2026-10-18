@@ -132,12 +132,21 @@ export interface BuildSessionOptions {
  */
 export function buildTransmissionSession(
   text: string,
-  mode: DispatchMode = DispatchMode.MODE_HYBRID_UNICODE,
+  modeOrOptions: DispatchMode | BuildSessionOptions = DispatchMode.MODE_HYBRID_UNICODE,
   optionsOrSessionId?: number | BuildSessionOptions
 ): PreparedSession {
-  const options: BuildSessionOptions = typeof optionsOrSessionId === 'number'
-    ? { sessionId: optionsOrSessionId }
-    : (optionsOrSessionId || {});
+  let mode: DispatchMode = DispatchMode.MODE_HYBRID_UNICODE;
+  let options: BuildSessionOptions = {};
+
+  if (typeof modeOrOptions === 'object') {
+    options = modeOrOptions;
+    mode = DispatchMode.MODE_HYBRID_UNICODE;
+  } else {
+    mode = modeOrOptions;
+    options = typeof optionsOrSessionId === 'number'
+      ? { sessionId: optionsOrSessionId }
+      : (optionsOrSessionId || {});
+  }
 
   const enablePreprocessor = options.enablePreprocessor ?? true;
   const enableImeBoost = options.enableImeBoost ?? true;
@@ -182,9 +191,12 @@ export function buildTransmissionSession(
         formattedText = `<EHR_MICS>\n${formattedText}`;
       }
     } else {
-      const transpiled = generateKeystrokeSequence(processedText);
-      formattedText = transpiled.sequence;
-      if (newlineMode === EhrNewlineMode.MICS_ALT_ENTER) {
+      const compiled = keyStrokeCompiler.compileText(processedText, {
+        includeImeReset: false,
+        newlineMode: newlineMode === EhrNewlineMode.MICS_ALT_ENTER ? 'alt_enter' : 'enter',
+      });
+      formattedText = compiled.streamText;
+      if (newlineMode === EhrNewlineMode.MICS_ALT_ENTER && !formattedText.startsWith('<EHR_MICS>')) {
         formattedText = `<EHR_MICS>\n${formattedText}`;
       }
     }
