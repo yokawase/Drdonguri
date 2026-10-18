@@ -5,7 +5,7 @@
 //       電カルセーフ決定論的トランスパイラ
 // =============================================================================
 
-import { KANA_ROMAJI_MAP } from '../utils/japaneseImeTranspiler';
+import { KANA_ROMAJI_MAP, MEDICAL_KANJI_ROMAJI_MAP } from '../utils/japaneseImeTranspiler';
 import { JIS_KANJI_ROMAJI } from '../data/jisKanjiRomajiTable';
 import type { MorphToken } from '../workers/vibrato.worker';
 
@@ -247,7 +247,89 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '感染': 'kansenn',
   '精査': 'seisa',
   '処方': 'syoho',
+
+  // 内視鏡・消化器・病変・臨床判断 (ユーザー提示症例完全適合)
+  '内視鏡所見': 'naishikyousyoken',
+  '内視鏡': 'naishikyou',
+  '拡大内視鏡': 'kakudainaishikyou',
+  '所見': 'syoken',
+  '典型所見': 'tenkeisyoken',
+  '典型': 'tenkei',
+  '陥凹型': 'kannougata',
+  '陥凹': 'kannou',
+  '辺縁粘膜': 'hennennnemmaku',
+  '辺縁': 'hennenn',
+  '粘膜': 'nemmaku',
+  'ひだ集中': 'hidasyuutyuu',
+  '集中': 'syuutyuu',
+  '途読': 'todoku',
+  '途絶': 'tozetu',
+  '境界明瞭': 'kyoukaimeiryou',
+  '境界': 'kyoukai',
+  '明瞭': 'meiryou',
+  '褪色': 'taisyoku',
+  '微細血管構築異常': 'bisaikekkankoutikuijyou',
+  '微細血管': 'bisaikekkan',
+  '微細': 'bisai',
+  '血管': 'kekkan',
+  '構築異常': 'koutikuijyou',
+  '構築': 'koutiku',
+  '異常': 'ijyou',
+  '鑑別疾患': 'kambetusikkan',
+  '鑑別': 'kambetu',
+  '疾患': 'sikkan',
+  '胃潰瘍': 'ikaiyou',
+  '潰瘍': 'kaiyou',
+  '消化性潰瘍': 'syoukaseikaiyou',
+  '消化性': 'syoukasei',
+  '消化': 'syouka',
+  '瘢痕期': 'hankonnki',
+  '瘢痕': 'hankonn',
+  '胃良性ポリープ': 'iryouuseipori-pu',
+  '良性ポリープ': 'ryouuseipori-pu',
+  '良性': 'ryouusei',
+  'ポリープ': 'pori-pu',
+  'リンパ腫': 'rimpasyu',
+  '胃角部小弯': 'ikakubusyouwann',
+  '胃角部': 'ikakubu',
+  '胃角': 'ikaku',
+  '小弯': 'syouwann',
+  '大弯': 'daiwann',
+  '前庭部': 'zenteibu',
+  '前庭': 'zentei',
+  '浅い': 'asai',
+  '不整陥凹病変': 'fuseikannoubyouhenn',
+  '不整陥凹': 'fuseikannou',
+  '陥凹病変': 'kannoubyouhenn',
+  '病変': 'byouhenn',
+  '不整': 'fusei',
+  '精査要': 'seisayou',
+  '臨床判断': 'rinsyouhanndann',
+  '臨床': 'rinsyou',
+  '判断': 'hanndann',
+  '慢性萎縮性胃炎': 'manseiisyukuseiienn',
+  '萎縮性胃炎': 'isyukuseiienn',
+  '萎縮性': 'isyukusei',
+  '慢性': 'mansei',
+  '萎縮': 'isyuku',
+  '胃炎': 'ienn',
+  '限局性': 'gennkyokusei',
+  '限局': 'gennkyoku',
+  'びらん': 'biran',
+  '適応精査': 'tekiouseisa',
+  '適応': 'tekiou',
+  '要': 'you',
 };
+
+// 医療専門語彙辞書 (MEDICAL_KANJI_ROMAJI_MAP) を COMPOUND_LEXICON へ自動マージ
+// ※純粋なひらがな語（助詞・付属語など）は PARTICLES で [H] 即時確定させるため除外
+for (const [term, romaji] of Object.entries(MEDICAL_KANJI_ROMAJI_MAP)) {
+  if (!COMPOUND_LEXICON[term]) {
+    if (/[\u4E00-\u9FFF\u30A1-\u30FA]/.test(term)) {
+      COMPOUND_LEXICON[term] = romaji.trim();
+    }
+  }
+}
 
 // -----------------------------------------------------------------------------
 // MS-IMEで1語一括変換すると誤爆しやすい複合語の「最適チャンク分割」辞書
@@ -308,11 +390,25 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 
 
 // 熟語フォールバック用 医療音読み優先テーブル（訓読み誤爆・キメラ連結を完全根絶）
 export const ONYOMI_KANJI_FALLBACK: Record<string, string> = {
+  // 医療・臨床漢字 音読みマスター (訓読み誤爆・キメラ連結を完全根絶)
+  '鏡': 'kyou', '所': 'syo', '見': 'ken', '凹': 'ou', '陥': 'kann',
+  '辺': 'henn', '縁': 'enn', '粘': 'nem', '膜': 'maku', '集': 'syuu',
+  '中': 'tyuu', '途': 'to', '絶': 'zetu', '読': 'doku', '境': 'kyou',
+  '界': 'kai', '明': 'mei', '瞭': 'ryou', '褪': 'tai', '色': 'syoku',
+  '微': 'bi', '細': 'sai', '血': 'ketu', '管': 'kann', '構': 'kou',
+  '築': 'tiku', '異': 'i', '常': 'jyou', '鑑': 'kann', '別': 'betu',
+  '疾': 'situ', '患': 'kann', '胃': 'i', '潰': 'kai', '瘍': 'you',
+  '瘢': 'hann', '痕': 'konn', '期': 'ki', '良': 'ryou', '典': 'tenn',
+  '型': 'kei', '角': 'kaku', '弯': 'wann', '庭': 'tei', '浅': 'senn',
+  '整': 'sei', '病': 'byou', '変': 'henn', '臨': 'rinn', '床': 'syou',
+  '判': 'hann', '断': 'dann', '慢': 'mann', '萎': 'i', '縮': 'syuku',
+  '限': 'genn', '局': 'kyoku', '適': 'teki', '応': 'ou', '査': 'sa',
+  '要': 'you', '前': 'zenn', '後': 'go', '癌': 'gann', '腫': 'syu',
   '咽': 'inn', '頭': 'tou', '痛': 'tuu', '咳': 'gai', '嗽': 'sou',
   '乾': 'kann', '性': 'sei', '発': 'hatu', '熱': 'netu', '赤': 'seki',
-  '扁': 'henn', '桃': 'tou', '腫': 'syu', '大': 'dai', '呼': 'ko',
-  '吸': 'kyuu', '音': 'onn', '清': 'sei', '腹': 'huku', '部': 'bu',
-  '平': 'hei', '坦': 'tann', '軟': 'nann', '急': 'kyuu', '上': 'jyou',
+  '扁': 'henn', '桃': 'tou', '大': 'dai', '呼': 'ko', '吸': 'kyuu',
+  '音': 'onn', '清': 'sei', '腹': 'huku', '部': 'bu', '平': 'hei',
+  '坦': 'tann', '軟': 'nann', '急': 'kyuu', '上': 'jyou', '下': 'ka',
   '気': 'ki', '道': 'dou', '炎': 'enn', '感': 'kann', '冒': 'bou',
   '対': 'tai', '症': 'syou', '療': 'ryou', '法': 'hou', '市': 'si',
   '販': 'hann', '総': 'sou', '合': 'gou', '薬': 'yaku', '内': 'nai',
@@ -664,9 +760,9 @@ export class KeyStrokeCompiler {
       }
       if (matchedMultiChunk) continue;
 
-      // H-1. 辞書最長一致探索 (最長10文字〜2文字)
+      // H-1. 辞書最長一致探索 (最長24文字〜2文字)
       let matchedLexicon = false;
-      for (let l = Math.min(10, remaining.length); l >= 2; l--) {
+      for (let l = Math.min(24, remaining.length); l >= 2; l--) {
         const sub = remaining.substring(0, l);
         if (COMPOUND_LEXICON[sub]) {
           let compound = sub;

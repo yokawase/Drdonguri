@@ -155,5 +155,57 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       expect(res.streamText).toContain('[ENTER]');
     });
   });
+
+  describe('7. 内視鏡・消化器臨床所見（ユーザー提示症例完全適合）', () => {
+    it('内視鏡所見・早期胃癌・微細血管構築異常等の全語彙が正しく音読み・専門語としてコンパイルされること', () => {
+      const text =
+        '【内視鏡所見】早期胃癌 (0-IIc型: 陥凹型早期胃癌)\n' +
+        '辺縁粘膜のひだ集中・途読\n' +
+        '境界明瞭な発赤・褪色\n' +
+        'NBI拡大内視鏡における微細血管構築異常\n' +
+        'ひだ集中・途絶\n' +
+        '鑑別疾患: 胃潰瘍（消化性潰瘍）瘢痕期\n' +
+        '胃良性ポリープ\n' +
+        '典型所見: 胃角部小弯〜前庭部の浅い不整陥凹病変（精査要）\n' +
+        '臨床判断: 内視鏡所見: 胃角部小弯に約15mmの境界明瞭な不整陥凹病変(0-IIc)（精査要）\n' +
+        '早期胃癌疑い（精査要）\n' +
+        '慢性萎縮性胃炎の限局性びらん（精査要）\n' +
+        'ESD適応精査';
+
+      const res = compiler.compileText(text, { includeImeReset: false });
+
+      // 単漢字訓読みキメラ結合（ないし鏡、ところ県、い潰すよう、花時等）が完全根絶されていること
+      expect(res.streamText).not.toContain('kagami');
+      expect(res.streamText).not.toContain('tokoroken');
+      expect(res.streamText).not.toContain('tsubusu');
+      expect(res.streamText).not.toContain('hanatoki');
+
+      // 正しい医療専門ローマ字で一括出力されていること
+      expect(res.streamText).toContain('[Z]naishikyousyoken[/Z]'); // 内視鏡所見
+      expect(res.streamText).toContain('[Z]soukiigan[/Z]'); // 早期胃癌
+      expect(res.streamText).toContain('[Z]kannougata[/Z]'); // 陥凹型
+      expect(res.streamText).toContain('[Z]hennennnemmaku[/Z]'); // 辺縁粘膜
+      expect(res.streamText).toContain('[Z]hidasyuutyuu[/Z]'); // ひだ集中
+      expect(res.streamText).toContain('[Z]kyoukaimeiryou[/Z]'); // 境界明瞭
+      expect(res.streamText).toContain('[Z]taisyoku[/Z]'); // 褪色
+      expect(res.streamText).toContain('[Z]bisaikekkankoutikuijyou[/Z]'); // 微細血管構築異常
+      expect(res.streamText).toContain('[Z]tozetu[/Z]'); // 途絶
+      expect(res.streamText).toContain('[Z]kambetusikkan[/Z]'); // 鑑別疾患
+      expect(res.streamText).toContain('[Z]ikaiyou[/Z]'); // 胃潰瘍
+      expect(res.streamText).toContain('[Z]syoukaseikaiyou[/Z]'); // 消化性潰瘍
+      expect(res.streamText).toContain('[Z]hankonnki[/Z]'); // 瘢痕期
+      expect(res.streamText).toContain('[Z]iryouuseipori-pu[/Z]'); // 胃良性ポリープ
+      expect(res.streamText).toContain('[Z]tenkeisyoken[/Z]'); // 典型所見
+      expect(res.streamText).toContain('[Z]ikakubusyouwann[/Z]'); // 胃角部小弯
+      expect(res.streamText).toContain('[Z]zenteibu[/Z]'); // 前庭部
+      expect(res.streamText).toContain('[Z]asai[/Z]'); // 浅い
+      expect(res.streamText).toContain('[Z]fuseikannoubyouhenn[/Z]'); // 不整陥凹病変
+      expect(res.streamText).toContain('[Z]rinsyouhanndann[/Z]'); // 臨床判断
+      expect(res.streamText).toContain('[Z]manseiisyukuseiienn[/Z]'); // 慢性萎縮性胃炎
+      expect(res.streamText).toContain('[Z]gennkyokusei[/Z]'); // 限局性
+      expect(res.streamText).toContain('[Z]biran[/Z]'); // びらん
+      expect(res.streamText).toContain('[Z]tekiouseisa[/Z]'); // 適応精査
+    });
+  });
 });
 

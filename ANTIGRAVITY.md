@@ -292,8 +292,14 @@
     - 対策1（PWA側 `webBluetooth.ts`）: `ALL_PACKETS_READY` 検知時に即座にドングルへ `CMD:TRIGGER` を送出し、マイコンからの打鍵開始（`DISPATCH_STARTED`）および打鍵完了（`USB_REPORTS_SENT` / `HVC_SCORE`）まで確実に監視・完了待機するようにプロトコルパイプラインを強化。
     - 対策2（PWA側 `App.tsx`）: `handleSendDirect` に `finally` 句を追加し、成功・失敗・中断のいかなる場合でも `setIsSending(false)` とプログレスリセットを絶対保証。
     - 対策3（ファームウェア `firmware/src/main.cpp` FW v22.4）: 全パケット受信・全体CRC一致時に、USBマウント済みであれば 80ms の安定ウェイト後に即時 `dispatchOutput()`（電カル直接自動打鍵 Direct Auto-Dispatch）を実行。さらに `CMD:TRIGGER` 受信時も即座に安全打鍵開始（二重起動防止ガード付き）。
-  - **T-Dongle-S3 実機への Flash Upload**:
-    - PlatformIO により `/dev/ttyACM0` 経由で実機へ Flash Upload を実行し、`[SUCCESS]` (49.96秒) および RTS ピンによるハードウェアリセット・正常再起動を確認。
+- [x] **ステップ35**: 消化器・内視鏡臨床所見 誤変換の完全根絶 ＆ 音読みフォールバック全面刷新 ＆ Linux Mint MATE推奨Raw Queueプリンター設定 (v2.12.4 / FW v22.4) - 【完了】
+  - **消化器・内視鏡・臨床所見 誤変換の根本解消 (`KeyStrokeCompiler.ts`)**:
+    - 原因: `COMPOUND_LEXICON` に未登録の熟語が、単漢字テーブル `JIS_KANJI_ROMAJI` の訓読み（鏡=kagami, 所=tokoro, 潰=tsubusu, 中=naka, 凹=kata, 痕=hana 等）でキメラ合成され、「ないし鏡ところ県」「い潰すよう」「花時」「堺解明量」「威嚇部将ワン」等へ誤爆していた。
+    - 対策1（辞書統合）: `MEDICAL_KANJI_ROMAJI_MAP`（数千語の医療辞書）を `COMPOUND_LEXICON` に自動マージ（助詞・付属語を除外）。さらに内視鏡所見、早期胃癌、陥凹型、辺縁粘膜、ひだ集中、途絶、途読、境界明瞭、発赤、褪色、微細血管構築異常、鑑別疾患、胃潰瘍、消化性潰瘍、瘢痕期、胃良性ポリープ、典型所見、胃角部小弯、前庭部、浅い、不整陥凹病変、精査要、臨床判断、慢性萎縮性胃炎、限局性、びらん、ESD適応精査等を直接網羅。
+    - 対策2（音読みフォールバック全面刷新 `ONYOMI_KANJI_FALLBACK`）: 未知の漢字熟語が連続する場合、単漢字訓読みを完全排除し、各漢字の音読み（鏡=kyou, 所=syo, 潰=kai, 瘍=you, 凹=ou, 痕=konn, 庭=tei 等）で結合してMS-IMEで決定論的に正変換させるパイプラインを確立。
+    - 対策3（探索窓拡大）: 最長一致探索を最大24文字まで拡大。
+  - **Linux Mint MATE での電カル受信・推奨プリンタードライバー策定**:
+    - Windows の「Generic / Text Only」ドライバーと完全等価な CUPS 設定として、メーカー: **Generic**、モデル: **Raw Queue**（`raw`）を推奨環境として正式策定。フィルターを介さずプレーンテキスト生データを直接USB仮想プリンターへ流し込む手順を確立。
 
 ---
 
