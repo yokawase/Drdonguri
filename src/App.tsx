@@ -126,7 +126,7 @@ export default function App() {
     }
   };
 
-  // 電カル送信ハンドラ (Sudachi Mode C 長単位結合 ➔ v20.1 HYBRIDキーストローク送出)
+  // 電カル送信ハンドラ (Sudachi Mode C 長単位結合 ➔ v20.1 HYBRIDキーストローク送出 ➔ 自動打鍵転送)
   const handleSendDirect = async () => {
     if (!inputText.trim()) {
       showToast('warning', '送信するカルテ所見が入力されていません。');
@@ -144,7 +144,7 @@ export default function App() {
     try {
       setIsSending(true);
       setTransmissionProgress(5);
-      setTransmissionStage('コンパイル中...');
+      setTransmissionStage('長単位結合コンパイル中...');
 
       // Sudachi Mode C 形態素解析 & v20.1 HYBRID エンコード
       const session: PreparedSession = buildTransmissionSession(
@@ -156,20 +156,25 @@ export default function App() {
         }
       );
 
-      // BLEチャンク送出
+      // BLEチャンク送出 & 自動打鍵トリガー & 完了待機
       await bleManager.transmitSession(session, (pct, stage) => {
         setTransmissionProgress(pct);
         setTransmissionStage(stage);
       });
 
-      showToast('info', '送信完了！カルテPC側への自動打鍵を開始しています...');
+      showToast('success', '電子カルテへの自動打鍵が完了しました！');
     } catch (err: any) {
-      setIsSending(false);
       if (err?.message === 'TRANSMISSION_ABORTED') {
         showToast('warning', '電子カルテへの転送を中断しました。');
+      } else if (err?.message?.includes('ERR_USB_NOT_READY')) {
+        showToast('error', 'ドングルがカルテPCにUSB接続されていません（紫色LED）。PCのUSBポートに挿入してください。');
       } else {
         showToast('error', `送信エラー: ${err?.message || err}`);
       }
+    } finally {
+      setIsSending(false);
+      setTransmissionProgress(0);
+      setTransmissionStage('');
     }
   };
 

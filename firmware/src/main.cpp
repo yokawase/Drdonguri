@@ -2129,9 +2129,11 @@ void loop() {
 
       // 2. リモート打鍵トリガー
       if (strcmp(cmdBuf, "CMD:TRIGGER") == 0) {
-        if (currentState == STATE_READY_TO_TYPE) {
+        if (currentState == STATE_READY_TO_TYPE || (currentState == STATE_RECEIVING && currentMsg.receivedCount == currentMsg.totalPackets)) {
           sendBleAck("REMOTE_TRIGGER_ACCEPTED", currentMsg.sessionId);
           dispatchOutput();
+        } else if (currentState == STATE_TYPING) {
+          sendBleAck("ALREADY_TYPING", currentMsg.sessionId);
         } else {
           sendBleAck("ERR_NOT_READY_TO_TYPE", currentMsg.sessionId);
         }
@@ -2311,15 +2313,22 @@ void loop() {
           break;
         }
 
-        // 全パケット完全受信・CRC一致：ボタン待機へ遷移し、黄色LED点灯
+        // 全パケット完全受信・CRC一致：ボタン待機 & 即時電カル打鍵両対応
         resetButtonState();
         currentState = STATE_READY_TO_TYPE;
-        setLedColor(64, 64, 0); // 黄色点灯（医師の物理ボタン押下待機）
+        setLedColor(64, 64, 0); // 黄色点灯
 #if defined(T_DONGLE_S3)
         g_display.showFace(FACE_RECEIVING);
-        g_display.updateStatus("READY PRESS", 0, 0, 0, 0, 100, 0, "Press BOOT Btn");
+        g_display.updateStatus("TYPING...", 0, 0, 0, 0, 100, 0, "Direct Auto-Type");
 #endif
         sendBleAck("ALL_PACKETS_READY", currentMsg.sessionId);
+
+        // ★【電カル直接自動打鍵 (Direct Auto-Dispatch)】
+        // PCへUSB接続されている場合は、スマホ操作から直ちにカルテ端末への自動打鍵を開始
+        if (tud_mounted()) {
+          delay(80); // BLE ACK送出完了安定ウェイト
+          dispatchOutput();
+        }
       }
     }
   }

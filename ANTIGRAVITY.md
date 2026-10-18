@@ -286,6 +286,15 @@
     - 録音開始前に `navigator.mediaDevices.getUserMedia({ audio: true })` で明示的にマイク権限を確認・初期化し即座にトラック解放。ブラウザのマイク権限状態を確実に同期。
     - `onend` オートリスタート時に 350ms のセッション解放ウェイトを確保し、Chrome の過渡的 `not-allowed` 誤爆を根絶。セッション途中の過渡的エラーでの過剰アラートを抑止。
 
+- [x] **ステップ34**: 電カル自動打鍵転送の復旧 ＆ Direct Auto-Dispatch & Remote Trigger 二重保証 ＆ 送信ステート確実解放 (v2.12.3 / FW v22.4) - 【完了】
+  - **電カル自動打鍵転送の根本原因の特定と解消**:
+    - 原因: PWA側（`webBluetooth.ts`）で全パケット受信・CRC一致通知 `ALL_PACKETS_READY` を受信した際、ドングルが医師の物理ボタンまたは `CMD:TRIGGER` コマンドを待機するステート（`STATE_READY_TO_TYPE`）に遷移していたにもかかわらず、`CMD:TRIGGER` が未送出のまま完了通知（`setIsSending(false)`）も呼ばれず画面が「転送中断」で永久停止していた。
+    - 対策1（PWA側 `webBluetooth.ts`）: `ALL_PACKETS_READY` 検知時に即座にドングルへ `CMD:TRIGGER` を送出し、マイコンからの打鍵開始（`DISPATCH_STARTED`）および打鍵完了（`USB_REPORTS_SENT` / `HVC_SCORE`）まで確実に監視・完了待機するようにプロトコルパイプラインを強化。
+    - 対策2（PWA側 `App.tsx`）: `handleSendDirect` に `finally` 句を追加し、成功・失敗・中断のいかなる場合でも `setIsSending(false)` とプログレスリセットを絶対保証。
+    - 対策3（ファームウェア `firmware/src/main.cpp` FW v22.4）: 全パケット受信・全体CRC一致時に、USBマウント済みであれば 80ms の安定ウェイト後に即時 `dispatchOutput()`（電カル直接自動打鍵 Direct Auto-Dispatch）を実行。さらに `CMD:TRIGGER` 受信時も即座に安全打鍵開始（二重起動防止ガード付き）。
+  - **T-Dongle-S3 実機への Flash Upload**:
+    - PlatformIO により `/dev/ttyACM0` 経由で実機へ Flash Upload を実行し、`[SUCCESS]` (49.96秒) および RTS ピンによるハードウェアリセット・正常再起動を確認。
+
 ---
 
 

@@ -642,32 +642,48 @@ export class BleDongleManager {
           }
         }
 
-        // 3. 全パケット受信完了・検証完了
+        // 3. 全パケット受信完了・検証完了 ➔ 自動打鍵トリガー送出 (CMD:TRIGGER)
         if (event.ackType === 'ALL_PACKETS_READY') {
-          if (onProgress) onProgress(100, '受信成功！LEDが黄色に点灯しました。AtomS3U本体の正面ボタンを押してください。');
-          this.log('sys', 'FLOW', '★全パケット受信・全体CRC照合完了！AtomS3U正面ボタンを押して打鍵してください。(LED黄色)');
+          if (onProgress) onProgress(96, '全パケット照合完了！電カルへ自動打鍵を開始中...');
+          this.log('sys', 'FLOW', '★全パケット受信・全体CRC照合完了！自動打鍵トリガー(CMD:TRIGGER)を送出します。');
+          // ドングルへ CMD:TRIGGER を即時送出 (ファームウェア側と二重保証)
+          setTimeout(async () => {
+            if (this.isTransmissionAborted || isCompleted) return;
+            try {
+              if (this.isConnected()) {
+                await this.sendCommand('CMD:TRIGGER');
+              }
+            } catch (err: any) {
+              this.log('sys', 'DEBUG', `CMD:TRIGGER通知: ${err?.message || err}`);
+            }
+          }, 60);
+        }
+
+        // 4. 打鍵開始検知 (リモートCMD:TRIGGER または 本体物理ボタン押下)
+        if (
+          event.ackType === 'DISPATCH_STARTED' ||
+          event.ackType === 'REMOTE_TRIGGER_ACCEPTED' ||
+          event.ackType === 'ALREADY_TYPING' ||
+          event.ackType === 'PHYSICAL_BTN_PRESSED'
+        ) {
+          if (onProgress) onProgress(98, 'カルテ端末へ自動打鍵中... (LED赤色)');
+          this.log('sys', 'FLOW', '打鍵開始を検知。USB-HIDキーストローク送出中...');
+        }
+
+        // 5. 打鍵完了検知
+        if (event.ackType === 'USB_REPORTS_SENT' || event.ackType === 'HVC_SCORE') {
+          if (onProgress) onProgress(100, '打鍵完了！カルテ画面の入力を確認してください。');
+          this.log('sys', 'FLOW', '打鍵完了！電子カルテ画面に正常に入力されました。');
           isCompleted = true;
           removeAck();
           resolve(true);
-        }
-
-        // 4. 打鍵開始
-        if (event.ackType === 'DISPATCH_STARTED') {
-          if (onProgress) onProgress(100, 'DISPATCH_STARTED (LED赤色: USB打鍵中)');
-          this.log('sys', 'FLOW', 'ボタン押下を検知。USB-HIDキーストローク送出中...');
-        }
-
-        // 5. 打鍵完了
-        if (event.ackType === 'USB_REPORTS_SENT') {
-          if (onProgress) onProgress(100, 'USB_REPORTS_SENT (完了・LED緑色復帰)');
-          this.log('sys', 'FLOW', '打鍵レポート送出完了・メモリ消去完了。カルテ画面の文字を目視確認してください。');
         }
 
         // 6. エラー通知
         if (event.ackType.startsWith('ERR_')) {
           this.log('sys', 'ERR', `マイコン側エラー通知: ${event.ackType} ${event.detail || ''}`);
           removeAck();
-          reject(new Error(`AtomS3Uエラー: ${event.ackType}`));
+          reject(new Error(`マイコンエラー: ${event.ackType} ${event.detail || ''}`));
         }
       });
 
@@ -711,9 +727,13 @@ export class BleDongleManager {
         if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
 
         if (!this.isNotifyActive) {
-          await new Promise(r => setTimeout(r, 150));
-          if (onProgress) onProgress(100, '全パケット送信完了！AtomS3U本体の正面ボタンを押してください。');
-          this.log('sys', 'FLOW', '★全パケット送信完了！AtomS3UのLEDが黄色になったら本体ボタンを押して打鍵してください。');
+          await new Promise(r => setTimeout(r, 100));
+          try {
+            await this.sendCommand('CMD:TRIGGER');
+          } catch {}
+          await new Promise(r => setTimeout(r, 200));
+          if (onProgress) onProgress(100, '全パケット送信完了！自動打鍵を開始しました。');
+          this.log('sys', 'FLOW', '★全パケット送信完了＆CMD:TRIGGER送出完了。');
           removeAck();
           resolve(true);
           return;
@@ -721,7 +741,7 @@ export class BleDongleManager {
 
         if (onProgress) onProgress(95, '全パケット送信完了。マイコン照合待機中...');
 
-        // マイコンからの ALL_PACKETS_READY / RETRY 受信待機フェイルセーフタイムアウト (5.0秒)
+        // マイコンからの ALL_PACKETS_READY / USB_REPORTS_SENT 受信待機フェイルセーフタイムアウト (6.0秒)
         const checkInterval = setInterval(() => {
           if (this.isTransmissionAborted) {
             clearInterval(checkInterval);
@@ -737,7 +757,7 @@ export class BleDongleManager {
             removeAck();
             resolve(true);
           }
-        }, 5000);
+        }, 6000);
 
       } catch (err: any) {
         removeAck();
