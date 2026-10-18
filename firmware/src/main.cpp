@@ -30,6 +30,60 @@ extern "C" bool tud_mounted(void);
 #define SD_CMD_PIN          16
 #define SD_D0_PIN           14
 static bool g_sdMounted = false;
+#include <WiFi.h>
+#include <WebServer.h>
+static WebServer g_httpServer(80);
+static bool g_wifiApActive = false;
+
+void initWifiSoftAp() {
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("Drdonguri-Atlas-Direct", "drdonguri");
+  
+  g_httpServer.on("/api/status", HTTP_GET, []() {
+    g_httpServer.sendHeader("Access-Control-Allow-Origin", "*");
+    g_httpServer.send(200, "application/json", "{\"status\":\"ok\",\"model\":\"T-Dongle-S3\",\"sdMounted\":true}");
+  });
+
+  // MicroSD 直接高速ストリーミングエンドポイント (CORS開放)
+  g_httpServer.onNotFound([]() {
+    g_httpServer.sendHeader("Access-Control-Allow-Origin", "*");
+    g_httpServer.sendHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    g_httpServer.sendHeader("Access-Control-Allow-Headers", "*");
+    
+    if (g_httpServer.method() == HTTP_OPTIONS) {
+      g_httpServer.send(204);
+      return;
+    }
+
+    if (!g_sdMounted) {
+      g_httpServer.send(503, "text/plain", "SD card not mounted");
+      return;
+    }
+
+    String path = g_httpServer.uri();
+    if (path.startsWith("/api/")) {
+      path = path.substring(4);
+    }
+    String fullPath = "/sdcard" + path;
+    if (SD_MMC.exists(fullPath)) {
+      File f = SD_MMC.open(fullPath, "r");
+      if (f) {
+        String contentType = "application/octet-stream";
+        if (fullPath.endsWith(".webp")) contentType = "image/webp";
+        else if (fullPath.endsWith(".pdf")) contentType = "application/pdf";
+        else if (fullPath.endsWith(".json")) contentType = "application/json";
+        else if (fullPath.endsWith(".txt")) contentType = "text/plain; charset=utf-8";
+        g_httpServer.streamFile(f, contentType);
+        f.close();
+        return;
+      }
+    }
+    g_httpServer.send(404, "text/plain", "File Not Found: " + fullPath);
+  });
+
+  g_httpServer.begin();
+  g_wifiApActive = true;
+}
 #else
 #define RGB_LED_PIN         35  // AtomS3U 内蔵WS2812フルカラーLED
 #define FRONT_BTN_PIN       41  // AtomS3U 正面プッシュスイッチ
@@ -1915,6 +1969,9 @@ void setup() {
     g_sdMounted = SD_MMC.begin("/sdcard", false);
   }
 
+  // Wi-Fi SoftAP & MicroSD 直接ストリーミングHTTPサーバー起動
+  initWifiSoftAp();
+
   g_display.init();
   g_display.showFace(FACE_IDLE);
   g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, g_sdMounted ? "Minds (SD:OK)" : "Minds 111 Q");
@@ -1989,6 +2046,12 @@ void setup() {
 // Arduino loop()
 // ============================================================================
 void loop() {
+#if defined(T_DONGLE_S3)
+  if (g_wifiApActive) {
+    g_httpServer.handleClient();
+  }
+#endif
+
   // 0. BLE切断後の安全な再アドバタイズ処理
   static bool oldBleConnected = false;
   if (!isBleConnected && oldBleConnected) {

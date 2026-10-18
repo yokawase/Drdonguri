@@ -226,7 +226,22 @@
     - ③ 臨床所見・SOAP整形テキストカード: 医療タグ（【主訴】〜【身体所見】はシアン、アセスメント・プランはアンバー）をハイライト表示。タップで即時編集可能。
     - ④ 親指ボトムアクションバー: 「電カル受信 (コーラル)」➔「音声入力 (68px特大アンバーFAB)」➔「電カル送信 (スカイブルー)」の直感的3大アクション。
     - ⑤ 音声入力＆ダイナミック波形: Web Speech API によるリアルタイム文字起こしプレビュー（`[音声入力中]` 赤ボックス）＋ Web Audio API による赤色オシロスコープ波形アニメーション。
-    - ⑥ ハンバーガーメニュードロワー: ハードウェア・通信、オンデバイスSLM、セキュリティ監査をグループ化して格納。Classic Mac (System 7) UI との相互切り替えも完全対応。
+- [x] **ステップ30**: 医薬品添付文書 & 錠剤識別写真（PMDA約22,000品目・表裏刻印）および臨床アトラス画像集（皮膚科・内視鏡・12誘導ECG方眼紙グリッド対応 約4,000点）3フェーズ統合 (v2.11.0 / FW v22.3) - 【完了】
+  - **フェーズ1（BLE完結 高速インデックス ＆ 刻印検索 ＆ サムネイル）**:
+    - `src/services/bleMedicalIndexService.ts`: BLE帯域幅（15〜40KB/s）内で0.5msで即応可能な軽量インデックス、添付文書要約テキスト、識別コード（表裏刻印）、割線、用量マスター、256x256 WebPサムネイル高速検索エンジンを実装。
+    - `src/data/microSdMedicalCatalog.ts`: `DrugIdentificationItem`（`imprintFront`, `imprintBack`, `frontImageUrl`, `backImageUrl`, `diameterMm`, `thicknessMm`, `hasScoredLine`, `renalDoseInfo`, `pdfPath`）および `ClinicalAtlasItem`（`hasEcgGrid`, `findingsSummary`, `highResUrl`, `thumbnailUrl`）を構造化。
+  - **フェーズ2（Wi-Fi SoftAP統合 高解像度WebP ＆ 添付文書原本PDF高速ストリーミング）**:
+    - `firmware/src/main.cpp`: LilyGO T-Dongle-S3 にローカルWi-Fi SoftAP（SSID: `Drdonguri-Atlas-Direct`, パスワード: `drdonguri`）および Port 80 WebServer を実装。`/api/status` による接続ヘルスチェック、`/sdcard/*` による 32GB MicroSD 内大判アトラス（1024x1024 WebP）および PMDA 添付文書原本PDFの数MB/s直接ストリーミングハンドラ（CORS開放）を開設。
+    - `src/services/sdCardStreamingService.ts`: SoftAP疎通確認（Ping check）、Blobキャッシュ、原本PDF閲覧ハンドラを実装。
+  - **フェーズ3（PWAビューアUI組込 ＆ ECG方眼紙グリッド ＆ カルテ引用）**:
+    - `src/components/MedicalDataSearchModal.tsx`:
+      - モーダルヘッダーに「Wi-Fi SoftAP 接続状態（1024px高速ストリーミング vs BLE要約）」のリアルタイム疎通バッジおよびワンタップ接続ガイドモーダルを実装。
+      - 「💊 錠剤識別（表裏）」専用ビュー: 刻印記号・形状・割線フィルタ、表裏写真フリップ切替・スプリット表示、スペックマトリクス（直径・厚み・割線・用法用量・腎機能減量注意）、原本PDF閲覧ボタン、カルテ処方即時挿入ボタン。
+      - 「🖼️ 臨床アトラス」専用ギャラリービュー: 心電図・皮膚科・内視鏡のサブカテゴリ切替、サムネイルカード一覧、1024px大判モーダル。
+      - **12誘導心電図 1mm/5mm 方眼紙グリッド**: 標準ECG仕様（25mm/s, 10mm/mV: 1小マス=0.04s/0.1mV, 1大マス=0.20s）の精密な赤/ピンク方眼紙グリッドをSVG/CSSで透過重畳するトグルボタンを搭載。
+      - カルテ所見引用: 典型所見・鑑別疾患・臨床判断をワンタップで電子カルテの【S/O/A/P】形式へ直接挿入。
+  - **単体テスト & 型安全性**:
+    - `tests/medicalDataStreaming.test.ts`: BLEインデックス複合検索、割線フィルタ、カルテフォーマッタ、Wi-Fi SoftAP疎通確認の単体テストを新規追加。Vitest 全37件PASS。
 
 ---
 

@@ -8,7 +8,7 @@
 - **プロダクト名**: DrVoice どんぐり君！ (`dr-dongly` / `Drdonguri`)
 - **目的**: スマホ音声入力・テキストを、ESP32デバイス（AtomS3U / T-dongle-S3）経由で医療用電子カルテ端末にUSB-HID（キーボード）として超高速・無誤爆で直接打鍵転送するシステム。
 - **公開WebUI (PWA)**: [https://yokawase.github.io/Drdonguri/](https://yokawase.github.io/Drdonguri/)
-- **現在のバージョン**: **`v2.10.0`** (ファームウェア: `v22.3`)
+- **現在のバージョン**: **`v2.11.0`** (ファームウェア: `v22.3`)
 
 ---
 
@@ -57,10 +57,12 @@ T-Dongle-S3 32GB MicroSDおよびPWAセマンティック検索エンジンで�
 
 | ファイル / ディレクトリ | 役割・技術スタック |
 | :--- | :--- |
-| [`src/version.ts`](file:///home/medart-code/Drdonguri/src/version.ts) | アプリケーションバージョン (`2.10.0`)・ビルド時刻一元管理 |
+| [`src/version.ts`](file:///home/medart-code/Drdonguri/src/version.ts) | アプリケーションバージョン (`2.11.0`)・ビルド時刻一元管理 |
 | [`src/components/NativePwaEdgeLayout.tsx`](file:///home/medart-code/Drdonguri/src/components/NativePwaEdgeLayout.tsx) | ネイティブ風PWA仕様 (セーフエリア・バウンス抑止・スプリットコンプリメンタリー配色・リアルタイム音声波形・5大コアアクション) |
 | [`tailwind.config.js`](file:///home/medart-code/Drdonguri/tailwind.config.js) | スプリットコンプリメンタリー配色トークン (`dongly.base/amber/coral/status`) ＆ FABシャドウ定義 |
 | [`src/data/microSdMedicalCatalog.ts`](file:///home/medart-code/Drdonguri/src/data/microSdMedicalCatalog.ts) | 32GB MicroSD 10大医療カテゴリ構造化データ ＆ 29.8GB全領域配分マップ |
+| [`src/services/bleMedicalIndexService.ts`](file:///home/medart-code/Drdonguri/src/services/bleMedicalIndexService.ts) | フェーズ1: BLE完結 添付文書要約・錠剤刻印識別（表裏）・用量マスター・サムネイル提供 |
+| [`src/services/sdCardStreamingService.ts`](file:///home/medart-code/Drdonguri/src/services/sdCardStreamingService.ts) | フェーズ2: Wi-Fi SoftAP統合 (192.168.4.1) 1024pxアトラスWebP ＆ 添付文書原本PDF高速ストリーミング |
 | [`src/services/embeddingGemmaService.ts`](file:///home/medart-code/Drdonguri/src/services/embeddingGemmaService.ts) | Google DeepMind EmbeddingGemma 2 (740M MRL 128d) 臨床セマンティック検索エンジン |
 | [`src/data/embeddingGemmaVectors.ts`](file:///home/medart-code/Drdonguri/src/data/embeddingGemmaVectors.ts) | 10大医療マスター全283件の 128次元 MRL 事前計算ベクトルデータベース |
 | [`src/workers/embeddingGemma.worker.ts`](file:///home/medart-code/Drdonguri/src/workers/embeddingGemma.worker.ts) | バックグラウンド高速コサイン類似度ランキング Web Worker |
@@ -71,10 +73,10 @@ T-Dongle-S3 32GB MicroSDおよびPWAセマンティック検索エンジンで�
 | [`src/workers/vibrato.worker.ts`](file:///home/medart-code/Drdonguri/src/workers/vibrato.worker.ts) | 0.5ms形態素解析・モダリティ（否定/疑い/既往）Web Worker |
 | [`firmware/src/typing_engine.cpp`](file:///home/medart-code/Drdonguri/firmware/src/typing_engine.cpp) | 11msディレイ制御 ＆ v20.1 HYBRID (`[Z][K][H][A]`) HIDエンジン (Alt物理遮断) |
 | [`firmware/src/usb_descriptors.c`](file:///home/medart-code/Drdonguri/firmware/src/usb_descriptors.c) | USB-HID Keyboard ＋ 仮想プリンタ (07h) 複合クラスドライバ (MSC完全遮断) |
-| [`src/components/MedicalDataSearchModal.tsx`](file:///home/medart-code/Drdonguri/src/components/MedicalDataSearchModal.tsx) | 10大医療データ統合検索モーダル ＆ 32GB SD配分マップ視覚化 ＆ WebLLM RAG |
+| [`src/components/MedicalDataSearchModal.tsx`](file:///home/medart-code/Drdonguri/src/components/MedicalDataSearchModal.tsx) | 10大医療データ統合検索モーダル ＆ 錠剤識別（表裏） ＆ 臨床アトラス（ECG方眼紙グリッド） ＆ 32GB SD配分マップ |
 | [`src/data/medicalKnowledgeCatalog.ts`](file:///home/medart-code/Drdonguri/src/data/medicalKnowledgeCatalog.ts) | 医療マスターのインクリメンタル検索エンジン |
 | [`scripts/generate_embedding_gemma_vectors.ts`](file:///home/medart-code/Drdonguri/scripts/generate_embedding_gemma_vectors.ts) | EmbeddingGemma 2 MRL 128d ベクトル生成スクリプト |
 | [`src/services/webLlmService.ts`](file:///home/medart-code/Drdonguri/src/services/webLlmService.ts) | WebGPUによる完全ブラウザ内完結・通信不要のローカルLLM (Gemma 2 2B FP32) |
 | [`setup_denkaru_printer.ps1`](file:///home/medart-code/Drdonguri/setup_denkaru_printer.ps1) | T-dongle-S3 複合機（仮想プリンタ＋キーボード）のWindows伝カル自動開通スクリプト |
-| [`firmware/src/main.cpp`](file:///home/medart-code/Drdonguri/firmware/src/main.cpp) | AtomS3U / T-dongle-S3 ファームウェア本体（Single Source of Truth） |
-| [`ANTIGRAVITY.md`](file:///home/medart-code/Drdonguri/ANTIGRAVITY.md) | 全開発ステップ（ステップ1〜28）の詳細開発履歴・技術仕様書 |
+| [`firmware/src/main.cpp`](file:///home/medart-code/Drdonguri/firmware/src/main.cpp) | AtomS3U / T-dongle-S3 ファームウェア本体（Single Source of Truth, Wi-Fi SoftAP Port 80 WebServer内蔵） |
+| [`ANTIGRAVITY.md`](file:///home/medart-code/Drdonguri/ANTIGRAVITY.md) | 全開発ステップ（ステップ1〜29）の詳細開発履歴・技術仕様書 |

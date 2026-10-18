@@ -98,6 +98,10 @@ export interface ClinicalAtlasItem {
   differentialDiagnosis: string;
   imageFileName: string;
   sdFilePath: string;
+  highResUrl?: string;       // 1024x1024 高解像度WebPストリーミング用パス
+  thumbnailUrl?: string;     // 256x256 BLEサムネイル用
+  hasEcgGrid?: boolean;      // 1mm/5mm方眼紙グリッド重畳フラグ (心電図用)
+  findingsSummary?: string;  // カルテ【アセスメント】転記用短縮テキスト
 }
 
 export const CLINICAL_ATLAS_CATALOG: ClinicalAtlasItem[] = [
@@ -109,7 +113,10 @@ export const CLINICAL_ATLAS_CATALOG: ClinicalAtlasItem[] = [
     clinicalSignificance: "左前下行枝（LAD）本幹〜近位部閉塞を示唆。左室広範梗塞・心原性ショック・心不全・致死性不整脈（VF）のリスク極めて高く、直ちにカテーテル室へ搬送（Door to Balloon < 90分）が必要。",
     differentialDiagnosis: "早期再分極症候群、急性心膜炎（全誘導性広範ST上昇、PR低下）、たこつぼ心筋症、左室肥大（Strain pattern）",
     imageFileName: "ecg_stemi_anterior_v1_v4.webp",
-    sdFilePath: "/clinical_atlas/ecg_library/ecg_stemi_anterior.webp"
+    sdFilePath: "/clinical_atlas/ecg_library/ecg_stemi_anterior.webp",
+    hasEcgGrid: true,
+    findingsSummary: "12誘導ECG: V1-V4 ST上昇（STEMI LAD領域疑い）。対側性ST低下(II,III,aVF)。緊急冠動脈造影(CAG)適応。",
+    thumbnailUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='160' viewBox='0 0 256 160'><rect width='256' height='160' fill='%23fff1f2'/><path d='M0 80h50l8-15 10 35 12-70 12 90 8-40h20l15-25 15 5 15-5h91' fill='none' stroke='%23e11d48' stroke-width='2.5'/><text x='10' y='22' font-family='monospace' font-size='11' font-weight='bold' fill='%239f1239'>V2-V4 ST ELEVATION [STEMI]</text></svg>",
   },
   {
     id: "ATLAS_ECG_HYPERKALEMIA",
@@ -119,7 +126,23 @@ export const CLINICAL_ATLAS_CATALOG: ClinicalAtlasItem[] = [
     clinicalSignificance: "K値 > 6.5〜7.0 mEq/L の極めて危険なパニック所見。心室細動（VF）や心静止（Asystole）へ直結する超緊急病態。直ちにグルコン酸カルシウム（カルチコール）10ml静注（心筋保護膜安定化）およびGI療法（ブドウ糖・インスリン点滴）が必要。",
     differentialDiagnosis: "早期再分極、正常亜型（若年男性の増高T波）、急性虚血性心筋梗塞超初期（Hyperacute T wave）",
     imageFileName: "ecg_hyperkalemia_peaked_t.webp",
-    sdFilePath: "/clinical_atlas/ecg_library/ecg_hyperkalemia.webp"
+    sdFilePath: "/clinical_atlas/ecg_library/ecg_hyperkalemia.webp",
+    hasEcgGrid: true,
+    findingsSummary: "12誘導ECG: 広範な高尖鋭T波(テント状T波)＋QRS延長。重度高K血症(K>6.5)疑い。緊急カルチコール静注＋GI療法要。",
+    thumbnailUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='160' viewBox='0 0 256 160'><rect width='256' height='160' fill='%23fef2f2'/><path d='M0 80h60l6-10 6 20 8-50 8 40h20l10-60 10 60h128' fill='none' stroke='%23dc2626' stroke-width='2.5'/><text x='10' y='22' font-family='monospace' font-size='11' font-weight='bold' fill='%23991b1b'>TENTED T-WAVE [K &gt; 7.0]</text></svg>",
+  },
+  {
+    id: "ATLAS_ECG_AF_RVR",
+    category: "心電図",
+    title: "心房細動 (Af: 細動波 ＆ 絶対的不整 ＆ 頻拍)",
+    typicalFeatures: "P波の消失、基線の不規則な細動波（f波）、RR間隔が完全に不規則（絶対的不整: irregularly irregular）。QRS波形は正常狭小（変行伝導時は幅広）。",
+    clinicalSignificance: "頻脈性心房細動（HR>110）。左房内血栓形成から心原性脳塞栓症のリスク（CHADS2スコア評価）。レートコントロール（β遮断薬/ジギタリス/Ca拮抗薬）および抗凝固療法（DOAC）適応判定。",
+    differentialDiagnosis: "頻発性心房期外収縮（PAC）、心房粗動（AFL: 鋸歯状F波）、多源性心房頻拍（MAT）",
+    imageFileName: "ecg_af_rapid_irregular.webp",
+    sdFilePath: "/clinical_atlas/ecg_library/ecg_af_rapid.webp",
+    hasEcgGrid: true,
+    findingsSummary: "12誘導ECG: P波消失、RR間隔絶対的不整、基線細動波(f波)。Af頻拍。CHADS2評価およびレートコントロール検討。",
+    thumbnailUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='160' viewBox='0 0 256 160'><rect width='256' height='160' fill='%23f0fdf4'/><path d='M0 80c5 2 10-2 15 0l5-25 5 45 4-20c10 2 20-2 25 0l5-25 5 45 4-20c5 2 15-2 20 0l5-25 5 45 4-20c12 2 25-2 30 0l5-25 5 45 4-20h99' fill='none' stroke='%2316a34a' stroke-width='2'/><text x='10' y='22' font-family='monospace' font-size='11' font-weight='bold' fill='%23166534'>ATRIAL FIBRILLATION [Af]</text></svg>",
   },
   {
     id: "ATLAS_DERM_HERPES_ZOSTER",
@@ -129,7 +152,9 @@ export const CLINICAL_ATLAS_CATALOG: ClinicalAtlasItem[] = [
     clinicalSignificance: "水痘・帯状疱疹ウイルス（VZV）の再活性化。皮疹出現後72時間以内の抗ウイルス薬（アメナメビル、バラシクロビル、アシクロビル）投与開始が帯状疱疹後神経痛（PHN）予防に極めて重要。",
     differentialDiagnosis: "単純ヘルペス（HSV）、接触皮膚炎（うるし等）、丹毒、虫刺症、多形滲出性紅斑",
     imageFileName: "derm_zoster_th4_dermatome.webp",
-    sdFilePath: "/clinical_atlas/dermatology/derm_herpes_zoster.webp"
+    sdFilePath: "/clinical_atlas/dermatology/derm_herpes_zoster.webp",
+    findingsSummary: "皮膚所見: 片側性デルマトームに一致した集簇性小水疱・紅斑。神経痛随伴。帯状疱疹(VZV)臨床診断。抗ウイルス薬開始。",
+    thumbnailUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='160' viewBox='0 0 256 160'><rect width='256' height='160' fill='%23fff7ed'/><ellipse cx='80' cy='80' rx='50' ry='30' fill='%23fed7aa' stroke='%23ea580c' stroke-width='2'/><circle cx='60' cy='75' r='8' fill='%23ea580c' opacity='0.7'/><circle cx='85' cy='82' r='10' fill='%23ea580c' opacity='0.8'/><circle cx='105' cy='78' r='6' fill='%23ea580c' opacity='0.6'/><circle cx='130' cy='90' r='7' fill='%23f97316' opacity='0.7'/><text x='10' y='22' font-family='monospace' font-size='11' font-weight='bold' fill='%239a3412'>HERPES ZOSTER [Th4]</text></svg>",
   },
   {
     id: "ATLAS_DERM_SJS_TEN",
@@ -139,7 +164,9 @@ export const CLINICAL_ATLAS_CATALOG: ClinicalAtlasItem[] = [
     clinicalSignificance: "重症薬疹（原因薬: アロプリノール、カルバマゼピン、NSAIDs、抗てんかん薬等）。皮膚剥離面積 10%未満: SJS, 30%以上: TEN。死亡率高率（10〜30%）。原因薬即時中止、ステロイドパルス、免疫グロブリン静注（IVIG）、熱傷ユニット管理が必要。",
     differentialDiagnosis: "多形滲出性紅斑（EEM）、ブドウ球菌性熱傷様皮膚症候群（SSSS）、GVHD、落葉状天疱瘡",
     imageFileName: "derm_sjs_mucosal_involvement.webp",
-    sdFilePath: "/clinical_atlas/dermatology/derm_sjs_ten.webp"
+    sdFilePath: "/clinical_atlas/dermatology/derm_sjs_ten.webp",
+    findingsSummary: "皮膚所見: 多発粘膜病変＋広範紅斑・水疱形成。Nikolsky(+)。重症薬疹(SJS/TEN疑い)。原因薬即時中止・救急高次搬送要。",
+    thumbnailUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='160' viewBox='0 0 256 160'><rect width='256' height='160' fill='%23faf5ff'/><rect x='40' y='40' width='176' height='80' rx='12' fill='%23f3e8ff' stroke='%239333ea' stroke-width='2'/><circle cx='70' cy='80' r='18' fill='%23c084fc' opacity='0.8'/><circle cx='120' cy='75' r='22' fill='%23a855f7' opacity='0.7'/><circle cx='170' cy='85' r='16' fill='%23c084fc' opacity='0.8'/><text x='10' y='22' font-family='monospace' font-size='11' font-weight='bold' fill='%236b21a8'>SJS / TEN [EPIDERMOLYSIS]</text></svg>",
   },
   {
     id: "ATLAS_ENDO_EARLY_GASTRIC_CA",
@@ -149,7 +176,9 @@ export const CLINICAL_ATLAS_CATALOG: ClinicalAtlasItem[] = [
     clinicalSignificance: "粘膜内または粘膜下層浅層（SM1）にとどまる早期癌。内視鏡的粘膜下層剥離術（ESD）の絶対適応基準（2cm以下の分化型粘膜内癌、潰瘍瘢痕なし等）に合致すれば根治切除可能。",
     differentialDiagnosis: "胃潰瘍（消化性潰瘍）瘢痕期、慢性萎縮性胃炎の限局性びらん、胃良性ポリープ、MALTリンパ腫",
     imageFileName: "endo_early_gastric_cancer_0iic.webp",
-    sdFilePath: "/clinical_atlas/endoscopy/endo_gastric_ca_0iic.webp"
+    sdFilePath: "/clinical_atlas/endoscopy/endo_gastric_ca_0iic.webp",
+    findingsSummary: "内視鏡所見: 胃角部小弯に約15mmの境界明瞭な不整陥凹病変(0-IIc)。ひだ集中・途絶。早期胃癌疑い。ESD適応精査。",
+    thumbnailUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='160' viewBox='0 0 256 160'><rect width='256' height='160' fill='%23fff1f2'/><ellipse cx='128' cy='85' rx='70' ry='45' fill='%23fecdd3' stroke='%23be123c' stroke-width='2'/><path d='M100 85c10-8 30-10 45-2s15 15 5 22-35 5-45-8c-5-5-8-8-5-12z' fill='%23e11d48' opacity='0.85'/><text x='10' y='22' font-family='monospace' font-size='11' font-weight='bold' fill='%23881337'>EARLY GASTRIC CA [0-IIc]</text></svg>",
   },
   {
     id: "ATLAS_ENDO_GERD_LA_B",
@@ -159,67 +188,125 @@ export const CLINICAL_ATLAS_CATALOG: ClinicalAtlasItem[] = [
     clinicalSignificance: "胃酸逆流による器質的食道粘膜傷害。胸焼け、呑酸、心窩部痛の主訴と合致。P-CAB（タケキャブ 20mg）またはPPI（ネキシウム等）による初期治療（4〜8週間）の保険適用基準。",
     differentialDiagnosis: "好酸球性食道炎（縦走溝・輪状溝）、カンジダ食道炎（白斑付着）、食道アカラシア、食道扁平上皮癌",
     imageFileName: "endo_gerd_la_grade_b.webp",
-    sdFilePath: "/clinical_atlas/endoscopy/endo_gerd_la_b.webp"
+    sdFilePath: "/clinical_atlas/endoscopy/endo_gerd_la_b.webp",
+    findingsSummary: "内視鏡所見: 下部食道に長径>5mmの非癒合性びらん。逆流性食道炎 LA Grade B。タケキャブ20mg処方開始。",
+    thumbnailUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='160' viewBox='0 0 256 160'><rect width='256' height='160' fill='%23fffbeb'/><rect x='80' y='30' width='96' height='100' rx='8' fill='%23fef3c7' stroke='%23b45309' stroke-width='2'/><line x1='105' y1='50' x2='105' y2='95' stroke='%23dc2626' stroke-width='4' stroke-linecap='round'/><line x1='135' y1='65' x2='135' y2='105' stroke='%23dc2626' stroke-width='3.5' stroke-linecap='round'/><text x='10' y='22' font-family='monospace' font-size='11' font-weight='bold' fill='%2378350f'>REFLUX ESOPHAGITIS [LA-B]</text></svg>",
   }
 ];
 
 // 3. 医薬品添付文書・錠剤刻印・持参薬識別
 export interface DrugIdentificationItem {
   id: string;
+  yjCode: string;            // 厚労省 YJコード
+  janCode?: string;          // JANバーコード
   brandName: string;
   genericName: string;
-  imprintCode: string; // 錠剤刻印記号 (例: "ア 327", "TL 20")
+  imprintCode: string;       // 統合刻印記号 (後方互換性)
+  imprintFront: string;      // 表側 刻印記号 (例: "TAKECAB 20")
+  imprintBack: string;       // 裏側 刻印記号 (例: "20")
   colorAndShape: string;
   category: string;
+  diameterMm: number;        // 直径 (mm)
+  thicknessMm: number;       // 厚さ (mm)
+  hasScoredLine: boolean;    // 割線有無
   standardDose: string;
+  renalDoseInfo: string;     // 腎機能別減量設計 (eGFR/CCr基準)
   majorCautions: string;
+  frontImageUrl: string;     // 表側サムネイル (256x256 WebP DataURL)
+  backImageUrl: string;      // 裏側サムネイル (256x256 WebP DataURL)
+  thumbnailUrl?: string;     // 互換用サムネイル
   sdFilePath: string;
+  pdfPath: string;           // 添付文書原本PDFパス
 }
 
 export const DRUG_IDENTIFICATION_CATALOG: DrugIdentificationItem[] = [
   {
     id: "DRUG_ID_TAKECAB20",
+    yjCode: "2329031F2024",
+    janCode: "4987123143522",
     brandName: "タケキャブ錠20mg",
     genericName: "ボノプラザンフマル酸塩",
-    imprintCode: "TAKECAB 20",
-    colorAndShape: "淡赤色、円形フィルムコーティング錠、割線あり、直径7.1mm",
+    imprintCode: "TAKECAB 20 / 20",
+    imprintFront: "TAKECAB 20",
+    imprintBack: "20",
+    colorAndShape: "淡赤色、円形フィルムコーティング錠",
     category: "カリウムイオン競合型アシッドブロッカー (P-CAB)",
+    diameterMm: 7.1,
+    thicknessMm: 3.4,
+    hasScoredLine: true,
     standardDose: "逆流性食道炎: 1回20mg 1日1回（通常4週、最長8週）。ピロリ除菌: 1回20mgをアモキシシリン・クラリスロマイシンと1日2回7日間。",
+    renalDoseInfo: "腎機能障害患者における用量調節は原則不要（重度腎障害時も通常用量で投与可能だが慎重投与）。",
     majorCautions: "アタザナビル（レイアタッツ）、リルピビリン（エジュラント）投与中の患者は禁忌（胃酸分泌抑制により抗HIV薬の吸収低下）。",
-    sdFilePath: "/drugs/pill_photos/takecab_20mg.webp"
+    sdFilePath: "/drugs/pill_photos/takecab_20mg.webp",
+    pdfPath: "/drugs/package_inserts/2329031F2024.pdf",
+    frontImageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'><rect width='256' height='256' fill='%230f172a'/><circle cx='128' cy='128' r='90' fill='%23fda4af' stroke='%23f43f5e' stroke-width='4'/><line x1='128' y1='40' x2='128' y2='216' stroke='%23e11d48' stroke-width='2' stroke-dasharray='4'/><text x='128' y='122' font-family='sans-serif' font-weight='bold' font-size='18' text-anchor='middle' fill='%23881337'>TAKECAB</text><text x='128' y='148' font-family='sans-serif' font-weight='bold' font-size='20' text-anchor='middle' fill='%23881337'>20</text><text x='128' y='240' font-family='monospace' font-size='11' text-anchor='middle' fill='%23cbd5e1'>[FRONT: 表刻印 7.1mm]</text></svg>",
+    backImageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'><rect width='256' height='256' fill='%230f172a'/><circle cx='128' cy='128' r='90' fill='%23fda4af' stroke='%23f43f5e' stroke-width='4'/><line x1='128' y1='40' x2='128' y2='216' stroke='%23e11d48' stroke-width='2' stroke-dasharray='4'/><text x='128' y='136' font-family='sans-serif' font-weight='bold' font-size='30' text-anchor='middle' fill='%23881337'>20</text><text x='128' y='240' font-family='monospace' font-size='11' text-anchor='middle' fill='%23cbd5e1'>[BACK: 裏刻印 割線]</text></svg>",
   },
   {
     id: "DRUG_ID_ELIQUIS5",
+    yjCode: "3339002F2025",
+    janCode: "4987087037746",
     brandName: "エリキュース錠5mg",
     genericName: "アピキサバン",
-    imprintCode: "894 5",
-    colorAndShape: "黄色、両凸の楕円形フィルムコーティング錠、短径6.0mm 長径9.9mm",
+    imprintCode: "894 / 5",
+    imprintFront: "894",
+    imprintBack: "5",
+    colorAndShape: "黄色、両凸の楕円形フィルムコーティング錠",
     category: "経口直接作用型第Xa因子阻害剤 (DOAC)",
-    standardDose: "非弁膜症性心房細動における虚血性脳卒中予防: 1回5mg 1日2回。減量基準（1回2.5mg 1日2回）: ①80歳以上 ②体重60kg以下 ③血清Cr 1.5mg/dL以上のうち2項目以上該当。",
-    majorCautions: "出血性疾患、急性細菌性心内膜炎、重度腎機能障害（CLcr < 15mL/min）は禁忌。ケトコナゾール、イトラコナゾール等強力なCYP3A4・P-gp阻害薬併用時は注意。",
-    sdFilePath: "/drugs/pill_photos/eliquis_5mg.webp"
+    diameterMm: 9.9,
+    thicknessMm: 4.2,
+    hasScoredLine: false,
+    standardDose: "非弁膜症性心房細動における虚血性脳卒中予防: 1回5mg 1日2回。深部静脈血栓症(DVT)の治療: 1回10mg 1日2回 7日間 ➔ 1回5mg 1日2回。",
+    renalDoseInfo: "減量基準（1回2.5mg 1日2回）: ①80歳以上 ②体重<=60kg ③血清Cr>=1.5mg/dL のうち2項目以上該当時。重度腎障害(CLcr<15)は禁忌。",
+    majorCautions: "出血性疾患、急性細菌性心内膜炎、重度腎不全は禁忌。ケトコナゾール等強力なCYP3A4・P-gp阻害薬併用時は注意。",
+    sdFilePath: "/drugs/pill_photos/eliquis_5mg.webp",
+    pdfPath: "/drugs/package_inserts/3339002F2025.pdf",
+    frontImageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'><rect width='256' height='256' fill='%230f172a'/><ellipse cx='128' cy='128' rx='95' ry='60' fill='%23fef08a' stroke='%23eab308' stroke-width='4'/><text x='128' y='136' font-family='sans-serif' font-weight='bold' font-size='26' text-anchor='middle' fill='%23713f12'>894</text><text x='128' y='240' font-family='monospace' font-size='11' text-anchor='middle' fill='%23cbd5e1'>[FRONT: 楕円形 9.9x6.0mm]</text></svg>",
+    backImageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'><rect width='256' height='256' fill='%230f172a'/><ellipse cx='128' cy='128' rx='95' ry='60' fill='%23fef08a' stroke='%23eab308' stroke-width='4'/><text x='128' y='138' font-family='sans-serif' font-weight='bold' font-size='32' text-anchor='middle' fill='%23713f12'>5</text><text x='128' y='240' font-family='monospace' font-size='11' text-anchor='middle' fill='%23cbd5e1'>[BACK: 規格刻印 5mg]</text></svg>",
   },
   {
     id: "DRUG_ID_FORXIGA10",
+    yjCode: "3969018F2023",
+    janCode: "4987087039603",
     brandName: "フォシーガ錠10mg",
     genericName: "ダパグリフロジンプロピレングリコール水和物",
-    imprintCode: "10 1427",
-    colorAndShape: "黄色、両凸のダイヤモンド形フィルムコーティング錠",
+    imprintCode: "10 / 1427",
+    imprintFront: "10",
+    imprintBack: "1427",
+    colorAndShape: "黄色、両凸のダイヤモンド形(菱形)フィルムコーティング錠",
     category: "SGLT2阻害剤 (糖尿病・慢性心不全・CKD治療薬)",
+    diameterMm: 8.5,
+    thicknessMm: 4.1,
+    hasScoredLine: false,
     standardDose: "2型糖尿病: 1回5mg 1日1回（効果不十分時10mg）。慢性心不全（HFrEF/HFpEF）、慢性腎臓病（CKD）: 1回10mg 1日1回。",
-    majorCautions: "尿路感染・性器感染、脱水、正常血糖ケトアシドーシス（euglycemic DKA）に注意。シックデイ時は休薬。透析患者には無効のため投与不可。",
-    sdFilePath: "/drugs/pill_photos/forxiga_10mg.webp"
+    renalDoseInfo: "eGFR 25〜60: 心不全・CKDに対して10mg継続推奨。eGFR < 25: 新規開始は推奨されないが継続可。透析患者には無効のため投与中止。",
+    majorCautions: "尿路感染・性器感染、脱水、正常血糖ケトアシドーシス（euglycemic DKA）に注意。シックデイ（発熱・下痢・食思不振）時は必ず休薬。",
+    sdFilePath: "/drugs/pill_photos/forxiga_10mg.webp",
+    pdfPath: "/drugs/package_inserts/3969018F2023.pdf",
+    frontImageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'><rect width='256' height='256' fill='%230f172a'/><polygon points='128,45 218,128 128,211 38,128' fill='%23fef08a' stroke='%23ca8a04' stroke-width='4'/><text x='128' y='137' font-family='sans-serif' font-weight='bold' font-size='28' text-anchor='middle' fill='%23713f12'>10</text><text x='128' y='240' font-family='monospace' font-size='11' text-anchor='middle' fill='%23cbd5e1'>[FRONT: ダイヤモンド形 10mg]</text></svg>",
+    backImageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'><rect width='256' height='256' fill='%230f172a'/><polygon points='128,45 218,128 128,211 38,128' fill='%23fef08a' stroke='%23ca8a04' stroke-width='4'/><text x='128' y='136' font-family='sans-serif' font-weight='bold' font-size='20' text-anchor='middle' fill='%23713f12'>1427</text><text x='128' y='240' font-family='monospace' font-size='11' text-anchor='middle' fill='%23cbd5e1'>[BACK: 識別コード 1427]</text></svg>",
   },
   {
     id: "DRUG_ID_AMODIPIN5",
+    yjCode: "2171022F2020",
+    janCode: "4987087034110",
     brandName: "アムロジピン錠5mg (アムロジン/ノルバスク等)",
     genericName: "アムロジピンベシル酸塩",
     imprintCode: "ア 5 / NL 5",
-    colorAndShape: "白色〜淡黄色、円形素錠または割線入りフィルムコーティング錠",
+    imprintFront: "ア 5",
+    imprintBack: "NL 5",
+    colorAndShape: "白色〜淡黄色、円形割線入り錠",
     category: "持続性Ca拮抗薬 (ジヒドロピリジン系降圧薬)",
+    diameterMm: 7.0,
+    thicknessMm: 2.8,
+    hasScoredLine: true,
     standardDose: "高血圧症: 1回2.5〜5mg 1日1回。効果不十分時10mgまで増量可能。狭心症: 1回5mg 1日1回。",
-    majorCautions: "妊婦禁忌。グレープフルーツジュース併用注意（CYP3A4阻害により血中濃度上昇）。下腿浮腫・歯肉肥厚に留意。",
-    sdFilePath: "/drugs/pill_photos/amlodipine_5mg.webp"
+    renalDoseInfo: "腎機能障害患者における用量調節は不要（透析患者でも通常用量で使用可能。透析による除去率極めて低い）。",
+    majorCautions: "妊婦禁忌。グレープフルーツジュース併用注意（CYP3A4阻害により降圧作用増強）。下腿浮腫・歯肉肥厚に留意。",
+    sdFilePath: "/drugs/pill_photos/amlodipine_5mg.webp",
+    pdfPath: "/drugs/package_inserts/2171022F2020.pdf",
+    frontImageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'><rect width='256' height='256' fill='%230f172a'/><circle cx='128' cy='128' r='90' fill='%23fefce8' stroke='%23eab308' stroke-width='4'/><line x1='40' y1='128' x2='216' y2='128' stroke='%23ca8a04' stroke-width='2' stroke-dasharray='4'/><text x='128' y='105' font-family='sans-serif' font-weight='bold' font-size='26' text-anchor='middle' fill='%23713f12'>ア</text><text x='128' y='170' font-family='sans-serif' font-weight='bold' font-size='26' text-anchor='middle' fill='%23713f12'>5</text><text x='128' y='240' font-family='monospace' font-size='11' text-anchor='middle' fill='%23cbd5e1'>[FRONT: 割線 ア 5]</text></svg>",
+    backImageUrl: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'><rect width='256' height='256' fill='%230f172a'/><circle cx='128' cy='128' r='90' fill='%23fefce8' stroke='%23eab308' stroke-width='4'/><text x='128' y='136' font-family='sans-serif' font-weight='bold' font-size='26' text-anchor='middle' fill='%23713f12'>NL 5</text><text x='128' y='240' font-family='monospace' font-size='11' text-anchor='middle' fill='%23cbd5e1'>[BACK: 識別コード NL 5]</text></svg>",
   }
 ];
 
