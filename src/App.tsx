@@ -1,71 +1,30 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
-import { 
-  FileText, 
-  Cpu, 
-  FileCode, 
-  AlertCircle,
-  ExternalLink,
-  ShieldCheck,
-  Check
-} from 'lucide-react';
-import { MacMenuBar } from './components/MacMenuBar';
-import { MacDesktopIcons } from './components/MacDesktopIcons';
-import { InputPane } from './components/InputPane';
-import { VirtualDongleSimulator, LED_DEFINITIONS } from './utils/virtualDongle';
-import { BleDongleManager, bleManager } from './utils/webBluetooth';
+import { bleManager } from './utils/webBluetooth';
 import { buildTransmissionSession, PreparedSession } from './utils/packetBuilder';
-import { 
-  SystemState, 
-  LedStatus, 
-  DispatchMode, 
-  SessionTransmissionStatus, 
-  CommunicationLogEntry 
-} from './types';
-import { APP_NAME, APP_VERSION, FULL_VERSION_LABEL, LATEST_FIRMWARE_VERSION, getFormattedBuildDate } from './version';
-
+import { DispatchMode } from './types';
+import { APP_VERSION, LATEST_FIRMWARE_VERSION } from './version';
 import { NativePwaEdgeLayout } from './components/NativePwaEdgeLayout';
 
-// オンデマンド遅延ロード (初期バンドルサイズの劇的スリム化)
-const DongleConsole = React.lazy(() => import('./components/DongleConsole').then(m => ({ default: m.DongleConsole })));
-const FirmwareHub = React.lazy(() => import('./components/FirmwareHub').then(m => ({ default: m.FirmwareHub })));
-const MedPilotHotSyncModal = React.lazy(() => import('./components/MedPilotHotSyncModal').then(m => ({ default: m.MedPilotHotSyncModal })));
-const AboutMacModal = React.lazy(() => import('./components/AboutMacModal').then(m => ({ default: m.AboutMacModal })));
-const MacCalculatorModal = React.lazy(() => import('./components/MacCalculatorModal').then(m => ({ default: m.MacCalculatorModal })));
-const MacScrapbookModal = React.lazy(() => import('./components/MacScrapbookModal').then(m => ({ default: m.MacScrapbookModal })));
-const MacKeyCapsModal = React.lazy(() => import('./components/MacKeyCapsModal').then(m => ({ default: m.MacKeyCapsModal })));
-const MacSoundControlModal = React.lazy(() => import('./components/MacSoundControlModal').then(m => ({ default: m.MacSoundControlModal })));
-const MacBombDialog = React.lazy(() => import('./components/MacBombDialog').then(m => ({ default: m.MacBombDialog })));
-const MedicalDataSearchModal = React.lazy(() => import('./components/MedicalDataSearchModal').then(m => ({ default: m.MedicalDataSearchModal })));
-const MedicalCoprocessorModal = React.lazy(() => import('./components/MedicalCoprocessorModal').then(m => ({ default: m.MedicalCoprocessorModal })));
-const AiAssistModal = React.lazy(() => import('./components/AiAssistModal').then(m => ({ default: m.AiAssistModal })));
-const TemplateManagerModal = React.lazy(() => import('./components/TemplateManagerModal').then(m => ({ default: m.TemplateManagerModal })));
-const CameraOcrModal = React.lazy(() => import('./components/CameraOcrModal').then(m => ({ default: m.CameraOcrModal })));
-import { 
-  triggerMacScreenFlash, 
-  playMacBeep, 
-  playSosumi, 
-  playStartupChime,
-  playTrashSound
-} from './utils/macAudio';
-import { useAdaptiveLayout } from './hooks/useAdaptiveLayout';
+// 臨床現場で真に必要なモーダルのみオンデマンド遅延ロード
+const MedicalDataSearchModal = React.lazy(() =>
+  import('./components/MedicalDataSearchModal').then((m) => ({ default: m.MedicalDataSearchModal }))
+);
+const MedicalCoprocessorModal = React.lazy(() =>
+  import('./components/MedicalCoprocessorModal').then((m) => ({ default: m.MedicalCoprocessorModal }))
+);
+const AiAssistModal = React.lazy(() =>
+  import('./components/AiAssistModal').then((m) => ({ default: m.AiAssistModal }))
+);
+const TemplateManagerModal = React.lazy(() =>
+  import('./components/TemplateManagerModal').then((m) => ({ default: m.TemplateManagerModal }))
+);
+const CameraOcrModal = React.lazy(() =>
+  import('./components/CameraOcrModal').then((m) => ({ default: m.CameraOcrModal }))
+);
 
 const STORAGE_KEY_BUFFER = 'drvoice_dispatcher_buf';
 
 export default function App() {
-  // アダプティブレイアウト自動判定 ＆ 手動切替
-  const {
-    mode: adaptiveMode,
-    deviceType,
-    setMode: setAdaptiveMode,
-    isLandscape,
-    isMobile,
-    isTablet,
-    isDesktop
-  } = useAdaptiveLayout();
-
-  // ナビゲーションタブ: カルテ作成 / どんぐり君制御 / ファームウェア
-  const [activeTab, setActiveTab] = useState<'input' | 'dongle' | 'firmware'>('input');
-
   // 入力テキスト (Local-first: 自動永続化)
   const [inputText, setInputText] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -74,1097 +33,259 @@ export default function App() {
     return '';
   });
 
-  const [dispatchMode, setDispatchMode] = useState<DispatchMode>(DispatchMode.MODE_HYBRID_UNICODE);
+  // テキスト更新時に自動保存
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY_BUFFER, inputText);
+    }
+  }, [inputText]);
 
-  // 接続＆ドングル稼働状態
-  const [isVirtualMode, setIsVirtualMode] = useState<boolean>(true); // 初期値は仮想シミュレータ
+  // ドングルBLE接続 & 送信状態
   const [isBleConnected, setIsBleConnected] = useState<boolean>(false);
-  const [isUsbMounted, setIsUsbMounted] = useState<boolean>(true);
-  const [currentState, setCurrentState] = useState<SystemState>(SystemState.STATE_BLE_CONNECTED);
-  const [ledStatus, setLedStatus] = useState<LedStatus>(LED_DEFINITIONS[SystemState.STATE_BLE_CONNECTED]);
-
-  // 送信進捗・打鍵
-  const [transmissionStatus, setTransmissionStatus] = useState<SessionTransmissionStatus | null>(null);
   const [isSending, setIsSending] = useState<boolean>(false);
+  const [transmissionProgress, setTransmissionProgress] = useState<number>(0);
+  const [transmissionStage, setTransmissionStage] = useState<string>('');
 
-  // リアルタイム通信ログ
-  const [logs, setLogs] = useState<CommunicationLogEntry[]>([]);
-
-  // System 7 Classic II モード (1ビットモノクロ)
-  const [isMonoClassic, setIsMonoClassic] = useState<boolean>(true);
-
-  // UIモード: 'pwa' (ネイティブ風PWA仕様) | 'classic' (System 7 Classic Mac)
-  const [uiMode, setUiMode] = useState<'pwa' | 'classic'>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('drdongly_ui_mode_pref');
-      if (saved === 'pwa' || saved === 'classic') return saved;
-      // モバイル環境ならデフォルトで完全ネイティブPWA仕様
-      return window.innerWidth < 768 ? 'pwa' : 'classic';
-    }
-    return 'classic';
-  });
-
-  const handleSetUiMode = (mode: 'pwa' | 'classic') => {
-    setUiMode(mode);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('drdongly_ui_mode_pref', mode);
-    }
-  };
-
-  const [isDongleModalOpen, setIsDongleModalOpen] = useState(false);
-  const [isFirmwareModalOpen, setIsFirmwareModalOpen] = useState(false);
-
-  //  この Mac について (About This Macintosh)
-  const [isAboutModalOpen, setIsAboutModalOpen] = useState<boolean>(false);
-
-  //  System 7 Desk Accessories
-  const [isCalculatorOpen, setIsCalculatorOpen] = useState<boolean>(false);
-  const [isScrapbookOpen, setIsScrapbookOpen] = useState<boolean>(false);
-  const [isKeyCapsOpen, setIsKeyCapsOpen] = useState<boolean>(false);
-  const [isSoundControlOpen, setIsSoundControlOpen] = useState<boolean>(false);
-  const [isBombAlertOpen, setIsBombAlertOpen] = useState<boolean>(false);
-  const [bombDialogConfig, setBombDialogConfig] = useState<{
-    title: string;
-    message: string;
-    errorCode: string;
-    action: () => void;
-  }>({
-    title: 'カルテ全消去 (Empty Trash)',
-    message: '入力中のカルテテキストをすべて消去してゴミ箱を空にしますか？',
-    errorCode: 'ID = 02',
-    action: () => {},
-  });
-
-  // Desk Accessories モーダル連動
-  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
-  const [isCameraOcrOpen, setIsCameraOcrOpen] = useState(false);
-  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-  const [isImeBoostModalOpen, setIsImeBoostModalOpen] = useState(false);
-  const [isPreprocessorModalOpen, setIsPreprocessorModalOpen] = useState(false);
-  const [isCoprocessorModalOpen, setIsCoprocessorModalOpen] = useState(false);
+  // モーダル開閉ステート
   const [isMedicalSearchOpen, setIsMedicalSearchOpen] = useState(false);
-  const [isMedPilotHotSyncOpen, setIsMedPilotHotSyncOpen] = useState(false);
+  const [medicalSearchInitialTab, setMedicalSearchInitialTab] = useState<any>('all');
+  const [isCoprocessorModalOpen, setIsCoprocessorModalOpen] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [isCameraOcrOpen, setIsCameraOcrOpen] = useState(false);
 
-  // 通知バナー
-  const [bannerNotice, setBannerNotice] = useState<{
+  // 臨床通知トースト (自動消退)
+  const [toastNotice, setToastNotice] = useState<{
     type: 'info' | 'success' | 'warning' | 'error';
     message: string;
-    action?: {
-      label: string;
-      onClick?: () => void;
-      href?: string;
-    };
   } | null>(null);
 
-  // 参照
-  const virtualDongleRef = useRef<VirtualDongleSimulator | null>(null);
-  const bleManagerRef = useRef<BleDongleManager | null>(null);
-
-  // ログ追加
-  const addLog = useCallback((direction: 'tx' | 'rx' | 'sys', tag: string, message: string, hex?: string) => {
-    const entry: CommunicationLogEntry = {
-      id: Math.random().toString(36).substring(2, 9),
-      timestamp: new Date().toLocaleTimeString(),
-      direction,
-      tag,
-      message,
-      hex,
-    };
-    setLogs((prev) => [entry, ...prev.slice(0, 150)]);
+  const showToast = useCallback((type: 'info' | 'success' | 'warning' | 'error', message: string, duration = 3500) => {
+    setToastNotice({ type, message });
+    setTimeout(() => {
+      setToastNotice((cur) => (cur?.message === message ? null : cur));
+    }, duration);
   }, []);
 
-  // 起動時の初期化
+  // BLE 接続イベントリスナー登録
   useEffect(() => {
-    // 仮想ドングル
-    const sim = new VirtualDongleSimulator();
-    sim.setListener({
-      onStateChange: (state, led) => {
-        setCurrentState(state);
-        setLedStatus(led);
-      },
-      onAckGenerated: (ackStr) => {
-        setTransmissionStatus((prev) => (prev ? { ...prev, lastAck: ackStr } : null));
-        if (ackStr.includes('ALL_PACKETS_READY')) {
-          setTransmissionStatus((prev) => (prev ? { ...prev, status: 'waiting_button', progress: 100 } : null));
-          playMacBeep();
-        } else if (ackStr.includes('DISPATCH_STARTED')) {
-          setTransmissionStatus((prev) => (prev ? { ...prev, status: 'typing' } : null));
-        } else if (ackStr.includes('USB_REPORTS_SENT')) {
-          setTransmissionStatus((prev) => (prev ? { ...prev, status: 'completed' } : null));
-          setIsSending(false);
-          triggerMacScreenFlash();
-          playSosumi();
-
-          setTimeout(() => {
-            setTransmissionStatus((cur) => (cur?.status === 'completed' ? null : cur));
-          }, 3500);
-        }
-      },
-      onKeystroke: (_char, _acc) => {},
-      onMemoryWiped: () => {
-        addLog('sys', 'SECURE', 'AtomS3U メモリ完全消去 (volatile pointer zeroing)');
-      },
-      onLog: (direction, tag, msg) => {
-        addLog(direction, tag, msg);
-      },
-    });
-
-    virtualDongleRef.current = sim;
-    addLog('sys', 'INIT', `${FULL_VERSION_LABEL} 仮想 AtomS3U ドングル初期化完了 (Build: ${getFormattedBuildDate()})`);
-
-    // 実機BLEマネージャー (全モーダルと共有するシングルトン)
     const ble = bleManager;
-    ble.setLogListener((dir, tag, msg, hex) => {
-      addLog(dir, tag, msg, hex);
-    });
 
-    ble.addAckListener((event) => {
-      if (event.ackType === 'ALL_PACKETS_READY') {
-        setCurrentState(SystemState.STATE_READY_TO_TYPE);
-        setLedStatus(LED_DEFINITIONS[SystemState.STATE_READY_TO_TYPE]);
-        setTransmissionStatus((prev) => (prev ? { ...prev, status: 'waiting_button', progress: 100 } : null));
-        playMacBeep();
-      } else if (event.ackType === 'DISPATCH_STARTED') {
-        setCurrentState(SystemState.STATE_TYPING);
-        setLedStatus(LED_DEFINITIONS[SystemState.STATE_TYPING]);
-        setTransmissionStatus((prev) => (prev ? { ...prev, status: 'typing' } : null));
-      } else if (event.ackType === 'USB_REPORTS_SENT' || event.ackType === 'WIPED') {
-        setCurrentState(SystemState.STATE_BLE_CONNECTED);
-        setLedStatus(LED_DEFINITIONS[SystemState.STATE_BLE_CONNECTED]);
-        setTransmissionStatus((prev) => (prev ? { ...prev, status: 'completed' } : null));
+    // ACKイベント監視
+    const removeAckListener = ble.addAckListener((event) => {
+      if (event.ackType === 'USB_REPORTS_SENT') {
         setIsSending(false);
-
-        if (event.ackType === 'USB_REPORTS_SENT') {
-          triggerMacScreenFlash();
-          playSosumi();
-          addLog('sys', 'USB_DONE', '【USB打鍵完了】どんぐり君がWindows電子カルテPCへUSBキーストローク列を送出しました');
-        }
-
-        setBannerNotice({
-          type: 'success',
-          message: 'カルテ打鍵完了！どんぐり君は緑色点灯で待機中。続けて次のカルテを作成・送信できます。',
-        });
-        setTimeout(() => {
-          setTransmissionStatus((cur) => (cur?.status === 'completed' ? null : cur));
-        }, 3500);
+        showToast('success', '【USB打鍵完了】電子カルテPCへの自動入力が正常に完了しました！');
+      } else if (event.ackType === 'ALL_PACKETS_READY') {
+        showToast('info', '【転送完了】ドングル側で打鍵準備が整いました。');
       } else if (event.ackType === 'PHYSICAL_BTN_PRESSED') {
-        addLog('sys', 'BTN', '★AtomS3U 本体正面ボタンの押下をリアルタイム検知！');
-      } else if (event.ackType === 'USB_MOUNTED') {
-        setIsUsbMounted(true);
-        addLog('sys', 'USB', '実機AtomS3UがUSBキーボードとしてマウントされました');
-      } else if (event.ackType === 'USB_UNMOUNTED') {
-        setIsUsbMounted(false);
-        addLog('sys', 'USB', '実機AtomS3UのUSB接続が外れました (紫点灯)');
+        showToast('info', 'ドングル本体ボタンが押されました。');
       }
     });
 
+    // 切断監視
     ble.setOnDisconnect(() => {
       setIsBleConnected(false);
-      setCurrentState(SystemState.STATE_WAITING_BLE);
-      setLedStatus(LED_DEFINITIONS[SystemState.STATE_WAITING_BLE]);
-      setBannerNotice({
-        type: 'info',
-        message: 'AtomS3U とのBLE接続が切断されました。必要に応じて再接続してください。',
-      });
+      showToast('warning', 'T-Dongle-S3 とのBluetooth接続が切断されました。');
     });
-    bleManagerRef.current = ble;
-  }, [addLog]);
 
-  // 実機BLE接続
+    return () => {
+      removeAckListener();
+    };
+  }, [showToast]);
+
+  // 実機BLE接続ハンドラ
   const handleConnectBle = async () => {
     const isIframe = typeof window !== 'undefined' && window.self !== window.top;
     if (isIframe) {
-      setBannerNotice({
-        type: 'warning',
-        message: 'プレビュー枠内（iframe）ではブラウザのセキュリティ制限によりBluetooth接続が制限されています。右のボタンから新しいタブで開くか、仮想モードをお使いください。',
-        action: {
-          label: '新しいタブで開く (実機BLE用)',
-          href: window.location.href,
-        },
-      });
-      addLog('sys', 'BLE_INFO', 'iframe制限を検知。実機BLE接続には別タブまたはスマートフォンをご使用ください。');
+      showToast('warning', 'プレビュー枠内(iframe)ではBLEが制限されます。スマートフォンまたは独立タブで開いてください。');
       return;
     }
 
-    if (!bleManagerRef.current) return;
     try {
-      setIsVirtualMode(false);
-      setBannerNotice(null);
-      playMacBeep();
-      const ok = await bleManagerRef.current.connect();
+      if (isBleConnected) {
+        bleManager.disconnect();
+        setIsBleConnected(false);
+        showToast('info', 'BLE接続を切断しました。');
+        return;
+      }
+
+      showToast('info', 'T-Dongle-S3 デバイスをスキャンしています...');
+      const ok = await bleManager.connect();
       if (ok) {
         setIsBleConnected(true);
-        setCurrentState(SystemState.STATE_BLE_CONNECTED);
-        setLedStatus(LED_DEFINITIONS[SystemState.STATE_BLE_CONNECTED]);
-        playStartupChime();
-        setBannerNotice({
-          type: 'success',
-          message: 'AtomS3U (どんぐり君) との双方向BLE接続が確立しました！本体LED緑色点灯中。',
-        });
+        showToast('success', `T-Dongle-S3 (Dr.Dongly v${APP_VERSION}) との接続に成功しました！`);
       }
     } catch (err: any) {
       const errMsg = err?.message || String(err);
       if (errMsg.includes('DEVICE_CANCELLED') || errMsg.includes('User cancelled')) {
-        setBannerNotice({
-          type: 'info',
-          message: 'デバイスの選択がキャンセルされました。',
-        });
+        showToast('info', 'デバイス選択がキャンセルされました。');
       } else {
-        setBannerNotice({
-          type: 'error',
-          message: `Bluetooth接続エラー: ${errMsg}`,
-        });
-        addLog('sys', 'BLE_ERR', errMsg);
+        showToast('error', `Bluetooth接続失敗: ${errMsg}`);
       }
     }
   };
 
-  // 仮想モード切替
-  const handleToggleVirtualMode = () => {
-    playMacBeep();
-    if (isBleConnected && bleManagerRef.current) {
-      bleManagerRef.current.disconnect();
-      setIsBleConnected(false);
-    }
-    const newVirtual = !isVirtualMode;
-    setIsVirtualMode(newVirtual);
-    if (newVirtual) {
-      setCurrentState(SystemState.STATE_BLE_CONNECTED);
-      setLedStatus(LED_DEFINITIONS[SystemState.STATE_BLE_CONNECTED]);
-      addLog('sys', 'MODE', '仮想ドングルシミュレータに切り替えました。');
-      setBannerNotice({
-        type: 'info',
-        message: '仮想ドングルシミュレータが動作中です。実機がなくても全機能をテストできます。',
-      });
-    } else {
-      setCurrentState(SystemState.STATE_WAITING_BLE);
-      setLedStatus(LED_DEFINITIONS[SystemState.STATE_WAITING_BLE]);
-      addLog('sys', 'MODE', '実機BLE接続待機モードに切り替えました。');
-      setBannerNotice(null);
-    }
-  };
-
-  // セッション送信
-  const handleSendSession = async (session: PreparedSession) => {
-    setIsSending(true);
-    setTransmissionStatus({
-      sessionId: session.sessionId,
-      totalPackets: session.totalPackets,
-      totalBytes: session.totalBytes,
-      totalCrc16: session.totalCrc16,
-      mode: session.mode,
-      slots: session.slotPackets.map((s) => ({
-        seqNo: s.seqNo,
-        received: false,
-        length: s.payloadLen,
-        crc16: s.chunkCrc16,
-        preview: new TextDecoder().decode(s.payloadBytes).slice(0, 20),
-      })),
-      progress: 5,
-      status: 'sending',
-      startTime: Date.now(),
-    });
-
-    if (isVirtualMode) {
-      const sim = virtualDongleRef.current;
-      if (sim) {
-        addLog('tx', 'INIT', `仮想初期化フレーム送出 (SID:${session.sessionId}, Pkts:${session.totalPackets}, Bytes:${session.totalBytes})`);
-        sim.receiveInitFrame(session.initPacket);
-        await new Promise((r) => setTimeout(r, 50));
-
-        for (let i = 0; i < session.slotPackets.length; i++) {
-          const slot = session.slotPackets[i];
-          const pct = Math.floor(10 + ((i + 1) / session.slotPackets.length) * 80);
-          setTransmissionStatus((prev) => (prev ? { ...prev, progress: pct } : null));
-
-          addLog('tx', `SLOT#${i}`, `スロット #${i} 送出 (${slot.payloadLen}B, CRC:0x${slot.chunkCrc16.toString(16).toUpperCase()})`);
-          sim.receiveSlotFrame(slot.fullPacket);
-          await new Promise((r) => setTimeout(r, 40));
-        }
-
-        setTransmissionStatus((prev) => (prev ? { ...prev, progress: 100, status: 'waiting_button' } : null));
-        setIsSending(false);
-        playMacBeep();
-      }
-    } else {
-      const ble = bleManagerRef.current;
-      if (!ble) {
-        setBannerNotice({ type: 'warning', message: 'BLEマネージャーが準備できていません。' });
-        setIsSending(false);
-        setTransmissionStatus(null);
-        return;
-      }
-
-      try {
-        await ble.transmitSession(session, (pct, stage) => {
-          setTransmissionStatus((prev) => (prev ? { ...prev, progress: pct, lastAck: stage } : null));
-        });
-        setIsSending(false);
-        setTransmissionStatus((prev) => (prev ? { ...prev, progress: 100, status: 'waiting_button' } : null));
-        playMacBeep();
-      } catch (err: any) {
-        setTransmissionStatus((prev) => (prev ? { ...prev, status: 'failed', errorMessage: err.message } : null));
-        setBannerNotice({ type: 'error', message: `パケット転送エラー: ${err.message}` });
-        setIsSending(false);
-      }
-    }
-  };
-
-  // ボタン押下 (実機/仮想トリガー)
-  const handlePressButton = async () => {
-    playMacBeep();
-    if (isVirtualMode) {
-      virtualDongleRef.current?.pressPhysicalButton();
-    } else {
-      if (bleManagerRef.current && bleManagerRef.current.isConnected()) {
-        try {
-          addLog('tx', 'CMD', '画面から実機ドングルへ打鍵送出指示 (CMD:TRIGGER) を送信...');
-          await bleManagerRef.current.sendRemoteTrigger();
-        } catch (e: any) {
-          addLog('sys', 'ERR', `リモート打鍵指示エラー: ${e.message}`);
-        }
-      }
-    }
-  };
-
-  // 診断系
-  const handleSendPing = async (): Promise<{ rttMs: number }> => {
-    if (isVirtualMode) {
-      await new Promise((r) => setTimeout(r, 15));
-      addLog('sys', 'PING', '仮想ドングル Ping 応答完了 (RTT: 15ms)');
-      return { rttMs: 15 };
-    }
-    if (bleManagerRef.current) return bleManagerRef.current.sendPing();
-    throw new Error('BLE未接続です');
-  };
-
-  const handleSendWipe = async (): Promise<boolean> => {
-    if (isVirtualMode) {
-      virtualDongleRef.current?.secureWipeMessageContext();
-      return true;
-    }
-    if (bleManagerRef.current) return bleManagerRef.current.sendWipe();
-    throw new Error('BLE未接続です');
-  };
-
-  const handleSendLedTest = async (): Promise<boolean> => {
-    if (isVirtualMode) {
-      setLedStatus({ colorName: '赤色', hex: '#EF4444', rgb: [239, 68, 68], description: 'LEDテスト' });
-      setTimeout(() => setLedStatus({ colorName: '緑色', hex: '#10B981', rgb: [16, 185, 129], description: 'LEDテスト' }), 150);
-      setTimeout(() => setLedStatus({ colorName: '青色', hex: '#3B82F6', rgb: [59, 130, 246], description: 'LEDテスト' }), 300);
-      setTimeout(() => setLedStatus(LED_DEFINITIONS[currentState]), 450);
-      return true;
-    }
-    if (bleManagerRef.current) return bleManagerRef.current.sendLedTest();
-    throw new Error('BLE未接続です');
-  };
-
-  const handleRequestStatus = async (): Promise<string> => {
-    if (isVirtualMode) {
-      return `仮想モード稼働中 (USB: ${isUsbMounted ? 'マウント済' : '未接続'}, State: ${currentState})`;
-    }
-    if (bleManagerRef.current) return bleManagerRef.current.requestStatus();
-    throw new Error('BLE未接続です');
-  };
-
-  const handleRequestDictInfo = async (): Promise<string> => {
-    if (isVirtualMode) {
-      addLog('sys', 'DICT', '仮想 ドングル SPIFFS/Flash 辞書: med_terms.bin (48,920件) / kanji_yomi.bin (6,528文字) / minds_cds.bin (512B固定長 Mindsガイドライン) 正常マウント中');
-      return 'SPIFFS_OK: 医薬品・傷病名マスター (med_terms.bin: 48,920件) / JIS全漢字音訓読み (kanji_yomi.bin: 6,528文字) / Minds臨床ガイドライン (minds_cds.bin: 512B固定長)';
-    }
-    if (bleManagerRef.current) {
-      const resp = await bleManagerRef.current.requestDictInfo();
-      addLog('rx', 'DICT_RESP', `実機 AtomS3U 辞書応答: ${resp}`);
-      if (resp.startsWith('SPIFFS_OK')) {
-        return `SPIFFS 正常稼働: ${resp}`;
-      }
-      return resp;
-    }
-    throw new Error('BLE未接続です');
-  };
-
-  const handleToggleUsbMounted = () => {
-    if (virtualDongleRef.current && isVirtualMode) {
-      const next = !isUsbMounted;
-      setIsUsbMounted(next);
-      virtualDongleRef.current.setUsbMounted(next);
-      addLog('sys', 'USB', next ? 'USBキーボードがマウントされました。' : 'USBが抜去されました (紫点灯・送出拒絶)');
-    }
-  };
-
-  // メニュー操作用ハンドラ
-  const handleNewChart = () => {
-    if (inputText.trim()) {
-      if (confirm('新規カルテを作成しますか？現在の入力内容は消去されます。')) {
-        setInputText('');
-        localStorage.removeItem(STORAGE_KEY_BUFFER);
-        playSosumi();
-      }
-    } else {
-      setInputText('');
-    }
-    setActiveTab('input');
-  };
-
-  const handleInsertSoap = () => {
-    const soap = `【主訴】\n3日前からの咳嗽と発熱。市販薬無効。\n\n【客観的所見】\nKT: 37.8℃, HR: 78bpm, BP: 122/78 mmHg, SpO2: 98%\n咽頭発赤あり、扁桃肥大なし。胸部ラ音なし。\n\n【評価】\n急性上気道炎 (疑い)\n\n【処方・方針】\n対症療法中心。解熱鎮痛薬処方。`;
-    if (inputText.trim()) {
-      if (confirm('現在の入力をSOAP形式で置き換えますか？（キャンセルで末尾追記）')) {
-        setInputText(soap);
-      } else {
-        setInputText((prev) => `${prev}\n\n${soap}`);
-      }
-    } else {
-      setInputText(soap);
-    }
-    setActiveTab('input');
-    playMacBeep();
-  };
-
-  const handleEmptyTrash = () => {
-    if (!inputText.trim()) {
-      playMacBeep();
-      setBannerNotice({
-        type: 'info',
-        message: 'ゴミ箱はすでに空です。消去するカルテテキストがありません。',
-      });
-      return;
-    }
-    setBombDialogConfig({
-      title: 'カルテ全消去 (Empty Trash)',
-      message: '入力中のカルテテキストをすべて消去してゴミ箱を空にしますか？\n消去されたテキストは元に戻せません。',
-      errorCode: 'ID = 02 (Zero Wipe)',
-      action: () => {
-        setInputText('');
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem(STORAGE_KEY_BUFFER);
-        }
-        playTrashSound();
-        triggerMacScreenFlash();
-        setBannerNotice({
-          type: 'success',
-          message: 'カルテテキストをゴミ箱へ全消去しました。',
-        });
-      },
-    });
-    setIsBombAlertOpen(true);
-  };
-
-  const handleTestBomb = () => {
-    setBombDialogConfig({
-      title: 'システムエラー (System Bomb Alert)',
-      message: '深刻なエラーが発生しました。作業内容を保存してシステムを再起動することを推奨します。\n（※これはClassic Macオヤジ医師向けのノスタルジック演出テストです😊）',
-      errorCode: 'ID = 01 (Bus Error)',
-      action: () => {
-        playSosumi();
-        triggerMacScreenFlash();
-      },
-    });
-    setIsBombAlertOpen(true);
-  };
-
-  const handleInsertSnippet = (snippet: string) => {
-    setActiveTab('input');
-    setInputText((prev) => {
-      const next = prev ? (prev.endsWith('\n') ? prev + snippet : prev + '\n' + snippet) : snippet;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_KEY_BUFFER, next);
-      }
-      return next;
-    });
-    setBannerNotice({
-      type: 'info',
-      message: 'デスクアクセサリからカルテに挿入しました。',
-    });
-  };
-
-  const handleTransmitDirect = () => {
-    if (!inputText.trim()) {
-      playMacBeep();
-      return;
-    }
-    setActiveTab('input');
-    const session = buildTransmissionSession(inputText, dispatchMode);
-    handleSendSession(session);
-  };
-
+  // 電カル送信ハンドラ (Sudachi Mode C 長単位結合 ➔ v20.1 HYBRIDキーストローク送出)
   const handleSendDirect = async () => {
     if (!inputText.trim()) {
-      playMacBeep();
+      showToast('warning', '送信するカルテ所見が入力されていません。');
       return;
     }
+
+    if (!isBleConnected) {
+      showToast('warning', 'T-Dongle-S3 が未接続です。先にBluetooth接続を行ってください。');
+      try {
+        await handleConnectBle();
+      } catch {}
+      return;
+    }
+
     try {
-      const session = buildTransmissionSession(inputText, dispatchMode, {
-        enablePreprocessor: true,
-        enableImeBoost: true,
+      setIsSending(true);
+      setTransmissionProgress(5);
+      setTransmissionStage('コンパイル中...');
+
+      // Sudachi Mode C 形態素解析 & v20.1 HYBRID エンコード
+      const session: PreparedSession = buildTransmissionSession(
+        inputText,
+        DispatchMode.MODE_HYBRID_UNICODE,
+        {
+          enablePreprocessor: true,
+          enableImeBoost: true,
+        }
+      );
+
+      // BLEチャンク送出
+      await bleManager.transmitSession(session, (pct, stage) => {
+        setTransmissionProgress(pct);
+        setTransmissionStage(stage);
       });
-      await handleSendSession(session);
+
+      showToast('info', '送信完了！カルテPC側への自動打鍵を開始しています...');
     } catch (err: any) {
-      setBannerNotice({
-        type: 'error',
-        message: `送信エラー: ${err.message}`,
-      });
+      setIsSending(false);
+      showToast('error', `送信エラー: ${err?.message || err}`);
     }
   };
 
-  // =========================================================================
-  // ★ ネイティブ風PWA仕様 (スマホ最適化 / スプリットコンプリメンタリー)
-  // =========================================================================
-  if (uiMode === 'pwa') {
-    return (
-      <div className="w-full h-[100dvh] overflow-hidden bg-[#0F172A] overscroll-none touch-manipulation">
-        <NativePwaEdgeLayout
-          inputText={inputText}
-          setInputText={setInputText}
-          isBleConnected={isBleConnected}
-          isSending={isSending}
-          onConnectBle={handleConnectBle}
-          onSendSession={handleSendDirect}
-          onOpenSearch={() => setIsMedicalSearchOpen(true)}
-          onOpenCoprocessor={() => setIsCoprocessorModalOpen(true)}
-          onOpenWebLlm={() => setIsAiModalOpen(true)}
-          onOpenTemplates={() => setIsTemplateModalOpen(true)}
-          onOpenDongleConsole={() => setIsDongleModalOpen(true)}
-          onOpenMedPilot={() => setIsMedPilotHotSyncOpen(true)}
-          onOpenFirmware={() => setIsFirmwareModalOpen(true)}
-          onSwitchToClassicMac={() => handleSetUiMode('classic')}
-          onOpenAboutMac={() => setIsAboutModalOpen(true)}
-        />
-
-        {/* 共通モーダル群 (PWA Edge 上でもシームレスに起動) */}
-        <Suspense fallback={null}>
-          {isMedicalSearchOpen && (
-            <MedicalDataSearchModal
-              isOpen={isMedicalSearchOpen}
-              onClose={() => setIsMedicalSearchOpen(false)}
-              inputText={inputText}
-              onInsertText={(text) => {
-                setInputText((prev) => (prev ? `${prev}\n${text}` : text));
-              }}
-            />
-          )}
-
-          {isCoprocessorModalOpen && (
-            <MedicalCoprocessorModal
-              isOpen={isCoprocessorModalOpen}
-              onClose={() => setIsCoprocessorModalOpen(false)}
-              isBleConnected={isBleConnected}
-              onWriteBackToChart={async (text: string) => {
-                setInputText(text);
-                const session = buildTransmissionSession(text, dispatchMode);
-                await handleSendSession(session);
-              }}
-            />
-          )}
-
-          {isAiModalOpen && (
-            <AiAssistModal
-              isOpen={isAiModalOpen}
-              onClose={() => setIsAiModalOpen(false)}
-              originalText={inputText}
-              onApplyFormattedText={(text: string) => {
-                setInputText(text);
-              }}
-            />
-          )}
-
-          {isTemplateModalOpen && (
-            <TemplateManagerModal
-              isOpen={isTemplateModalOpen}
-              onClose={() => setIsTemplateModalOpen(false)}
-              currentInputText={inputText}
-              templates={[]}
-              onApplyTemplate={(content: string, mode: 'replace' | 'append') => {
-                if (mode === 'append') {
-                  setInputText((prev) => (prev ? `${prev}\n\n${content}` : content));
-                } else {
-                  setInputText(content);
-                }
-              }}
-              onSaveTemplate={() => {}}
-              onDeleteTemplate={() => {}}
-            />
-          )}
-
-          {isCameraOcrOpen && (
-            <CameraOcrModal
-              isOpen={isCameraOcrOpen}
-              onClose={() => setIsCameraOcrOpen(false)}
-              onApplyText={(extracted: string, mode: 'replace' | 'append') => {
-                if (mode === 'append') {
-                  setInputText((prev) => (prev ? `${prev}\n\n${extracted}` : extracted));
-                } else {
-                  setInputText(extracted);
-                }
-              }}
-            />
-          )}
-
-          {isMedPilotHotSyncOpen && (
-            <MedPilotHotSyncModal
-              isOpen={isMedPilotHotSyncOpen}
-              onClose={() => setIsMedPilotHotSyncOpen(false)}
-              initialText={inputText}
-            />
-          )}
-
-          {isDongleModalOpen && (
-            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 animate-in fade-in">
-              <div className="w-full max-w-xl max-h-[90vh] bg-white border-2 border-black rounded shadow-2xl flex flex-col overflow-hidden">
-                <div className="flex items-center justify-between p-2.5 bg-slate-900 text-white font-bold text-xs">
-                  <span>🌰 どんぐり君 ハードウェア管理 & 通信コンソール</span>
-                  <button onClick={() => setIsDongleModalOpen(false)} className="px-2 py-0.5 bg-slate-800 rounded hover:bg-slate-700">✕</button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-2">
-                  <DongleConsole
-                    currentState={currentState}
-                    ledStatus={ledStatus}
-                    isUsbMounted={isUsbMounted}
-                    isBleConnected={isBleConnected}
-                    isVirtualMode={isVirtualMode}
-                    transmissionStatus={transmissionStatus}
-                    logs={logs}
-                    onPressButton={handlePressButton}
-                    onClearLogs={() => setLogs([])}
-                    onToggleUsbMounted={handleToggleUsbMounted}
-                    onSendPing={handleSendPing}
-                    onSendWipe={handleSendWipe}
-                    onSendLedTest={handleSendLedTest}
-                    onRequestStatus={handleRequestStatus}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {isFirmwareModalOpen && (
-            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 animate-in fade-in">
-              <div className="w-full max-w-2xl max-h-[90vh] bg-white border-2 border-black rounded shadow-2xl flex flex-col overflow-hidden">
-                <div className="flex items-center justify-between p-2.5 bg-slate-900 text-white font-bold text-xs">
-                  <span>💾 ファームウェア・OTA ハブ (v{LATEST_FIRMWARE_VERSION})</span>
-                  <button onClick={() => setIsFirmwareModalOpen(false)} className="px-2 py-0.5 bg-slate-800 rounded hover:bg-slate-700">✕</button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-2">
-                  <FirmwareHub
-                    onClose={() => setIsFirmwareModalOpen(false)}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {isAboutModalOpen && (
-            <AboutMacModal
-              isOpen={isAboutModalOpen}
-              onClose={() => setIsAboutModalOpen(false)}
-              isVirtualMode={isVirtualMode}
-              isBleConnected={isBleConnected}
-            />
-          )}
-        </Suspense>
-      </div>
-    );
-  }
+  // 統合検索モーダルを開く
+  const handleOpenSearch = (initialTab: any = 'all') => {
+    setMedicalSearchInitialTab(initialTab);
+    setIsMedicalSearchOpen(true);
+  };
 
   return (
-    <div
-      className={`min-h-screen ${isMonoClassic ? 'classic-desktop' : 'bg-slate-100'} flex flex-col ${isMobile ? 'pb-20' : 'pb-16 md:pb-6'} select-none`}
-      style={{ fontFamily: "'DotGothic16', 'Monaco', monospace" }}
-    >
-      {/* ======================================================================= */}
-      {/* 1. Macintosh System 7 Menu Bar (画面最上部メニューバー) */}
-      {/* ======================================================================= */}
-      <MacMenuBar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        isBleConnected={isBleConnected}
-        isVirtualMode={isVirtualMode}
-        onConnectBle={handleConnectBle}
-        onToggleVirtualMode={handleToggleVirtualMode}
-        onNewChart={handleNewChart}
-        onInsertSoap={handleInsertSoap}
-        onOpenCoprocessor={() => { setActiveTab('input'); setIsCoprocessorModalOpen(true); }}
-        onOpenMedicalSearch={() => { setActiveTab('input'); setIsMedicalSearchOpen(true); }}
-        onOpenTemplates={() => { setActiveTab('input'); setIsTemplateModalOpen(true); }}
-        onOpenAiAssist={() => { setActiveTab('input'); setIsAiModalOpen(true); }}
-        onOpenOcr={() => { setActiveTab('input'); setIsCameraOcrOpen(true); }}
-        onOpenCds={() => { setActiveTab('input'); }}
-        onOpenImeBoost={() => { setActiveTab('input'); setIsImeBoostModalOpen(true); }}
-        onOpenMedPilot={() => setIsMedPilotHotSyncOpen(true)}
-        onOpenPreprocessor={() => { setActiveTab('input'); setIsPreprocessorModalOpen(true); }}
-        onOpenAbout={() => setIsAboutModalOpen(true)}
-        onOpenCalculator={() => setIsCalculatorOpen(true)}
-        onOpenScrapbook={() => setIsScrapbookOpen(true)}
-        onOpenKeyCaps={() => setIsKeyCapsOpen(true)}
-        onOpenSoundControl={() => setIsSoundControlOpen(true)}
-        onOpenBombAlert={handleTestBomb}
-        onTransmit={handleTransmitDirect}
-        onPressDongleBtn={handlePressButton}
-        onWipeRam={() => handleSendWipe()}
-        onEmptyTrash={handleEmptyTrash}
-        isMonoClassic={isMonoClassic}
-        setIsMonoClassic={setIsMonoClassic}
-        deviceType={deviceType}
-        adaptiveMode={adaptiveMode}
-        onSelectAdaptiveMode={setAdaptiveMode}
-        onSwitchToPwa={() => handleSetUiMode('pwa')}
-      />
-
-      {/* ======================================================================= */}
-      {/* 2. デスクトップ アイコン群 (右側: Macintosh HD, どんぐり君, FW, ゴミ箱) */}
-      {/* ======================================================================= */}
-      <MacDesktopIcons
-        onOpenInput={() => setActiveTab('input')}
-        onOpenDongle={() => setActiveTab('dongle')}
-        onOpenFirmware={() => setActiveTab('firmware')}
-        onOpenCoprocessor={() => { setActiveTab('input'); setIsCoprocessorModalOpen(true); }}
-        onOpenMedPilot={() => setIsMedPilotHotSyncOpen(true)}
-        onClearChart={handleEmptyTrash}
-        hasChartContent={Boolean(inputText.trim())}
-        deviceType={deviceType}
-      />
-
-      {/* ======================================================================= */}
-      {/* 3. デスクトップ 作業領域 (メインウィンドウ) */}
-      {/* ======================================================================= */}
-      <main className={`flex-1 ${isMobile ? 'w-full px-1.5 py-1.5' : isTablet ? 'max-w-3xl w-full mx-auto px-3 py-2' : 'max-w-4xl w-full mx-auto px-4 py-3'} space-y-2.5 sm:space-y-3`}>
-        {/* System 7 ウィンドウ切替タブ (Window Switcher - 横スクロール対応) */}
-        <div className="flex items-center gap-1 border-b border-black pb-1 select-none text-xs overflow-x-auto whitespace-nowrap scrollbar-none">
-          <button
-            onClick={() => {
-              playMacBeep();
-              setActiveTab('input');
-            }}
-            className={`mac-btn shrink-0 ${activeTab === 'input' ? 'bg-black text-white font-bold' : ''}`}
-          >
-            <span>📄 カルテ送信</span>
-          </button>
-
-          <button
-            onClick={() => {
-              playMacBeep();
-              setActiveTab('dongle');
-            }}
-            className={`mac-btn shrink-0 ${activeTab === 'dongle' ? 'bg-black text-white font-bold' : ''}`}
-          >
-            <span>🌰 どんぐり君</span>
-            <span
-              className="w-2 h-2 rounded-full border border-black inline-block ml-1"
-              style={{ backgroundColor: ledStatus.hex }}
-            />
-          </button>
-
-          <button
-            onClick={() => {
-              playMacBeep();
-              setActiveTab('firmware');
-            }}
-            className={`mac-btn shrink-0 ${activeTab === 'firmware' ? 'bg-black text-white font-bold' : ''}`}
-          >
-            <span>💾 FW {LATEST_FIRMWARE_VERSION}</span>
-          </button>
-
-          <button
-            onClick={() => {
-              playMacBeep();
-              setIsMedPilotHotSyncOpen(true);
-            }}
-            className="mac-btn shrink-0 bg-emerald-100 hover:bg-emerald-200 border border-black font-bold flex items-center gap-1 text-xs shadow-[1px_1px_0_#000] text-emerald-950"
-            title="MedPilot: 0.5ms臨床形態素解析 ＆ Sudachi Mode C + v20.1 HYBRID HotSyncコプロセッサを開く"
-          >
-            <span>🩺 MedPilot HotSync</span>
-            <span className="text-[9px] bg-emerald-700 text-white px-1 font-mono font-bold">0.5ms</span>
-          </button>
-
-          <button
-            onClick={() => {
-              playMacBeep();
-              setIsCoprocessorModalOpen(true);
-            }}
-            className="mac-btn shrink-0 bg-yellow-100 hover:bg-yellow-200 border border-black font-bold flex items-center gap-1 text-xs shadow-[1px_1px_0_#000]"
-            title="閉域網電カルから過去カルテを吸い上げ、スマホAIで要約し、書き戻す"
-          >
-            <span>📥 双方向コプロセッサ</span>
-            <span className="text-[9px] bg-black text-white px-1 font-mono">v19.1</span>
-          </button>
-
-          <button
-            onClick={() => {
-              playMacBeep();
-              setActiveTab('input');
-              setIsMedicalSearchOpen(true);
-            }}
-            className="mac-btn shrink-0 bg-emerald-50 hover:bg-emerald-100 border border-black font-bold flex items-center gap-1 text-xs shadow-[1px_1px_0_#000]"
-            title="Minds 169CQ・検査値・診療行為・腎機能減量・医薬品・病名を即時検索"
-          >
-            <span>📚 医療データ検索</span>
-          </button>
-        </div>
-
-        {/* System 7 スタイル アラート・通知バナー */}
-        {bannerNotice && (
-          <div className="bg-white border-2 border-black p-2.5 shadow-[3px_3px_0_#000] text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 animate-in fade-in">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-sm">
-                {bannerNotice.type === 'error' ? '⚠️' : bannerNotice.type === 'warning' ? '⚠️' : 'ℹ️'}
-              </span>
-              <span className="leading-relaxed">{bannerNotice.message}</span>
-            </div>
-
-            <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-              {bannerNotice.action && bannerNotice.action.href && (
-                <a
-                  href={bannerNotice.action.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mac-btn font-bold inline-flex items-center gap-1"
-                >
-                  <span>{bannerNotice.action.label}</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
-              {bannerNotice.action && bannerNotice.action.onClick && (
-                <button
-                  onClick={bannerNotice.action.onClick}
-                  className="mac-btn font-bold"
-                >
-                  {bannerNotice.action.label}
-                </button>
-              )}
-              <button
-                onClick={() => setBannerNotice(null)}
-                className="mac-btn text-[10px] px-1.5 py-0.2"
-                aria-label="閉じる"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* アクティブウィンドウのレンダリング */}
-        {activeTab === 'input' && (
-          <InputPane
-            inputText={inputText}
-            setInputText={setInputText}
-            dispatchMode={dispatchMode}
-            setDispatchMode={setDispatchMode}
-            onSendSession={handleSendSession}
-            transmissionStatus={transmissionStatus}
-            isSending={isSending}
-            isBleConnected={isBleConnected}
-            isVirtualMode={isVirtualMode}
-            onConnectBle={handleConnectBle}
-            onPressVirtualButton={handlePressButton}
-            onNavigateTab={setActiveTab}
-            isAiModalOpen={isAiModalOpen}
-            setIsAiModalOpen={setIsAiModalOpen}
-            isCameraOcrOpen={isCameraOcrOpen}
-            setIsCameraOcrOpen={setIsCameraOcrOpen}
-            isTemplateModalOpen={isTemplateModalOpen}
-            setIsTemplateModalOpen={setIsTemplateModalOpen}
-            isImeBoostModalOpen={isImeBoostModalOpen}
-            setIsImeBoostModalOpen={setIsImeBoostModalOpen}
-            isPreprocessorModalOpen={isPreprocessorModalOpen}
-            setIsPreprocessorModalOpen={setIsPreprocessorModalOpen}
-            isCoprocessorModalOpen={isCoprocessorModalOpen}
-            setIsCoprocessorModalOpen={setIsCoprocessorModalOpen}
-            isMedicalSearchOpen={isMedicalSearchOpen}
-            setIsMedicalSearchOpen={setIsMedicalSearchOpen}
-            isMedPilotOpen={isMedPilotHotSyncOpen}
-            setIsMedPilotOpen={setIsMedPilotHotSyncOpen}
-            deviceType={deviceType}
-            isLandscape={isLandscape}
-          />
-        )}
-
-        {activeTab === 'dongle' && (
-          <Suspense fallback={null}>
-            <DongleConsole
-              currentState={currentState}
-              ledStatus={ledStatus}
-              isUsbMounted={isUsbMounted}
-              isBleConnected={isBleConnected}
-              isVirtualMode={isVirtualMode}
-              transmissionStatus={transmissionStatus}
-              logs={logs}
-              onPressButton={handlePressButton}
-              onClearLogs={() => setLogs([])}
-              onToggleUsbMounted={handleToggleUsbMounted}
-              onSendPing={handleSendPing}
-              onSendWipe={handleSendWipe}
-              onSendLedTest={handleSendLedTest}
-              onRequestStatus={handleRequestStatus}
-              onRequestDictInfo={handleRequestDictInfo}
-              onClose={() => setActiveTab('input')}
-            />
-          </Suspense>
-        )}
-
-        {activeTab === 'firmware' && (
-          <Suspense fallback={null}>
-            <FirmwareHub
-              onClose={() => setActiveTab('input')}
-            />
-          </Suspense>
-        )}
-      </main>
-
-      {/* ======================================================================= */}
-      {/* 4. モバイル用 下部固定バー (Adaptive Touch Navigation) */}
-      {/* ======================================================================= */}
-      {isMobile && (
-        <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-black grid grid-cols-5 items-center h-12 pb-[env(safe-area-inset-bottom)] px-0.5 text-[10px] select-none shadow-[0_-1px_0_#000]">
-          <button
-            onClick={() => {
-              playMacBeep();
-              setActiveTab('input');
-            }}
-            className={`flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer ${
-              activeTab === 'input' ? 'bg-black text-white font-bold' : 'hover:bg-gray-100'
+    <div className="w-full h-[100dvh] overflow-hidden bg-[#0F172A] overscroll-none touch-manipulation">
+      {/* 臨床通知トースト (最前面通知) */}
+      {toastNotice && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[100] max-w-sm w-[90%] pointer-events-none animate-in fade-in slide-in-from-top duration-200">
+          <div
+            className={`px-4 py-2.5 rounded-xl border shadow-2xl backdrop-blur-md text-xs font-semibold flex items-center gap-2.5 ${
+              toastNotice.type === 'success'
+                ? 'bg-emerald-950/90 text-emerald-200 border-emerald-500/60 shadow-[0_4px_20px_rgba(16,185,129,0.3)]'
+                : toastNotice.type === 'warning'
+                ? 'bg-amber-950/90 text-amber-200 border-amber-500/60 shadow-[0_4px_20px_rgba(245,158,11,0.3)]'
+                : toastNotice.type === 'error'
+                ? 'bg-rose-950/90 text-rose-200 border-rose-500/60 shadow-[0_4px_20px_rgba(244,63,94,0.3)]'
+                : 'bg-slate-900/90 text-slate-200 border-slate-700 shadow-xl'
             }`}
           >
-            <FileText className="w-3.5 h-3.5" />
-            <span>カルテ</span>
-          </button>
-
-          <button
-            onClick={() => {
-              playMacBeep();
-              setActiveTab('input');
-              setIsAiModalOpen(true);
-            }}
-            className="flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer hover:bg-gray-100"
-          >
-            <span className="text-xs">🤖</span>
-            <span>AI整形</span>
-          </button>
-
-          <button
-            onClick={() => {
-              playMacBeep();
-              setActiveTab('input');
-              setIsCameraOcrOpen(true);
-            }}
-            className="flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer hover:bg-gray-100"
-          >
-            <span className="text-xs">📷</span>
-            <span>OCR</span>
-          </button>
-
-          <button
-            onClick={() => {
-              playMacBeep();
-              setActiveTab('input');
-              setIsCoprocessorModalOpen(true);
-            }}
-            className="flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer bg-yellow-50 hover:bg-yellow-100 font-bold"
-          >
-            <span className="text-xs">📥</span>
-            <span>要約</span>
-          </button>
-
-          <button
-            onClick={() => {
-              playMacBeep();
-              setActiveTab('dongle');
-            }}
-            className={`flex flex-col items-center justify-center gap-0.5 h-full cursor-pointer ${
-              activeTab === 'dongle' ? 'bg-black text-white font-bold' : 'hover:bg-gray-100'
-            }`}
-          >
-            <Cpu className="w-3.5 h-3.5" />
-            <span>ドングル</span>
-          </button>
-        </nav>
-      )}
-
-      {/* 常設フッター・バージョンステータスバー (デスクトップ/タブレット) */}
-      {!isMobile && (
-        <footer className="fixed bottom-0 left-0 right-0 h-6 bg-slate-200/95 border-t border-slate-300 backdrop-blur-xs px-3 flex items-center justify-between text-[11px] text-slate-600 select-none z-30">
-          <div className="flex items-center gap-3">
-            <span className="font-bold text-slate-800">{FULL_VERSION_LABEL}</span>
-            <span className="text-slate-400">|</span>
-            <span>ビルド: {getFormattedBuildDate()}</span>
-            <span className="text-slate-400">|</span>
-            <span>AI: WebLLM (Gemma 2) / 完全ローカルOCR</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5">
-              <span
-                className="w-2 h-2 rounded-full inline-block border border-slate-400"
-                style={{ backgroundColor: ledStatus.hex }}
-              />
-              <span className="font-medium text-slate-700">
-                {isBleConnected ? '実機BLE接続' : isVirtualMode ? '仮想ドングル' : 'BLE待機中'}
-              </span>
+            <span className="text-sm">
+              {toastNotice.type === 'success' && '✅'}
+              {toastNotice.type === 'warning' && '⚠️'}
+              {toastNotice.type === 'error' && '🛑'}
+              {toastNotice.type === 'info' && 'ℹ️'}
             </span>
-            <span className="text-slate-400">|</span>
-            <span>AtomS3U 8MB (Zero-RAM SPIFFS)</span>
+            <span className="flex-1 leading-snug">{toastNotice.message}</span>
           </div>
-        </footer>
+        </div>
       )}
 
-      {/* ======================================================================= */}
-      {/* 5〜8. オンデマンド遅延ロード モーダル群 */}
-      {/* ======================================================================= */}
+      {/* ネイティブ風PWA仕様 メインレイアウト */}
+      <NativePwaEdgeLayout
+        inputText={inputText}
+        setInputText={setInputText}
+        isBleConnected={isBleConnected}
+        isSending={isSending}
+        onConnectBle={handleConnectBle}
+        onSendSession={handleSendDirect}
+        onOpenSearch={handleOpenSearch}
+        onOpenCoprocessor={() => setIsCoprocessorModalOpen(true)}
+        onOpenWebLlm={() => setIsAiModalOpen(true)}
+        onOpenTemplates={() => setIsTemplateModalOpen(true)}
+        onOpenCameraOcr={() => setIsCameraOcrOpen(true)}
+      />
+
+      {/* 臨床モーダル群 (オンデマンド遅延マウント) */}
       <Suspense fallback={null}>
-        {isAboutModalOpen && (
-          <AboutMacModal
-            isOpen={isAboutModalOpen}
-            onClose={() => setIsAboutModalOpen(false)}
-            isVirtualMode={isVirtualMode}
+        {isMedicalSearchOpen && (
+          <MedicalDataSearchModal
+            isOpen={isMedicalSearchOpen}
+            onClose={() => setIsMedicalSearchOpen(false)}
+            inputText={inputText}
+            initialTab={medicalSearchInitialTab}
+            onInsertText={(text) => {
+              setInputText((prev) => (prev ? `${prev}\n${text}` : text));
+            }}
+          />
+        )}
+
+        {isCoprocessorModalOpen && (
+          <MedicalCoprocessorModal
+            isOpen={isCoprocessorModalOpen}
+            onClose={() => setIsCoprocessorModalOpen(false)}
             isBleConnected={isBleConnected}
+            onWriteBackToChart={async (text: string) => {
+              setInputText(text);
+              const session = buildTransmissionSession(text, DispatchMode.MODE_HYBRID_UNICODE);
+              if (isBleConnected) {
+                await bleManager.transmitSession(session);
+              }
+            }}
           />
         )}
 
-        {isCalculatorOpen && (
-          <MacCalculatorModal
-            isOpen={isCalculatorOpen}
-            onClose={() => setIsCalculatorOpen(false)}
-            onInsertText={handleInsertSnippet}
+        {isAiModalOpen && (
+          <AiAssistModal
+            isOpen={isAiModalOpen}
+            onClose={() => setIsAiModalOpen(false)}
+            originalText={inputText}
+            onApplyFormattedText={(text: string) => {
+              setInputText(text);
+            }}
           />
         )}
 
-        {isScrapbookOpen && (
-          <MacScrapbookModal
-            isOpen={isScrapbookOpen}
-            onClose={() => setIsScrapbookOpen(false)}
-            onInsertText={handleInsertSnippet}
+        {isTemplateModalOpen && (
+          <TemplateManagerModal
+            isOpen={isTemplateModalOpen}
+            onClose={() => setIsTemplateModalOpen(false)}
+            currentInputText={inputText}
+            templates={[]}
+            onApplyTemplate={(content: string, mode: 'replace' | 'append') => {
+              if (mode === 'append') {
+                setInputText((prev) => (prev ? `${prev}\n\n${content}` : content));
+              } else {
+                setInputText(content);
+              }
+            }}
+            onSaveTemplate={() => {}}
+            onDeleteTemplate={() => {}}
           />
         )}
 
-        {isKeyCapsOpen && (
-          <MacKeyCapsModal
-            isOpen={isKeyCapsOpen}
-            onClose={() => setIsKeyCapsOpen(false)}
-            onInsertText={handleInsertSnippet}
-          />
-        )}
-
-        {isSoundControlOpen && (
-          <MacSoundControlModal
-            isOpen={isSoundControlOpen}
-            onClose={() => setIsSoundControlOpen(false)}
-          />
-        )}
-
-        {isBombAlertOpen && (
-          <MacBombDialog
-            isOpen={isBombAlertOpen}
-            onClose={() => setIsBombAlertOpen(false)}
-            onConfirmRestart={bombDialogConfig.action}
-            title={bombDialogConfig.title}
-            message={bombDialogConfig.message}
-            errorCode={bombDialogConfig.errorCode}
-          />
-        )}
-
-        {isMedPilotHotSyncOpen && (
-          <MedPilotHotSyncModal
-            isOpen={isMedPilotHotSyncOpen}
-            onClose={() => setIsMedPilotHotSyncOpen(false)}
-            initialText={inputText}
+        {isCameraOcrOpen && (
+          <CameraOcrModal
+            isOpen={isCameraOcrOpen}
+            onClose={() => setIsCameraOcrOpen(false)}
+            onApplyText={(extracted: string, mode: 'replace' | 'append') => {
+              if (mode === 'append') {
+                setInputText((prev) => (prev ? `${prev}\n\n${extracted}` : extracted));
+              } else {
+                setInputText(extracted);
+              }
+            }}
           />
         )}
       </Suspense>

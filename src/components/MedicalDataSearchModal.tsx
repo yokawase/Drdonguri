@@ -71,6 +71,7 @@ interface MedicalDataSearchModalProps {
   inputText: string;
   onInsertText: (text: string) => void;
   initialQuery?: string;
+  initialTab?: TabFilterType;
 }
 
 export type TabFilterType = 'all' | 'pill' | 'atlas' | 'emer' | 'drug' | 'score' | 'lab' | 'proc' | 'renal' | 'minds' | 'disease' | 'sdmap';
@@ -81,9 +82,16 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
   inputText,
   onInsertText,
   initialQuery = '',
+  initialTab = 'all',
 }) => {
   const [query, setQuery] = useState(initialQuery);
-  const [filterType, setFilterType] = useState<TabFilterType>('all');
+  const [filterType, setFilterType] = useState<TabFilterType>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setFilterType(initialTab);
+    }
+  }, [initialTab]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [insertedId, setInsertedId] = useState<string | null>(null);
 
@@ -506,7 +514,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
               }`}
             >
               <Camera className="w-3 h-3 text-purple-600" />
-              <span>🖼️ 臨床アトラス ({atlasSearchResults.length})</span>
+              <span>📈 12誘導心電図・臨床診断 ({atlasSearchResults.length})</span>
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('emer'); }}

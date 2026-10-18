@@ -30,15 +30,11 @@ interface NativePwaEdgeLayoutProps {
   isSending: boolean;
   onConnectBle: () => void;
   onSendSession: () => void;
-  onOpenSearch: () => void;
-  onOpenCoprocessor: () => void;
+  onOpenSearch: (initialTab?: any) => void;
+  onOpenCoprocessor?: () => void;
   onOpenWebLlm: () => void;
   onOpenTemplates: () => void;
-  onOpenDongleConsole: () => void;
-  onOpenMedPilot: () => void;
-  onOpenFirmware: () => void;
-  onSwitchToClassicMac: () => void;
-  onOpenAboutMac?: () => void;
+  onOpenCameraOcr?: () => void;
 }
 
 /** 触覚フィードバックユーティリティ */
@@ -63,11 +59,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
   onOpenCoprocessor,
   onOpenWebLlm,
   onOpenTemplates,
-  onOpenDongleConsole,
-  onOpenMedPilot,
-  onOpenFirmware,
-  onSwitchToClassicMac,
-  onOpenAboutMac,
+  onOpenCameraOcr,
 }) => {
   // ドロワー開閉状態
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -480,7 +472,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
               type="button"
               onClick={() => {
                 triggerHaptic(25);
-                onOpenCoprocessor();
+                onOpenCoprocessor?.();
               }}
               className="w-14 h-14 rounded-full bg-[#1E293B] border border-[#F43F5E]/60 text-[#F43F5E] hover:bg-[#F43F5E]/10 active:scale-90 transition-all flex items-center justify-center shadow-lg group"
               title="閉域網電子カルテから過去カルテを吸い上げ"
@@ -600,10 +592,10 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 </button>
               </div>
 
-              {/* グループ1: ハードウェア & 通信 */}
+              {/* グループ1: 臨床データ ＆ 意思決定支援 */}
               <div className="space-y-2">
                 <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">
-                  ハードウェア & 通信
+                  臨床データ ＆ 意思決定支援
                 </span>
                 <div className="space-y-1.5">
                   <button
@@ -611,18 +603,18 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                     onClick={() => {
                       triggerHaptic(15);
                       setIsDrawerOpen(false);
-                      onOpenFirmware();
+                      onOpenSearch('pill');
                     }}
                     className="w-full p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-colors group"
                   >
                     <div className="flex items-center gap-3">
-                      <Sliders className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span className="text-base">💊</span>
                       <div>
                         <div className="text-xs font-semibold text-slate-200">
-                          USB動作モード
+                          医薬品添付文書 ＆ 錠剤識別
                         </div>
-                        <div className="text-[10px] text-emerald-400 font-mono">
-                          HID自動打鍵 (03h) 有効
+                        <div className="text-[10px] text-teal-400 font-mono">
+                          PMDA約22,000品目・表裏刻印写真
                         </div>
                       </div>
                     </div>
@@ -634,18 +626,41 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                     onClick={() => {
                       triggerHaptic(15);
                       setIsDrawerOpen(false);
-                      onOpenSearch();
+                      onOpenSearch('atlas');
                     }}
                     className="w-full p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-colors group"
                   >
                     <div className="flex items-center gap-3">
-                      <Database className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span className="text-base">📈</span>
                       <div>
                         <div className="text-xs font-semibold text-slate-200">
-                          32GB MicroSD インデックス
+                          12誘導心電図 ＆ 臨床波形解析
                         </div>
-                        <div className="text-[10px] text-amber-400 font-mono">
-                          Zero-RAM 二分探索 (同期済)
+                        <div className="text-[10px] text-rose-400 font-mono">
+                          実測ミリ波形・1mm/5mm方眼紙測定
+                        </div>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(15);
+                      setIsDrawerOpen(false);
+                      onOpenSearch('minds');
+                    }}
+                    className="w-full p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-base">📚</span>
+                      <div>
+                        <div className="text-xs font-semibold text-slate-200">
+                          Minds ガイドライン ＆ 救急プロトコル
+                        </div>
+                        <div className="text-[10px] text-emerald-400 font-mono">
+                          169CQ 全文原本・中毒解毒処置
                         </div>
                       </div>
                     </div>
@@ -654,89 +669,12 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 </div>
               </div>
 
-              {/* グループ2: オンデバイス推論 (SLM) */}
+              {/* グループ2: カルテ入力支援 ＆ ツール */}
               <div className="space-y-2">
                 <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">
-                  オンデバイス推論 (SLM)
+                  カルテ入力支援 ＆ ツール
                 </span>
                 <div className="space-y-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic(15);
-                      setIsDrawerOpen(false);
-                      onOpenWebLlm();
-                    }}
-                    className="w-full p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
-                      <div>
-                        <div className="text-xs font-semibold text-slate-200">
-                          ローカルSLMエンジン
-                        </div>
-                        <div className="text-[10px] text-purple-400 font-mono">
-                          Qwen2.5-1.5B [WebGPU/INT4]
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic(15);
-                      setIsDrawerOpen(false);
-                      onOpenMedPilot();
-                    }}
-                    className="w-full p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Target className="w-4 h-4 text-sky-400 shrink-0" />
-                      <div>
-                        <div className="text-xs font-semibold text-slate-200">
-                          埋め込み・トリアージ閾値
-                        </div>
-                        <div className="text-[10px] text-sky-400 font-mono">
-                          EmbeddingGemma 2 / Logprob 0.92
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
-                  </button>
-                </div>
-              </div>
-
-              {/* グループ3: セキュリティ & 監査 */}
-              <div className="space-y-2">
-                <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">
-                  セキュリティ & 監査
-                </span>
-                <div className="space-y-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic(15);
-                      setIsDrawerOpen(false);
-                      onOpenDongleConsole();
-                    }}
-                    className="w-full p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <div>
-                        <div className="text-xs font-semibold text-slate-200">
-                          3省2ガイドライン適合ログ
-                        </div>
-                        <div className="text-[10px] text-emerald-400 font-mono">
-                          完全オフライン閉域網・漏洩ゼロ
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
-                  </button>
-
                   <button
                     type="button"
                     onClick={() => {
@@ -750,10 +688,58 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                       <BookTemplate className="w-4 h-4 text-amber-400 shrink-0" />
                       <div>
                         <div className="text-xs font-semibold text-slate-200">
-                          SOAPテンプレート & 略語辞書
+                          SOAPテンプレート ＆ 略語マスター
                         </div>
                         <div className="text-[10px] text-amber-400 font-mono">
-                          内科/循環器外科 カスタム登録
+                          内科・外来定型文 ワンタップ展開
+                        </div>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+                  </button>
+
+                  {onOpenCameraOcr && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic(15);
+                        setIsDrawerOpen(false);
+                        onOpenCameraOcr();
+                      }}
+                      className="w-full p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-colors group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-base">📷</span>
+                        <div>
+                          <div className="text-xs font-semibold text-slate-200">
+                            処方箋・カルテ カメラOCR取込
+                          </div>
+                          <div className="text-[10px] text-sky-400 font-mono">
+                            書類・薬剤名テキスト自動抽出
+                          </div>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(15);
+                      setIsDrawerOpen(false);
+                      onOpenWebLlm();
+                    }}
+                    className="w-full p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
+                      <div>
+                        <div className="text-xs font-semibold text-slate-200">
+                          ローカルAI 臨床方針相談
+                        </div>
+                        <div className="text-[10px] text-purple-400 font-mono">
+                          WebGPU 完全オフライン推論
                         </div>
                       </div>
                     </div>
@@ -762,20 +748,27 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 </div>
               </div>
 
-              {/* Classic Mac モードへの切替 */}
-              <div className="pt-2 border-t border-slate-800/80">
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic(20);
-                    setIsDrawerOpen(false);
-                    onSwitchToClassicMac();
-                  }}
-                  className="w-full py-2.5 px-3 rounded-xl bg-slate-800/40 hover:bg-slate-800 border border-slate-700/40 text-xs font-medium text-slate-300 flex items-center justify-center gap-2 transition-colors"
-                >
-                  <Monitor className="w-4 h-4 text-slate-400" />
-                  <span>🖥️ Classic Mac (System 7) UIへ切替</span>
-                </button>
+              {/* グループ3: 医療安全 ＆ 接続状態 */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">
+                  通信 ＆ 医療安全
+                </span>
+                <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">BLE 打鍵転送:</span>
+                    <span className={`font-mono font-bold ${isBleConnected ? 'text-emerald-400' : 'text-slate-500'}`}>
+                      {isBleConnected ? 'DrDongly-S3 接続中' : '未接続'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Wi-Fi SoftAP:</span>
+                    <span className="font-mono text-slate-300">Drdonguri-Atlas-Direct</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">プライバシー:</span>
+                    <span className="text-emerald-400 font-semibold">Zero-Data Cloud (漏洩ゼロ)</span>
+                  </div>
+                </div>
               </div>
             </div>
 
