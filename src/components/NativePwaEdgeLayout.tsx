@@ -66,14 +66,16 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
 
   // 音声入力録音状態
   const [isRecording, setIsRecording] = useState(false);
+  const isRecordingRef = useRef(false);
   const [interimTranscript, setInterimTranscript] = useState('');
+  const interimTranscriptRef = useRef('');
+  const finalTranscriptRef = useRef('');
   const recognitionRef = useRef<any>(null);
 
-  // マイク波形（Web Audio API / シミュレーション波形）
+  // マイク波形（発話アクティビティ連動）
   const [audioLevel, setAudioLevel] = useState(0);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
+  const isSpeakingRef = useRef(false);
 
   // 検索入力ステート
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,26 +84,44 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // 現在時刻表示（ステータスバー）
-  const [currentTime, setCurrentTime] = useState('9:41');
-  useEffect(() => {
-    const updateTime = () => {
-      const d = new Date();
-      const h = d.getHours().toString().padStart(2, '0');
-      const m = d.getMinutes().toString().padStart(2, '0');
-      setCurrentTime(`${h}:${m}`);
+  // 音声入力中の波形アニメーションループ (マイク排他制御競合を回避し完全滑らかに駆動)
+  const startWaveformLoop = useCallback(() => {
+    let phase = 0;
+    const waveLoop = () => {
+      if (!isRecordingRef.current) {
+        setAudioLevel(0);
+        return;
+      }
+      phase += isSpeakingRef.current ? 0.25 : 0.08;
+      const baseAmp = isSpeakingRef.current ? 0.75 : 0.2;
+      const noise = isSpeakingRef.current ? (Math.random() * 0.25) : (Math.random() * 0.05);
+      const level = Math.min(1.0, (Math.sin(phase) + 1) / 2 * baseAmp + noise);
+      setAudioLevel(level);
+      animFrameRef.current = requestAnimationFrame(waveLoop);
     };
-    updateTime();
-    const interval = setInterval(updateTime, 30000);
-    return () => clearInterval(interval);
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    animFrameRef.current = requestAnimationFrame(waveLoop);
+  }, []);
+
+  const stopWaveformLoop = useCallback(() => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    setAudioLevel(0);
+    isSpeakingRef.current = false;
   }, []);
 
   // 音声認識（Web Speech API / SpeechRecognition）の初期化と制御
   const toggleSpeechRecognition = useCallback(() => {
-    triggerHaptic(isRecording ? [20, 40, 20] : 30);
+    triggerHaptic(isRecordingRef.current ? [20, 40, 20] : 30);
 
-    if (isRecording) {
+    if (isRecordingRef.current) {
       // 録音停止
+      isRecordingRef.current = false;
+      setIsRecording(false);
+      stopWaveformLoop();
+
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -109,29 +129,22 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
           console.warn('SpeechRecognition stop error:', e);
         }
       }
-      if (audioContextRef.current) {
-        try {
-          audioContextRef.current.close();
-        } catch {}
-        audioContextRef.current = null;
-      }
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current);
-      }
 
-      // 認識結果をカルテ本文に反映
-      if (interimTranscript.trim()) {
+      // 認識結果全文（確定＋中間）をカルテ本文に反映
+      const fullRecorded = `${finalTranscriptRef.current}${interimTranscriptRef.current}`.trim();
+      if (fullRecorded) {
         setInputText((prev) => {
           const trimmed = prev.trim();
           if (!trimmed) {
-            return `【主訴】\n${interimTranscript}\n\n【現病歴】\n\n【処置・方針】\n`;
+            return `【主訴】\n${fullRecorded}\n\n【現病歴】\n\n【処置・方針】\n`;
           }
-          return `${trimmed}\n${interimTranscript}`;
+          return `${trimmed}\n${fullRecorded}`;
         });
       }
-      setIsRecording(false);
+
       setInterimTranscript('');
-      setAudioLevel(0);
+      interimTranscriptRef.current = '';
+      finalTranscriptRef.current = '';
       return;
     }
 
@@ -140,24 +153,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      // Web Speech API 非対応時のフォールバックシミュレーション
-      setIsRecording(true);
-      setInterimTranscript('「ニトロペン舌下錠を処方して、安静時の発作指導をしてください。」');
-      setTimeout(() => {
-        setInterimTranscript(
-          '「ニトロペン舌下錠を処方して、安静時の発作指導をしてください。」 それから、早めの循環器専門医への対診を検討...'
-        );
-      }, 1200);
-
-      // シミュレーション波形ループ
-      let phase = 0;
-      const simLoop = () => {
-        phase += 0.15;
-        const level = (Math.sin(phase) + 1) / 2 * 0.7 + Math.random() * 0.3;
-        setAudioLevel(level);
-        animFrameRef.current = requestAnimationFrame(simLoop);
-      };
-      animFrameRef.current = requestAnimationFrame(simLoop);
+      alert('お使いのブラウザは音声認識 (Web Speech API) に対応していません。Google Chrome または Safari をご使用ください。');
       return;
     }
 
@@ -166,106 +162,94 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       recognition.lang = 'ja-JP';
       recognition.continuous = true;
       recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
+        isRecordingRef.current = true;
         setIsRecording(true);
-        setInterimTranscript('');
+        startWaveformLoop();
+      };
+
+      recognition.onspeechstart = () => {
+        isSpeakingRef.current = true;
+      };
+
+      recognition.onspeechend = () => {
+        isSpeakingRef.current = false;
       };
 
       recognition.onresult = (event: any) => {
+        isSpeakingRef.current = true;
         let interim = '';
-        let final = '';
+        let currentFinal = '';
+
         for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const transcriptChunk = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            final += event.results[i][0].transcript;
+            currentFinal += transcriptChunk;
           } else {
-            interim += event.results[i][0].transcript;
+            interim += transcriptChunk;
           }
         }
-        setInterimTranscript(interim || final);
-        triggerHaptic(10);
+
+        if (currentFinal) {
+          finalTranscriptRef.current += currentFinal;
+        }
+
+        const currentDisplay = `${finalTranscriptRef.current} ${interim}`.trim();
+        interimTranscriptRef.current = interim;
+        setInterimTranscript(currentDisplay);
+        triggerHaptic(8);
       };
 
       recognition.onerror = (event: any) => {
         console.warn('SpeechRecognition error:', event.error);
-        if (event.error === 'not-allowed') {
-          alert('マイクへのアクセスが許可されていません。ブラウザ設定をご確認ください。');
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          alert('マイクへのアクセスが拒否されています。ブラウザのアドレスバーの鍵アイコンから「マイクの許可」を有効にしてください。');
+          isRecordingRef.current = false;
           setIsRecording(false);
+          stopWaveformLoop();
+        } else if (event.error === 'no-speech') {
+          // 無音検出は無視して継続
         }
       };
 
       recognition.onend = () => {
-        // 自動再接続または終了
-        if (isRecording) {
+        // Chromeの無音自動切断に対抗するオートリスタートループ
+        if (isRecordingRef.current) {
+          try {
+            recognition.start();
+          } catch (e) {
+            console.warn('Auto-restart recognition failed:', e);
+            // 数百ミリ秒置いて再試行
+            setTimeout(() => {
+              if (isRecordingRef.current) {
+                try { recognition.start(); } catch {}
+              }
+            }, 300);
+          }
+        } else {
           setIsRecording(false);
+          stopWaveformLoop();
         }
       };
 
       recognition.start();
       recognitionRef.current = recognition;
-
-      // Web Audio API によるマイク波形キャプチャ
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices
-          .getUserMedia({ audio: true, video: false })
-          .then((stream) => {
-            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 64;
-            const source = audioCtx.createMediaStreamSource(stream);
-            source.connect(analyser);
-
-            audioContextRef.current = audioCtx;
-            analyserRef.current = analyser;
-
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
-            const updateWaveform = () => {
-              if (!analyserRef.current) return;
-              analyserRef.current.getByteFrequencyData(dataArray);
-              let sum = 0;
-              for (let i = 0; i < dataArray.length; i++) {
-                sum += dataArray[i];
-              }
-              const avg = sum / dataArray.length / 255;
-              setAudioLevel(avg);
-              animFrameRef.current = requestAnimationFrame(updateWaveform);
-            };
-            animFrameRef.current = requestAnimationFrame(updateWaveform);
-          })
-          .catch(() => {
-            // マイクストリーム失敗時もシミュレーション波形を回す
-            let phase = 0;
-            const fallbackWave = () => {
-              phase += 0.2;
-              setAudioLevel((Math.sin(phase) + 1) / 2 * 0.8);
-              animFrameRef.current = requestAnimationFrame(fallbackWave);
-            };
-            animFrameRef.current = requestAnimationFrame(fallbackWave);
-          });
-      }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Speech recognition initiation failed:', err);
+      alert(`音声認識の起動に失敗しました: ${err?.message || err}`);
+      isRecordingRef.current = false;
       setIsRecording(false);
+      stopWaveformLoop();
     }
-  }, [isRecording, interimTranscript, setInputText]);
+  }, [setInputText, startWaveformLoop, stopWaveformLoop]);
 
   // デフォルトテキスト（空の場合のサンプル所見表示）
   const displayLines = (inputText.trim() || `【主訴】　　　　労作時の息切れ、胸部圧迫感\n\n【現病歴】　　　3日前より階段昇降時に胸部圧迫感と動悸を自覚。\n　　　　　　　　安静にて数分で軽快するも、今朝より階段1階分で症状出現。\n\n【既往歴】　　　高血圧、脂質異常症（10年前より加療中）\n\n【内服薬】　　　アムロジピン 5mg 1T 1x 朝食後、アトルバスタチン 10mg\n\n【身体所見】　　血圧 142/86 mmHg, 脈拍 82回/分・整, SpO2 98% (room)\n　　　　　　　　心音: 整・心雑音なし。呼吸音: 清・ラ音聴取せず。下腿浮腫(-)\n\n【アセスメント】労作性狭心症の疑い（安定狭心症疑い）\n\n【プラン (P)】　1. 12誘導心電図、心エコー、トロポニン・BNP迅速検査\n\n　　　　　　　　2. 硝酸薬（ニトロペン舌下錠）領用処方と安静時発作の指導\n\n　　　　　　　　3. 循環器専門医への同日対診・冠動脈CT適応検討`).split('\n');
 
   return (
-    <div className="relative w-full h-[100dvh] bg-[#0F172A] text-slate-100 flex flex-col justify-between overflow-hidden select-none font-sans overscroll-none touch-manipulation">
-      {/* ========================================================================= */}
-      {/* 1. iOS風 最上部ステータスバー (Dynamic Island & 時計 & バッテリー) */}
-      {/* ========================================================================= */}
-      <div className="w-full pt-[env(safe-area-inset-top,0.5rem)] px-5 pb-1 flex items-center justify-between text-xs font-semibold text-slate-400 shrink-0">
-        <span className="text-slate-200 tracking-tight">{currentTime}</span>
-        {/* Dynamic Island モック */}
-        <div className="w-24 h-4 bg-black/80 rounded-full mx-auto" />
-        <div className="flex items-center gap-1.5 text-[11px] text-slate-300">
-          <span>5G</span>
-          <span className="font-mono">100%</span>
-        </div>
-      </div>
+    <div className="relative w-full h-[100dvh] bg-[#0F172A] text-slate-100 flex flex-col justify-between overflow-hidden select-none font-sans overscroll-none touch-manipulation pt-[env(safe-area-inset-top,0px)]">
 
       {/* ========================================================================= */}
       {/* 2. ヘッダー部: ロゴ + BLE接続ステータスバッジ */}

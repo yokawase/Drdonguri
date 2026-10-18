@@ -216,36 +216,44 @@ ${pPart}`;
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3 animate-fade-in backdrop-blur-xs select-none">
-      <div className="mac-window w-full max-w-4xl max-h-[92vh] flex flex-col shadow-[4px_4px_0_#000] border-2 border-black bg-[#ededed]">
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-3 animate-in fade-in backdrop-blur-md select-none font-sans">
+      <div className="bg-[#0F172A] border border-slate-700/80 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
         
-        {/* ウィンドウタイトルバー (System 7 6本ストライプ) */}
-        <div className="h-7 mac-title-stripes border-b border-black flex items-center justify-between px-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { playMacBeep(); onClose(); }}
-              className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] active:bg-black cursor-pointer flex items-center justify-center shrink-0"
-              title="閉じる"
-            />
-            <div className="bg-white border border-black px-2 py-0.5 font-bold text-xs tracking-wider flex items-center gap-1.5 shadow-[1px_1px_0_#000] truncate min-w-0">
-              <Cpu className="w-3.5 h-3.5 text-black shrink-0" />
-              <span className="truncate">医療双方向コプロセッサ (v19.1)</span>
+        {/* ヘッダー */}
+        <div className="bg-[#1E293B] border-b border-slate-800 px-4 py-3 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
+              <Download className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm sm:text-base text-white">電カル双方向受信コプロセッサ</h3>
+                <span className="text-[10px] bg-slate-800 text-rose-400 border border-slate-700 font-bold px-2 py-0.5 rounded-full">
+                  仮想プリンタ (07h)
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                電子カルテから過去カルテ・検査所見をUSB仮想プリンター経由で直接吸い上げ
+              </p>
             </div>
           </div>
-          <div className="text-[10px] font-mono bg-white px-1.5 border border-black shadow-[1px_1px_0_#000] hidden sm:block shrink-0">
-            USB HID打鍵 ＋ 仮想プリンター吸い上げ
-          </div>
+          <button
+            onClick={() => { playMacBeep(); onClose(); }}
+            className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+          >
+            ✕
+          </button>
         </div>
 
         {/* コプロセッサ サブヘッダー */}
-        <div className="p-2.5 bg-black text-white text-xs flex items-center justify-between shrink-0">
+        <div className="px-4 py-2.5 bg-slate-900 border-b border-slate-800 text-xs flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
-            <div className={`w-2.5 h-2.5 rounded-full border border-white ${isBleConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
-            <span className="font-bold">
-              {isBleConnected ? 'AtomS3U 双方向リンク確立中 (GATT 5.0)' : '⚠️ ドングル未接続 (右上で実機BLE接続してください)'}
+            <div className={`w-2.5 h-2.5 rounded-full ${isBleConnected ? 'bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]' : 'bg-rose-500'}`} />
+            <span className="font-bold text-slate-200">
+              {isBleConnected ? 'T-Dongle-S3 双方向リンク確立中 (GATT 5.0)' : '⚠️ ドングル未接続 (画面右上でBLE接続してください)'}
             </span>
           </div>
-          <span className="text-[11px] text-gray-300 font-mono">
+          <span className="text-[11px] text-sky-400 font-mono">
             {statusMessage}
           </span>
         </div>

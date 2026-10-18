@@ -197,38 +197,38 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 select-none">
+      <div className="bg-[#0F172A] rounded-2xl max-w-xl w-full shadow-2xl border border-slate-700/80 overflow-hidden flex flex-col max-h-[92vh] font-sans text-slate-100">
         {/* Header */}
-        <div className="bg-linear-to-r from-teal-700 via-emerald-700 to-sky-700 p-4 text-white flex items-center justify-between shrink-0">
+        <div className="bg-[#1E293B] border-b border-slate-800 p-4 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center">
-              <Camera className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400">
+              <Camera className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-sm sm:text-base leading-tight">カメラカルテOCR</h3>
-                <span className="text-[10px] bg-white/20 text-white font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                <h3 className="font-bold text-sm sm:text-base leading-tight text-white">カメラカルテOCR</h3>
+                <span className="text-[10px] bg-slate-800 text-sky-400 border border-slate-700 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
                   <Cpu className="w-2.5 h-2.5" />
                   完全ローカルAI
                 </span>
               </div>
-              <p className="text-[11px] text-teal-100 mt-0.5">
-                Tesseract.js ＋ WebLLM (Gemma 2 2B) による院内閉域文字認識
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Tesseract.js ＋ WebLLM による院内閉域文字認識 (Zero-Data Cloud)
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
           >
-            <X className="w-4 h-4 text-white" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* OCR Mode Selectors */}
-        <div className="bg-slate-100 p-2 sm:px-4 flex items-center gap-2 border-b border-slate-200 text-xs shrink-0">
-          <span className="text-slate-500 font-semibold text-[11px] pl-1">抽出形式:</span>
+        <div className="bg-[#0F172A] p-2 sm:px-4 flex items-center gap-2 border-b border-slate-800 text-xs shrink-0">
+          <span className="text-slate-400 font-semibold text-[11px] pl-1">抽出形式:</span>
           <div className="flex gap-1.5 flex-1">
             <button
               type="button"
@@ -236,10 +236,10 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                 setOcrMode('chart');
                 if (capturedImage && !isProcessing) runLocalOcr(capturedImage, 'chart');
               }}
-              className={`flex-1 py-1 px-2 rounded-xl font-bold transition-all cursor-pointer ${
+              className={`flex-1 py-1.5 px-2 rounded-xl font-bold transition-all cursor-pointer ${
                 ocrMode === 'chart'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
+                  ? 'bg-amber-500 text-slate-950 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
               }`}
             >
               標準カルテ
@@ -250,10 +250,10 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                 setOcrMode('soap');
                 if (capturedImage && !isProcessing) runLocalOcr(capturedImage, 'soap');
               }}
-              className={`flex-1 py-1 px-2 rounded-xl font-bold transition-all cursor-pointer ${
+              className={`flex-1 py-1.5 px-2 rounded-xl font-bold transition-all cursor-pointer ${
                 ocrMode === 'soap'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
+                  ? 'bg-amber-500 text-slate-950 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
               }`}
             >
               SOAP形式
@@ -264,10 +264,10 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                 setOcrMode('prescription');
                 if (capturedImage && !isProcessing) runLocalOcr(capturedImage, 'prescription');
               }}
-              className={`flex-1 py-1 px-2 rounded-xl font-bold transition-all cursor-pointer ${
+              className={`flex-1 py-1.5 px-2 rounded-xl font-bold transition-all cursor-pointer ${
                 ocrMode === 'prescription'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
+                  ? 'bg-amber-500 text-slate-950 shadow-[0_0_10px_rgba(245,158,11,0.3)]'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
               }`}
             >
               処方箋・用法

@@ -86,38 +86,38 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200 select-none">
       <div 
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
+        className="bg-[#0F172A] rounded-2xl shadow-2xl border border-slate-700/80 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden text-slate-100 font-sans"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-sky-100 text-sky-700">
+        <div className="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between bg-[#1E293B] shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-800">カルテ定型文マネージャー</h3>
-              <p className="text-xs text-slate-500">よく使うカルテ文章の呼び出し・新規保存・管理</p>
+              <h3 className="text-sm sm:text-base font-bold text-white">カルテ定型文マネージャー</h3>
+              <p className="text-[11px] text-slate-400">よく使うカルテ文章の呼び出し・新規保存・管理</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors"
+            className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tab navigation */}
-        <div className="px-5 border-b border-slate-200 flex gap-4 bg-white text-xs font-semibold">
+        <div className="px-5 border-b border-slate-800 flex gap-4 bg-[#0F172A] text-xs font-semibold shrink-0">
           <button
             onClick={() => setActiveTab('list')}
-            className={`py-3 border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`py-3 border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'list'
-                ? 'border-sky-600 text-sky-700 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-amber-500 text-amber-400 font-bold'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Layers className="w-4 h-4" />
@@ -128,19 +128,19 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
               setActiveTab('save');
               if (!newContent) setNewContent(currentInputText);
             }}
-            className={`py-3 border-b-2 transition-colors flex items-center gap-1.5 ${
+            className={`py-3 border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'save'
-                ? 'border-sky-600 text-sky-700 font-bold'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-amber-500 text-amber-400 font-bold'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <BookmarkPlus className="w-4 h-4" />
-            <span>現在のカルテを定型文として保存</span>
+            <span>現在のカルテを定型文保存</span>
           </button>
         </div>
 
         {/* Modal Content */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5">
           {activeTab === 'list' ? (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
               {/* Template List Column */}
@@ -156,54 +156,54 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                       onClick={() => setSelectedTemplateId(tmpl.id)}
                       className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
                         isSelected
-                          ? 'border-sky-500 bg-sky-50/80 shadow-xs ring-1 ring-sky-400'
-                          : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50'
+                          ? 'border-amber-500/80 bg-amber-500/10 shadow-[0_0_12px_rgba(245,158,11,0.2)] ring-1 ring-amber-400/50'
+                          : 'border-slate-800 hover:border-slate-700 bg-[#1E293B]/60 hover:bg-[#1E293B]'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="font-bold text-xs text-slate-800 truncate">
+                        <span className="font-bold text-xs text-white truncate">
                           {tmpl.title}
                         </span>
                         {tmpl.isCustom ? (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium shrink-0">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-950/70 text-emerald-300 border border-emerald-600/50 font-medium shrink-0">
                             カスタム
                           </span>
                         ) : (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium shrink-0">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-medium shrink-0">
                             プリセット
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-slate-500 line-clamp-1">{tmpl.description}</p>
+                      <p className="text-[11px] text-slate-400 line-clamp-1">{tmpl.description}</p>
                     </div>
                   );
                 })}
               </div>
 
               {/* Template Preview & Actions Column */}
-              <div className="md:col-span-7 bg-slate-50 rounded-xl border border-slate-200 p-4 flex flex-col justify-between">
+              <div className="md:col-span-7 bg-[#1E293B]/70 rounded-xl border border-slate-800 p-4 flex flex-col justify-between">
                 {selectedTemplate ? (
                   <div className="space-y-3 flex-1 flex flex-col">
-                    <div className="flex items-start justify-between gap-2 border-b border-slate-200 pb-2">
+                    <div className="flex items-start justify-between gap-2 border-b border-slate-800 pb-2">
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <h4 className="font-bold text-sm text-slate-800">{selectedTemplate.title}</h4>
+                          <h4 className="font-bold text-sm text-white">{selectedTemplate.title}</h4>
                           {selectedTemplate.isCustom && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/70 text-emerald-300 border border-emerald-600/50 font-semibold">
                               ユーザー保存
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5">{selectedTemplate.description}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{selectedTemplate.description}</p>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleCopyClipboard(selectedTemplate.content, selectedTemplate.id)}
-                          className="p-1.5 text-slate-500 hover:text-slate-800 bg-white rounded-lg border border-slate-200 shadow-2xs hover:bg-slate-100 transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700 transition-colors cursor-pointer"
                           title="クリップボードにコピー"
                         >
                           {copiedId === selectedTemplate.id ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
                           ) : (
                             <Copy className="w-3.5 h-3.5" />
                           )}
@@ -215,7 +215,7 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                                 onDeleteTemplate(selectedTemplate.id);
                               }
                             }}
-                            className="p-1.5 text-red-500 hover:text-red-700 bg-white rounded-lg border border-slate-200 shadow-2xs hover:bg-red-50 transition-colors"
+                            className="p-1.5 text-rose-400 hover:text-rose-300 bg-slate-800 rounded-lg border border-slate-700 hover:bg-rose-950/40 transition-colors cursor-pointer"
                             title="この定型文を削除"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -224,7 +224,7 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex-1 min-h-[160px] max-h-[260px] overflow-y-auto font-mono text-xs text-slate-700 bg-white p-3 rounded-lg border border-slate-200 whitespace-pre-wrap leading-relaxed">
+                    <div className="flex-1 min-h-[160px] max-h-[260px] overflow-y-auto font-mono text-xs text-slate-200 bg-[#0F172A] p-3 rounded-lg border border-slate-800 whitespace-pre-wrap leading-relaxed">
                       {selectedTemplate.content}
                     </div>
 
@@ -235,9 +235,9 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                           onApplyTemplate(selectedTemplate.content, 'append');
                           onClose();
                         }}
-                        className="px-3 py-2 text-xs font-semibold rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 transition-colors flex items-center gap-1.5"
+                        className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
                       >
-                        <PlusCircle className="w-4 h-4 text-slate-500" />
+                        <PlusCircle className="w-4 h-4 text-slate-400" />
                         <span>カルテ末尾に追記</span>
                       </button>
                       <button
@@ -245,15 +245,15 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                           onApplyTemplate(selectedTemplate.content, 'replace');
                           onClose();
                         }}
-                        className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-sky-600 hover:bg-sky-700 text-white shadow-xs transition-colors flex items-center gap-1.5"
+                        className="px-3.5 py-2 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.3)] transition-colors flex items-center gap-1.5 cursor-pointer"
                       >
-                        <FileText className="w-4 h-4" />
+                        <FileText className="w-4 h-4 stroke-[2.5]" />
                         <span>カルテへ上書き適用</span>
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-xs text-slate-400">
+                  <div className="flex items-center justify-center h-full text-xs text-slate-500">
                     定型文を選択してください
                   </div>
                 )}
@@ -262,17 +262,17 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
           ) : (
             /* Save Custom Template Tab */
             <form onSubmit={handleSave} className="space-y-4 max-w-xl mx-auto">
-              <div className="bg-sky-50 rounded-xl p-3.5 border border-sky-200 flex items-start gap-2.5 text-xs text-sky-800">
-                <Sparkles className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+              <div className="bg-amber-950/30 rounded-xl p-3.5 border border-amber-600/40 flex items-start gap-2.5 text-xs text-amber-200">
+                <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold">入力中のカルテ内容を定型文としてワンクリック保存できます</p>
-                  <p className="text-sky-700/80 mt-0.5">保存された定型文は次回以降、ショートカットボタンから即座に呼び出せます。</p>
+                  <p className="font-semibold text-amber-300">入力中のカルテ内容を定型文としてワンクリック保存できます</p>
+                  <p className="text-amber-200/80 mt-0.5">保存された定型文は次回以降、ドロワーの定型文一覧から即座に展開できます。</p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  定型文タイトル <span className="text-red-500">*</span>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  定型文タイトル <span className="text-rose-400">*</span>
                 </label>
                 <input
                   type="text"
@@ -280,12 +280,12 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                   placeholder="例: 急性胃腸炎、不眠症 定期処方、糖尿病 初診SOAP"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-sky-500 bg-white"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-700 bg-[#1E293B] text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-bold text-slate-300 mb-1">
                   説明・補足メモ (任意)
                 </label>
                 <input
@@ -293,13 +293,13 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                   placeholder="例: 嘔気・下痢症状の対症療法と経口補水液指導"
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-sky-500 bg-white"
+                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-700 bg-[#1E293B] text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  定型文本文 <span className="text-red-500">*</span>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  定型文本文 <span className="text-rose-400">*</span>
                 </label>
                 <textarea
                   required
@@ -307,24 +307,24 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
                   value={newContent}
                   onChange={(e) => setNewContent(e.target.value)}
                   placeholder="定型文として保存したいカルテテキストを入力してください..."
-                  className="w-full p-3 text-xs font-mono rounded-xl border border-slate-300 focus:outline-hidden focus:ring-2 focus:ring-sky-500 bg-white leading-relaxed"
+                  className="w-full p-3.5 text-xs font-mono rounded-xl border border-slate-700 bg-[#1E293B] text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 leading-relaxed"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={() => setActiveTab('list')}
-                  className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   キャンセル
                 </button>
                 <button
                   type="submit"
                   disabled={!newTitle.trim() || !newContent.trim()}
-                  className="px-5 py-2 text-xs font-semibold rounded-lg bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white shadow-xs transition-colors flex items-center gap-1.5"
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.3)] transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
-                  <BookmarkPlus className="w-4 h-4" />
+                  <BookmarkPlus className="w-4 h-4 stroke-[2.5]" />
                   <span>この内容で定型文を保存</span>
                 </button>
               </div>

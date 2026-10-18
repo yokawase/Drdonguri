@@ -256,9 +256,27 @@
     - **皮膚科・内視鏡（帯状疱疹、重症薬疹SJS/TEN、早期胃癌、逆流性食道炎）**: 臨床診断3徴候、BSA剥離率判定スコア、早期癌パリ分類/ESD適応基準、改訂ロサンゼルス分類マトリクスなどの臨床判断クリニカルチャートに刷新。
   - **タブ連動 ＆ 型安全性**:
     - `MedicalDataSearchModal` に `initialTab` プロパティを追加し、ドロワーからのワンタップ直接遷移に対応。タブ名称を「📈 12誘導心電図・臨床診断」に更新。
-    - `tsc --noEmit` および Vitest 全37テストPASS、プロダクションビルド成功。
+- [x] **ステップ32**: ダミー5Gステータスバー撤去 ＆ 全モーダル新UI（スプリットコンプリメンタリー配色）完全統一 ＆ Chrome音声入力排他競合解消 ＆ Wi-Fi SoftAP直結リンク対応 (v2.12.1 / FW v22.3) - 【完了】
+  - **「5G 100%」＆ Dynamic Island ダミー表示の完全撤廃 (`NativePwaEdgeLayout.tsx`)**:
+    - モバイルOSネイティブ風ステータスバーを撤去し、PWA標準の `pt-[env(safe-area-inset-top,0px)]` 自然マージンへ最適化。
+  - **全モーダルの新UIコンセプト（スプリットコンプリメンタリー配色）完全統一**:
+    - 旧UI（レトロMac System 7 白背景・太枠）が残存していたモーダル群をディープスレート `#0F172A`、カード `#1E293B`、琥珀 `#F59E0B`、コーラル `#F43F5E`、スカイブルー、エメラルドのモダンネイティブ風PWAモーダルへ全面刷新：
+      - `MedicalDataSearchModal.tsx`（検索バー・タブ・フッター・大判アトラスプレビュー・SoftAP直結ガイド）
+      - `TemplateManagerModal.tsx`（定型文一覧・呼出・保存タブ）
+      - `CameraOcrModal.tsx`（OCRモードセレクター・カメラ起動部）
+      - `AiAssistModal.tsx`（ローカルWebLLM推論・校正画面）
+      - `MedicalCoprocessorModal.tsx`（電カル双方向受信・仮想プリンタ）
+  - **Chrome 音声入力不具合の根本解決 (`NativePwaEdgeLayout.tsx`)**:
+    - `SpeechRecognition` と `navigator.mediaDevices.getUserMedia` を同時並行で起動していたことによるブラウザオーディオドライバ排他制御競合（`audio-capture` / `NotAllowedError` / 早期停止）を完全根絶。`getUserMedia` を撤廃。
+    - 音声波形表示はマイクハードを奪い合わず、発話アクティビティ連動の軽量 `requestAnimationFrame` アニメーションループへ換装。
+    - Chrome 特有のフレーズ無音自動切断に対抗するため、明示的停止まで自動再起動を継続するオートリスタートループ（`onend` 制御）を実装。
+  - **Wi-Fi SoftAP の Mixed Content ＆ Private Network Access (PNA) 対策**:
+    - HTTPS（GitHub Pages）から HTTP ローカルIP（`192.168.4.1`）へのバックグラウンド `fetch` / `<img>` がブラウザの Mixed Content ポリシーで暗黙遮断される課題を根本解決。
+    - 対策1（ファームウェア `firmware/src/main.cpp`）: WebServer に `Access-Control-Allow-Private-Network: true` レスポンスヘッダーを追加し、T-Dongle-S3 実機へ書き込み完了。
+    - 対策2（PWA `sdCardStreamingService.ts` ＆ `MedicalDataSearchModal.tsx`）: トップレベルナビゲーション（`window.open` による別タブ直結アクセス）用メソッド `openDirectUrl` を実装。「実機SoftAP直結」ボタンを追加し、Mixed Content を回避して大判WebPや原本PDFを直接開くガイドを整備。
 
 ---
+
 
 
 ## 5. 運用ルール & 安全指針

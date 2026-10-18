@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Cpu } from 'lucide-react';
 import { playMacBeep, playSosumi } from '../utils/macAudio';
 import {
   formatMedicalChartWithWebLLM,
@@ -94,50 +95,56 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-black/60 select-none overflow-y-auto">
-      <div
-        className="mac-window max-w-xl w-full bg-white text-xs shadow-2xl border-2 border-black max-h-[92vh] flex flex-col"
-        style={{ fontFamily: "'DotGothic16', 'Monaco', monospace" }}
-      >
-        {/* Title Bar */}
-        <div className="h-6 mac-title-stripes border-b border-black flex items-center justify-between px-2 shrink-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md select-none overflow-y-auto animate-in fade-in duration-200">
+      <div className="bg-[#0F172A] border border-slate-700/80 rounded-2xl max-w-xl w-full text-slate-100 shadow-2xl max-h-[92vh] flex flex-col font-sans overflow-hidden">
+        {/* Header */}
+        <div className="bg-[#1E293B] border-b border-slate-800 p-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+              <Cpu className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm sm:text-base text-white">ローカルAI 臨床方針相談</h3>
+                <span className="text-[10px] bg-slate-800 text-purple-400 border border-slate-700 font-bold px-2 py-0.5 rounded-full">
+                  WebGPU
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Google Gemma 2 2B (FP32) による完全ブラウザ内推論
+              </p>
+            </div>
+          </div>
           <button
             onClick={() => {
               playMacBeep();
               onClose();
             }}
-            className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] active:bg-black cursor-pointer"
-            title="閉じる"
-          />
-          <div className="bg-white border border-black px-2 py-0.2 font-bold text-xs tracking-wider flex items-center gap-1.5 truncate min-w-0">
-            <span className="truncate">AI カルテ校正 (WebLLM - Gemma 2)</span>
-            <span className="text-[10px] bg-black text-white px-1 shrink-0">完全ローカル</span>
-          </div>
-          <div className="w-3.5 h-3.5 border border-black bg-white shadow-[1px_1px_0_#000] flex items-center justify-center shrink-0">
-            <div className="w-1.5 h-1.5 border border-black" />
-          </div>
+            className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+          >
+            ✕
+          </button>
         </div>
 
         {/* Content */}
-        <div className="p-3 space-y-3 bg-white overflow-y-auto flex-1">
-          {/* Model Info Banner (Gemma 2 日本語 2B-jpn 単一高精度エンジン) */}
-          <div className="border border-black p-2 bg-gray-50 flex items-center justify-between">
+        <div className="p-4 space-y-3 bg-[#0F172A] overflow-y-auto flex-1 text-xs">
+          {/* Model Info Banner */}
+          <div className="border border-slate-800 p-2.5 rounded-xl bg-[#1E293B]/70 flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-[11px]">AIエンジン:</span>
-              <span className="text-[10px] font-bold bg-black text-white px-1.5 py-0.5 shadow-[1px_1px_0_#888]">
-                Google Gemma 2 日本語 (2B-jpn FP32)
+              <span className="font-bold text-slate-400 text-[11px]">エンジン:</span>
+              <span className="text-[10px] font-bold bg-purple-950/80 text-purple-300 border border-purple-600/50 px-2 py-0.5 rounded-full">
+                Gemma 2 日本語 (2B FP32)
               </span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleClearCache}
-                className="text-[9px] px-1.5 py-0.5 border border-gray-400 bg-white hover:bg-red-50 text-gray-700 cursor-pointer"
+                className="text-[10px] px-2 py-0.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer transition-colors"
                 title="ブラウザ内にキャッシュされたモデル重みを消去してリフレッシュします"
               >
                 🔄 キャッシュ消去
               </button>
-              <span className="text-[10px] text-gray-600 font-bold hidden sm:inline">院内閉域推論</span>
             </div>
           </div>
 
@@ -246,13 +253,13 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
           )}
 
           {/* Bottom Actions */}
-          <div className="flex justify-between items-center pt-2 border-t border-black">
+          <div className="flex justify-between items-center pt-3 border-t border-slate-800">
             <button
               onClick={() => {
                 playMacBeep();
                 onClose();
               }}
-              className="mac-btn cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs cursor-pointer transition-colors"
             >
               閉じる
             </button>
@@ -261,24 +268,22 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
               <button
                 onClick={handleGenerate}
                 disabled={isLoading}
-                className="mac-btn font-bold cursor-pointer"
+                className="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold text-xs shadow-[0_0_12px_rgba(168,85,247,0.3)] transition-colors cursor-pointer"
               >
                 {isLoading ? '高速推論中...' : 'WebLLM 校正実行 ⚡'}
               </button>
 
               {resultText && (
-                <div className="mac-btn-default-wrapper">
-                  <button
-                    onClick={() => {
-                      playMacBeep();
-                      onApplyFormattedText(resultText);
-                      onClose();
-                    }}
-                    className="mac-btn mac-btn-default font-bold px-4 cursor-pointer"
-                  >
-                    カルテに反映 ↩
-                  </button>
-                </div>
+                <button
+                  onClick={() => {
+                    playMacBeep();
+                    onApplyFormattedText(resultText);
+                    onClose();
+                  }}
+                  className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-[0_0_12px_rgba(245,158,11,0.3)] transition-colors cursor-pointer"
+                >
+                  カルテに反映 ↩
+                </button>
               )}
             </div>
           </div>

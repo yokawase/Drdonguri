@@ -357,33 +357,31 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 select-none animate-in fade-in">
-      <div
-        className="mac-window bg-white border-2 border-black max-w-4xl w-full h-[92vh] sm:h-[86vh] flex flex-col shadow-[6px_6px_0_#000] overflow-hidden"
-        style={{ fontFamily: "'DotGothic16', 'Monaco', monospace" }}
-      >
-        {/* レトロMac System 7 ウィンドウヘッダー */}
-        <div className="mac-title-bar bg-white border-b-2 border-black px-3 py-1.5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 select-none animate-in fade-in">
+      <div className="bg-[#0F172A] border border-slate-700/80 rounded-2xl max-w-4xl w-full h-[94vh] sm:h-[88vh] flex flex-col shadow-2xl overflow-hidden font-sans text-slate-100">
+        {/* ネイティブ風 PWA ヘッダー */}
+        <div className="bg-[#1E293B] border-b border-slate-800 px-4 py-3 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => { playMacBeep(); onClose(); }}
-              className="w-4 h-4 border border-black bg-white hover:bg-black hover:text-white flex items-center justify-center text-[10px] font-bold shadow-[1px_1px_0_#000] cursor-pointer"
+              className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
               title="閉じる"
             >
               ✕
             </button>
-            <div className="font-bold text-xs sm:text-sm flex items-center gap-1.5 text-black">
-              <span>📚 臨床データ統合検索 (Minds・アトラス・錠剤識別・救急・検査値)</span>
+            <div className="font-bold text-xs sm:text-sm flex items-center gap-2 text-white">
+              <span>📚 臨床データ統合検索</span>
+              <span className="text-[10px] font-mono text-sky-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">32GB MicroSD</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {/* Wi-Fi SoftAP 高速ストリーミング疎通ステータス */}
             <button
               onClick={() => { playMacBeep(); setShowApGuide(true); }}
-              className={`text-[10px] font-bold px-2 py-0.5 border flex items-center gap-1 shadow-[1px_1px_0_#000] cursor-pointer ${
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-full border flex items-center gap-1.5 cursor-pointer transition-colors ${
                 apStatus.isConnected
-                  ? 'bg-emerald-100 text-emerald-950 border-emerald-400 hover:bg-emerald-200'
-                  : 'bg-gray-100 text-gray-700 border-gray-400 hover:bg-gray-200'
+                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
               }`}
               title={
                 apStatus.isConnected
@@ -393,28 +391,28 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
             >
               {apStatus.isConnected ? (
                 <>
-                  <Wifi className="w-3 h-3 text-emerald-700 animate-pulse" />
+                  <Wifi className="w-3 h-3 text-emerald-400 animate-pulse" />
                   <span className="hidden sm:inline">SoftAP 接続済 ({apStatus.latencyMs ? `${apStatus.latencyMs}ms` : '192.168.4.1'})</span>
                   <span className="sm:hidden">SoftAP 済</span>
                 </>
               ) : (
                 <>
-                  {isCheckingAp ? <RefreshCw className="w-3 h-3 animate-spin text-gray-500" /> : <WifiOff className="w-3 h-3 text-gray-400" />}
+                  {isCheckingAp ? <RefreshCw className="w-3 h-3 animate-spin text-slate-400" /> : <WifiOff className="w-3 h-3 text-slate-400" />}
                   <span className="hidden sm:inline">BLE要約モード (Wi-Fi未接続)</span>
                   <span className="sm:hidden">BLE要約</span>
                 </>
               )}
             </button>
 
-            <div className="text-[10px] text-purple-900 font-bold bg-purple-100 border border-purple-300 px-2 py-0.5 hidden sm:flex items-center gap-1 shadow-[1px_1px_0_#000]">
-              <Brain className="w-3 h-3 text-purple-700" />
-              <span>EmbeddingGemma 2 (740M MRL)</span>
+            <div className="text-[10px] text-purple-300 font-bold bg-purple-950/60 border border-purple-600/50 px-2 py-1 rounded-full hidden sm:flex items-center gap-1">
+              <Brain className="w-3 h-3 text-purple-400" />
+              <span>Gemma 2 MRL</span>
             </div>
           </div>
         </div>
 
         {/* 検索入力バー ＆ カルテ自動連動 */}
-        <div className="p-3 bg-gray-50 border-b border-black space-y-2">
+        <div className="p-3 bg-[#0F172A] border-b border-slate-800 space-y-2 shrink-0">
           <div className="flex gap-2">
             <div className="relative flex-1">
               <input
@@ -423,50 +421,50 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="病名、薬剤名、刻印記号(TCK/105)、検査値(HbA1c/eGFR)、指導料、心電図、ICD-10..."
-                className="w-full bg-white border-2 border-black px-3 py-1.5 text-xs sm:text-sm font-sans focus:outline-none focus:bg-yellow-50 shadow-[2px_2px_0_#000]"
+                className="w-full bg-[#1E293B] border border-slate-700/80 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-sans text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
               />
               {query && (
                 <button
                   onClick={() => setQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-black font-bold p-1 cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white font-bold p-1 cursor-pointer"
                 >
                   ✕
                 </button>
               )}
             </div>
-            {/* EmbeddingGemma 2 (740M MRL 128d) セマンティック検索トグル (Ollama不要) */}
+            {/* EmbeddingGemma 2 (740M MRL 128d) セマンティック検索トグル */}
             <button
               type="button"
               onClick={() => {
                 playMacBeep();
                 setUseSemantic(!useSemantic);
               }}
-              className={`px-2.5 py-1.5 border-2 border-black text-xs font-bold shadow-[2px_2px_0_#000] whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-colors ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold border whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-colors ${
                 useSemantic
-                  ? 'bg-purple-100 text-purple-950 border-black ring-1 ring-purple-600'
-                  : 'bg-white text-gray-600 hover:bg-gray-100'
+                  ? 'bg-purple-900/80 text-purple-200 border-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.3)]'
+                  : 'bg-[#1E293B] text-slate-400 border-slate-700 hover:text-slate-200'
               }`}
               title="Google DeepMind EmbeddingGemma 2 (740M MRL 128d) による完全ブラウザ内ローカルセマンティック検索。Ollama等の外部サーバー不要で0.5ms推論"
             >
-              <Brain className={`w-3.5 h-3.5 ${useSemantic ? 'text-purple-700 animate-pulse' : 'text-gray-400'}`} />
+              <Brain className={`w-3.5 h-3.5 ${useSemantic ? 'text-purple-400 animate-pulse' : 'text-slate-500'}`} />
               <span className="hidden sm:inline">⚡ Gemma 2 {useSemantic ? 'ON' : 'OFF'}</span>
               <span className="sm:hidden">Gemma</span>
             </button>
 
             <button
               onClick={handleExtractFromChart}
-              className="px-2.5 py-1.5 border border-black bg-white hover:bg-black hover:text-white text-xs font-bold shadow-[2px_2px_0_#000] whitespace-nowrap flex items-center gap-1 cursor-pointer"
+              className="px-3 py-2 rounded-xl border border-amber-500/60 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 text-xs font-bold whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-colors"
               title="カルテ入力内容からキーワードを自動抽出して検索"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               <span className="hidden sm:inline">カルテから抽出</span>
               <span className="sm:hidden">抽出</span>
             </button>
           </div>
 
           {/* クイックサジェストチップス */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-0.5 text-[11px] text-gray-700">
-            <span className="text-gray-500 font-mono text-[10px] shrink-0">頻出:</span>
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-[11px] text-slate-300 scrollbar-none">
+            <span className="text-slate-500 font-mono text-[10px] shrink-0">頻出:</span>
             {[
               { label: 'タケキャブ刻印', q: 'タケキャブ' },
               { label: '前壁STEMI心電図', q: '前壁STEMI' },
@@ -481,7 +479,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
               <button
                 key={chip.label}
                 onClick={() => { playMacBeep(); setQuery(chip.q); }}
-                className="px-1.5 py-0.5 border border-gray-400 bg-white hover:bg-yellow-100 text-gray-800 text-[10px] whitespace-nowrap cursor-pointer"
+                className="px-2 py-0.5 rounded-lg border border-slate-700/60 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[11px] whitespace-nowrap cursor-pointer transition-colors"
               >
                 {chip.label}
               </button>
@@ -489,49 +487,59 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
           </div>
 
           {/* フィルタタブ */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
             <button
               onClick={() => { playMacBeep(); setFilterType('all'); }}
-              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] ${
-                filterType === 'all' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap cursor-pointer transition-colors ${
+                filterType === 'all'
+                  ? 'bg-amber-500 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
               }`}
             >
               すべて ({searchResults.length})
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('pill'); }}
-              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
-                filterType === 'pill' ? 'bg-teal-900 text-white border-teal-950' : 'bg-teal-50 hover:bg-teal-100 text-teal-950 border-teal-400'
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap cursor-pointer flex items-center gap-1.5 transition-colors ${
+                filterType === 'pill'
+                  ? 'bg-teal-500 text-slate-950 shadow-[0_0_12px_rgba(20,184,166,0.3)]'
+                  : 'bg-teal-950/50 hover:bg-teal-900/60 text-teal-300 border border-teal-700/50'
               }`}
             >
-              <Pill className="w-3 h-3 text-teal-600" />
+              <Pill className="w-3.5 h-3.5" />
               <span>💊 錠剤識別（表裏） ({pillSearchResults.length})</span>
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('atlas'); }}
-              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
-                filterType === 'atlas' ? 'bg-purple-900 text-white border-purple-950' : 'bg-purple-50 hover:bg-purple-100 text-purple-950 border-purple-400'
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap cursor-pointer flex items-center gap-1.5 transition-colors ${
+                filterType === 'atlas'
+                  ? 'bg-rose-500 text-white shadow-[0_0_12px_rgba(244,63,94,0.3)]'
+                  : 'bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 border border-rose-700/50'
               }`}
             >
-              <Camera className="w-3 h-3 text-purple-600" />
+              <Camera className="w-3.5 h-3.5" />
               <span>📈 12誘導心電図・臨床診断 ({atlasSearchResults.length})</span>
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('emer'); }}
-              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
-                filterType === 'emer' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap cursor-pointer flex items-center gap-1.5 transition-colors ${
+                filterType === 'emer'
+                  ? 'bg-red-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.3)]'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
               }`}
             >
-              <Siren className="w-3 h-3 text-red-600" />
+              <Siren className="w-3.5 h-3.5 text-red-400" />
               <span>🚑 救急・中毒</span>
             </button>
             <button
               onClick={() => { playMacBeep(); setFilterType('drug'); }}
-              className={`px-2 py-1 border border-black font-bold whitespace-nowrap cursor-pointer shadow-[1px_1px_0_#000] flex items-center gap-1 ${
-                filterType === 'drug' ? 'bg-black text-white' : 'bg-white hover:bg-gray-100'
+              className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap cursor-pointer flex items-center gap-1.5 transition-colors ${
+                filterType === 'drug'
+                  ? 'bg-sky-500 text-slate-950 shadow-[0_0_12px_rgba(56,189,248,0.3)]'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
               }`}
             >
-              <Pill className="w-3 h-3 text-sky-600" />
+              <Pill className="w-3.5 h-3.5 text-sky-400" />
               <span>処方・標準薬</span>
             </button>
             <button
@@ -1402,13 +1410,13 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
         </div>
 
         {/* フッター */}
-        <div className="p-2 bg-gray-100 border-t border-black flex items-center justify-between text-[11px] text-gray-600">
-          <div className="flex items-center gap-2">
-            <span>収録: 32GB MicroSD (29.8GB) 10大医療カテゴリ / Minds 169CQ / 救急・中毒 / 臨床アトラス / 検査値 / 指導料 / 腎機能減量 / 刻印識別 / 臨床スコア</span>
+        <div className="p-3 bg-[#1E293B] border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 shrink-0">
+          <div className="flex items-center gap-2 truncate pr-2">
+            <span className="truncate">収録: 32GB MicroSD (29.8GB) 10大医療ポートフォリオ / Minds 169CQ / 救急プロトコル / 12誘導心電図 / 錠剤識別</span>
           </div>
           <button
             onClick={() => { playMacBeep(); onClose(); }}
-            className="px-3 py-1 border border-black bg-white hover:bg-black hover:text-white font-bold shadow-[1px_1px_0_#000] cursor-pointer"
+            className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs cursor-pointer transition-colors shrink-0"
           >
             閉じる
           </button>
@@ -1417,38 +1425,48 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
 
       {/* 臨床アトラス 1024px 大判プレビュー ＆ ECG方眼紙グリッド測定モーダル */}
       {selectedAtlas && (
-        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
-          <div className="mac-window bg-white border-2 border-black max-w-3xl w-full max-h-[92vh] flex flex-col shadow-[8px_8px_0_#000] overflow-hidden">
+        <div className="fixed inset-0 z-60 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-in fade-in">
+          <div className="bg-[#0F172A] border border-slate-700/80 rounded-2xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden font-sans text-slate-100">
             {/* ヘッダー */}
-            <div className="mac-title-bar bg-white border-b-2 border-black px-3 py-1.5 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="bg-[#1E293B] border-b border-slate-800 px-4 py-3 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <button
                   onClick={() => { playMacBeep(); setSelectedAtlas(null); }}
-                  className="w-4 h-4 border border-black bg-white hover:bg-black hover:text-white flex items-center justify-center text-[10px] font-bold shadow-[1px_1px_0_#000] cursor-pointer"
+                  className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer shrink-0"
                 >
                   ✕
                 </button>
-                <span className="font-bold text-xs sm:text-sm text-black truncate max-w-[260px] sm:max-w-md">
-                  🖼️ {selectedAtlas.title} ({selectedAtlas.category})
+                <span className="font-bold text-xs sm:text-sm text-white truncate">
+                  📈 {selectedAtlas.title} ({selectedAtlas.category})
                 </span>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 shrink-0">
                 {(selectedAtlas.hasEcgGrid || selectedAtlas.category === '心電図') && (
                   <button
                     type="button"
                     onClick={() => { playMacBeep(); setEcgGridEnabled(!ecgGridEnabled); }}
-                    className={`px-2 py-0.5 border border-black text-[10px] font-bold shadow-[1px_1px_0_#000] flex items-center gap-1 cursor-pointer ${
-                      ecgGridEnabled ? 'bg-rose-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'
+                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border flex items-center gap-1 cursor-pointer transition-colors ${
+                      ecgGridEnabled
+                        ? 'bg-rose-600 text-white border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
+                        : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
                     }`}
                     title="標準ECG記録紙仕様の 1mm/5mm 方眼紙グリッドをオーバーレイ表示"
                   >
                     <Grid className="w-3 h-3" />
-                    <span>{ecgGridEnabled ? '📐 1mm/5mm方眼紙 ON' : '方眼紙 OFF'}</span>
+                    <span>{ecgGridEnabled ? '方眼紙 ON' : '方眼紙 OFF'}</span>
                   </button>
                 )}
-                <span className="text-[10px] font-mono bg-purple-100 text-purple-900 border border-purple-300 px-1.5 py-0.5 hidden sm:inline">
-                  {apStatus.isConnected ? '⚡ 1024px SD直結' : 'BLE WebP'}
-                </span>
+                {/* 実機SoftAP別タブ直接リンク */}
+                <button
+                  type="button"
+                  onClick={() => sdCardStreamingService.openDirectUrl(selectedAtlas.sdFilePath)}
+                  className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-purple-950/60 hover:bg-purple-900 text-purple-300 border border-purple-600/50 flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Wi-Fi SoftAP接続時、実機SDカードから高解像度原本を別タブで直接開きます"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  <span className="hidden sm:inline">実機SoftAP直結</span>
+                  <span className="sm:hidden">SoftAP</span>
+                </button>
               </div>
             </div>
 
@@ -1456,8 +1474,8 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
             <div className="relative bg-slate-950 flex items-center justify-center overflow-hidden min-h-[260px] max-h-[50vh] sm:max-h-[55vh]">
               {isLoadingHighRes ? (
                 <div className="p-8 text-center text-white space-y-2">
-                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-yellow-400" />
-                  <p className="text-xs font-bold">高解像度アトラスストリーミング中...</p>
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-amber-400" />
+                  <p className="text-xs font-bold text-slate-300">高解像度アトラスストリーミング中...</p>
                 </div>
               ) : (
                 <img
@@ -1485,36 +1503,36 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
 
               {/* 心電図計測ガイドバー */}
               {(selectedAtlas.hasEcgGrid || selectedAtlas.category === '心電図') && (
-                <div className="absolute bottom-1 right-1 bg-black/80 text-rose-300 font-mono text-[9px] px-1.5 py-0.5 border border-rose-500/50">
+                <div className="absolute bottom-1.5 right-1.5 bg-black/80 text-rose-300 font-mono text-[10px] px-2 py-0.5 rounded border border-rose-500/50 backdrop-blur-xs">
                   25mm/s (1小マス=0.04s, 1大マス=0.20s) | 10mm/mV (1小マス=0.1mV)
                 </div>
               )}
             </div>
 
             {/* 所見・鑑別・臨床的意義 */}
-            <div className="p-3 bg-white space-y-2 text-xs font-sans overflow-y-auto max-h-[30vh]">
-              <div className="bg-purple-50 p-2 border border-purple-200 space-y-1">
-                <div className="font-bold text-purple-950 flex items-center justify-between text-[11px]">
+            <div className="p-3.5 bg-[#0F172A] space-y-2.5 text-xs font-sans overflow-y-auto max-h-[30vh]">
+              <div className="bg-[#1E293B] p-3 rounded-xl border border-slate-800 space-y-1">
+                <div className="font-bold text-amber-400 flex items-center justify-between text-xs">
                   <span>典型所見 (Typical Findings):</span>
-                  <span className="font-mono text-[10px] text-purple-700">{selectedAtlas.sdFilePath}</span>
+                  <span className="font-mono text-[10px] text-slate-400">{selectedAtlas.sdFilePath}</span>
                 </div>
-                <div className="text-slate-800 leading-relaxed">{selectedAtlas.typicalFeatures}</div>
+                <div className="text-slate-200 leading-relaxed">{selectedAtlas.typicalFeatures}</div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                <div className="bg-gray-50 p-2 border border-gray-200">
-                  <span className="font-bold text-gray-900 block mb-0.5">鑑別診断:</span>
-                  <span className="text-gray-700">{selectedAtlas.differentialDiagnosis}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="bg-[#1E293B] p-2.5 rounded-xl border border-slate-800">
+                  <span className="font-bold text-rose-400 block mb-0.5">鑑別診断:</span>
+                  <span className="text-slate-300 leading-relaxed">{selectedAtlas.differentialDiagnosis}</span>
                 </div>
-                <div className="bg-gray-50 p-2 border border-gray-200">
-                  <span className="font-bold text-gray-900 block mb-0.5">臨床的意義・対応方針:</span>
-                  <span className="text-gray-700">{selectedAtlas.clinicalSignificance}</span>
+                <div className="bg-[#1E293B] p-2.5 rounded-xl border border-slate-800">
+                  <span className="font-bold text-sky-400 block mb-0.5">臨床的意義・対応方針:</span>
+                  <span className="text-slate-300 leading-relaxed">{selectedAtlas.clinicalSignificance}</span>
                 </div>
               </div>
             </div>
 
             {/* フッターアクションバー */}
-            <div className="p-2.5 bg-gray-100 border-t border-black flex items-center justify-between gap-2">
+            <div className="p-3 bg-[#1E293B] border-t border-slate-800 flex items-center justify-between gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => {
@@ -1522,9 +1540,9 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                   navigator.clipboard.writeText(text);
                   playMacBeep();
                 }}
-                className="px-2.5 py-1 text-xs border border-black bg-white hover:bg-gray-200 font-bold shadow-[1px_1px_0_#000] flex items-center gap-1 cursor-pointer"
+                className="px-3 py-1.5 text-xs rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
               >
-                <Copy className="w-3 h-3" />
+                <Copy className="w-3.5 h-3.5 text-slate-400" />
                 <span>所見コピー</span>
               </button>
 
@@ -1532,7 +1550,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                 <button
                   type="button"
                   onClick={() => { playMacBeep(); setSelectedAtlas(null); }}
-                  className="px-3 py-1 border border-black bg-white hover:bg-gray-200 text-xs font-bold shadow-[1px_1px_0_#000] cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer transition-colors"
                 >
                   閉じる
                 </button>
@@ -1543,9 +1561,9 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                     handleInsert(text, selectedAtlas.id);
                     setSelectedAtlas(null);
                   }}
-                  className="px-3 py-1 border border-black bg-black text-white hover:bg-gray-800 text-xs font-bold shadow-[2px_2px_0_#000] flex items-center gap-1 cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-[0_0_12px_rgba(245,158,11,0.3)] flex items-center gap-1.5 cursor-pointer transition-colors"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
                   <span>カルテ所見に反映</span>
                 </button>
               </div>
@@ -1556,50 +1574,53 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
 
       {/* Wi-Fi SoftAP 高速ストリーミング 接続ガイドモーダル */}
       {showApGuide && (
-        <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 animate-in fade-in">
-          <div className="mac-window bg-white border-2 border-black max-w-md w-full shadow-[6px_6px_0_#000] overflow-hidden font-sans">
-            <div className="mac-title-bar bg-white border-b-2 border-black px-3 py-1.5 flex items-center justify-between">
-              <div className="font-bold text-xs sm:text-sm text-black flex items-center gap-1.5">
-                <Wifi className="w-4 h-4 text-emerald-600" />
+        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 animate-in fade-in">
+          <div className="bg-[#0F172A] border border-slate-700/80 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden font-sans text-slate-100">
+            <div className="bg-[#1E293B] border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+              <div className="font-bold text-xs sm:text-sm text-white flex items-center gap-2">
+                <Wifi className="w-4 h-4 text-emerald-400" />
                 <span>LilyGO T-Dongle-S3 Wi-Fi SoftAP 直結ガイド</span>
               </div>
               <button
                 onClick={() => { playMacBeep(); setShowApGuide(false); }}
-                className="w-4 h-4 border border-black bg-white hover:bg-black hover:text-white flex items-center justify-center text-[10px] font-bold shadow-[1px_1px_0_#000] cursor-pointer"
+                className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-3.5 space-y-3 text-xs leading-relaxed">
-              <p className="text-gray-800">
+            <div className="p-4 space-y-3 text-xs leading-relaxed">
+              <p className="text-slate-300">
                 T-Dongle-S3 は、BLE通信（要約テキスト・識別コード）に加え、<strong>ローカルWi-Fi SoftAP</strong> を内蔵しています。
-                接続すると、32GB MicroSD内の <strong>大判アトラス(1024px WebP)</strong> や <strong>添付文書原本PDF</strong> を数MB/sで超高速ストリーミングできます。
+                接続すると、32GB MicroSD内の <strong>大判アトラス(1024px WebP)</strong> や <strong>添付文書原本PDF</strong> を数MB/sで超高速閲覧できます。
               </p>
 
-              <div className="bg-emerald-50 border-2 border-emerald-600 p-2.5 space-y-1.5 font-mono text-[11px]">
+              <div className="bg-emerald-950/50 border border-emerald-600/50 rounded-xl p-3 space-y-1.5 font-mono text-[11px]">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">SSID (Wi-Fi名):</span>
-                  <span className="font-bold text-emerald-950 bg-white px-2 py-0.5 border border-emerald-300">Drdonguri-Atlas-Direct</span>
+                  <span className="text-slate-400">SSID (Wi-Fi名):</span>
+                  <span className="font-bold text-emerald-300 bg-slate-900 px-2 py-0.5 rounded border border-emerald-700/60">Drdonguri-Atlas-Direct</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">暗号化パスワード:</span>
-                  <span className="font-bold text-emerald-950 bg-white px-2 py-0.5 border border-emerald-300">drdonguri</span>
+                  <span className="text-slate-400">暗号化パスワード:</span>
+                  <span className="font-bold text-emerald-300 bg-slate-900 px-2 py-0.5 rounded border border-emerald-700/60">drdonguri</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">ストリーミングIP:</span>
-                  <span className="font-bold text-emerald-950">192.168.4.1 (Port 80)</span>
+                  <span className="text-slate-400">ストリーミングIP:</span>
+                  <span className="font-bold text-emerald-300">192.168.4.1 (Port 80)</span>
                 </div>
-                <div className="flex justify-between items-center pt-1 border-t border-emerald-200">
-                  <span className="text-gray-600">接続ステータス:</span>
-                  <span className={`font-bold ${apStatus.isConnected ? 'text-emerald-700' : 'text-gray-500'}`}>
+                <div className="flex justify-between items-center pt-1.5 border-t border-emerald-800/60">
+                  <span className="text-slate-400">接続ステータス:</span>
+                  <span className={`font-bold ${apStatus.isConnected ? 'text-emerald-400' : 'text-slate-400'}`}>
                     {apStatus.isConnected ? `接続中 (${apStatus.latencyMs ? `${apStatus.latencyMs}ms` : '良好'})` : '未接続 (BLE要約モード)'}
                   </span>
                 </div>
               </div>
 
-              <div className="text-[10px] text-gray-500 bg-gray-50 p-2 border border-gray-200">
-                ※インターネット不要の完全閉域Wi-Fiです。スマホの「Wi-Fi設定」から上記SSIDを選択して接続してください。
+              <div className="text-[11px] text-amber-300 bg-amber-950/40 p-2.5 rounded-xl border border-amber-600/40 space-y-1">
+                <span className="font-bold block">💡 ブラウザセキュリティ（Mixed Content）について:</span>
+                <p className="text-amber-200/90 leading-normal">
+                  HTTPSページからのHTTP通信遮断を防ぐため、アトラス大判画像やPDFは<strong>「実機SoftAP直結」ボタンより別タブで開く</strong>仕様となっています。スマホのWi-Fiを「Drdonguri-Atlas-Direct」に接続した状態でタップしてください。
+                </p>
               </div>
 
               <div className="flex items-center justify-between pt-1">
@@ -1607,15 +1628,15 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                   type="button"
                   onClick={handleCheckAp}
                   disabled={isCheckingAp}
-                  className="px-3 py-1.5 border border-black bg-yellow-100 hover:bg-yellow-200 font-bold text-xs shadow-[1px_1px_0_#000] flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl border border-amber-500/60 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
                 >
-                  <RefreshCw className={`w-3 h-3 ${isCheckingAp ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 ${isCheckingAp ? 'animate-spin' : ''}`} />
                   <span>疎通テスト再試行</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => { playMacBeep(); setShowApGuide(false); }}
-                  className="px-3 py-1.5 border border-black bg-black text-white hover:bg-gray-800 font-bold text-xs shadow-[1px_1px_0_#000] cursor-pointer"
+                  className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 cursor-pointer transition-colors"
                 >
                   了解
                 </button>

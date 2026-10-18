@@ -108,6 +108,25 @@ class SdCardStreamingService {
   }
 
   /**
+   * 実機ダイレクトURL (http://192.168.4.1/...) の取得
+   */
+  public getDirectUrl(sdFilePath: string): string {
+    const cleanPath = sdFilePath.startsWith('/') ? sdFilePath : `/${sdFilePath}`;
+    return `${this.baseEndpoint}${cleanPath}`;
+  }
+
+  /**
+   * 実機SoftAPから別タブで大判画像またはPDFを直接開く
+   * (ブラウザの Mixed Content ブロックを回避するトップレベルナビゲーション)
+   */
+  public openDirectUrl(sdFilePath: string): void {
+    const url = this.getDirectUrl(sdFilePath);
+    if (typeof window !== 'undefined') {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }
+
+  /**
    * 添付文書PDF原本のストリーミングダウンロード
    */
   public async openPackageInsertPdf(pdfPath?: string): Promise<boolean> {
@@ -115,20 +134,8 @@ class SdCardStreamingService {
       alert('該当医薬品の添付文書PDFパスが登録されていません。');
       return false;
     }
-
-    if (this.apStatus.isConnected) {
-      const targetUrl = `${this.baseEndpoint}${pdfPath}`;
-      window.open(targetUrl, '_blank');
-      return true;
-    }
-
-    // Wi-Fi 未接続時は PMDA の公開検索またはローカル通知
-    alert(
-      `【T-Dongle-S3 Wi-Fi未接続】\n` +
-      `原本PDF (${pdfPath}) を高速閲覧するには、スマホのWi-Fi設定で「${this.defaultSsid}」に接続してください。\n` +
-      `※現在はBLE要約モードで動作中です。`
-    );
-    return false;
+    this.openDirectUrl(pdfPath);
+    return true;
   }
 }
 

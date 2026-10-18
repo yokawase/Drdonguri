@@ -41,14 +41,16 @@ void initWifiSoftAp() {
   
   g_httpServer.on("/api/status", HTTP_GET, []() {
     g_httpServer.sendHeader("Access-Control-Allow-Origin", "*");
+    g_httpServer.sendHeader("Access-Control-Allow-Private-Network", "true");
     g_httpServer.send(200, "application/json", "{\"status\":\"ok\",\"model\":\"T-Dongle-S3\",\"sdMounted\":true}");
   });
 
-  // MicroSD 直接高速ストリーミングエンドポイント (CORS開放)
+  // MicroSD 直接高速ストリーミングエンドポイント (CORS開放 & PNA対応)
   g_httpServer.onNotFound([]() {
     g_httpServer.sendHeader("Access-Control-Allow-Origin", "*");
     g_httpServer.sendHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     g_httpServer.sendHeader("Access-Control-Allow-Headers", "*");
+    g_httpServer.sendHeader("Access-Control-Allow-Private-Network", "true");
     
     if (g_httpServer.method() == HTTP_OPTIONS) {
       g_httpServer.send(204);
