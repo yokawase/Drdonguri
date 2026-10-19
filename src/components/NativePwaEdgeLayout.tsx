@@ -35,6 +35,8 @@ import {
   cleanExtractedMedicalText,
   normalizeMedicalSpeechTerms,
   extractChartClinicalKeywords,
+  mergeSpeechTranscripts,
+  removeSpeechDuplications,
   DEFAULT_SAMPLE_CHART_TEXT,
 } from '../utils/chartTextCleaner';
 import {
@@ -117,6 +119,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
   const interimTranscriptRef = useRef('');
   const finalTranscriptRef = useRef('');
   const recognitionRef = useRef<any>(null);
+  const lastRestartTimeRef = useRef<number>(0);
 
   // マイク波形（発話アクティビティ連動）
   const [audioLevel, setAudioLevel] = useState(0);
@@ -187,8 +190,10 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         }
       }
 
-      // 認識結果全文（確定＋中間）を医療音声解読エンジンで自動補正
-      const rawFull = `${finalTranscriptRef.current}${interimTranscriptRef.current}`;
+      // 認識結果全文（確定＋中間）を重複排除して医療音声解読エンジンで自動補正
+      const rawFull = removeSpeechDuplications(
+        mergeSpeechTranscripts(finalTranscriptRef.current, interimTranscriptRef.current)
+      );
       const decodedResult = decodeMedicalSpeech(rawFull);
       const fullRecorded = cleanExtractedMedicalText(decodedResult.decodedText);
 
@@ -264,13 +269,18 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         }
 
         if (currentFinal) {
-          finalTranscriptRef.current += currentFinal;
+          // 直前の確定テキストとのオーバーラップ部分を検出して重複なしで安全マージ
+          finalTranscriptRef.current = removeSpeechDuplications(
+            mergeSpeechTranscripts(finalTranscriptRef.current, currentFinal)
+          );
         }
 
-        const currentDisplay = `${finalTranscriptRef.current} ${interim}`.trim();
+        const mergedDisplay = removeSpeechDuplications(
+          mergeSpeechTranscripts(finalTranscriptRef.current, interim)
+        );
         interimTranscriptRef.current = interim;
-        setInterimTranscript(currentDisplay);
-        triggerHaptic(8);
+        setInterimTranscript(mergedDisplay);
+        // ※ triggerHaptic(8) は毎秒連発による端末異音・ビープ音の原因となるため廃止
       };
 
       recognition.onerror = (event: any) => {
@@ -288,21 +298,29 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       };
 
       recognition.onend = () => {
-        // ユーザーが手動停止していない場合はセッションを自動再開
-        if (isRecordingRef.current) {
-          setTimeout(() => {
-            if (isRecordingRef.current) {
-              try {
-                recognition.start();
-              } catch (e) {
-                // すでに開始されている場合は無視
-              }
-            }
-          }, 150);
-        } else {
+        // ユーザーが手動停止済みの場合は完全に終了
+        if (!isRecordingRef.current) {
           setIsRecording(false);
           stopWaveformLoop();
+          return;
         }
+
+        // 短時間での再起動（OSマイク起動ビープ音の連発）を防止するため最低600msデバウンス
+        const now = Date.now();
+        if (now - lastRestartTimeRef.current < 600) {
+          return;
+        }
+        lastRestartTimeRef.current = now;
+
+        setTimeout(() => {
+          if (isRecordingRef.current) {
+            try {
+              recognition.start();
+            } catch (e) {
+              console.debug('Speech recognition restart suppressed:', e);
+            }
+          }
+        }, 300);
       };
 
       recognition.start();

@@ -4,7 +4,11 @@ import {
   getDecodedSpeechTokens,
   SPEECH_SAMPLE_CHIPS,
 } from '../src/services/medicalSpeechDecoder';
-import { normalizeMedicalSpeechTerms } from '../src/utils/chartTextCleaner';
+import {
+  normalizeMedicalSpeechTerms,
+  mergeSpeechTranscripts,
+  removeSpeechDuplications,
+} from '../src/utils/chartTextCleaner';
 
 describe('医療音声認識 専門用語・略語・医薬品・バイタル自動解読エンジン (medicalSpeechDecoder)', () => {
   describe('1. バイタルサインの自動解読・構造化', () => {
@@ -167,5 +171,38 @@ describe('医療音声認識 専門用語・略語・医薬品・バイタル自
       expect(SPEECH_SAMPLE_CHIPS[0]).toHaveProperty('speech');
     });
   });
+
+  describe('8. 音声認識の吃音・同一語句反復の重複排除テスト (ユーザー報告実例)', () => {
+    it('mergeSpeechTranscripts でオーバーラップした認識テキストが安全にマージされること', () => {
+      const merged1 = mergeSpeechTranscripts('症例はサチュレーションは', 'サチュレーションは 97%');
+      expect(merged1).toBe('症例はサチュレーションは 97%');
+
+      const merged2 = mergeSpeechTranscripts('血圧は140の90', '血圧は140の90');
+      expect(merged2).toBe('血圧は140の90');
+    });
+
+    it('ユーザー報告の反復吃音文章から重複が完全除去され、正常な医学所見に解読されること', () => {
+      const rawUserTranscript =
+        '症例はサチュレーションはサチュレーションはサチュレーションは 97%サチュレーションは 97%血圧は60の80外傷性硬膜下血腫コレステロールは正常範囲UAUA 9点UA 9点UA 9点 0';
+      
+      const deduplicated = removeSpeechDuplications(rawUserTranscript);
+      expect(deduplicated).not.toContain('サチュレーションはサチュレーションは');
+      expect(deduplicated).not.toContain('UA 9点UA 9点');
+      expect(deduplicated).not.toContain('UAUA');
+
+      const normalized = normalizeMedicalSpeechTerms(rawUserTranscript);
+      // サチュレーション ➔ SpO2
+      expect(normalized).toContain('SpO2 97%');
+      // 血圧 ➔ BP
+      expect(normalized).toContain('BP');
+      // 外傷性硬膜下血腫
+      expect(normalized).toContain('外傷性硬膜下血腫');
+      // コレステロール
+      expect(normalized).toContain('コレステロール');
+      // UA
+      expect(normalized).toContain('UA');
+    });
+  });
 });
+
 

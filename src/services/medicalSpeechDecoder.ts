@@ -264,7 +264,7 @@ function decodeVitalSigns(text: string, corrections: DecodedCorrection[]): strin
   let result = text;
 
   // BP: 血圧 / ビーピー / BP 140の90 または 140/90
-  const bpRegex1 = /(?:BP|ビーピー|血圧|けつあつ)[:：\s]*([0-9]{2,3})\s*(?:の|対|\/|\s)\s*([0-9]{2,3})(?:\s*ミリ|mmHg)?/gi;
+  const bpRegex1 = /(?:BP|ビーピー|血圧|けつあつ)(?:は|が|で|[:：\s])*([0-9]{2,3})\s*(?:の|対|\/|\s)\s*([0-9]{2,3})(?:\s*ミリ|mmHg)?/gi;
   result = result.replace(bpRegex1, (_match, sys, dia) => {
     const formatted = `BP ${sys}/${dia} mmHg`;
     corrections.push({ original: _match, corrected: formatted, category: 'vital' });
@@ -272,7 +272,7 @@ function decodeVitalSigns(text: string, corrections: DecodedCorrection[]): strin
   });
 
   // HR / PR: 脈拍 / 心拍 / ハートレート / パルス
-  const hrRegex = /(?:HR|PR|心拍数?|脈拍数?|ハートレート|パルス)[:：\s]*([0-9]{2,3})(?:\s*回|回\/分|bpm)?(?:\s*(整|不整|せい|ふせい))?/gi;
+  const hrRegex = /(?:HR|PR|心拍数?|脈拍数?|ハートレート|パルス)(?:は|が|で|[:：\s])*([0-9]{2,3})(?:\s*回|回\/分|bpm)?(?:\s*(整|不整|せい|ふせい))?/gi;
   result = result.replace(hrRegex, (_match, rate, rhythm) => {
     const rhythmStr = rhythm ? (rhythm === 'ふせい' || rhythm === '不整' ? ' (不整)' : ' (整)') : '';
     const formatted = `HR ${rate} bpm${rhythmStr}`;
@@ -281,7 +281,7 @@ function decodeVitalSigns(text: string, corrections: DecodedCorrection[]): strin
   });
 
   // SpO2: サチュレーション / エスピーオーツー
-  const spo2Regex = /(?:SpO2|エスピーオーツー|サチュレーション|サツ)[:：\s]*([0-9]{2,3})\s*(?:%|パーセント)?(?:\s*(?:ルームエアー?|へいや|ルーム|room|ra))?/gi;
+  const spo2Regex = /(?:SpO2|エスピーオーツー|サチュレーション|サツ)(?:は|が|で|[:：\s])*([0-9]{2,3})\s*(?:%|パーセント)?(?:\s*(?:ルームエアー?|へいや|ルーム|room|ra))?/gi;
   result = result.replace(spo2Regex, (_match, val) => {
     const hasRoom = /(?:ルーム|へいや|room|ra)/i.test(_match);
     const formatted = hasRoom ? `SpO2 ${val}% (room air)` : `SpO2 ${val}%`;
@@ -290,7 +290,7 @@ function decodeVitalSigns(text: string, corrections: DecodedCorrection[]): strin
   });
 
   // BT: 体温 / ビーティー / ボディテンパー
-  const btRegex = /(?:BT|ビーティー|体温|たいおん)[:：\s]*([0-9]{2})(?:度|\.|\s)([0-9])(?:分|度|℃)?/gi;
+  const btRegex = /(?:BT|ビーティー|体温|たいおん)(?:は|が|で|[:：\s])*([0-9]{2})(?:度|\.|\s)([0-9])(?:分|度|℃)?/gi;
   result = result.replace(btRegex, (_match, integerPart, decimalPart) => {
     const formatted = `BT ${integerPart}.${decimalPart} ℃`;
     corrections.push({ original: _match, corrected: formatted, category: 'vital' });

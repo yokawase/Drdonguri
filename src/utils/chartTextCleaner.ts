@@ -79,8 +79,74 @@ export function cleanExtractedMedicalText(rawText: string): string {
     cleanedLines.push(line);
   }
 
-  // 4. 無駄な空行を完全に削除して結合
-  return cleanedLines.join('\n').trim();
+  // 4. 重複フレーズ・吃音反復の除去
+  const joinedText = cleanedLines.join('\n').trim();
+  return removeSpeechDuplications(joinedText);
+}
+
+/**
+ * 2つの音声認識テキストチャンクのオーバーラップ部分（重複部分）を検出して重複なしで安全に結合する
+ */
+export function mergeSpeechTranscripts(existingText: string, newChunk: string): string {
+  if (!existingText) return newChunk;
+  if (!newChunk) return existingText;
+
+  const trimmedExisting = existingText.trim();
+  const trimmedNew = newChunk.trim();
+
+  // 完全一致、または新チャンクが既存の末尾に含まれている場合
+  if (trimmedExisting.endsWith(trimmedNew)) {
+    return trimmedExisting;
+  }
+  if (trimmedNew.startsWith(trimmedExisting)) {
+    return trimmedNew;
+  }
+
+  // 末尾と先頭のオーバーラップ（最長一致）を検索
+  const maxOverlap = Math.min(trimmedExisting.length, trimmedNew.length);
+  for (let k = maxOverlap; k >= 2; k--) {
+    const endSub = trimmedExisting.slice(-k);
+    const startSub = trimmedNew.slice(0, k);
+    if (endSub === startSub) {
+      return trimmedExisting + trimmedNew.slice(k);
+    }
+  }
+
+  // 重複がない場合はスペースで自然に結合
+  return `${trimmedExisting} ${trimmedNew}`.trim();
+}
+
+/**
+ * 音声認識の吃音・反復認識・再送ループによって発生する同一単語・フレーズの連続重複を除去する
+ */
+export function removeSpeechDuplications(text: string): string {
+  if (!text) return '';
+  let result = text;
+
+  // 1. 長いフレーズ（30文字〜2文字）の連続重複を外側から縮約
+  // 例: 「サチュレーションは 97%サチュレーションは 97%」➔「サチュレーションは 97%」
+  // 例: 「サチュレーションはサチュレーションはサチュレーションは」➔「サチュレーションは」
+  // 例: 「UA 9点UA 9点UA 9点」➔「UA 9点」
+  // 例: 「UAUA」➔「UA」
+  for (let len = 30; len >= 2; len--) {
+    let changed = true;
+    let loopCount = 0;
+    while (changed && loopCount < 8) {
+      loopCount++;
+      changed = false;
+      const regex = new RegExp(`([\\s\\S]{${len}}?)(?:\\s*\\1)+`, 'g');
+      const replaced = result.replace(regex, '$1');
+      if (replaced !== result) {
+        result = replaced;
+        changed = true;
+      }
+    }
+  }
+
+  // 2. 「UA 9点 0」や「9点0」等の発音揺れ（「点ゼロ」➔「.0」）を正規化
+  result = result.replace(/(\d+)\s*点\s*(\d+)/g, '$1.$2');
+
+  return result;
 }
 
 import { decodeMedicalSpeech } from '../services/medicalSpeechDecoder';
@@ -90,8 +156,9 @@ import { decodeMedicalSpeech } from '../services/medicalSpeechDecoder';
  */
 export function normalizeMedicalSpeechTerms(text: string): string {
   if (!text) return '';
-  const decoded = decodeMedicalSpeech(text);
-  return decoded.decodedText;
+  const deduplicated = removeSpeechDuplications(text);
+  const decoded = decodeMedicalSpeech(deduplicated);
+  return removeSpeechDuplications(decoded.decodedText);
 }
 
 export interface ExtractedChartContext {

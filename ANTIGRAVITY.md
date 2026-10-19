@@ -409,8 +409,24 @@
     4. **Gemma 2 文章校正プロンプトの厳密化 ＆ 余剰スペース・改行完全排除 (`src/services/webLlmService.ts`)**:
        - 全角スペース（`　`）や連続半角スペース、無意味な空行を1箇所も出力させない絶対命令を追加。
        - SOAP各セクションへの情報マッピングを精緻化し、箇条書き要約も体言止めの引き締まった臨床サマリーに刷新。
-    5. **テスト & ビルド**:
-       - 新規テストを追加し全64テストPASS、ビルド（`npm run build`）成功確認。
+- [x] **ステップ44**: 音声入力重複反復（吃音・チャンク再送）の自動除去 ＆ マイク再起動ビープ音・ハプティック異音の完全抑止 (v2.12.14) - 【完了】
+  - **背景と課題**:
+    - 音声入力時（Web Speech API）において、「サチュレーションはサチュレーションはサチュレーションは 97%サチュレーションは 97%」「UAUA 9点UA 9点UA 9点 0」のように、同一単語・フレーズが何度も累積・反復されてしまう不具合が発生していた。
+    - 原因：Web Speech API の無音タイムアウト（数秒〜十数秒）によって発生する `onend` に対し、従来のコードが 150ms で無制限に即時再起動をかけていたため、Chrome/OS 側のマイク初期化通知音（ビープ音「ピピッ」）が連続発火していた。さらに、セッション切り替え時にブラウザの音声認識エンジンが直前の未確定音声を新セッションで再送・重複認識し、`finalTranscriptRef.current += currentFinal` により重複フレーズが加算されていた。
+    - 加えて、`onresult` 内部で認識文字ごとに `triggerHaptic(8)` を発火していたため、端末の振動モーターが激しく唸り、異音とノイズを発生させていた。
+  - **実装内容**:
+    1. **重複除去 ＆ 最長共通オーバーラップ結合オートマトン (`src/utils/chartTextCleaner.ts`)**:
+       - `mergeSpeechTranscripts(existing, newChunk)`: 既存テキスト末尾と新規テキスト先頭の重複部分列（オーバーラップ）を自動検出し、余剰な重複をカットして安全に結合。
+       - `removeSpeechDuplications(text)`: 2文字〜30文字の反復フレーズ（「サチュレーションはサチュレーションは」「UA 9点UA 9点」「UAUA」等）および音声認識の数値揺れ（「9点 0」➔「9.0」等）を自動縮約・デデュプリケーションする正規表現オートマトンを実装。
+       - `cleanExtractedMedicalText` および `normalizeMedicalSpeechTerms` の前処理パイプラインへ統合。
+    2. **バイタルサイン認識エンジンの助詞対応拡張 (`src/services/medicalSpeechDecoder.ts`)**:
+       - `decodeVitalSigns`: 助詞「は」「が」「で」が挟まった臨床発話（「サチュレーションは 97%」「血圧は60の80」等）を正常に認識し、`SpO2 97%`, `BP 60/80 mmHg` へダイレクトに構造化できるよう正規表現パターンを拡張。
+    3. **マイク再起動ビープ音 ＆ ハプティック異音の完全抑止 (`src/components/NativePwaEdgeLayout.tsx`)**:
+       - `triggerHaptic(8)` を音声認識ループ（`onresult`）から完全排除。録音開始/停止時のみのソフトフィードバックに限定。
+       - `onend` に最低600msのデバウンス制御（`lastRestartTimeRef`）を導入し、無音時のマイク再起動ビープ音連発ループを物理的に遮断。
+       - `finalTranscriptRef.current` および `interimTranscript` の更新時に `mergeSpeechTranscripts` と `removeSpeechDuplications` を適用し、リアルタイム表示・カルテ反映の両面で重複を完全撲滅。
+    4. **ユニットテストの追加と検証 (`tests/medicalSpeechDecoder.test.ts`)**:
+       - ユーザー報告実例（サチュレーション、血圧、外傷性硬膜下血腫、UA 9.0）を含むテストケースを追加し、全66テストPASS。
 
 ---
 
