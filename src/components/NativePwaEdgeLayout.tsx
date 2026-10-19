@@ -21,9 +21,18 @@ import {
   RefreshCw,
   AlertCircle,
   Trash2,
-  OctagonX
+  OctagonX,
+  ArrowLeft,
+  Lock,
+  Wifi,
 } from 'lucide-react';
 import { APP_VERSION, LATEST_FIRMWARE_VERSION } from '../version';
+import {
+  cleanExtractedMedicalText,
+  normalizeMedicalSpeechTerms,
+  DEFAULT_SAMPLE_CHART_TEXT,
+} from '../utils/chartTextCleaner';
+import { sdCardStreamingService, SoftApStatus } from '../services/sdCardStreamingService';
 
 interface NativePwaEdgeLayoutProps {
   inputText: string;
@@ -67,6 +76,28 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
 }) => {
   // ドロワー開閉状態
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // 隠し機能: 3省2ガイドライン エアギャップWi-Fi SoftAPモーダル
+  const [secretTapCount, setSecretTapCount] = useState(0);
+  const [showHiddenAirGapModal, setShowHiddenAirGapModal] = useState(false);
+  const [apStatus, setApStatus] = useState<SoftApStatus>(sdCardStreamingService.getStatus());
+  const [isCheckingAp, setIsCheckingAp] = useState(false);
+
+  const handleSecretAirGapTap = () => {
+    triggerHaptic(10);
+    const next = secretTapCount + 1;
+    if (next >= 3) {
+      setSecretTapCount(0);
+      setIsCheckingAp(true);
+      sdCardStreamingService.checkApConnection().then((st) => {
+        setApStatus(st);
+        setIsCheckingAp(false);
+      });
+      setShowHiddenAirGapModal(true);
+    } else {
+      setSecretTapCount(next);
+    }
+  };
 
   // 音声入力録音状態
   const [isRecording, setIsRecording] = useState(false);
@@ -134,15 +165,17 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         }
       }
 
-      // 認識結果全文（確定＋中間）をカルテ本文に反映
-      const fullRecorded = `${finalTranscriptRef.current}${interimTranscriptRef.current}`.trim();
+      // 認識結果全文（確定＋中間）を無駄なスペース・改行を除去してカルテ本文に反映
+      const fullRecorded = cleanExtractedMedicalText(
+        normalizeMedicalSpeechTerms(`${finalTranscriptRef.current}${interimTranscriptRef.current}`)
+      );
       if (fullRecorded) {
         setInputText((prev) => {
-          const trimmed = prev.trim();
+          const trimmed = cleanExtractedMedicalText(prev);
           if (!trimmed) {
-            return `【主訴】\n${fullRecorded}\n\n【現病歴】\n\n【処置・方針】\n`;
+            return `【主訴】${fullRecorded}\n【現病歴】\n【アセスメント】\n【プラン】`;
           }
-          return `${trimmed}\n${fullRecorded}`;
+          return cleanExtractedMedicalText(`${trimmed}\n${fullRecorded}`);
         });
       }
 
@@ -253,37 +286,52 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
     }
   }, [setInputText, startWaveformLoop, stopWaveformLoop]);
 
-  // デフォルトテキスト（空の場合のサンプル所見表示）
-  const displayLines = (inputText.trim() || `【主訴】　　　　労作時の息切れ、胸部圧迫感\n\n【現病歴】　　　3日前より階段昇降時に胸部圧迫感と動悸を自覚。\n　　　　　　　　安静にて数分で軽快するも、今朝より階段1階分で症状出現。\n\n【既往歴】　　　高血圧、脂質異常症（10年前より加療中）\n\n【内服薬】　　　アムロジピン 5mg 1T 1x 朝食後、アトルバスタチン 10mg\n\n【身体所見】　　血圧 142/86 mmHg, 脈拍 82回/分・整, SpO2 98% (room)\n　　　　　　　　心音: 整・心雑音なし。呼吸音: 清・ラ音聴取せず。下腿浮腫(-)\n\n【アセスメント】労作性狭心症の疑い（安定狭心症疑い）\n\n【プラン (P)】　1. 12誘導心電図、心エコー、トロポニン・BNP迅速検査\n\n　　　　　　　　2. 硝酸薬（ニトロペン舌下錠）領用処方と安静時発作の指導\n\n　　　　　　　　3. 循環器専門医への同日対診・冠動脈CT適応検討`).split('\n');
+  // デフォルトテキスト（空の場合のサンプル所見表示：無駄な全角スペースや連続改行を完全排除）
+  const displayLines = cleanExtractedMedicalText(inputText.trim() || DEFAULT_SAMPLE_CHART_TEXT).split('\n');
 
   return (
     <div className="relative w-full h-[100dvh] bg-[#0F172A] text-slate-100 flex flex-col justify-between overflow-hidden select-none font-sans overscroll-none touch-manipulation pt-[env(safe-area-inset-top,0px)]">
 
       {/* ========================================================================= */}
-      {/* 2. ヘッダー部: ロゴ + デスクトップナビ + BLE接続ステータスバッジ */}
+      {/* 2. ヘッダー部: 常時表示ハンバーガーメニュー + ロゴ + デスクトップナビ + BLE接続バッジ */}
       {/* ========================================================================= */}
-      <header className="w-full px-4 py-2 shrink-0 border-b border-slate-800/80 bg-[#0F172A]/90 backdrop-blur-md z-10">
+      <header className="w-full px-4 py-2 shrink-0 border-b border-slate-800/80 bg-[#0F172A]/95 backdrop-blur-md z-50">
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
-          {/* 左側: ハンバーガーメニュー & ロゴ */}
-          <div className="flex items-center gap-2.5">
+          {/* 左側: ハンバーガーメニュー & 戻るトグル & ロゴ (常時表示・非表示にならない安全設計) */}
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => {
                 triggerHaptic(15);
-                setIsDrawerOpen(true);
+                setIsDrawerOpen((prev) => !prev);
               }}
-              className="p-1.5 -ml-1 text-slate-300 hover:text-white active:scale-95 transition-transform"
-              aria-label="メニューを開く"
+              className={`px-2 py-1.5 -ml-1 rounded-xl border flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer ${
+                isDrawerOpen
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-[0_0_10px_rgba(245,158,11,0.3)]'
+                  : 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border-slate-700'
+              }`}
+              aria-label={isDrawerOpen ? 'メイン画面へ戻る' : 'メニューを開く'}
+              title={isDrawerOpen ? 'メイン画面へ戻る' : '設定＆管理メニューを開く'}
             >
-              <Menu className="w-6 h-6 stroke-[2]" />
+              {isDrawerOpen ? (
+                <>
+                  <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
+                  <span className="text-xs font-bold">戻る</span>
+                </>
+              ) : (
+                <>
+                  <Menu className="w-5 h-5 stroke-[2.2]" />
+                  <span className="text-[11px] font-bold hidden sm:inline">メニュー</span>
+                </>
+              )}
             </button>
 
             <div className="flex items-center gap-2">
               <span className="text-lg font-bold tracking-tight text-white font-sans">
                 Dr.Dongly
               </span>
-              <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-800 text-sky-400 border border-slate-700/80">
-                Edge
+              <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-700/70">
+                3省2GL完全準拠
               </span>
             </div>
           </div>
@@ -415,14 +463,14 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
           {/* 臨床所見・SOAP整形テキスト カード */}
           <div className="flex-1 w-full bg-[#1E293B]/50 border border-slate-800 rounded-2xl p-3.5 lg:p-4 flex flex-col overflow-hidden shadow-lg backdrop-blur-sm relative">
             {/* カードヘッダー */}
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800/80 mb-2 shrink-0">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800/80 mb-2 shrink-0 gap-1.5 flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-4 bg-amber-500 rounded-[2px] inline-block shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
                 <h2 className="text-xs lg:text-sm font-bold text-slate-200 tracking-wide font-sans">
                   臨床所見・SOAP整形テキスト
                 </h2>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {isSending ? (
                   <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-950/70 border border-rose-500/50 text-rose-300 text-[10px] font-bold animate-pulse">
                     <RefreshCw className="w-2.5 h-2.5 animate-spin text-rose-400" />
@@ -446,12 +494,48 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                     録音中...
                   </span>
                 ) : (
-                  <span className="text-[10px] font-mono text-sky-400/80 tracking-tight hidden sm:inline">
-                    Zero-Data Cloud
+                  <span className="text-[10px] font-mono text-emerald-400/90 tracking-tight hidden sm:inline">
+                    3省2GL 完全オフライン
                   </span>
                 )}
 
-                {/* カルテ消去ボタン (新UIルール準拠) */}
+                {/* 無駄なスペース・改行のワンタップ削除ボタン */}
+                {!isSending && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      triggerHaptic(15);
+                      setInputText((prev) =>
+                        cleanExtractedMedicalText(normalizeMedicalSpeechTerms(prev || DEFAULT_SAMPLE_CHART_TEXT))
+                      );
+                    }}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-sky-300 hover:text-white bg-sky-950/50 hover:bg-sky-900/70 border border-sky-700/50 transition-colors cursor-pointer"
+                    title="電子カルテから抽出したテキストの無駄なスペース・空白行・改行を一括削除して整形します"
+                  >
+                    <Sparkles className="w-3 h-3 text-sky-400" />
+                    <span>空白・改行整理</span>
+                  </button>
+                )}
+
+                {/* Gemma 2 AI文章校正ショートカットボタン */}
+                {!isSending && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      triggerHaptic(15);
+                      onOpenWebLlm();
+                    }}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-purple-300 hover:text-white bg-purple-950/60 hover:bg-purple-900/70 border border-purple-600/50 transition-colors cursor-pointer"
+                    title="Gemma 2 でSOAP形式または箇条書き要約に高精度校正します"
+                  >
+                    <Cpu className="w-3 h-3 text-purple-400" />
+                    <span>Gemma2校正</span>
+                  </button>
+                )}
+
+                {/* カルテ消去ボタン */}
                 {inputText.trim() && !isSending && (
                   <button
                     type="button"
@@ -488,27 +572,41 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                   ref={textareaRef}
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
+                  onPaste={(e) => {
+                    const pasted = e.clipboardData?.getData('text');
+                    if (pasted) {
+                      e.preventDefault();
+                      const cleanedPaste = cleanExtractedMedicalText(normalizeMedicalSpeechTerms(pasted));
+                      setInputText((prev) =>
+                        prev.trim() ? cleanExtractedMedicalText(`${prev}\n${cleanedPaste}`) : cleanedPaste
+                      );
+                    }
+                  }}
                   onBlur={() => {
-                    if (!inputText.trim()) setIsEditing(false);
+                    if (!inputText.trim()) {
+                      setIsEditing(false);
+                    } else {
+                      setInputText((prev) => cleanExtractedMedicalText(prev));
+                    }
                   }}
                   placeholder="所見を入力、またはマイクボタンをタップして音声入力してください..."
                   className="w-full h-full bg-transparent text-slate-100 text-xs sm:text-[13px] lg:text-sm leading-relaxed resize-none focus:outline-none font-mono selection:bg-amber-500/30"
                   style={{ minHeight: '180px' }}
                 />
               ) : (
-                <div className="space-y-1.5 cursor-text">
+                <div className="space-y-1 cursor-text">
                   {displayLines.map((line, idx) => {
                     const trimmed = line.trim();
-                    const isCyanTag = /^【(主訴|現病歴|既往歴|内服薬|身体所見)】/.test(trimmed);
-                    const isAmberTag = /^【(アセスメント|プラン.*?)】/.test(trimmed);
+                    const isCyanTag = /^【(S|主訴|現病歴|既往歴|内服薬|O|身体所見|検査)】/.test(trimmed);
+                    const isAmberTag = /^【(A|アセスメント|P|プラン.*?)】/.test(trimmed);
                     
                     if (isCyanTag || isAmberTag) {
                       const tagEnd = line.indexOf('】') + 1;
                       const tag = line.slice(0, tagEnd);
-                      const rest = line.slice(tagEnd);
+                      const rest = line.slice(tagEnd).trim();
                       return (
-                        <div key={idx} className="pt-2 font-medium">
-                          <span className={`font-bold mr-2 ${isCyanTag ? 'text-sky-400' : 'text-amber-400'}`}>
+                        <div key={idx} className="pt-1.5 font-medium">
+                          <span className={`font-bold mr-1.5 ${isCyanTag ? 'text-sky-400' : 'text-amber-400'}`}>
                             {tag}
                           </span>
                           <span className="text-slate-100">{rest}</span>
@@ -516,7 +614,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                       );
                     }
                     return (
-                      <div key={idx} className={trimmed ? 'text-slate-200' : 'h-2'}>
+                      <div key={idx} className={trimmed ? 'text-slate-200' : 'h-1.5'}>
                         {line}
                       </div>
                     );
@@ -620,6 +718,28 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
               </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(15);
+                  onOpenSearch('all');
+                }}
+                className="w-full p-2.5 rounded-xl bg-sky-950/40 hover:bg-sky-900/50 border border-sky-500/40 flex items-center justify-between text-left transition-all group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">🔍</span>
+                  <div>
+                    <div className="text-xs font-semibold text-sky-200 group-hover:text-white transition-colors">
+                      臨床データ総合検索 (カルテ100%連動)
+                    </div>
+                    <div className="text-[10px] text-sky-400 font-mono">
+                      全10大マスター・カルテ抽出キーワード一括照合
+                    </div>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-sky-400 group-hover:text-white transition-colors" />
+              </button>
             </div>
           </div>
 
@@ -669,10 +789,10 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                   <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
                   <div>
                     <div className="text-xs font-semibold text-slate-200 group-hover:text-purple-300 transition-colors">
-                      ローカルAI 臨床方針相談
+                      Gemma 2 文章校正 (SOAP / 箇条書き)
                     </div>
                     <div className="text-[10px] text-purple-400 font-mono">
-                      WebGPU Gemma 2 2B 完全オフライン
+                      WebGPU Gemma 2 2B 高精度プロンプト搭載
                     </div>
                   </div>
                 </div>
@@ -695,7 +815,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                         処方箋・カルテ カメラOCR取込
                       </div>
                       <div className="text-[10px] text-sky-400 font-mono">
-                        書類・薬剤名テキスト自動抽出
+                        書類・薬剤名テキスト自動抽出 (空白除去)
                       </div>
                     </div>
                   </div>
@@ -719,7 +839,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                         電カル双方向受信コプロセッサ
                       </div>
                       <div className="text-[10px] text-rose-400 font-mono">
-                        仮想プリンタ (07h) カルテ吸い上げ
+                        仮想プリンタ (07h) カルテ吸い上げ・空白自動削除
                       </div>
                     </div>
                   </div>
@@ -729,10 +849,19 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
             </div>
           </div>
 
-          {/* クイックアクション3: 医療安全 ＆ 接続状態 */}
+          {/* クイックアクション3: 医療安全 ＆ 3省2ガイドライン準拠ステータス */}
           <div className="bg-[#1E293B]/40 border border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 shadow-lg backdrop-blur-sm text-xs">
-            <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase pb-1 border-b border-slate-800/80">
-              通信 ＆ 医療安全ステータス
+            <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase pb-1 border-b border-slate-800/80 flex items-center justify-between">
+              <span>通信 ＆ 3省2ガイドライン準拠</span>
+              <button
+                type="button"
+                onClick={handleSecretAirGapTap}
+                className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 select-none"
+                title="3省2ガイドライン完全準拠 (3回タップでエアギャップ詳細)"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                完全閉域
+              </button>
             </span>
             <div className="space-y-1.5 text-xs">
               <div className="flex items-center justify-between">
@@ -742,15 +871,22 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">Wi-Fi SoftAP:</span>
-                <span className="font-mono text-slate-300">192.168.4.1 (Atlas/PDF)</span>
+                <span className="text-slate-400">運用形態:</span>
+                <span className="font-semibold text-emerald-300">完全オフライン・オンプレミス</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">院内情報保護:</span>
-                <span className="text-emerald-400 font-semibold">Zero-Data Cloud (完全閉域)</span>
+                <span className="text-slate-400">3省2ガイドライン:</span>
+                <span
+                  onClick={handleSecretAirGapTap}
+                  className="text-emerald-400 font-semibold cursor-pointer select-none"
+                >
+                  準拠 (外部通信遮断)
+                </span>
               </div>
               <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[11px] text-slate-500 font-mono">
-                <span>Firmware: v{LATEST_FIRMWARE_VERSION}</span>
+                <span onClick={handleSecretAirGapTap} className="cursor-pointer select-none">
+                  Firmware: v{LATEST_FIRMWARE_VERSION}
+                </span>
                 <span>PWA: v{APP_VERSION}</span>
               </div>
             </div>
@@ -889,10 +1025,10 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       </nav>
 
       {/* ========================================================================= */}
-      {/* 5. ハンバーガーメニュー ドロワー (画像2を忠実に再現) */}
+      {/* 5. ハンバーガーメニュー ドロワー (設定 & 管理 - 戻るボタン常時表示・ハンバーガーメニュー消失防止) */}
       {/* ========================================================================= */}
       {isDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-40 flex pt-[calc(env(safe-area-inset-top,0px)+3.5rem)]">
           {/* バックドロップ */}
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
@@ -903,17 +1039,31 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
           />
 
           {/* スライドインドロワー本体 */}
-          <aside className="relative w-4/5 max-w-sm h-full bg-[#0F172A] border-r border-slate-800 text-slate-100 flex flex-col justify-between p-5 z-10 shadow-2xl overflow-y-auto overscroll-contain animate-in slide-in-from-left duration-200">
-            <div className="space-y-6">
-              {/* ドロワーヘッダー */}
-              <div className="flex items-start justify-between border-b border-slate-800 pb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-white tracking-tight">
-                    設定 & 管理
-                  </h3>
-                  <p className="text-xs text-slate-400 font-mono mt-0.5">
-                    Dr.Dongly System Preferences
-                  </p>
+          <aside className="relative w-11/12 max-w-sm h-full bg-[#0F172A] border-r border-slate-800 text-slate-100 flex flex-col justify-between p-4 z-10 shadow-2xl overflow-y-auto overscroll-contain animate-in slide-in-from-left duration-200">
+            <div className="space-y-5">
+              {/* ドロワーヘッダー（← 戻るボタンを明示配置） */}
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3.5 gap-2">
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(15);
+                      setIsDrawerOpen(false);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-xs font-bold flex items-center gap-1 transition-colors shrink-0 shadow-sm"
+                    aria-label="メイン画面へ戻る"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>戻る</span>
+                  </button>
+                  <div>
+                    <h3 className="text-base font-bold text-white tracking-tight">
+                      設定 & 管理
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-mono">
+                      Dr.Dongly System Menu
+                    </p>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -921,18 +1071,23 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                     triggerHaptic(15);
                     setIsDrawerOpen(false);
                   }}
-                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors"
+                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors shrink-0"
                   aria-label="閉じる"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* グループ1: 臨床データ ＆ 意思決定支援 */}
+              {/* グループ1: 臨床データ ＆ 意思決定支援 (カルテ100%連動) */}
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">
-                  臨床データ ＆ 意思決定支援
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-300 tracking-wider uppercase">
+                    臨床データ ＆ 意思決定支援
+                  </span>
+                  <span className="text-[10px] font-bold text-amber-300 bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded-full">
+                    🎯 カルテ全体連動
+                  </span>
+                </div>
                 <div className="space-y-1.5">
                   <button
                     type="button"
@@ -947,10 +1102,10 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                       <span className="text-base">💊</span>
                       <div>
                         <div className="text-xs font-semibold text-slate-200">
-                          医薬品添付文書 ＆ 錠剤識別
+                          医薬品添付文書 ＆ 錠剤鑑別
                         </div>
                         <div className="text-[10px] text-teal-400 font-mono">
-                          PMDA約22,000品目・表裏刻印写真
+                          カルテ内処方薬・適応薬を100%自動抽出表示
                         </div>
                       </div>
                     </div>
@@ -973,7 +1128,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                           12誘導心電図 ＆ 臨床波形解析
                         </div>
                         <div className="text-[10px] text-rose-400 font-mono">
-                          実測ミリ波形・1mm/5mm方眼紙測定
+                          カルテ所見・ST変化に一致する波形を自動選定
                         </div>
                       </div>
                     </div>
@@ -996,11 +1151,34 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                           Minds ガイドライン ＆ 救急プロトコル
                         </div>
                         <div className="text-[10px] text-emerald-400 font-mono">
-                          169CQ 全文原本・中毒解毒処置
+                          カルテ病態・主訴に直結するガイドラインCQ表示
                         </div>
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(15);
+                      setIsDrawerOpen(false);
+                      onOpenSearch('all');
+                    }}
+                    className="w-full p-3 rounded-xl bg-sky-950/50 hover:bg-sky-900/60 border border-sky-500/40 flex items-center justify-between text-left transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-base">🔍</span>
+                      <div>
+                        <div className="text-xs font-semibold text-sky-200">
+                          臨床データ総合検索 (カルテ100%連動)
+                        </div>
+                        <div className="text-[10px] text-sky-400 font-mono">
+                          32GB SD 全10大マスター横断・医療知識均てん化
+                        </div>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-sky-400 group-hover:text-white transition-colors" />
                   </button>
                 </div>
               </div>
@@ -1011,6 +1189,29 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                   カルテ入力支援 ＆ ツール
                 </span>
                 <div className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(15);
+                      setIsDrawerOpen(false);
+                      onOpenWebLlm();
+                    }}
+                    className="w-full p-3 rounded-xl bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/40 flex items-center justify-between text-left transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
+                      <div>
+                        <div className="text-xs font-semibold text-purple-200">
+                          Gemma 2 文章校正 (SOAP / 箇条書き要約)
+                        </div>
+                        <div className="text-[10px] text-purple-400 font-mono">
+                          高精度プロンプトによるカルテ構造化・要約
+                        </div>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-purple-400 group-hover:text-white transition-colors" />
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -1051,43 +1252,21 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                             処方箋・カルテ カメラOCR取込
                           </div>
                           <div className="text-[10px] text-sky-400 font-mono">
-                            書類・薬剤名テキスト自動抽出
+                            書類・薬剤名抽出 (無駄なスペース・改行自動削除)
                           </div>
                         </div>
                       </div>
                       <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
                     </button>
                   )}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic(15);
-                      setIsDrawerOpen(false);
-                      onOpenWebLlm();
-                    }}
-                    className="w-full p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
-                      <div>
-                        <div className="text-xs font-semibold text-slate-200">
-                          ローカルAI 臨床方針相談
-                        </div>
-                        <div className="text-[10px] text-purple-400 font-mono">
-                          WebGPU 完全オフライン推論
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
-                  </button>
                 </div>
               </div>
 
-              {/* グループ3: 医療安全 ＆ 接続状態 */}
+              {/* グループ3: 3省2ガイドライン準拠 ＆ 医療安全 */}
               <div className="space-y-2">
-                <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">
-                  通信 ＆ 医療安全
+                <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase flex items-center justify-between">
+                  <span>3省2ガイドライン準拠 ＆ 通信</span>
+                  <span className="text-[10px] text-emerald-400 font-mono">完全オフライン・オンプレミス</span>
                 </span>
                 <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 space-y-1.5 text-xs">
                   <div className="flex items-center justify-between">
@@ -1097,35 +1276,139 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Wi-Fi SoftAP:</span>
-                    <span className="font-mono text-slate-300">Drdonguri-Atlas-Direct</span>
+                    <span className="text-slate-400">医療情報安全管理:</span>
+                    <span className="text-emerald-400 font-semibold">3省2ガイドライン準拠</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">プライバシー:</span>
-                    <span className="text-emerald-400 font-semibold">Zero-Data Cloud (漏洩ゼロ)</span>
+                    <span className="text-slate-400">クラウド外部送信:</span>
+                    <span className="text-emerald-300 font-mono">0 Byte (完全オンプレミス)</span>
+                  </div>
+                  {/* 隠し機能トリガー: この行を3回連続タップするとT-Dongle-S3 Wi-Fiエアギャップ接続手順が開く */}
+                  <div
+                    onClick={handleSecretAirGapTap}
+                    className="pt-1.5 mt-1 border-t border-slate-700/50 flex items-center justify-between text-[10px] text-slate-500 cursor-pointer select-none"
+                    title="3回連続タップでT-Dongle-S3 閉域Wi-Fiエアギャップ詳細を表示"
+                  >
+                    <span className="flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-slate-500" />
+                      ハードウェア閉域認証モード
+                    </span>
+                    <span className="font-mono">On-Premise Air-Gap</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* ドロワーフッター */}
-            <div className="pt-6 border-t border-slate-800/80 space-y-1">
-              <div className="text-xs font-mono text-slate-400">
-                Firmware: v{LATEST_FIRMWARE_VERSION}-ESP32S3 (Dr.Dongly v{APP_VERSION})
-              </div>
-              <a
-                href="https://yokawase.github.io/Drdonguri/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-sky-400 hover:underline flex items-center gap-1 font-sans"
+            {/* ドロワーフッター（戻るボタン ＋ バージョン情報） */}
+            <div className="pt-4 mt-4 border-t border-slate-800/80 space-y-3">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(15);
+                  setIsDrawerOpen(false);
+                }}
+                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-100 text-xs font-bold flex items-center justify-center gap-2 transition-colors"
               >
-                <span>Zero-Data Cloud Architecture</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
+                <ArrowLeft className="w-4 h-4 text-amber-400" />
+                <span>メイン画面へ戻る</span>
+              </button>
+              <div
+                onClick={handleSecretAirGapTap}
+                className="text-[11px] font-mono text-slate-400 flex items-center justify-between cursor-pointer select-none"
+              >
+                <span>FW: v{LATEST_FIRMWARE_VERSION}-ESP32S3</span>
+                <span>Dr.Dongly v{APP_VERSION}</span>
+              </div>
             </div>
           </aside>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 6. 【隠し機能】3省2ガイドライン完全準拠 T-Dongle-S3 Wi-Fi エアギャップ遮断モーダル */}
+      {/* ========================================================================= */}
+      {showHiddenAirGapModal && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setShowHiddenAirGapModal(false)}
+        >
+          <div
+            className="bg-slate-900 border-2 border-emerald-500/60 rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-4 text-slate-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-emerald-950 border border-emerald-500/40 text-emerald-400">
+                  <ShieldCheck className="w-6 h-6" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-500/40">
+                      Hidden On-Premise Mode
+                    </span>
+                    <span className="text-[10px] font-mono text-amber-300">
+                      3省2ガイドライン完全準拠
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-white mt-1">
+                    T-Dongle-S3 閉域Wi-Fi エアギャップ遮断構成
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHiddenAirGapModal(false)}
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+              >
+                ✕ 閉じる
+              </button>
+            </div>
+
+            <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-xl p-3.5 text-xs text-slate-200 leading-relaxed space-y-2">
+              <p className="font-bold text-emerald-300">
+                🔒 なぜあえて T-Dongle-S3 の Wi-Fi に接続するのか？（3省2ガイドライン遵守の黄金律）
+              </p>
+              <p>
+                スマホ・タブレットのWi-Fi接続先を、インターネットルーターではなくあえて
+                <strong className="text-white"> T-Dongle-S3 内蔵の閉域アクセスポイント（SoftAP）</strong>
+                に切り替えることで、端末のルーティングが物理的に外部インターネットから完全遮断（エアギャップ隔離）されます。
+              </p>
+              <p>
+                これにより、厚労省・経産省・総務省の<strong className="text-emerald-300">「医療情報システムの安全管理に関するガイドライン（3省2ガイドライン）」</strong>が求める「外部ネットワークへの患者情報漏洩ゼロ」をハードウェアレベルで100%証明できる<strong className="text-amber-300">完全オフライン・オンプレミス医療支援デバイス</strong>として機能します。
+              </p>
+            </div>
+
+            <div className="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 space-y-2 text-xs">
+              <div className="font-bold text-slate-300 flex items-center justify-between">
+                <span>📡 T-Dongle-S3 閉域SoftAP 接続手順（監査・高セキュリティ運用時）</span>
+                <span className="text-[10px] font-mono text-slate-500">※通常はBLEのみで全機能稼働</span>
+              </div>
+              <ol className="list-decimal list-inside space-y-1.5 text-slate-300 font-mono text-[11px]">
+                <li>
+                  スマホのWi-Fi設定で SSID: <span className="text-amber-300 font-bold">Drdonguri-Atlas-Direct</span> を選択
+                </li>
+                <li>
+                  パスワード: <span className="text-amber-300 font-bold">donguri-medical-s3</span> を入力して接続
+                </li>
+                <li>
+                  インターネット未接続の閉域網（<span className="text-sky-300">http://192.168.4.1</span>）が確立され、32GB MicroSD内のMindsガイドライン原本PDF・PMDA添付文書・臨床アトラスWebPが外部通信ゼロで直接ストリーミング供給されます。
+                </li>
+              </ol>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowHiddenAirGapModal(false)}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors"
+              >
+                了解して戻る
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 };
+

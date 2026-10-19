@@ -13,9 +13,11 @@ import {
   Smartphone,
   ShieldCheck,
   Cpu,
-  FastForward
+  FastForward,
+  ArrowLeft
 } from 'lucide-react';
 import { performLocalCameraOcr, type OcrProgressUpdate } from '../services/localOcrService';
+import { cleanExtractedMedicalText } from '../utils/chartTextCleaner';
 
 interface CameraOcrModalProps {
   isOpen: boolean;
@@ -153,20 +155,21 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
           setProcessingStatus(update.message);
           setProgressPercent(Math.round(update.progress * 100));
         },
-        // ★ Tesseract OCR 完了時点で即座に Raw テキストを表示（待ち時間ゼロ化）
+        // ★ Tesseract OCR 完了時点で即座に無駄なスペース・改行を削除したテキストを表示
         (rawText: string) => {
-          setRawOcrText(rawText);
-          setExtractedText(rawText);
+          const cleaned = cleanExtractedMedicalText(rawText);
+          setRawOcrText(cleaned);
+          setExtractedText(cleaned);
         },
         // ★ WebLLM ストリーミング出力（リアルタイムにテキストが流れる）
         (streamedText: string) => {
-          setExtractedText(streamedText);
+          setExtractedText(cleanExtractedMedicalText(streamedText));
           setIsRefinedByLlm(true);
         }
       );
 
-      setExtractedText(result.text);
-      setRawOcrText(result.rawOcrText);
+      setExtractedText(cleanExtractedMedicalText(result.text));
+      setRawOcrText(cleanExtractedMedicalText(result.rawOcrText));
       setIsRefinedByLlm(result.text !== result.rawOcrText);
     } catch (err: any) {
       console.error('[Local OCR Error]:', err);
@@ -200,9 +203,18 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 select-none">
       <div className="bg-[#0F172A] rounded-2xl max-w-xl w-full shadow-2xl border border-slate-700/80 overflow-hidden flex flex-col max-h-[92vh] font-sans text-slate-100">
         {/* Header */}
-        <div className="bg-[#1E293B] border-b border-slate-800 p-4 text-white flex items-center justify-between shrink-0">
+        <div className="bg-[#1E293B] border-b border-slate-800 p-3.5 text-white flex items-center justify-between shrink-0 gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+              aria-label="戻る"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />
+              <span>戻る</span>
+            </button>
+            <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
               <Camera className="w-5 h-5" />
             </div>
             <div>
@@ -214,13 +226,13 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Tesseract.js ＋ WebLLM による院内閉域文字認識 (Zero-Data Cloud)
+                Tesseract.js ＋ WebLLM による院内閉域文字認識 (無駄なスペース・改行自動削除)
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>

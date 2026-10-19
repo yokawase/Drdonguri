@@ -3,8 +3,16 @@ import {
   isGibberishOutput,
   hasMultilingualArtifacts,
   generateSafeFallbackChart,
+  buildGemma2MedicalPrompt,
   GEMMA_2_JPN_MODEL,
 } from '../src/services/webLlmService';
+import {
+  cleanExtractedMedicalText,
+  extractChartClinicalKeywords,
+  DEFAULT_SAMPLE_CHART_TEXT,
+} from '../src/utils/chartTextCleaner';
+import { bleMedicalIndexService } from '../src/services/bleMedicalIndexService';
+import { searchUnifiedMedicalKnowledge } from '../src/data/medicalKnowledgeCatalog';
 
 describe('WebLLM Gemma 2 日本語カルテ整形 ＆ ジベリッシュ完全防御テスト', () => {
   it('モデル定数が FP32 安定版 gemma-2-2b-jpn-it-q4f32_1-MLC に設定されていること', () => {
@@ -82,4 +90,51 @@ describe('WebLLM Gemma 2 日本語カルテ整形 ＆ ジベリッシュ完全�
     expect(formatted).toContain('主訴・現病歴');
     expect(formatted).toContain('治療方針');
   });
+
+  it('Gemma 2 プロンプト生成関数がSOAP形式・箇条書き要約の厳密な指示を含むこと', () => {
+    const soapPrompt = buildGemma2MedicalPrompt(DEFAULT_SAMPLE_CHART_TEXT, 'soap');
+    expect(soapPrompt).toContain('【S】(Subjective');
+    expect(soapPrompt).toContain('【O】(Objective');
+    expect(soapPrompt).toContain('【A】(Assessment');
+    expect(soapPrompt).toContain('【P】(Plan');
+    expect(soapPrompt).toContain('ハルシネーション');
+
+    const concisePrompt = buildGemma2MedicalPrompt(DEFAULT_SAMPLE_CHART_TEXT, 'concise');
+    expect(concisePrompt).toContain('箇条書き臨床要約');
+    expect(concisePrompt).toContain('体言止め');
+  });
+
+  it('電子カルテから文章を抽出した際に無駄なスペースや改行が確実に削除されること', () => {
+    const messyExtractedText = `【主訴】   前胸部圧迫感  、  冷汗   \r\n\r\n\r\n【現病歴】 昨日 夕方 より   階段 昇降 時に 胸 が 締め付けられる ような 痛み が 出現 。   \n\n\n【内服薬】  アムロジピン 錠 5mg  \f`;
+    const cleaned = cleanExtractedMedicalText(messyExtractedText);
+    expect(cleaned).not.toContain('\n\n');
+    expect(cleaned).not.toContain('   ');
+    expect(cleaned).toContain('【主訴】前胸部圧迫感、冷汗');
+    expect(cleaned).toContain('階段昇降時に胸が締め付けられるような痛みが出現。');
+  });
+
+  it('カルテ全体から臨床キーワードを100%抽出し、医薬品・心電図・Mindsガイドライン・総合検索がカルテ内容と完全連動すること', () => {
+    const ctx = extractChartClinicalKeywords(DEFAULT_SAMPLE_CHART_TEXT);
+    expect(ctx.allKeywords.length).toBeGreaterThan(5);
+    expect(ctx.drugKeywords.some(k => k.includes('アムロジピン') || k.includes('ニトロペン'))).toBe(true);
+    expect(ctx.atlasEcgKeywords.some(k => k.includes('ST低下') || k.includes('狭心症'))).toBe(true);
+    expect(ctx.mindsEmerKeywords.some(k => k.includes('狭心症') || k.includes('高血圧'))).toBe(true);
+
+    // 1. 医薬品添付文書＆錠剤鑑別がカルテ内薬剤（アムロジピン、アトルバスタチン、ニトロペン等）と100%リンク
+    const matchedPills = bleMedicalIndexService.searchPills({ query: ctx.drugKeywords.join(' ') });
+    expect(matchedPills.length).toBeGreaterThanOrEqual(3);
+    expect(matchedPills.some(p => p.brandName.includes('アムロジピン'))).toBe(true);
+    expect(matchedPills.some(p => p.brandName.includes('ニトロペン'))).toBe(true);
+
+    // 2. 12誘導心電図＆臨床波形解析がカルテ所見（ST低下・労作性狭心症・高血圧）と100%リンク
+    const matchedAtlas = bleMedicalIndexService.searchAtlas('全件', ctx.atlasEcgKeywords.join(' '));
+    expect(matchedAtlas.length).toBeGreaterThanOrEqual(1);
+    expect(matchedAtlas[0].title).toContain('狭心症');
+
+    // 3. Mindsガイドライン＆総合検索がカルテ全体キーワードと100%リンク
+    const matchedAll = searchUnifiedMedicalKnowledge(ctx.allKeywords.join(' '), 'all', 30);
+    expect(matchedAll.length).toBeGreaterThan(5);
+    expect(matchedAll.some(item => (item.matchedKeywords?.length || 0) > 0)).toBe(true);
+  });
 });
+

@@ -5,6 +5,8 @@
  */
 
 import { PreparedSession, parseMissingBitmap, toHexDump } from './packetBuilder';
+import { cleanExtractedMedicalText } from './chartTextCleaner';
+
 
 export const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
 export const CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
@@ -321,8 +323,9 @@ export class BleDongleManager {
     // 2. 仮想プリンター印刷ジョブ完了 (PRN_END:<totalBytes>)
     if (ackStr.startsWith('PRN_END')) {
       const fullBytes = new Uint8Array(this.printerBuffer);
-      const fullText = decodePrinterBytes(fullBytes);
-      this.log('rx', 'PRN_END', `電カル過去カルテ吸い上げ完了: 全 ${fullBytes.length} Bytes / ${fullText.length} 文字`);
+      const rawText = decodePrinterBytes(fullBytes);
+      const fullText = cleanExtractedMedicalText(rawText);
+      this.log('rx', 'PRN_END', `電カル過去カルテ吸い上げ＆空白除去完了: 全 ${fullBytes.length} Bytes / 整形後 ${fullText.length} 文字`);
       for (const cb of [...this.printerCompleteListeners]) {
         try {
           cb(fullText, fullBytes.length);

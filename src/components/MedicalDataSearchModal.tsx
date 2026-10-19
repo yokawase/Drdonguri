@@ -28,6 +28,9 @@ import {
   Layers,
   Eye,
   FileDown,
+  ArrowLeft,
+  ShieldCheck,
+  Lock,
 } from 'lucide-react';
 import {
   searchUnifiedMedicalKnowledge,
@@ -58,11 +61,17 @@ import {
 import {
   bleMedicalIndexService,
   PillSearchCriteria,
+  MatchedDrugIdentificationItem,
+  MatchedClinicalAtlasItem,
 } from '../services/bleMedicalIndexService';
 import {
   sdCardStreamingService,
   SoftApStatus,
 } from '../services/sdCardStreamingService';
+import {
+  extractChartClinicalKeywords,
+  DEFAULT_SAMPLE_CHART_TEXT,
+} from '../utils/chartTextCleaner';
 import { playMacBeep, playSosumi } from '../utils/macAudio';
 
 interface MedicalDataSearchModalProps {
@@ -86,6 +95,16 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
 }) => {
   const [query, setQuery] = useState(initialQuery);
   const [filterType, setFilterType] = useState<TabFilterType>(initialTab);
+  // カルテ全体100%連動モード（デフォルトON: カルテ全体の抽出キーワードに完全リンクしたデータを表示）
+  const [isChartLinked, setIsChartLinked] = useState<boolean>(true);
+  // 3省2ガイドライン 隠しWi-Fi SoftAPガイド起動用タップカウンタ
+  const [secretTapCount, setSecretTapCount] = useState<number>(0);
+
+  // カルテ全体（主訴・現病歴・既往歴・内服薬・身体所見・検査・アセスメント・プラン）からのキーワード抽出
+  const chartContext = useMemo(() => {
+    const sourceChart = inputText && inputText.trim().length > 0 ? inputText : DEFAULT_SAMPLE_CHART_TEXT;
+    return extractChartClinicalKeywords(sourceChart);
+  }, [inputText]);
 
   useEffect(() => {
     if (initialTab) {
@@ -95,7 +114,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [insertedId, setInsertedId] = useState<string | null>(null);
 
-  // Wi-Fi SoftAP 高解像度ストリーミングステート
+  // Wi-Fi SoftAP 高解像度ストリーミングステート (隠し機能)
   const [apStatus, setApStatus] = useState<SoftApStatus>(sdCardStreamingService.getStatus());
   const [isCheckingAp, setIsCheckingAp] = useState(false);
   const [showApGuide, setShowApGuide] = useState(false);
@@ -113,7 +132,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
   const [highResAtlasUrl, setHighResAtlasUrl] = useState<string | null>(null);
   const [isLoadingHighRes, setIsLoadingHighRes] = useState(false);
 
-  // EmbeddingGemma 2 (740M MRL 128d) セマンティック検索ステート (Ollama代替)
+  // EmbeddingGemma 2 (740M MRL 128d) セマンティック検索ステート
   const [useSemantic, setUseSemantic] = useState(true);
   const [semanticResults, setSemanticResults] = useState<SemanticSearchResult[]>([]);
   const [isSearchingSemantic, setIsSearchingSemantic] = useState(false);
@@ -135,13 +154,28 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
     setIsCheckingAp(false);
   };
 
+  // 隠し機能: 3省2ガイドラインバッジを3回タップでWi-Fi SoftAPエアギャップ設定を起動
+  const handleSecretBadgeTap = () => {
+    const next = secretTapCount + 1;
+    if (next >= 3) {
+      playMacBeep();
+      setSecretTapCount(0);
+      handleCheckAp();
+      setShowApGuide(true);
+    } else {
+      setSecretTapCount(next);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       if (initialQuery) {
         setQuery(initialQuery);
+      } else {
+        setQuery('');
+        setIsChartLinked(true);
       }
-      setTimeout(() => inputRef.current?.focus(), 100);
-      handleCheckAp();
+      setSecretTapCount(0);
     } else {
       setActiveMindsItem(null);
       setLlmStreamingOutput('');
@@ -181,20 +215,55 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
     sdCardStreamingService.openPackageInsertPdf(pdfPath);
   };
 
-  // 錠剤識別専用フィルタリング結果
-  const pillSearchResults = useMemo(() => {
-    return bleMedicalIndexService.searchPills({
-      query: query || undefined,
+  // 各タブにおける実効検索クエリ（手動入力があれば手動入力、空欄かつカルテ連動ONならカルテ全体抽出キーワード）
+  const effectivePillQuery = useMemo(() => {
+    if (query.trim()) return query.trim();
+    if (!isChartLinked) return '';
+    return chartContext.drugKeywords.join(' ') || chartContext.allKeywords.join(' ');
+  }, [query, isChartLinked, chartContext]);
+
+  const effectiveAtlasQuery = useMemo(() => {
+    if (query.trim()) return query.trim();
+    if (!isChartLinked) return '';
+    return chartContext.atlasEcgKeywords.join(' ') || chartContext.allKeywords.join(' ');
+  }, [query, isChartLinked, chartContext]);
+
+  const effectiveGeneralQuery = useMemo(() => {
+    if (query.trim()) return query.trim();
+    if (!isChartLinked) return '高血圧 狭心症 糖尿病 心不全';
+    if (filterType === 'minds' || filterType === 'emer') {
+      return chartContext.mindsEmerKeywords.join(' ') || chartContext.allKeywords.join(' ');
+    }
+    if (filterType === 'drug') {
+      return chartContext.drugKeywords.join(' ') || chartContext.allKeywords.join(' ');
+    }
+    return chartContext.allKeywords.join(' ') || '高血圧 狭心症';
+  }, [query, isChartLinked, filterType, chartContext]);
+
+  // 錠剤識別専用フィルタリング結果（カルテ内の内服薬・処方薬・関連疾患薬と100%リンク）
+  const pillSearchResults = useMemo<MatchedDrugIdentificationItem[]>(() => {
+    const matched = bleMedicalIndexService.searchPills({
+      query: effectivePillQuery || undefined,
       imprint: pillImprintFilter || undefined,
       shape: pillShapeFilter !== 'all' ? pillShapeFilter : undefined,
       hasScoredLine: pillScoredFilter === 'all' ? undefined : pillScoredFilter === 'yes',
     });
-  }, [query, pillImprintFilter, pillShapeFilter, pillScoredFilter]);
+    if (matched.length === 0 && !query.trim() && !pillImprintFilter) {
+      return bleMedicalIndexService.searchPills({
+        query: chartContext.allKeywords.join(' ') || undefined,
+      });
+    }
+    return matched;
+  }, [effectivePillQuery, query, pillImprintFilter, pillShapeFilter, pillScoredFilter, chartContext]);
 
-  // 臨床アトラス専用フィルタリング結果
-  const atlasSearchResults = useMemo(() => {
-    return bleMedicalIndexService.searchAtlas(atlasCategoryFilter, query);
-  }, [atlasCategoryFilter, query]);
+  // 臨床アトラス専用フィルタリング結果（カルテ内の心電図所見・症状・疾患と100%リンク）
+  const atlasSearchResults = useMemo<MatchedClinicalAtlasItem[]>(() => {
+    const matched = bleMedicalIndexService.searchAtlas(atlasCategoryFilter, effectiveAtlasQuery);
+    if (matched.length === 0 && !query.trim()) {
+      return bleMedicalIndexService.searchAtlas(atlasCategoryFilter, chartContext.allKeywords.join(' '));
+    }
+    return matched;
+  }, [atlasCategoryFilter, effectiveAtlasQuery, query, chartContext]);
 
   // EmbeddingGemma 2 セマンティック検索の非同期実行
   useEffect(() => {
@@ -205,10 +274,9 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
 
     let isMounted = true;
     const executeSearch = async () => {
-      const q = query.trim() || '急性';
       setIsSearchingSemantic(true);
       try {
-        const results = await searchWithEmbeddingGemma(q, filterType as any, 35, true);
+        const results = await searchWithEmbeddingGemma(effectiveGeneralQuery, filterType as any, 35, true);
         if (isMounted) {
           setSemanticResults(results);
         }
@@ -221,23 +289,20 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
       }
     };
 
-    const timer = setTimeout(executeSearch, 60);
+    const timer = setTimeout(executeSearch, 40);
     return () => {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [query, filterType, useSemantic]);
+  }, [effectiveGeneralQuery, filterType, useSemantic]);
 
   // 検索結果 (セマンティック有効時は EmbeddingGemma、無効時は従来のキーワード検索)
   const searchResults = useMemo(() => {
     if (useSemantic && semanticResults.length > 0) {
       return semanticResults;
     }
-    if (!query.trim()) {
-      return searchUnifiedMedicalKnowledge('急性', filterType as any, 20);
-    }
-    return searchUnifiedMedicalKnowledge(query, filterType as any, 35);
-  }, [query, filterType, useSemantic, semanticResults]);
+    return searchUnifiedMedicalKnowledge(effectiveGeneralQuery, filterType as any, 35);
+  }, [effectiveGeneralQuery, filterType, useSemantic, semanticResults]);
 
   // コピー処理
   const handleCopy = (text: string, id: string) => {
@@ -293,27 +358,11 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
     setTimeout(() => setInsertedId(null), 1800);
   };
 
-  // カルテからキーワード自動抽出
+  // カルテ全体からキーワードを再抽出して100%連動モードをアクティブ化
   const handleExtractFromChart = () => {
     playMacBeep();
-    if (!inputText.trim()) {
-      setQuery('生活習慣病');
-      return;
-    }
-    // 代表的な臨床キーワードの検出
-    const keywords = [
-      'HbA1c', 'eGFR', 'BNP', 'D-ダイマー', 'CRP', 'TSH',
-      '生活習慣病', '特定疾患', '心電図', 'オンライン診療',
-      'エリキュース', 'イグザレルト', 'リクシアナ', 'メトホルミン', 'ジャディアンス', 'バラシクロビル',
-      '高血圧', '糖尿病', '感冒', '咽頭炎', '気管支炎', '肺炎', '喘息', '心房細動', '心不全', '逆流性食道炎', '痛風', '頭痛'
-    ];
-    const found = keywords.find((kw) => inputText.includes(kw));
-    if (found) {
-      setQuery(found);
-    } else {
-      const firstLine = inputText.split('\n')[0].slice(0, 10).trim();
-      setQuery(firstLine || '生活習慣病');
-    }
+    setQuery('');
+    setIsChartLinked(true);
   };
 
   // WebLLM 臨床相談
@@ -326,7 +375,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
 
     try {
       const result = await consultGuidelineWithWebLLM(
-        inputText || '（カルテ未入力：一般的な臨床方針について）',
+        inputText || DEFAULT_SAMPLE_CHART_TEXT,
         {
           id: item.id,
           icd10: item.icd10,
@@ -359,68 +408,72 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 select-none animate-in fade-in">
       <div className="bg-[#0F172A] border border-slate-700/80 rounded-2xl max-w-4xl w-full h-[94vh] sm:h-[88vh] flex flex-col shadow-2xl overflow-hidden font-sans text-slate-100">
-        {/* ネイティブ風 PWA ヘッダー */}
-        <div className="bg-[#1E293B] border-b border-slate-800 px-4 py-3 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
+        {/* ネイティブ風 PWA ヘッダー（戻るボタン常設 ＆ 3省2ガイドライン準拠バッジ） */}
+        <div className="bg-[#1E293B] border-b border-slate-800 px-3 sm:px-4 py-2.5 flex items-center justify-between shrink-0 gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={() => { playMacBeep(); onClose(); }}
-              className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 flex items-center gap-1 text-xs font-bold transition-colors cursor-pointer shrink-0"
+              title="メイン画面へ戻る"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />
+              <span>戻る</span>
+            </button>
+            <div className="font-bold text-xs sm:text-sm flex items-center gap-1.5 text-white truncate">
+              <span className="truncate">📚 32GB MicroSD 臨床意思決定支援</span>
+              <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/70 px-1.5 py-0.5 rounded border border-emerald-700/60 hidden md:inline">
+                医療知識均てん化・ハーム防止
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* 3省2ガイドライン準拠（完全オフライン・オンプレミス）バッジ ※3回タップで隠し機能Wi-Fi SoftAPガイド起動 */}
+            <button
+              type="button"
+              onClick={handleSecretBadgeTap}
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-full border flex items-center gap-1.5 cursor-pointer transition-colors select-none ${
+                apStatus.isConnected
+                  ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/70 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
+                  : 'bg-emerald-950/60 text-emerald-300 border-emerald-700/60 hover:bg-emerald-900/60'
+              }`}
+              title="3省2ガイドライン準拠：完全オフライン・オンプレミス稼働中"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="hidden sm:inline">
+                {apStatus.isConnected ? '3省2ガイドライン準拠 (エアギャップ直結)' : '3省2ガイドライン準拠 (完全オフライン)'}
+              </span>
+              <span className="sm:hidden">3省2GL準拠</span>
+            </button>
+
+            <div className="text-[10px] text-purple-300 font-bold bg-purple-950/60 border border-purple-600/50 px-2 py-1 rounded-full hidden lg:flex items-center gap-1">
+              <Brain className="w-3 h-3 text-purple-400" />
+              <span>Gemma 2 MRL</span>
+            </div>
+
+            <button
+              onClick={() => { playMacBeep(); onClose(); }}
+              className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer shrink-0"
               title="閉じる"
             >
               ✕
             </button>
-            <div className="font-bold text-xs sm:text-sm flex items-center gap-2 text-white">
-              <span>📚 臨床データ統合検索</span>
-              <span className="text-[10px] font-mono text-sky-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">32GB MicroSD</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Wi-Fi SoftAP 高速ストリーミング疎通ステータス */}
-            <button
-              onClick={() => { playMacBeep(); setShowApGuide(true); }}
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-full border flex items-center gap-1.5 cursor-pointer transition-colors ${
-                apStatus.isConnected
-                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.25)]'
-                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-              }`}
-              title={
-                apStatus.isConnected
-                  ? `Wi-Fi SoftAP (${apStatus.ip}) 接続中: 1024px WebP / 原本PDF直結`
-                  : 'BLE要約モード稼働中 (Wi-Fi未接続)。クリックして高速ストリーミング接続ガイドを表示'
-              }
-            >
-              {apStatus.isConnected ? (
-                <>
-                  <Wifi className="w-3 h-3 text-emerald-400 animate-pulse" />
-                  <span className="hidden sm:inline">SoftAP 接続済 ({apStatus.latencyMs ? `${apStatus.latencyMs}ms` : '192.168.4.1'})</span>
-                  <span className="sm:hidden">SoftAP 済</span>
-                </>
-              ) : (
-                <>
-                  {isCheckingAp ? <RefreshCw className="w-3 h-3 animate-spin text-slate-400" /> : <WifiOff className="w-3 h-3 text-slate-400" />}
-                  <span className="hidden sm:inline">BLE要約モード (Wi-Fi未接続)</span>
-                  <span className="sm:hidden">BLE要約</span>
-                </>
-              )}
-            </button>
-
-            <div className="text-[10px] text-purple-300 font-bold bg-purple-950/60 border border-purple-600/50 px-2 py-1 rounded-full hidden sm:flex items-center gap-1">
-              <Brain className="w-3 h-3 text-purple-400" />
-              <span>Gemma 2 MRL</span>
-            </div>
           </div>
         </div>
 
-        {/* 検索入力バー ＆ カルテ自動連動 */}
+        {/* 検索入力バー ＆ カルテ全体キーワード100%連動パネル */}
         <div className="p-3 bg-[#0F172A] border-b border-slate-800 space-y-2 shrink-0">
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 sm:gap-2">
             <div className="relative flex-1">
               <input
                 ref={inputRef}
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="病名、薬剤名、刻印記号(TCK/105)、検査値(HbA1c/eGFR)、指導料、心電図、ICD-10..."
+                placeholder={
+                  isChartLinked
+                    ? `🎯 カルテ全体連動中 (${chartContext.allKeywords.slice(0, 5).join('・')}...) — 任意キーワードで絞り込み可能`
+                    : '病名、薬剤名、刻印記号(TCK/105)、検査値(HbA1c/eGFR)、指導料、心電図、ICD-10...'
+                }
                 className="w-full bg-[#1E293B] border border-slate-700/80 rounded-xl px-3.5 py-2 text-xs sm:text-sm font-sans text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
               />
               {query && (
@@ -432,6 +485,33 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                 </button>
               )}
             </div>
+
+            {/* カルテ全体連動モード切替ボタン */}
+            <button
+              type="button"
+              onClick={() => {
+                playMacBeep();
+                if (query) {
+                  setQuery('');
+                  setIsChartLinked(true);
+                } else {
+                  setIsChartLinked(!isChartLinked);
+                }
+              }}
+              className={`px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold border whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-colors ${
+                isChartLinked && !query
+                  ? 'bg-emerald-600 text-slate-950 border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.35)]'
+                  : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/60'
+              }`}
+              title="カルテ全体（主訴・現病歴・既往歴・内服薬・所見・評価・計画）から全キーワードを抽出して100%連動表示します"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${isChartLinked && !query ? 'text-slate-950' : 'text-amber-400'}`} />
+              <span className="hidden sm:inline">
+                {isChartLinked && !query ? '🎯 カルテ100%連動中' : 'カルテ全体から抽出'}
+              </span>
+              <span className="sm:hidden">{isChartLinked && !query ? '連動中' : '抽出'}</span>
+            </button>
+
             {/* EmbeddingGemma 2 (740M MRL 128d) セマンティック検索トグル */}
             <button
               type="button"
@@ -439,51 +519,66 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                 playMacBeep();
                 setUseSemantic(!useSemantic);
               }}
-              className={`px-3 py-2 rounded-xl text-xs font-bold border whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-colors ${
+              className={`px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold border whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-colors ${
                 useSemantic
                   ? 'bg-purple-900/80 text-purple-200 border-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.3)]'
                   : 'bg-[#1E293B] text-slate-400 border-slate-700 hover:text-slate-200'
               }`}
-              title="Google DeepMind EmbeddingGemma 2 (740M MRL 128d) による完全ブラウザ内ローカルセマンティック検索。Ollama等の外部サーバー不要で0.5ms推論"
+              title="Google DeepMind EmbeddingGemma 2 (740M MRL 128d) による完全ブラウザ内ローカルセマンティック検索"
             >
               <Brain className={`w-3.5 h-3.5 ${useSemantic ? 'text-purple-400 animate-pulse' : 'text-slate-500'}`} />
-              <span className="hidden sm:inline">⚡ Gemma 2 {useSemantic ? 'ON' : 'OFF'}</span>
-              <span className="sm:hidden">Gemma</span>
-            </button>
-
-            <button
-              onClick={handleExtractFromChart}
-              className="px-3 py-2 rounded-xl border border-amber-500/60 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 text-xs font-bold whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-colors"
-              title="カルテ入力内容からキーワードを自動抽出して検索"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">カルテから抽出</span>
-              <span className="sm:hidden">抽出</span>
+              <span className="hidden sm:inline">⚡ Gemma 2</span>
             </button>
           </div>
 
-          {/* クイックサジェストチップス */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-[11px] text-slate-300 scrollbar-none">
-            <span className="text-slate-500 font-mono text-[10px] shrink-0">頻出:</span>
-            {[
-              { label: 'タケキャブ刻印', q: 'タケキャブ' },
-              { label: '前壁STEMI心電図', q: '前壁STEMI' },
-              { label: '農薬中毒/PAM', q: '農薬中毒' },
-              { label: 'CHADS2スコア', q: 'CHADS2' },
-              { label: 'アナフィラキシー', q: 'アナフィラキシー' },
-              { label: '生活習慣病管理料', q: '生活習慣病管理料' },
-              { label: 'eGFR/DOAC', q: 'eGFR' },
-              { label: 'HbA1c', q: 'HbA1c' },
-              { label: '急性咳嗽', q: '咳嗽' },
-            ].map((chip) => (
+          {/* 🎯 カルテ全体抽出キーワード・インジケータバー（100%リンクの根拠を可視化） */}
+          <div className="bg-slate-900/90 border border-emerald-700/40 rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-700/60 px-2 py-0.5 rounded-md shrink-0 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-emerald-400" />
+              <span>カルテ抽出キーワード ({chartContext.allKeywords.length}件):</span>
+            </span>
+            {query && (
               <button
-                key={chip.label}
-                onClick={() => { playMacBeep(); setQuery(chip.q); }}
-                className="px-2 py-0.5 rounded-lg border border-slate-700/60 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[11px] whitespace-nowrap cursor-pointer transition-colors"
+                type="button"
+                onClick={() => {
+                  playMacBeep();
+                  setQuery('');
+                  setIsChartLinked(true);
+                }}
+                className="px-2 py-0.5 rounded-md bg-amber-500 text-slate-950 font-bold text-[10px] shrink-0 cursor-pointer"
               >
-                {chip.label}
+                ↺ 全キーワード連動に戻す
               </button>
-            ))}
+            )}
+            {chartContext.allKeywords.map((kw) => {
+              const isDirect = chartContext.directKeywords.includes(kw);
+              const isSelected = query === kw;
+              return (
+                <button
+                  key={kw}
+                  type="button"
+                  onClick={() => {
+                    playMacBeep();
+                    if (query === kw) {
+                      setQuery('');
+                      setIsChartLinked(true);
+                    } else {
+                      setQuery(kw);
+                    }
+                  }}
+                  className={`px-2 py-0.5 rounded-lg border text-[11px] font-bold whitespace-nowrap cursor-pointer transition-colors ${
+                    isSelected
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-xs'
+                      : isDirect
+                      ? 'bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-200 border-emerald-600/50'
+                      : 'bg-purple-950/50 hover:bg-purple-900/70 text-purple-200 border-purple-700/50'
+                  }`}
+                  title={isDirect ? 'カルテ本文から直接抽出された臨床キーワード（タップで単一絞り込み）' : 'カルテの症状・所見から臨床推論された関連キーワード（タップで単一絞り込み）'}
+                >
+                  {isDirect ? `🎯 ${kw}` : `💡 ${kw}`}
+                </button>
+              );
+            })}
           </div>
 
           {/* フィルタタブ */}
@@ -728,20 +823,62 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                   );
                 })}
               </div>
+
+              {/* 医療知識均てん化・ハーム最小化・医療費削減 ＆ 3省2ガイドライン完全オフライン理念バナー */}
+              <div className="bg-emerald-950/30 border border-emerald-700/50 rounded-xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-emerald-300">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span>完全オフライン医師データ支援：医療知識均てん化・受診者ハーム最小化・医療費削減の黄金率</span>
+                  </div>
+                  {/* 隠し機能への控えめな管理者エントリ */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playMacBeep();
+                      handleCheckAp();
+                      setShowApGuide(true);
+                    }}
+                    className="text-[10px] font-mono text-slate-400 hover:text-emerald-300 bg-slate-900/80 border border-slate-700/70 px-2 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                    title="管理者向け隠し機能：T-Dongle-S3 Wi-Fi接続による物理ネット遮断（3省2ガイドライン完全準拠エアギャップモード）"
+                  >
+                    <Lock className="w-3 h-3 text-emerald-400" />
+                    <span>3省2GL エアギャップ設定</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  32GB MicroSD内のMindsガイドライン・PMDA添付文書・12誘導心電図・救急プロトコルをカルテ内容と100%連動して即時提示することで、専門領域外の認知格差を是正し、禁忌処方や漫然投与による受診者ハームと不要な医療費を最小化します。
+                </p>
+              </div>
             </div>
           ) : filterType === 'pill' ? (
             /* 💊 錠剤識別（表裏）専用ビュー */
             <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-2.5 font-sans bg-[#0F172A]">
               {/* 錠剤絞り込みサブツールバー */}
               <div className="bg-[#1E293B] border border-slate-700/80 rounded-xl p-3 shadow-lg space-y-2.5">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-teal-300">
                     <Pill className="w-4 h-4 text-teal-400" />
-                    <span>医薬品添付文書 ＆ 錠剤識別写真 (PMDA約22,000品目・表裏刻印)</span>
+                    <span>医薬品添付文書 ＆ 錠剤識別写真 (カルテ内処方・既往疾患100%連動)</span>
                   </div>
-                  <span className="text-[11px] font-mono text-teal-300 bg-teal-950/70 px-2 py-0.5 border border-teal-700/50 rounded-lg">
-                    該当: {pillSearchResults.length} 件
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {isChartLinked && !query && (
+                      <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950/80 px-2 py-0.5 border border-emerald-600/60 rounded-lg">
+                        🎯 カルテ連動抽出: {pillSearchResults.length} 品目
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playMacBeep();
+                        setIsChartLinked(!isChartLinked);
+                        setQuery('');
+                      }}
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer"
+                    >
+                      {isChartLinked && !query ? '全品目を表示' : '🎯 カルテ連動に戻す'}
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                   <div>
@@ -816,14 +953,23 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                         {/* 錠剤写真 ＆ 表裏フリップ */}
                         <div className="flex flex-col items-center justify-center bg-slate-900/80 border border-slate-800 rounded-xl p-2 shrink-0 w-full md:w-44">
                           <div className="relative w-32 h-32 bg-slate-950 border border-slate-800 rounded-lg flex items-center justify-center overflow-hidden shadow-inner group">
-                            <img
-                              src={displayedImg}
-                              alt={drug.brandName}
-                              className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = drug.frontImageUrl;
-                              }}
-                            />
+                            {displayedImg ? (
+                              <img
+                                src={displayedImg}
+                                alt={drug.brandName}
+                                className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110"
+                                onError={(e) => {
+                                  if (drug.frontImageUrl) {
+                                    (e.target as HTMLImageElement).src = drug.frontImageUrl;
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <div className="w-24 h-24 rounded-full bg-slate-800 border-2 border-teal-500/60 flex flex-col items-center justify-center text-center p-2">
+                                <span className="font-mono font-black text-xs text-teal-300">{isFlipped ? drug.imprintBack : drug.imprintFront}</span>
+                                <span className="text-[9px] text-slate-400 mt-0.5">{drug.colorAndShape.slice(0, 8)}</span>
+                              </div>
+                            )}
                             <div className="absolute top-1 left-1 bg-black/80 text-white text-[9px] px-1.5 py-0.5 rounded font-mono font-bold">
                               {isFlipped ? '裏面 [BACK]' : '表面 [FRONT]'}
                             </div>
@@ -852,6 +998,11 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-teal-950/70 text-teal-300 border-teal-700/50">
                                     {drug.category}
                                   </span>
+                                  {drug.matchedKeywords && drug.matchedKeywords.length > 0 && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-emerald-950/90 text-emerald-300 border-emerald-500/60">
+                                      🎯 カルテ一致: {drug.matchedKeywords.slice(0, 3).join('・')}
+                                    </span>
+                                  )}
                                   <span className="font-bold text-sm sm:text-base text-white">
                                     {drug.brandName}
                                   </span>
@@ -860,7 +1011,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                                   </span>
                                 </div>
                                 <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                                  YJ: {drug.yjCode} | JAN: {drug.janCode || '未登録'}
+                                  YJ: {drug.yjCode} | JAN: {drug.janCode || '未登録'} | SD: {drug.sdFilePath}
                                 </div>
                               </div>
 
@@ -940,11 +1091,11 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
               <div className="bg-[#1E293B] border border-slate-700/80 rounded-xl p-3 shadow-lg flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-rose-300">
                   <Camera className="w-4 h-4 text-rose-400" />
-                  <span>臨床アトラス画像集 (皮膚科・内視鏡・12誘導心電図 約4,000点 WebP)</span>
+                  <span>12誘導心電図 ＆ 臨床波形・画像解析 (カルテ所見・病態100%連動)</span>
                 </div>
 
                 {/* カテゴリ切り替えチップ */}
-                <div className="flex items-center gap-1.5 text-xs">
+                <div className="flex items-center gap-1.5 text-xs flex-wrap">
                   {(['全件', '心電図', '皮膚科', '内視鏡'] as const).map((cat) => (
                     <button
                       key={cat}
@@ -959,7 +1110,18 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                       {cat}
                     </button>
                   ))}
-                  <span className="text-[11px] font-mono text-rose-300 bg-rose-950/70 px-2 py-0.5 border border-rose-700/50 rounded-lg ml-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playMacBeep();
+                      setIsChartLinked(!isChartLinked);
+                      setQuery('');
+                    }}
+                    className="px-2 py-1 rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-bold cursor-pointer"
+                  >
+                    {isChartLinked && !query ? '全アトラス表示' : '🎯 カルテ連動に戻す'}
+                  </button>
+                  <span className="text-[11px] font-mono text-rose-300 bg-rose-950/70 px-2 py-0.5 border border-rose-700/50 rounded-lg">
                     {atlasSearchResults.length} 点
                   </span>
                 </div>
@@ -1002,13 +1164,18 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                             <Maximize2 className="w-4 h-4" />
                             <span>1024px 大判拡大</span>
                           </div>
-                          <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
+                          <div className="absolute top-1.5 left-1.5 flex items-center gap-1 flex-wrap">
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${catBadge}`}>
                               {atlas.category}
                             </span>
                             {atlas.hasEcgGrid && (
                               <span className="text-[9px] font-mono font-bold bg-rose-600 text-white px-1.5 py-0.5 rounded">
                                 方眼紙グリッド対応
+                              </span>
+                            )}
+                            {atlas.matchedKeywords && atlas.matchedKeywords.length > 0 && (
+                              <span className="text-[9px] font-bold bg-emerald-950/90 text-emerald-300 border border-emerald-500/70 px-1.5 py-0.5 rounded">
+                                🎯 カルテ一致: {atlas.matchedKeywords.slice(0, 2).join('・')}
                               </span>
                             )}
                           </div>
@@ -1066,13 +1233,13 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
               )}
             </div>
           ) : (
-            /* 通常の検索結果リスト */
+            /* 通常の検索結果リスト（Mindsガイドライン・救急プロトコル・総合検索等） */
             <div className={`flex-1 overflow-y-auto p-2 sm:p-3 space-y-2.5 bg-[#0F172A] ${activeMindsItem ? 'md:max-w-[55%]' : 'w-full'}`}>
               {searchResults.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 font-sans text-xs space-y-2">
                   <Search className="w-8 h-8 mx-auto text-slate-500 stroke-1" />
                   <p className="font-bold text-slate-300">一致する臨床データが見つかりませんでした</p>
-                  <p className="text-[11px] text-slate-400">救急中毒（「農薬」「アセトアミノフェン」）、アトラス（「前壁STEMI」）、持参薬刻印（「タケキャブ」）、スコア（「CHADS2」）等でお試しください。</p>
+                  <p className="text-[11px] text-slate-400">「🎯 カルテ100%連動中」ボタンを押すか、別の臨床キーワードでお試しください。</p>
                 </div>
               ) : (
                 searchResults.map((item, idx) => {
@@ -1129,6 +1296,11 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${badgeStyle}`}>
                               {badgeLabel}
                             </span>
+                            {item.matchedKeywords && item.matchedKeywords.length > 0 && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border bg-emerald-950/90 text-emerald-300 border-emerald-500/60">
+                                🎯 カルテ一致: {item.matchedKeywords.slice(0, 3).join('・')}
+                              </span>
+                            )}
                             {sem.semanticScore !== undefined && sem.semanticScore > 0 && (
                               <span
                                 className="text-[9px] font-mono font-bold px-1.5 py-0.5 border border-purple-500/60 bg-purple-950/70 text-purple-300 rounded flex items-center gap-1"
@@ -1350,9 +1522,10 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                 </div>
                 <button
                   onClick={() => setActiveMindsItem(null)}
-                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-bold cursor-pointer transition-colors"
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
                 >
-                  ✕ 閉じる
+                  <ArrowLeft className="w-3 h-3 text-amber-400" />
+                  <span>戻る</span>
                 </button>
               </div>
 
@@ -1430,13 +1603,14 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
         {/* フッター */}
         <div className="p-3 bg-[#1E293B] border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 shrink-0">
           <div className="flex items-center gap-2 truncate pr-2">
-            <span className="truncate">収録: 32GB MicroSD (29.8GB) 10大医療ポートフォリオ / Minds 169CQ / 救急プロトコル / 12誘導心電図 / 錠剤識別</span>
+            <span className="truncate">収録: 32GB MicroSD (29.8GB) 10大医療ポートフォリオ / カルテ全体100%連動・完全オフライン医療知識均てん化エンジン</span>
           </div>
           <button
             onClick={() => { playMacBeep(); onClose(); }}
-            className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs cursor-pointer transition-colors shrink-0"
+            className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
           >
-            閉じる
+            <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />
+            <span>メイン画面へ戻る</span>
           </button>
         </div>
       </div>
@@ -1450,9 +1624,10 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
               <div className="flex items-center gap-2.5 min-w-0">
                 <button
                   onClick={() => { playMacBeep(); setSelectedAtlas(null); }}
-                  className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer shrink-0"
+                  className="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 flex items-center gap-1 text-xs font-bold transition-colors cursor-pointer shrink-0"
                 >
-                  ✕
+                  <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />
+                  <span>戻る</span>
                 </button>
                 <span className="font-bold text-xs sm:text-sm text-white truncate">
                   📈 {selectedAtlas.title} ({selectedAtlas.category})
@@ -1474,16 +1649,11 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                     <span>{ecgGridEnabled ? '方眼紙 ON' : '方眼紙 OFF'}</span>
                   </button>
                 )}
-                {/* 実機SoftAP別タブ直接リンク */}
                 <button
-                  type="button"
-                  onClick={() => sdCardStreamingService.openDirectUrl(selectedAtlas.sdFilePath)}
-                  className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-purple-950/60 hover:bg-purple-900 text-purple-300 border border-purple-600/50 flex items-center gap-1 cursor-pointer transition-colors"
-                  title="Wi-Fi SoftAP接続時、実機SDカードから高解像度原本を別タブで直接開きます"
+                  onClick={() => { playMacBeep(); setSelectedAtlas(null); }}
+                  className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer shrink-0"
                 >
-                  <ExternalLink className="w-3 h-3" />
-                  <span className="hidden sm:inline">実機SoftAP直結</span>
-                  <span className="sm:hidden">SoftAP</span>
+                  ✕
                 </button>
               </div>
             </div>
@@ -1493,7 +1663,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
               {isLoadingHighRes ? (
                 <div className="p-8 text-center text-white space-y-2">
                   <RefreshCw className="w-6 h-6 animate-spin mx-auto text-amber-400" />
-                  <p className="text-xs font-bold text-slate-300">高解像度アトラスストリーミング中...</p>
+                  <p className="text-xs font-bold text-slate-300">高解像度アトラス読み込み中...</p>
                 </div>
               ) : (
                 <img
@@ -1568,9 +1738,10 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                 <button
                   type="button"
                   onClick={() => { playMacBeep(); setSelectedAtlas(null); }}
-                  className="px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer transition-colors"
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
                 >
-                  閉じる
+                  <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />
+                  <span>一覧へ戻る</span>
                 </button>
                 <button
                   type="button"
@@ -1590,54 +1761,66 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
         </div>
       )}
 
-      {/* Wi-Fi SoftAP 高速ストリーミング 接続ガイドモーダル */}
+      {/* 【隠し機能】3省2ガイドライン完全準拠 エアギャップ(物理ネット遮断) Wi-Fi SoftAP オンプレミス直結モード */}
       {showApGuide && (
-        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 animate-in fade-in">
-          <div className="bg-[#0F172A] border border-slate-700/80 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden font-sans text-slate-100">
+        <div className="fixed inset-0 z-60 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 animate-in fade-in">
+          <div className="bg-[#0F172A] border border-emerald-500/60 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden font-sans text-slate-100">
             <div className="bg-[#1E293B] border-b border-slate-800 px-4 py-3 flex items-center justify-between">
               <div className="font-bold text-xs sm:text-sm text-white flex items-center gap-2">
-                <Wifi className="w-4 h-4 text-emerald-400" />
-                <span>LilyGO T-Dongle-S3 Wi-Fi SoftAP 直結ガイド</span>
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>【隠し機能】3省2ガイドライン準拠 エアギャップ遮断モード</span>
               </div>
               <button
                 onClick={() => { playMacBeep(); setShowApGuide(false); }}
-                className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+                className="px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 flex items-center gap-1 text-xs font-bold cursor-pointer"
               >
-                ✕
+                <ArrowLeft className="w-3 h-3 text-amber-400" />
+                <span>戻る</span>
               </button>
             </div>
 
             <div className="p-4 space-y-3 text-xs leading-relaxed">
-              <p className="text-slate-300">
-                T-Dongle-S3 は、BLE通信（要約テキスト・識別コード）に加え、<strong>ローカルWi-Fi SoftAP</strong> を内蔵しています。
-                接続すると、32GB MicroSD内の <strong>大判アトラス(1024px WebP)</strong> や <strong>添付文書原本PDF</strong> を数MB/sで超高速閲覧できます。
-              </p>
+              <div className="bg-emerald-950/50 border border-emerald-500/50 rounded-xl p-3 space-y-1.5">
+                <div className="font-bold text-emerald-300 flex items-center gap-1.5 text-xs">
+                  <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>なぜ「あえて」T-Dongle-S3のWi-Fiに接続するのか？（3省2ガイドライン完全準拠の証明）</span>
+                </div>
+                <p className="text-slate-200 text-[11px] leading-relaxed">
+                  厚生労働省・経済産業省・総務省の<strong>「医療情報システムの安全管理に関するガイドライン（3省2ガイドライン）」</strong>では、患者の医療情報（PHI）が外部インターネットへ漏洩することを厳格に禁じています。
+                  あえてスマホやPCのWi-Fi接続先をT-Dongle-S3内蔵のクローズドAPに切り替えることで、<strong>外部インターネット回線から物理的に完全遮断（エアギャップ隔離）された100%オフライン・オンプレミス環境</strong>が構築されます。
+                </p>
+              </div>
 
-              <div className="bg-emerald-950/50 border border-emerald-600/50 rounded-xl p-3 space-y-1.5 font-mono text-[11px]">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">SSID (Wi-Fi名):</span>
-                  <span className="font-bold text-emerald-300 bg-slate-900 px-2 py-0.5 rounded border border-emerald-700/60">Drdonguri-Atlas-Direct</span>
+              <div className="bg-slate-900/90 border border-slate-700 rounded-xl p-3 space-y-1.5 font-mono text-[11px]">
+                <div className="text-[10px] font-sans font-bold text-slate-400 mb-1">
+                  ▼ オンプレミス閉域網（T-Dongle-S3 内蔵 Wi-Fi SoftAP）接続情報
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-400">暗号化パスワード:</span>
-                  <span className="font-bold text-emerald-300 bg-slate-900 px-2 py-0.5 rounded border border-emerald-700/60">drdonguri</span>
+                  <span className="text-slate-400">閉域網 SSID:</span>
+                  <span className="font-bold text-emerald-300 bg-slate-950 px-2 py-0.5 rounded border border-emerald-700/60">Drdonguri-Atlas-Direct</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-400">ストリーミングIP:</span>
+                  <span className="text-slate-400">WPA2 パスワード:</span>
+                  <span className="font-bold text-emerald-300 bg-slate-950 px-2 py-0.5 rounded border border-emerald-700/60">drdonguri</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">オンプレミスIP (外部ルーティング無):</span>
                   <span className="font-bold text-emerald-300">192.168.4.1 (Port 80)</span>
                 </div>
-                <div className="flex justify-between items-center pt-1.5 border-t border-emerald-800/60">
-                  <span className="text-slate-400">接続ステータス:</span>
-                  <span className={`font-bold ${apStatus.isConnected ? 'text-emerald-400' : 'text-slate-400'}`}>
-                    {apStatus.isConnected ? `接続中 (${apStatus.latencyMs ? `${apStatus.latencyMs}ms` : '良好'})` : '未接続 (BLE要約モード)'}
+                <div className="flex justify-between items-center pt-1.5 border-t border-slate-800">
+                  <span className="text-slate-400">現在のエアギャップ状態:</span>
+                  <span className={`font-bold ${apStatus.isConnected ? 'text-emerald-400' : 'text-amber-300'}`}>
+                    {apStatus.isConnected
+                      ? `✅ 物理ネット遮断・SoftAP直結中 (${apStatus.latencyMs ? `${apStatus.latencyMs}ms` : '192.168.4.1'})`
+                      : '🛡️ ローカルキャッシュ＆BLEオフライン稼働中（日常運用モード）'}
                   </span>
                 </div>
               </div>
 
-              <div className="text-[11px] text-amber-300 bg-amber-950/40 p-2.5 rounded-xl border border-amber-600/40 space-y-1">
-                <span className="font-bold block">💡 ブラウザセキュリティ（Mixed Content）について:</span>
-                <p className="text-amber-200/90 leading-normal">
-                  HTTPSページからのHTTP通信遮断を防ぐため、アトラス大判画像やPDFは<strong>「実機SoftAP直結」ボタンより別タブで開く</strong>仕様となっています。スマホのWi-Fiを「Drdonguri-Atlas-Direct」に接続した状態でタップしてください。
+              <div className="text-[11px] text-slate-300 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 space-y-1">
+                <span className="font-bold text-amber-300 block">💡 日常診療での運用について（Wi-Fi切替不要設計）:</span>
+                <p className="text-slate-300 leading-normal">
+                  日常の診察ごとにWi-Fi設定を切り替える手順は煩雑なため、通常は<strong>Wi-Fiを切り替えなくてもPWA内蔵インデックス＆BLE通信のみで全機能が100%オフライン動作</strong>します。病院の情報システム監査時や、32GB MicroSD内の非圧縮RAW原本に直接アクセスしたい場合のみ、この隠し機能をご活用ください。
                 </p>
               </div>
 
@@ -1646,17 +1829,17 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
                   type="button"
                   onClick={handleCheckAp}
                   disabled={isCheckingAp}
-                  className="px-3 py-1.5 rounded-xl border border-amber-500/60 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                  className="px-3 py-1.5 rounded-xl border border-emerald-500/60 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isCheckingAp ? 'animate-spin' : ''}`} />
-                  <span>疎通テスト再試行</span>
+                  <span>オンプレミス疎通確認</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => { playMacBeep(); setShowApGuide(false); }}
                   className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 cursor-pointer transition-colors"
                 >
-                  了解
+                  閉じる
                 </button>
               </div>
             </div>

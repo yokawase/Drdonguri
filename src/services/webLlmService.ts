@@ -212,83 +212,291 @@ export function isGibberishOutput(text: string): boolean {
   return false;
 }
 
+import {
+  cleanExtractedMedicalText,
+  normalizeMedicalSpeechTerms,
+} from '../utils/chartTextCleaner';
+
 /**
- * 医師の入力文から安全・確実にSOAPカルテを生成する高精度臨床ルールフェイルセーフ
+ * 医師の入力文・抽出カルテから安全・確実にSOAPカルテ/箇条書き要約を生成する高精度臨床構造化エンジン
  */
-export function generateSafeFallbackChart(text: string, style: 'soap' | 'concise' | 'interview' = 'soap'): string {
-  const chunks = text.split(/[\n,、。]/).map(s => s.trim()).filter(Boolean);
+export function generateSafeFallbackChart(
+  rawText: string,
+  style: 'soap' | 'concise' | 'interview' = 'soap'
+): string {
+  const cleanedText = normalizeMedicalSpeechTerms(cleanExtractedMedicalText(rawText));
+  const lines = cleanedText
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
 
   const sItems: string[] = [];
   const oItems: string[] = [];
   const aItems: string[] = [];
   const pItems: string[] = [];
+  const medAndHistoryItems: string[] = [];
 
-  for (const chunk of chunks) {
-    if (/(?:痛|熱|咳|咽|嘔|吐|だる|倦怠|しびれ|息苦|めまい|悪寒|歳|男|女|主訴|以前から|先週)/.test(chunk)) {
-      sItems.push(chunk);
-    } else if (/(?:GTP|AST|ALT|CRP|BP|PR|SpO2|度|mmHg|\d+台|検査|血圧|脈拍|採血)/i.test(chunk)) {
-      oItems.push(chunk);
-    } else if (/(?:障害|炎|症|疑い|病|既往|アルコール)/.test(chunk)) {
-      aItems.push(chunk);
-    } else if (/(?:処方|内服|点滴|投薬|安静|紹介|方針|精査|指導)/.test(chunk)) {
-      pItems.push(chunk);
-    } else {
-      sItems.push(chunk);
+  let currentSection: 'S' | 'O' | 'A' | 'P' | 'MED' | null = null;
+
+  for (const line of lines) {
+    // 既存セクション見出しの検出
+    if (/^【?(?:S|主訴|現病歴|自覚症状|問診)】?[:：]?/i.test(line)) {
+      currentSection = 'S';
+      const content = line.replace(/^【?(?:S|主訴|現病歴|自覚症状|問診)】?[:：]?\s*/i, '').trim();
+      if (content) sItems.push(content);
+      continue;
+    }
+    if (/^【?(?:既往歴|内服薬|常用薬|持参薬|アレルギー)】?[:：]?/i.test(line)) {
+      const headerMatch = line.match(/^【?(既往歴|内服薬|常用薬|持参薬|アレルギー)】?[:：]?\s*(.*)/i);
+      currentSection = 'MED';
+      if (headerMatch && headerMatch[2]) {
+        medAndHistoryItems.push(`${headerMatch[1]}: ${headerMatch[2].trim()}`);
+      }
+      continue;
+    }
+    if (/^【?(?:O|身体所見|理学所見|バイタル|検査所見|検査|心電図|画像)】?[:：]?/i.test(line)) {
+      currentSection = 'O';
+      const content = line.replace(/^【?(?:O|身体所見|理学所見|バイタル|検査所見|検査|心電図|画像)】?[:：]?\s*/i, '').trim();
+      if (content) oItems.push(content);
+      continue;
+    }
+    if (/^【?(?:A|アセスメント|評価|診断|鑑別)】?[:：]?/i.test(line)) {
+      currentSection = 'A';
+      const content = line.replace(/^【?(?:A|アセスメント|評価|診断|鑑別)】?[:：]?\s*/i, '').trim();
+      if (content) aItems.push(content);
+      continue;
+    }
+    if (/^【?(?:P|プラン|計画|治療方針|方針|処方)】?[:：]?/i.test(line)) {
+      currentSection = 'P';
+      const content = line.replace(/^【?(?:P|プラン|計画|治療方針|方針|処方)】?[:：]?\s*/i, '').trim();
+      if (content) pItems.push(content);
+      continue;
+    }
+
+    const cleanLine = line.replace(/^[・\-*]\s*/, '').trim();
+    if (!cleanLine) continue;
+
+    if (currentSection === 'S') {
+      sItems.push(cleanLine);
+      continue;
+    }
+    if (currentSection === 'MED') {
+      medAndHistoryItems.push(cleanLine);
+      continue;
+    }
+    if (currentSection === 'O') {
+      oItems.push(cleanLine);
+      continue;
+    }
+    if (currentSection === 'A') {
+      aItems.push(cleanLine);
+      continue;
+    }
+    if (currentSection === 'P') {
+      pItems.push(cleanLine);
+      continue;
+    }
+
+    // 見出しがない自由記述文の文単位分類
+    const chunks = cleanLine.split(/(?<=[。！？」])\s*|(?<=、)(?=.*(?:BP|SpO2|処方|疑い))/).map((c) => c.trim()).filter(Boolean);
+    for (const chunk of chunks) {
+      const c = chunk.replace(/。$/, '');
+      if (/(?:BP|血圧|PR|HR|脈拍|SpO2|KT|BT|体温|mmHg|bpm|%|心音|呼吸音|ラ音|心電図|ST|AST|ALT|GTP|CRP|WBC|HbA1c|eGFR|Cr|トロポニン|所見)/i.test(c)) {
+        oItems.push(c);
+      } else if (/(?:内服中|服用中|既往|高血圧症、|糖尿病、|錠\d+|カプセル\d+)/.test(c) && !/(?:処方|開始|追加|変更|投与)/.test(c)) {
+        medAndHistoryItems.push(c);
+      } else if (/(?:処方|投与|点滴|検査予定|オーダー|紹介|指導|経過観察|再診|フォロー|中止|減量|開始|舌下)/.test(c)) {
+        pItems.push(c);
+      } else if (/(?:疑い|診断|考える|可能性|除外|リスク|評価|労作性|急性|慢性|障害|炎|症候群)/.test(c) && !/(?:痛|苦|嘔|吐|自覚|訴え|前より|昨日|今朝)/.test(c)) {
+        aItems.push(c);
+      } else {
+        sItems.push(c);
+      }
     }
   }
 
-  // 医療誤認識の医学的自動修正（換気機能障害 ➔ 肝機能障害）
-  const fixMedicalWords = (str: string) => {
-    return str
-      .replace(/アルコール性\s*換気機能障害/g, 'アルコール性肝機能障害（音声誤認識補正）')
-      .replace(/換気機能障害/g, '肝機能障害（音声誤認識補正）')
+  // 口語表現から標準医学用語への高精度正規化
+  const refineClinicalPhrase = (str: string): string => {
+    return normalizeMedicalSpeechTerms(str)
+      .replace(/胸が締め付けられるような痛み/g, '胸部絞扼痛')
+      .replace(/胸が締め付けられる/g, '胸部絞扼感')
+      .replace(/息が苦しい/g, '呼吸困難感')
+      .replace(/息切れがする/g, '労作時呼吸困難')
       .replace(/痛い/g, '疼痛あり')
-      .replace(/疼痛がある/g, '体動時疼痛増悪');
+      .replace(/疼痛がある/g, '疼痛を認める')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
   };
 
+  const formattedS = [
+    ...sItems.map(refineClinicalPhrase),
+    ...medAndHistoryItems.map((m) => (m.startsWith('既往') || m.startsWith('内服') ? m : `既往・内服: ${m}`)),
+  ];
+
   if (style === 'concise') {
-    return `【臨床要約】\n` +
-      `・主訴・現病歴: ${sItems.map(fixMedicalWords).join('、') || text}\n` +
-      `・検査・客観所見: ${oItems.join('、') || '特記所見なし'}\n` +
-      `・臨床評価・病態: ${aItems.map(fixMedicalWords).join('、') || '背部痛・肝機能精査要'}\n` +
-      `・治療方針: ${pItems.join('、') || '対症療法・安静指導、必要に応じ血液・画像精査'}`;
+    const bulletLines: string[] = ['【臨床要約】'];
+    bulletLines.push(
+      `・主訴・現病歴: ${sItems.length > 0 ? sItems.map(refineClinicalPhrase).join(' / ') : refineClinicalPhrase(cleanedText)}`
+    );
+    if (medAndHistoryItems.length > 0) {
+      bulletLines.push(`・既往・内服薬: ${medAndHistoryItems.join(' / ')}`);
+    }
+    bulletLines.push(
+      `・客観所見・検査: ${oItems.length > 0 ? oItems.join(' / ') : 'バイタル・理学所見特記なし'}`
+    );
+    bulletLines.push(
+      `・診断・臨床評価: ${aItems.length > 0 ? aItems.map(refineClinicalPhrase).join(' / ') : '主訴・所見に基づく鑑別精査'}`
+    );
+    bulletLines.push(
+      `・治療方針・処方: ${pItems.length > 0 ? pItems.join(' / ') : '対症療法・安静指導および精査フォロー'}`
+    );
+    return bulletLines.join('\n');
   }
 
   if (style === 'interview') {
-    return `【問診・現病歴要約】\n` +
-      `患者は${sItems.map(fixMedicalWords).join('、')}を主訴に来院。\n` +
-      `関連検査所見として${oItems.join('、') || '特記所見なし'}を認める。\n` +
-      `臨床背景として${aItems.map(fixMedicalWords).join('、') || 'なし'}を認め、` +
-      `治療方針として${pItems.join('、') || '対症療法および経過観察、再検'}を検討する。`;
+    const narrativeParts: string[] = ['【問診・現病歴要約】'];
+    narrativeParts.push(
+      `・現病歴: ${sItems.length > 0 ? sItems.map(refineClinicalPhrase).join('。') + '。' : refineClinicalPhrase(cleanedText)}`
+    );
+    if (medAndHistoryItems.length > 0) {
+      narrativeParts.push(`・既往歴・常用薬: ${medAndHistoryItems.join(' / ')}`);
+    }
+    if (oItems.length > 0) {
+      narrativeParts.push(`・来院時所見: ${oItems.join('、')}`);
+    }
+    if (aItems.length > 0 || pItems.length > 0) {
+      narrativeParts.push(
+        `・初期評価・方針: ${[...aItems.map(refineClinicalPhrase), ...pItems].join('。')}`
+      );
+    }
+    return narrativeParts.join('\n');
   }
 
   // デフォルト: 構造化SOAP形式
-  return `【S】\n` +
-    (sItems.length > 0 ? sItems.map(s => `・${fixMedicalWords(s)}`).join('\n') : `・${fixMedicalWords(text)}`) + '\n\n' +
+  return (
+    `【S】\n` +
+    (formattedS.length > 0
+      ? formattedS.map((s) => `・${s}`).join('\n')
+      : `・${refineClinicalPhrase(cleanedText)}`) +
+    '\n\n' +
     `【O】\n` +
-    (oItems.length > 0 ? oItems.map(o => `・${o}`).join('\n') : '・理学所見・バイタル特記なし') + '\n\n' +
+    (oItems.length > 0
+      ? oItems.map((o) => `・${o}`).join('\n')
+      : '・バイタルサイン・身体所見特記なし') +
+    '\n\n' +
     `【A】\n` +
-    (aItems.length > 0 
-      ? aItems.map(a => `・${fixMedicalWords(a)}（精査要）`).join('\n') 
-      : '・体動時背部痛（筋筋膜性疼痛疑い・内臓疾患の除外要）') + '\n\n' +
+    (aItems.length > 0
+      ? aItems.map((a) => `・${refineClinicalPhrase(a)}`).join('\n')
+      : '・臨床経過および身体所見に基づく鑑別評価') +
+    '\n\n' +
     `【P】\n` +
-    (pItems.length > 0 
-      ? pItems.map(p => `・${p}`).join('\n') 
-      : '・対症療法（鎮痛薬処方・安静指導）\n・血液検査（肝機能再検・炎症反応）および腹部超音波精査検討');
+    (pItems.length > 0
+      ? pItems.map((p) => `・${p}`).join('\n')
+      : '・症状に応じた処方・検査計画および経過観察')
+  );
 }
 
 /**
- * 生成されたカルテテキストから特殊トークンや見出しタグを除去するサニタイザー
+ * 生成されたカルテテキストから特殊トークンや見出しタグ、無駄なスペース・改行を除去するサニタイザー
  */
 function cleanGeneratedChartText(text: string): string {
-  return text
+  const stripped = text
     .replace(/<start_of_turn>(?:model|user)?/gi, '')
     .replace(/<end_of_turn>/gi, '')
     .replace(/<unused\d+>/gi, '')
     .replace(/^【整形本文】\s*/g, '')
     .replace(/^【補正本文】\s*/g, '')
     .replace(/^【ガイドライン準拠の臨床アドバイス】\s*/g, '')
+    .replace(/^```(?:markdown|text)?\s*/i, '')
+    .replace(/```\s*$/i, '')
     .trim();
+  return cleanExtractedMedicalText(stripped);
+}
+
+/**
+ * Google Gemma 2 (gemma-2-2b-jpn-it) 専用の臨床カルテ構造化・校正プロンプトビルダー
+ * SOAP形式、箇条書き要約、問診要約のそれぞれに最適化された厳密な指示体系を構築します。
+ */
+export function buildGemma2MedicalPrompt(
+  rawInput: string,
+  style: 'soap' | 'concise' | 'interview' = 'soap'
+): string {
+  const cleanInput = normalizeMedicalSpeechTerms(cleanExtractedMedicalText(rawInput)).slice(0, 1200);
+
+  if (style === 'soap') {
+    return `あなたは日本の医師を支援する医療電子カルテ作成・文章校正専門AIです。
+以下の【入力カルテ/音声メモ】の誤字脱字・音声誤認識（同音異義語）を正確な医学用語に校正し、無駄なスペースや改行を排除した上で、標準的な【SOAP形式】に構造化して出力してください。
+
+【SOAP各セクションの厳密な振り分け基準】
+- 【S】(Subjective / 主観的情報): 主訴、発症時期、症状の性質・経過（OPQRST）、増悪・寛解因子、既往歴、内服薬（持参薬）、アレルギー歴。口語表現（「胸が締め付けられる」等）は医学用語（「胸部絞扼感」等）へ校正しつつ患者の訴えを正確に記述すること。
+- 【O】(Objective / 客観的情報): バイタルサイン（BP, PR, SpO2, BT等）、身体診察所見、12誘導心電図所見、血液・尿検査値、画像所見。入力に存在する数値・単位（mmHg, bpm, mg/dL等）を1文字も改変せず正確に転記すること。
+- 【A】(Assessment / 臨床評価): 【S】と【O】から導かれる診断名、鑑別診断（ルールアウト対象を含む）、重症度評価、薬物有害事象や相互作用のリスク評価。
+- 【P】(Plan / 治療・検査計画): 処方薬（薬剤名・規格・用法用量）、追加検査オーダー（採血・心電図・画像等）、処置、他科・高次医療機関紹介、患者への生活指導・安静指示・レッドフラグ説明。
+
+【絶対厳守ルール】
+1. 100%日本語（および標準的な医療英略語: BP, SpO2, ECG, ST, eGFR, HbA1c, mg等）のみで出力し、挨拶や前置き、解説は一切出力しないこと。
+2. 入力テキストに存在しない検査値や架空の所見を絶対に捏造（ハルシネーション）しないこと。
+3. 各項目は「・」から始まる簡潔で格調高いカルテ文体（体言止めまたは「〜を認める」「〜とする」）で記述すること。
+
+【出力フォーマット】
+【S】
+・(主訴・現病歴・既往歴・内服薬)
+【O】
+・(バイタルサイン・身体所見・検査所見)
+【A】
+・(診断・病態評価・鑑別疾患)
+【P】
+・(処方・検査計画・患者指導)
+
+【入力カルテ/音声メモ】
+${cleanInput}
+
+【整形本文】
+`;
+  }
+
+  if (style === 'concise') {
+    return `あなたは日本の医師を支援する医療電子カルテ要約・文章校正専門AIです。
+以下の【入力カルテ/音声メモ】の誤字脱字・音声誤認識を正確な医学用語へ校正し、冗長な表現や無駄なスペース・改行をすべて削除して、医師が一目で全体像を把握できる【箇条書き臨床要約】を作成してください。
+
+【箇条書き要約の厳密な構成ルール】
+以下の5項目に整理し、各項目1〜2行で医学的ファクト（数値・薬品名・病名・経過）のみを凝縮して記載してください：
+■ 主訴・経過: (発症時期・部位・症状の性質・誘因を簡潔に)
+■ 既往・内服: (基礎疾患・現在の内服薬と用量。該当なければ「特記なし」)
+■ 客観所見・検査: (血圧・脈拍・SpO2・身体所見・心電図・採血異常値を端的に)
+■ 診断・臨床評価: (最有力診断・鑑別疾患・重症度)
+■ 治療・処方方針: (新規処方・検査オーダー・生活指導・フォロー方針)
+
+【絶対厳守ルール】
+1. 100%日本語（および標準医療略語）のみで出力し、挨拶や前置き、解説は一切出力しないこと。
+2. 入力にない数値や薬品名を絶対に捏造しないこと。
+3. 助詞や冗長な語尾を省き、体言止め中心の引き締まった臨床サマリーにすること。
+
+【入力カルテ/音声メモ】
+${cleanInput}
+
+【整形本文】
+`;
+  }
+
+  // style === 'interview'
+  return `あなたは日本の医師を支援する医療問診・現病歴作成専門AIです。
+以下の【入力カルテ/音声メモ】の誤字脱字・音声誤認識を正確な医学用語へ校正し、無駄なスペースや改行を削除した上で、紹介状（診療情報提供書）や初診カルテにそのまま記載できる格調高い【問診・現病歴要約】を作成してください。
+
+【問診・現病歴要約の構成ルール】
+・現病歴: 発症時期（いつから）、誘因・状況（何をしている時に）、部位・放散、性状・程度、持続時間、増悪・寛解因子、随伴症状を時系列（OPQRST）で自然な医学的文章にまとめる。
+・既往歴・常用薬: 基礎疾患および現在内服中の薬剤名・用量を明記する。
+・来院時所見・初期方針: バイタルサインや主要所見、本日の診断評価と処方・検査方針を簡潔に付記する。
+
+【絶対厳守ルール】
+1. 100%日本語（および標準医療略語）のみで出力し、挨拶や前置きは一切出力しないこと。
+2. 入力にない事実や検査値を絶対に捏造しないこと。
+
+【入力カルテ/音声メモ】
+${cleanInput}
+
+【整形本文】
+`;
 }
 
 /**
@@ -301,45 +509,26 @@ export async function formatMedicalChartWithWebLLM(
   onStream?: (accumulatedText: string) => void,
   modelId: string = DEFAULT_WEBLLM_MODEL
 ): Promise<string> {
+  const cleanedSource = normalizeMedicalSpeechTerms(cleanExtractedMedicalText(text));
   const engine = await getWebLlmEngine(onProgress, modelId);
 
-  const styleGuides = {
-    soap: '【S】主訴 【O】所見・バイタル 【A】評価・診断 【P】治療方針・処方 のSOAP形式',
-    concise: '箇条書き要約（医学的要点のみを簡潔に列挙）形式',
-    interview: '問診・現病歴要約（時系列での経過まとめ）形式',
-  };
-
-  const cleanInput = text.replace(/\n{3,}/g, '\n\n').slice(0, 800);
-
   // Gemma 2 には system ロールが存在しないため、指示を user メッセージ内に統合 (RLHF完全適合)
-  const prompt = `あなたは日本の医療電子カルテ整形専門AIです。
-医師が入力した以下のテキスト（音声入力メモ等）の誤字脱字・音声誤認識を医学的文脈で修正し、${styleGuides[style]}で出力してください。
-
-【厳守事項】
-- 必ず100%日本語のみで出力してください。外国語（英語、ロシア語、中国語、韓国語等）や意味不明な記号・多言語テキストは絶対に出力してはなりません。
-- 挨拶、解説、前置き、「整形結果:」等の余計な言葉は一切出力せず、指定されたカルテ本文のみを出力すること。
-- 日本語で自然かつ正確な臨床医学用語を用いること。
-
-【入力テキスト】
-${cleanInput}
-
-【整形本文】
-`;
+  const prompt = buildGemma2MedicalPrompt(cleanedSource, style);
 
   if (onProgress) {
-    onProgress({ text: 'Gemma 2 がリアルタイム出力中...', progress: 1.0 });
+    onProgress({ text: 'Gemma 2 が高精度プロンプトで文章校正・構造化中...', progress: 1.0 });
   }
 
   try {
     const stream = await engine.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
-      // Gemma 2 多言語ジベリッシュ発散を防止するため低温度・決定論的設定 (temperature=0.2)
-      temperature: 0.2,
+      // Gemma 2 多言語ジベリッシュ発散を防止しつつ正確な校正を行う低温度設定 (temperature=0.15)
+      temperature: 0.15,
       top_p: 0.85,
-      max_tokens: 380,
+      max_tokens: 480,
       presence_penalty: 0.0,
-      frequency_penalty: 0.0,
-      stop: ['<end_of_turn>', '<start_of_turn>', '【入力テキスト】', '【入力】'],
+      frequency_penalty: 0.05,
+      stop: ['<end_of_turn>', '<start_of_turn>', '【入力カルテ/音声メモ】', '【入力テキスト】', '【入力】'],
       stream: true,
     });
 
@@ -353,14 +542,12 @@ ${cleanInput}
       const currentCleaned = cleanGeneratedChartText(fullText);
 
       // ★ リアルタイム多言語・ジベリッシュ検知サーキットブレーカー
-      // 生成中のテキストにロシア語、ハングル、外国語ゴミ文字が1文字でも現れたら直ちにストリームを遮断
       if (hasMultilingualArtifacts(currentCleaned) || (currentCleaned.length > 25 && isGibberishOutput(currentCleaned))) {
         console.warn('[WebLLM]: Multilingual/gibberish detected during real-time stream. Halting stream immediately.');
         isDegraded = true;
         break;
       }
 
-      // 多言語混入のない安全なテキストのみリアルタイムに画面へ出力
       if (onStream) {
         onStream(currentCleaned);
       }
@@ -371,23 +558,23 @@ ${cleanInput}
     // ★ ジベリッシュ（多言語文字化け・モデル崩壊）検知時の安全フェイルセーフ
     if (isDegraded || isGibberishOutput(cleaned)) {
       console.warn('[WebLLM]: Gemma 2 output degraded. Activating safe medical fallback.');
-      const fallback = generateSafeFallbackChart(text, style);
+      const fallback = generateSafeFallbackChart(cleanedSource, style);
       if (onStream) {
         onStream(fallback);
       }
       return fallback;
     }
 
-    return cleaned || text;
+    return cleaned || generateSafeFallbackChart(cleanedSource, style);
   } catch (err: any) {
     console.warn('[WebLLM Gemma 2 Stream Fallback]:', err);
     try {
       const completion = await engine.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.2,
+        temperature: 0.15,
         top_p: 0.85,
-        max_tokens: 380,
-        stop: ['<end_of_turn>', '<start_of_turn>', '【入力テキスト】'],
+        max_tokens: 480,
+        stop: ['<end_of_turn>', '<start_of_turn>', '【入力カルテ/音声メモ】'],
       });
       const fallbackText = completion.choices[0]?.message?.content || '';
       const cleanedFallback = cleanGeneratedChartText(fallbackText);
@@ -397,7 +584,7 @@ ${cleanInput}
     } catch (fallbackErr) {
       console.warn('[WebLLM Gemma 2 Fallback Error]:', fallbackErr);
     }
-    return generateSafeFallbackChart(text, style);
+    return generateSafeFallbackChart(cleanedSource, style);
   }
 }
 

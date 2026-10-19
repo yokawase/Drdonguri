@@ -9,7 +9,8 @@ import {
   Check, 
   FileText,
   Sparkles,
-  Layers
+  Layers,
+  ArrowLeft
 } from 'lucide-react';
 import { MedicalTemplate } from '../types';
 
@@ -92,9 +93,18 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between bg-[#1E293B] shrink-0">
+        <div className="px-4 py-3.5 border-b border-slate-800 flex items-center justify-between bg-[#1E293B] shrink-0 gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+              aria-label="戻る"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />
+              <span>戻る</span>
+            </button>
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
@@ -104,7 +114,7 @@ export const TemplateManagerModal: React.FC<TemplateManagerModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>

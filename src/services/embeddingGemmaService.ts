@@ -430,11 +430,19 @@ export async function searchWithEmbeddingGemma(
     setCachedQueryVector(cleanQuery, queryVector).catch(() => {});
   }
 
+  // クエリトークン一覧 (カルテ抽出キーワードとの厳密一致判定用)
+  const queryTokens = cleanQuery
+    .toLowerCase()
+    .split(/[\s,、・/]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2);
+
   // 2. 全アイテムとのコサイン類似度を一括計算 (Float32Array 高速内積)
   const scoredItems: { item: EmbeddingGemmaVectorItem; score: number }[] = [];
   for (const vItem of EMBEDDING_GEMMA_VECTOR_DATABASE) {
     if (filterType !== 'all') {
       const matchType =
+        (filterType === 'minds' && (vItem.type === 'minds' || vItem.type === 'emergency')) ||
         (filterType === 'emer' && vItem.type === 'emergency') ||
         (filterType === 'drug' && (vItem.type === 'drug' || vItem.type === 'drug_id')) ||
         (filterType === 'drug_id' && vItem.type === 'drug_id') ||
@@ -448,15 +456,35 @@ export async function searchWithEmbeddingGemma(
   // コサイン類似度降順ソート
   scoredItems.sort((a, b) => b.score - a.score);
 
+  const computeDetailMatchedKeywords = (detail: UnifiedMedicalSearchResult, fallbackTokens?: string[]): string[] => {
+    const matched = new Set<string>(fallbackTokens || []);
+    const fullText = [
+      detail.title,
+      detail.subtitle,
+      detail.category,
+      detail.content,
+      detail.extraInfo || '',
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    for (const token of queryTokens) {
+      if (fullText.includes(token)) {
+        matched.add(token);
+      }
+    }
+    return Array.from(matched);
+  };
+
   // 3. ハイブリッド検索 (Lexical Keyword Search + Semantic RRF)
   let finalResults: SemanticSearchResult[] = [];
 
   if (useHybrid) {
     // 従来のレキシカル検索 (キーワード一致) の結果を取得
-    const lexicalResults = searchUnifiedMedicalKnowledge(cleanQuery, filterType, 50);
-    const lexicalRankMap = new Map<string, number>();
+    const lexicalResults = searchUnifiedMedicalKnowledge(cleanQuery, filterType, 60);
+    const lexicalRankMap = new Map<string, { rank: number; result: UnifiedMedicalSearchResult }>();
     lexicalResults.forEach((res, idx) => {
-      lexicalRankMap.set(res.title, idx + 1);
+      lexicalRankMap.set(res.title, { rank: idx + 1, result: res });
     });
 
     const semanticRankMap = new Map<string, number>();
@@ -464,67 +492,82 @@ export async function searchWithEmbeddingGemma(
       semanticRankMap.set(sc.item.id, idx + 1);
     });
 
-    // RRF (Reciprocal Rank Fusion) スコア計算 (k = 60)
+    // RRF (Reciprocal Rank Fusion) スコア計算 (k = 60) + カルテキーワード直接一致ブースト
     const k = 60;
     const combinedMap = new Map<string, {
-      vItem: EmbeddingGemmaVectorItem;
+      detail: UnifiedMedicalSearchResult;
       semanticScore: number;
       rrfScore: number;
+      matchedKeywords: string[];
     }>();
 
-    for (let i = 0; i < Math.min(scoredItems.length, 60); i++) {
-      const { item, score } = scoredItems[i];
-      const semRank = i + 1;
-      const lexRank = lexicalRankMap.get(item.title) || 999;
-      const rrfScore = (1 / (k + semRank)) + (lexRank !== 999 ? (1 / (k + lexRank)) : 0);
+    // まずレキシカル（カルテキーワード直接一致）結果を最優先で登録
+    for (const lex of lexicalResults) {
+      const lexEntry = lexicalRankMap.get(lex.title);
+      const lexRank = lexEntry ? lexEntry.rank : 1;
+      const matchedVItem = EMBEDDING_GEMMA_VECTOR_DATABASE.find((v) => v.title === lex.title);
+      const semRank = matchedVItem ? (semanticRankMap.get(matchedVItem.id) || 999) : 999;
+      const semScore = matchedVItem
+        ? computeCosineSimilarity(queryVector, matchedVItem.vector)
+        : 0.78;
+      const matchedKws = computeDetailMatchedKeywords(lex, lex.matchedKeywords);
+      // カルテ内のキーワードと直接一致しているアイテムには高いRRFボーナスを付与
+      const keywordBoost = matchedKws.length * 0.015;
+      const rrfScore = (1 / (k + lexRank)) + (semRank !== 999 ? (1 / (k + semRank)) : 0.008) + keywordBoost;
 
-      combinedMap.set(item.id, {
-        vItem: item,
-        semanticScore: score,
+      combinedMap.set(lex.title, {
+        detail: lex,
+        semanticScore: Math.max(0.65, semScore),
         rrfScore,
+        matchedKeywords: matchedKws,
       });
     }
 
-    // レキシカル側のみヒットしたアイテムも追加
-    for (const lex of lexicalResults) {
-      const matchedVItem = EMBEDDING_GEMMA_VECTOR_DATABASE.find((v) => v.title === lex.title);
-      if (matchedVItem && !combinedMap.has(matchedVItem.id)) {
-        const lexRank = lexicalRankMap.get(lex.title) || 1;
-        const semRank = semanticRankMap.get(matchedVItem.id) || 999;
-        const semScore = computeCosineSimilarity(queryVector, matchedVItem.vector);
-        const rrfScore = (1 / (k + lexRank)) + (semRank !== 999 ? (1 / (k + semRank)) : 0);
-        combinedMap.set(matchedVItem.id, {
-          vItem: matchedVItem,
-          semanticScore: semScore,
-          rrfScore,
-        });
+    // 次にセマンティック上位アイテムを補完
+    for (let i = 0; i < Math.min(scoredItems.length, 60); i++) {
+      const { item, score } = scoredItems[i];
+      const detail = resolveKnowledgeDetail(item);
+      if (!detail) continue;
+      if (combinedMap.has(detail.title)) continue;
+
+      const semRank = i + 1;
+      const matchedKws = computeDetailMatchedKeywords(detail);
+      // レキシカルヒットがある場合はセマンティック単独結果を最小限に抑え、カルテ連動率100%を担保
+      if (lexicalResults.length > 0 && matchedKws.length === 0 && score < 0.55) {
+        continue;
       }
+      const rrfScore = (1 / (k + semRank)) * 0.6 + (matchedKws.length * 0.012);
+
+      combinedMap.set(detail.title, {
+        detail,
+        semanticScore: score,
+        rrfScore,
+        matchedKeywords: matchedKws.length > 0 ? matchedKws : [queryTokens[0] || cleanQuery],
+      });
     }
 
     // RRF スコア降順にソート
     const sortedCombined = Array.from(combinedMap.values()).sort((a, b) => b.rrfScore - a.rrfScore);
 
     for (const entry of sortedCombined.slice(0, limit)) {
-      const detail = resolveKnowledgeDetail(entry.vItem);
-      if (detail) {
-        finalResults.push({
-          ...detail,
-          semanticScore: Math.max(0, Math.min(1, entry.semanticScore)),
-          hybridScore: Math.min(1.0, entry.rrfScore * 30), // 視覚化用にスケール
-          matchedKeywords: [cleanQuery],
-        });
-      }
+      finalResults.push({
+        ...entry.detail,
+        semanticScore: Math.max(0, Math.min(1, entry.semanticScore)),
+        hybridScore: Math.min(1.0, entry.rrfScore * 28), // 視覚化用にスケール
+        matchedKeywords: entry.matchedKeywords,
+      });
     }
   } else {
     // セマンティック単独検索
     for (const entry of scoredItems.slice(0, limit)) {
       const detail = resolveKnowledgeDetail(entry.item);
       if (detail) {
+        const matchedKws = computeDetailMatchedKeywords(detail);
         finalResults.push({
           ...detail,
           semanticScore: Math.max(0, Math.min(1, entry.score)),
           hybridScore: Math.max(0, Math.min(1, entry.score)),
-          matchedKeywords: [cleanQuery],
+          matchedKeywords: matchedKws.length > 0 ? matchedKws : [queryTokens[0] || cleanQuery],
         });
       }
     }

@@ -1,23 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Download, 
   Send, 
   Sparkles, 
-  Cpu, 
-  CheckCircle2, 
-  Clock, 
-  AlertCircle, 
   RefreshCw, 
-  FileText, 
   Printer, 
-  ArrowRight, 
-  Sliders, 
   Footprints,
   Copy,
-  Check
+  Check,
+  ArrowLeft,
+  Eraser
 } from 'lucide-react';
 import { bleManager } from '../utils/webBluetooth';
 import { playMacBeep, playSosumi, triggerMacScreenFlash } from '../utils/macAudio';
+import { cleanExtractedMedicalText } from '../utils/chartTextCleaner';
 
 interface MedicalCoprocessorModalProps {
   isOpen: boolean;
@@ -57,14 +53,15 @@ export const MedicalCoprocessorModal: React.FC<MedicalCoprocessorModalProps> = (
     const unregComplete = bleManager.addPrinterCompleteListener((fullText: string, totalBytes: number) => {
       setIsReceiving(false);
       setIsPulling(false);
+      const cleaned = cleanExtractedMedicalText(fullText);
       setIngestedBytes(totalBytes);
-      setIngestedRawText(fullText);
-      setStatusMessage(`✅ 電カル生データ吸い上げ完了 (${totalBytes} Bytes / ${fullText.length} 文字)`);
+      setIngestedRawText(cleaned);
+      setStatusMessage(`✅ 電カル生データ吸い上げ＆無駄な空白・改行削除完了 (${totalBytes} Bytes / ${cleaned.length} 文字)`);
       playSosumi();
       triggerMacScreenFlash();
       
       // 自動SOAP構造化をトリガー
-      structureIntoSoap(fullText);
+      structureIntoSoap(cleaned);
     });
 
     return () => {
@@ -114,16 +111,18 @@ export const MedicalCoprocessorModal: React.FC<MedicalCoprocessorModalProps> = (
     }
   };
 
-  // 2. スマホエッジAIによる自律構造化 (SOAP下書き自動再構成)
+  // 2. スマホエッジAIによる自律構造化 (無駄なスペース・改行削除 ＋ SOAP下書き自動再構成)
   const structureIntoSoap = (raw: string) => {
-    if (!raw.trim()) return;
+    const cleanedRaw = cleanExtractedMedicalText(raw);
+    if (!cleanedRaw.trim()) return;
+    setIngestedRawText(cleanedRaw);
     setIsStructuring(true);
-    setStatusMessage('🧠 スマホエッジAIがカルテを解析・SOAP自律構造化中...');
+    setStatusMessage('🧠 無駄な空白・改行を除去し、SOAP自律構造化中...');
 
     // 高度なローカル構文解析 & SOAP構造化
     setTimeout(() => {
       try {
-        const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        const lines = cleanedRaw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
         
         // カテゴリ別分類
         const subjectiveLines: string[] = [];
@@ -220,9 +219,18 @@ ${pPart}`;
       <div className="bg-[#0F172A] border border-slate-700/80 rounded-2xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
         
         {/* ヘッダー */}
-        <div className="bg-[#1E293B] border-b border-slate-800 px-4 py-3 flex items-center justify-between shrink-0">
+        <div className="bg-[#1E293B] border-b border-slate-800 px-4 py-3 flex items-center justify-between shrink-0 gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
+            <button
+              type="button"
+              onClick={() => { playMacBeep(); onClose(); }}
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+              aria-label="戻る"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />
+              <span>戻る</span>
+            </button>
+            <div className="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
               <Download className="w-4 h-4" />
             </div>
             <div>
@@ -233,13 +241,13 @@ ${pPart}`;
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                電子カルテから過去カルテ・検査所見をUSB仮想プリンター経由で直接吸い上げ
+                電子カルテから過去カルテ・検査所見を吸い上げ（無駄なスペース・改行を自動削除）
               </p>
             </div>
           </div>
           <button
             onClick={() => { playMacBeep(); onClose(); }}
-            className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer shrink-0"
           >
             ✕
           </button>
@@ -295,26 +303,43 @@ ${pPart}`;
             </div>
 
             <div className="text-[10px] text-slate-400 bg-slate-900/60 p-2 rounded-xl border border-slate-800 mb-2 leading-relaxed">
-              💡 <strong>自動吸い上げの仕組み:</strong> ボタンを押すとドングルが0.2秒で電カルへ <code className="bg-slate-800 text-amber-300 px-1 py-0.5 rounded border border-slate-700">[Ctrl+P] ➔ [Enter]</code> を自動打鍵！電カルの印刷テキストがUSB Bulk OUT経由でBLEストリーミング着弾します。
+              💡 <strong>自動吸い上げ＆空白除去:</strong> ボタンを押すとドングルが0.2秒で電カルへ <code className="bg-slate-800 text-amber-300 px-1 py-0.5 rounded border border-slate-700">[Ctrl+P] ➔ [Enter]</code> を自動打鍵！電カルの印刷スプールに含まれる無駄な空白・改行を自動削除して取り込みます。
             </div>
 
             {/* 吸い上げ生テキストモニター */}
             <div className="flex-1 flex flex-col min-h-[160px]">
               <div className="text-[10px] font-bold text-slate-400 mb-1 flex items-center justify-between">
-                <span>着弾した生テキスト (Shift-JIS / UTF-8 自動復元):</span>
+                <span>着弾テキスト (無駄なスペース・改行自動削除済):</span>
                 {ingestedRawText && (
-                  <button
-                    onClick={() => structureIntoSoap(ingestedRawText)}
-                    className="text-sky-400 hover:text-sky-300 font-normal flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <RefreshCw className="w-2.5 h-2.5" /> 再解析
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const cleaned = cleanExtractedMedicalText(ingestedRawText);
+                        setIngestedRawText(cleaned);
+                        setStatusMessage('✨ 無駄なスペース・改行を削除しました');
+                      }}
+                      className="text-emerald-400 hover:text-emerald-300 font-normal flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Eraser className="w-2.5 h-2.5" /> 空白・改行削除
+                    </button>
+                    <button
+                      onClick={() => structureIntoSoap(ingestedRawText)}
+                      className="text-sky-400 hover:text-sky-300 font-normal flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <RefreshCw className="w-2.5 h-2.5" /> 再解析
+                    </button>
+                  </div>
                 )}
               </div>
               <textarea
                 value={ingestedRawText}
                 onChange={(e) => setIngestedRawText(e.target.value)}
-                placeholder="電カルから吸い上げた過去カルテや検査結果テキストがここに自動着弾します... (直接ペーストも可能)"
+                onBlur={() => {
+                  if (ingestedRawText.trim()) {
+                    setIngestedRawText(cleanExtractedMedicalText(ingestedRawText));
+                  }
+                }}
+                placeholder="電カルから吸い上げた過去カルテや検査結果テキストがここに自動着弾します... (直接ペースト時も自動で無駄な空白・改行を削除)"
                 className="flex-1 w-full p-2.5 text-xs font-mono border border-slate-700/80 rounded-xl resize-none bg-[#0F172A] text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 leading-relaxed"
               />
             </div>

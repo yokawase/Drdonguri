@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { bleManager } from './utils/webBluetooth';
 import { buildTransmissionSession, PreparedSession } from './utils/packetBuilder';
-import { DispatchMode } from './types';
-import { APP_VERSION, LATEST_FIRMWARE_VERSION } from './version';
+import { DispatchMode, DEFAULT_PRESET_TEMPLATES, MedicalTemplate } from './types';
+import { APP_VERSION } from './version';
 import { NativePwaEdgeLayout } from './components/NativePwaEdgeLayout';
+import { cleanExtractedMedicalText, DEFAULT_SAMPLE_CHART_TEXT } from './utils/chartTextCleaner';
 
 // 臨床現場で真に必要なモーダルのみオンデマンド遅延ロード
 const MedicalDataSearchModal = React.lazy(() =>
@@ -23,14 +24,32 @@ const CameraOcrModal = React.lazy(() =>
 );
 
 const STORAGE_KEY_BUFFER = 'drvoice_dispatcher_buf';
+const STORAGE_KEY_TEMPLATES = 'drvoice_custom_templates';
 
 export default function App() {
-  // 入力テキスト (Local-first: 自動永続化)
+  // 入力テキスト (Local-first: 自動永続化 ＆ 無駄なスペース・改行削除)
   const [inputText, setInputText] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem(STORAGE_KEY_BUFFER) || '';
+      const saved = localStorage.getItem(STORAGE_KEY_BUFFER);
+      if (saved && saved.trim()) {
+        return cleanExtractedMedicalText(saved);
+      }
     }
-    return '';
+    return DEFAULT_SAMPLE_CHART_TEXT;
+  });
+
+  // 定型文リスト (プリセット + カスタム保存分)
+  const [templates, setTemplates] = useState<MedicalTemplate[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_TEMPLATES);
+        if (raw) {
+          const customList = JSON.parse(raw) as MedicalTemplate[];
+          return [...DEFAULT_PRESET_TEMPLATES, ...customList];
+        }
+      } catch {}
+    }
+    return DEFAULT_PRESET_TEMPLATES;
   });
 
   // テキスト更新時に自動保存
@@ -43,8 +62,8 @@ export default function App() {
   // ドングルBLE接続 & 送信状態
   const [isBleConnected, setIsBleConnected] = useState<boolean>(false);
   const [isSending, setIsSending] = useState<boolean>(false);
-  const [transmissionProgress, setTransmissionProgress] = useState<number>(0);
-  const [transmissionStage, setTransmissionStage] = useState<string>('');
+  const [, setTransmissionProgress] = useState<number>(0);
+  const [, setTransmissionStage] = useState<string>('');
 
   // モーダル開閉ステート
   const [isMedicalSearchOpen, setIsMedicalSearchOpen] = useState(false);
@@ -83,6 +102,15 @@ export default function App() {
       }
     });
 
+    // 電カルから仮想プリンタ経由で文章が抽出された際、無駄なスペース・改行を自動削除して反映
+    const removePrinterComplete = ble.addPrinterCompleteListener((fullText) => {
+      const cleaned = cleanExtractedMedicalText(fullText);
+      if (cleaned) {
+        setInputText(cleaned);
+        showToast('success', '【電カル抽出完了】無駄なスペース・改行を削除し、カルテ内容を100%同期しました！');
+      }
+    });
+
     // 切断監視
     ble.setOnDisconnect(() => {
       setIsBleConnected(false);
@@ -91,6 +119,7 @@ export default function App() {
 
     return () => {
       removeAckListener();
+      removePrinterComplete();
     };
   }, [showToast]);
 
@@ -248,7 +277,7 @@ export default function App() {
             inputText={inputText}
             initialTab={medicalSearchInitialTab}
             onInsertText={(text) => {
-              setInputText((prev) => (prev ? `${prev}\n${text}` : text));
+              setInputText((prev) => cleanExtractedMedicalText(prev ? `${prev}\n${text}` : text));
             }}
           />
         )}
@@ -259,8 +288,9 @@ export default function App() {
             onClose={() => setIsCoprocessorModalOpen(false)}
             isBleConnected={isBleConnected}
             onWriteBackToChart={async (text: string) => {
-              setInputText(text);
-              const session = buildTransmissionSession(text, DispatchMode.MODE_HYBRID_UNICODE);
+              const cleaned = cleanExtractedMedicalText(text);
+              setInputText(cleaned);
+              const session = buildTransmissionSession(cleaned, DispatchMode.MODE_HYBRID_UNICODE);
               if (isBleConnected) {
                 await bleManager.transmitSession(session);
               }
@@ -274,7 +304,7 @@ export default function App() {
             onClose={() => setIsAiModalOpen(false)}
             originalText={inputText}
             onApplyFormattedText={(text: string) => {
-              setInputText(text);
+              setInputText(cleanExtractedMedicalText(text));
             }}
           />
         )}
@@ -284,16 +314,41 @@ export default function App() {
             isOpen={isTemplateModalOpen}
             onClose={() => setIsTemplateModalOpen(false)}
             currentInputText={inputText}
-            templates={[]}
+            templates={templates}
             onApplyTemplate={(content: string, mode: 'replace' | 'append') => {
+              const cleanedContent = cleanExtractedMedicalText(content);
               if (mode === 'append') {
-                setInputText((prev) => (prev ? `${prev}\n\n${content}` : content));
+                setInputText((prev) => cleanExtractedMedicalText(prev ? `${prev}\n\n${cleanedContent}` : cleanedContent));
               } else {
-                setInputText(content);
+                setInputText(cleanedContent);
               }
             }}
-            onSaveTemplate={() => {}}
-            onDeleteTemplate={() => {}}
+            onSaveTemplate={(newTmpl: MedicalTemplate) => {
+              setTemplates((prev) => {
+                const updated = [...prev, newTmpl];
+                try {
+                  localStorage.setItem(
+                    STORAGE_KEY_TEMPLATES,
+                    JSON.stringify(updated.filter((t) => t.isCustom))
+                  );
+                } catch {}
+                return updated;
+              });
+              showToast('success', `定型文「${newTmpl.title}」を保存しました。`);
+            }}
+            onDeleteTemplate={(templateId: string) => {
+              setTemplates((prev) => {
+                const updated = prev.filter((t) => t.id !== templateId);
+                try {
+                  localStorage.setItem(
+                    STORAGE_KEY_TEMPLATES,
+                    JSON.stringify(updated.filter((t) => t.isCustom))
+                  );
+                } catch {}
+                return updated;
+              });
+              showToast('info', '定型文を削除しました。');
+            }}
           />
         )}
 
@@ -302,10 +357,11 @@ export default function App() {
             isOpen={isCameraOcrOpen}
             onClose={() => setIsCameraOcrOpen(false)}
             onApplyText={(extracted: string, mode: 'replace' | 'append') => {
+              const cleanedExtracted = cleanExtractedMedicalText(extracted);
               if (mode === 'append') {
-                setInputText((prev) => (prev ? `${prev}\n\n${extracted}` : extracted));
+                setInputText((prev) => cleanExtractedMedicalText(prev ? `${prev}\n\n${cleanedExtracted}` : cleanedExtracted));
               } else {
-                setInputText(extracted);
+                setInputText(cleanedExtracted);
               }
             }}
           />
