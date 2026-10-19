@@ -83,26 +83,15 @@ export function cleanExtractedMedicalText(rawText: string): string {
   return cleanedLines.join('\n').trim();
 }
 
+import { decodeMedicalSpeech } from '../services/medicalSpeechDecoder';
+
 /**
- * 音声認識特有の医学的同音異義語・誤変換を事前補正する
+ * 音声認識特有の医学的同音異義語・誤変換・略語・医薬品・バイタルを事前補正・高精度解読する
  */
 export function normalizeMedicalSpeechTerms(text: string): string {
   if (!text) return '';
-  return text
-    .replace(/アルコール性\s*換気機能障害/g, 'アルコール性肝機能障害')
-    .replace(/換気機能障害/g, '肝機能障害')
-    .replace(/内視鏡初見/g, '内視鏡所見')
-    .replace(/身体初見/g, '身体所見')
-    .replace(/検査初見/g, '検査所見')
-    .replace(/心電図初見/g, '心電図所見')
-    .replace(/特記初見/g, '特記所見')
-    .replace(/観桜病変/g, '陥凹病変')
-    .replace(/不整観桜/g, '不整陥凹')
-    .replace(/協会明瞭/g, '境界明瞭')
-    .replace(/前提部/g, '前庭部')
-    .replace(/威嚇部/g, '胃角部')
-    .replace(/真移植後/g, '毎食後')
-    .replace(/大導寺/g, '体動時');
+  const decoded = decodeMedicalSpeech(text);
+  return decoded.decodedText;
 }
 
 export interface ExtractedChartContext {

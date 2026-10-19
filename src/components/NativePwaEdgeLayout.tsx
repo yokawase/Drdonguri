@@ -32,6 +32,7 @@ import {
   normalizeMedicalSpeechTerms,
   DEFAULT_SAMPLE_CHART_TEXT,
 } from '../utils/chartTextCleaner';
+import { decodeMedicalSpeech } from '../services/medicalSpeechDecoder';
 import { sdCardStreamingService, SoftApStatus } from '../services/sdCardStreamingService';
 
 interface NativePwaEdgeLayoutProps {
@@ -518,6 +519,15 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                   </button>
                 )}
 
+                {/* 医療専門用語 音声解読ステータス */}
+                <span
+                  className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-mono text-emerald-300 bg-emerald-950/60 border border-emerald-600/40"
+                  title="頻出医薬品・病名・検査値・医学略語の自動解読エンジンが常時稼働中"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>医療音声解読: ON</span>
+                </span>
+
                 {/* Gemma 2 AI文章校正ショートカットボタン */}
                 {!isSending && (
                   <button
@@ -622,19 +632,39 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 </div>
               )}
 
-              {/* 音声入力中のリアルタイムプレビュー */}
-              {isRecording && (
-                <div className="mt-3 p-2.5 rounded-lg bg-rose-950/40 border border-rose-800/60 animate-in fade-in">
-                  <div className="text-[11px] font-bold text-rose-400 mb-1 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
-                    [音声入力中]
+              {/* 音声入力中のリアルタイムプレビュー ＆ 医療用語解読 */}
+              {isRecording && (() => {
+                const liveDecoded = decodeMedicalSpeech(interimTranscript);
+                return (
+                  <div className="mt-3 p-2.5 rounded-xl bg-rose-950/40 border border-rose-800/60 animate-in fade-in space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                      <div className="text-rose-400 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                        <span>[音声入力中]</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] text-emerald-300 font-mono bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/40">
+                        <span>🩺 医療用語解読</span>
+                        {liveDecoded.detectedCategories.length > 0 && (
+                          <span className="text-amber-300">({liveDecoded.detectedCategories.join('・')})</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs sm:text-[13px] text-rose-100 font-sans leading-relaxed">
+                      {liveDecoded.decodedText || interimTranscript || 'マイクへ向かってカルテ所見をお話しください...'}
+                      <span className="inline-block w-2 h-3.5 bg-rose-400 ml-1 animate-pulse align-middle" />
+                    </div>
+                    {liveDecoded.corrections.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1 border-t border-rose-900/60">
+                        {liveDecoded.corrections.slice(0, 4).map((c, i) => (
+                          <span key={i} className="text-[10px] bg-slate-900/90 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30 font-mono">
+                            {c.original} ➔ {c.corrected}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="text-xs sm:text-[13px] text-rose-200 font-sans leading-relaxed">
-                    {interimTranscript || 'マイクへ向かってカルテ所見をお話しください...'}
-                    <span className="inline-block w-2 h-3.5 bg-rose-400 ml-1 animate-pulse align-middle" />
-                  </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           </div>
         </div>
