@@ -12,7 +12,14 @@
 export interface DecodedCorrection {
   original: string;
   corrected: string;
-  category: 'vital' | 'abbreviation' | 'drug' | 'finding' | 'homophone' | 'dosage';
+  category: 'vital' | 'abbreviation' | 'drug' | 'finding' | 'homophone' | 'dosage' | 'section';
+}
+
+export interface SpeechToken {
+  text: string;
+  isDecoded: boolean;
+  category?: 'vital' | 'abbreviation' | 'drug' | 'finding' | 'homophone' | 'dosage' | 'section';
+  original?: string;
 }
 
 export interface MedicalSpeechDecodeResult {
@@ -21,6 +28,22 @@ export interface MedicalSpeechDecodeResult {
   corrections: DecodedCorrection[];
   detectedCategories: string[];
 }
+
+/**
+ * 医師向け音声入力 リアルタイム解読例文クイックチップス
+ */
+export const SPEECH_SAMPLE_CHIPS = [
+  { label: '🫀 BP 140/90', speech: 'ビーピー 140の90' },
+  { label: '🫀 HR 112 (不整)', speech: '脈拍 112 ふせい' },
+  { label: '🫀 SpO2 97% (room)', speech: 'サチュレーション 97 パーセント ルーム' },
+  { label: '🔬 心房細動 (Af)', speech: 'しんぼうさいどう エーエフ' },
+  { label: '🔬 HbA1c 7.8%', speech: 'ヘモグロビンエーワンシー 7.8 パーセント' },
+  { label: '🔬 CRP 4.2', speech: 'シーアールピー 4.2' },
+  { label: '💊 ニトロペン', speech: 'ニトロペン 頓用' },
+  { label: '💊 アムロジピン処方', speech: 'アムロジピン 1てぃー 1くす 朝食後 14にちぶん' },
+  { label: '✨ 体動時・放散痛', speech: '大導寺に胸部圧迫感、左肩への放射痛' },
+  { label: '📑 【主訴】見出し', speech: '主訴 労作時の息切れ' },
+];
 
 /**
  * 1. 音声認識特有の医学的同音異義語・誤字脱字辞書 (Homophone & Speech Recognition Error Map)
@@ -409,3 +432,88 @@ export function decodeMedicalSpeech(rawTranscript: string): MedicalSpeechDecodeR
     detectedCategories: Array.from(detectedCategoriesSet),
   };
 }
+
+/**
+ * リアルタイムUI表示用: 解読テキストを通常テキストと解読ハイライトトークンに分割
+ */
+export function getDecodedSpeechTokens(rawTranscript: string): {
+  tokens: SpeechToken[];
+  result: MedicalSpeechDecodeResult;
+} {
+  const result = decodeMedicalSpeech(rawTranscript);
+  const text = result.decodedText;
+
+  if (!text || result.corrections.length === 0) {
+    return {
+      tokens: text ? [{ text, isDecoded: false }] : [],
+      result,
+    };
+  }
+
+  // 重複・包含を考慮して出現位置を検出
+  interface MatchRange {
+    start: number;
+    end: number;
+    correction: DecodedCorrection;
+  }
+
+  const matches: MatchRange[] = [];
+  const visitedCorrections = new Set<DecodedCorrection>();
+
+  // 各補正語の出現位置を検索（長いもの優先）
+  const sortedCorrections = [...result.corrections].sort((a, b) => b.corrected.length - a.corrected.length);
+
+  for (const c of sortedCorrections) {
+    if (!c.corrected) continue;
+    let searchIndex = 0;
+    while (searchIndex < text.length) {
+      const idx = text.indexOf(c.corrected, searchIndex);
+      if (idx === -1) break;
+
+      const endIdx = idx + c.corrected.length;
+      // 既存のマッチと重複していないか検証
+      const hasOverlap = matches.some((m) => Math.max(m.start, idx) < Math.min(m.end, endIdx));
+      if (!hasOverlap) {
+        matches.push({
+          start: idx,
+          end: endIdx,
+          correction: c,
+        });
+        visitedCorrections.add(c);
+      }
+      searchIndex = endIdx;
+    }
+  }
+
+  // 開始位置順にソート
+  matches.sort((a, b) => a.start - b.start);
+
+  const tokens: SpeechToken[] = [];
+  let cursor = 0;
+
+  for (const match of matches) {
+    if (match.start > cursor) {
+      tokens.push({
+        text: text.slice(cursor, match.start),
+        isDecoded: false,
+      });
+    }
+    tokens.push({
+      text: match.correction.corrected,
+      isDecoded: true,
+      category: match.correction.category,
+      original: match.correction.original,
+    });
+    cursor = match.end;
+  }
+
+  if (cursor < text.length) {
+    tokens.push({
+      text: text.slice(cursor),
+      isDecoded: false,
+    });
+  }
+
+  return { tokens, result };
+}
+

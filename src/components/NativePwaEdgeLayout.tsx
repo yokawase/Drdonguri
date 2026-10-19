@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Menu,
   X,
@@ -25,14 +25,24 @@ import {
   ArrowLeft,
   Lock,
   Wifi,
+  Pill,
+  Activity,
+  BookOpen,
+  HeartPulse,
 } from 'lucide-react';
 import { APP_VERSION, LATEST_FIRMWARE_VERSION } from '../version';
 import {
   cleanExtractedMedicalText,
   normalizeMedicalSpeechTerms,
+  extractChartClinicalKeywords,
   DEFAULT_SAMPLE_CHART_TEXT,
 } from '../utils/chartTextCleaner';
-import { decodeMedicalSpeech } from '../services/medicalSpeechDecoder';
+import {
+  decodeMedicalSpeech,
+  getDecodedSpeechTokens,
+  SPEECH_SAMPLE_CHIPS,
+  SpeechToken,
+} from '../services/medicalSpeechDecoder';
 import { sdCardStreamingService, SoftApStatus } from '../services/sdCardStreamingService';
 
 interface NativePwaEdgeLayoutProps {
@@ -120,6 +130,17 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // 音声解読完了通知トースト
+  const [speechSuccessNotice, setSpeechSuccessNotice] = useState<string | null>(null);
+  // 発話例文チップス表示トグル
+  const [showSpeechChips, setShowSpeechChips] = useState(false);
+
+  // カルテ全体キーワード抽出（カルテ内容100%動的連動）
+  const chartContext = useMemo(() => {
+    const text = inputText && inputText.trim().length > 0 ? inputText : DEFAULT_SAMPLE_CHART_TEXT;
+    return extractChartClinicalKeywords(text);
+  }, [inputText]);
+
   // 音声入力中の波形アニメーションループ (マイク排他制御競合を回避し完全滑らかに駆動)
   const startWaveformLoop = useCallback(() => {
     let phase = 0;
@@ -166,10 +187,18 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         }
       }
 
-      // 認識結果全文（確定＋中間）を無駄なスペース・改行を除去してカルテ本文に反映
-      const fullRecorded = cleanExtractedMedicalText(
-        normalizeMedicalSpeechTerms(`${finalTranscriptRef.current}${interimTranscriptRef.current}`)
-      );
+      // 認識結果全文（確定＋中間）を医療音声解読エンジンで自動補正
+      const rawFull = `${finalTranscriptRef.current}${interimTranscriptRef.current}`;
+      const decodedResult = decodeMedicalSpeech(rawFull);
+      const fullRecorded = cleanExtractedMedicalText(decodedResult.decodedText);
+
+      if (decodedResult.corrections.length > 0) {
+        setSpeechSuccessNotice(
+          `🩺 医療専門用語 ${decodedResult.corrections.length}件 (${decodedResult.detectedCategories.join('・')}) を自動解読・構造化しました`
+        );
+        setTimeout(() => setSpeechSuccessNotice(null), 3500);
+      }
+
       if (fullRecorded) {
         setInputText((prev) => {
           const trimmed = cleanExtractedMedicalText(prev);
@@ -528,6 +557,24 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                   <span>医療音声解読: ON</span>
                 </span>
 
+                {/* 発話例文チップス切替ボタン */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    triggerHaptic(10);
+                    setShowSpeechChips((prev) => !prev);
+                  }}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold border transition-colors cursor-pointer ${
+                    showSpeechChips
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold'
+                      : 'text-amber-300 hover:text-white bg-amber-950/60 hover:bg-amber-900/70 border-amber-600/50'
+                  }`}
+                  title="医師向け音声入力の解読例文チップスを表示"
+                >
+                  <span>🎙️ 発話例文</span>
+                </button>
+
                 {/* Gemma 2 AI文章校正ショートカットボタン */}
                 {!isSending && (
                   <button
@@ -566,6 +613,64 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 )}
               </div>
             </div>
+
+            {/* 音声解読完了マイクロ通知 */}
+            {speechSuccessNotice && (
+              <div className="mx-2 my-1 px-3 py-1.5 rounded-xl bg-emerald-950/90 border border-emerald-500/60 text-emerald-200 text-xs font-semibold flex items-center justify-between shadow-lg animate-in fade-in duration-200">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
+                  <span>{speechSuccessNotice}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSpeechSuccessNotice(null)}
+                  className="text-slate-400 hover:text-white text-xs px-1"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* 発話例文クイックチップスパネル */}
+            {showSpeechChips && (
+              <div className="mx-2 my-1.5 p-2.5 rounded-xl bg-slate-900/90 border border-amber-500/40 space-y-1.5 animate-in fade-in">
+                <div className="flex items-center justify-between text-[11px] font-bold text-amber-300">
+                  <span className="flex items-center gap-1">
+                    <span>💡</span>
+                    <span>医療音声解読 推奨発話例文（タップでカルテに即反映）</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowSpeechChips(false)}
+                    className="text-slate-400 hover:text-white text-xs"
+                  >
+                    閉じる
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {SPEECH_SAMPLE_CHIPS.map((chip, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic(15);
+                        const decoded = decodeMedicalSpeech(chip.speech);
+                        setInputText((prev) =>
+                          cleanExtractedMedicalText(prev ? `${prev}\n${decoded.decodedText}` : decoded.decodedText)
+                        );
+                      }}
+                      className="px-2 py-1 rounded-lg text-[11px] font-mono bg-slate-800 hover:bg-amber-950/70 text-slate-200 hover:text-amber-200 border border-slate-700 hover:border-amber-500/50 transition-all flex items-center gap-1 group cursor-pointer"
+                      title={`発話: 「${chip.speech}」➔ 自動解読挿入`}
+                    >
+                      <span className="font-semibold text-amber-400">{chip.label}</span>
+                      <span className="text-[9px] text-slate-400 group-hover:text-amber-300">
+                        ({chip.speech})
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* テキストコンテンツ領域 (タップで編集切り替え可能) */}
             <div
@@ -632,32 +737,99 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 </div>
               )}
 
-              {/* 音声入力中のリアルタイムプレビュー ＆ 医療用語解読 */}
+              {/* 音声入力中のリアルタイムプレビュー ＆ 医療用語インラインハイライト解読 */}
               {isRecording && (() => {
-                const liveDecoded = decodeMedicalSpeech(interimTranscript);
+                const { tokens, result: liveDecoded } = getDecodedSpeechTokens(interimTranscript);
                 return (
-                  <div className="mt-3 p-2.5 rounded-xl bg-rose-950/40 border border-rose-800/60 animate-in fade-in space-y-1.5">
+                  <div className="mt-3 p-3 rounded-2xl bg-gradient-to-br from-rose-950/60 via-slate-900/90 to-purple-950/50 border-2 border-rose-600/70 shadow-2xl animate-in fade-in space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-bold">
                       <div className="text-rose-400 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
-                        <span>[音声入力中]</span>
+                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                        <span className="font-mono tracking-wider">[リアルタイム音声認識中]</span>
                       </div>
-                      <div className="flex items-center gap-1 text-[10px] text-emerald-300 font-mono bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/40">
-                        <span>🩺 医療用語解読</span>
-                        {liveDecoded.detectedCategories.length > 0 && (
-                          <span className="text-amber-300">({liveDecoded.detectedCategories.join('・')})</span>
-                        )}
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        <span className="flex items-center gap-1 text-[10px] text-emerald-300 font-mono bg-emerald-950/90 px-2 py-0.5 rounded-full border border-emerald-500/50">
+                          <Sparkles className="w-3 h-3 text-emerald-400 animate-spin" />
+                          <span>医療音声解読中</span>
+                        </span>
+                        {liveDecoded.detectedCategories.map((cat, i) => (
+                          <span
+                            key={i}
+                            className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                          >
+                            {cat}
+                          </span>
+                        ))}
                       </div>
                     </div>
-                    <div className="text-xs sm:text-[13px] text-rose-100 font-sans leading-relaxed">
-                      {liveDecoded.decodedText || interimTranscript || 'マイクへ向かってカルテ所見をお話しください...'}
+
+                    {/* インラインハイライト表示本文 */}
+                    <div className="text-xs sm:text-[13px] text-slate-100 font-sans leading-relaxed p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                      {tokens.length > 0 ? (
+                        tokens.map((token, idx) => {
+                          if (!token.isDecoded) {
+                            return (
+                              <span key={idx} className="text-slate-200">
+                                {token.text}
+                              </span>
+                            );
+                          }
+
+                          let badgeColor = 'bg-emerald-900/80 text-emerald-200 border-emerald-500/60';
+                          let icon = '✨';
+                          if (token.category === 'vital') {
+                            badgeColor =
+                              'bg-rose-900/80 text-rose-200 border-rose-500/60 shadow-[0_0_8px_rgba(244,63,94,0.4)]';
+                            icon = '🫀';
+                          } else if (token.category === 'drug') {
+                            badgeColor =
+                              'bg-cyan-900/80 text-cyan-200 border-cyan-500/60 shadow-[0_0_8px_rgba(6,182,212,0.4)]';
+                            icon = '💊';
+                          } else if (token.category === 'abbreviation') {
+                            badgeColor =
+                              'bg-purple-900/80 text-purple-200 border-purple-500/60 shadow-[0_0_8px_rgba(168,85,247,0.4)]';
+                            icon = '🔬';
+                          } else if (token.category === 'dosage') {
+                            badgeColor = 'bg-amber-900/80 text-amber-200 border-amber-500/60';
+                            icon = '📋';
+                          } else if (token.category === 'section') {
+                            badgeColor = 'bg-sky-900/80 text-sky-200 border-sky-500/60 font-bold';
+                            icon = '📑';
+                          }
+
+                          return (
+                            <mark
+                              key={idx}
+                              className={`inline-flex items-center gap-1 mx-0.5 px-1.5 py-0.5 rounded-lg border text-xs font-mono font-bold ${badgeColor}`}
+                              title={token.original ? `発音: 「${token.original}」から自動解読` : undefined}
+                            >
+                              <span className="text-[10px]">{icon}</span>
+                              <span>{token.text}</span>
+                            </mark>
+                          );
+                        })
+                      ) : (
+                        <span className="text-slate-400 italic">
+                          マイクへ向かってカルテ所見をお話しください...（例: 「ビーピー 140の90」「大導寺に胸部圧迫感」「アムロジピン 1T 朝食後」）
+                        </span>
+                      )}
                       <span className="inline-block w-2 h-3.5 bg-rose-400 ml-1 animate-pulse align-middle" />
                     </div>
+
+                    {/* リアルタイム解読ログチップス */}
                     {liveDecoded.corrections.length > 0 && (
-                      <div className="flex flex-wrap gap-1 pt-1 border-t border-rose-900/60">
-                        {liveDecoded.corrections.slice(0, 4).map((c, i) => (
-                          <span key={i} className="text-[10px] bg-slate-900/90 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30 font-mono">
-                            {c.original} ➔ {c.corrected}
+                      <div className="flex flex-wrap gap-1.5 pt-1 border-t border-rose-900/50">
+                        <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
+                          <span>解読一覧:</span>
+                        </span>
+                        {liveDecoded.corrections.slice(0, 6).map((c, i) => (
+                          <span
+                            key={i}
+                            className="text-[10px] bg-slate-900/90 text-emerald-300 px-2 py-0.5 rounded-md border border-emerald-500/40 font-mono flex items-center gap-1"
+                          >
+                            <span className="line-through text-slate-500">{c.original}</span>
+                            <span>➔</span>
+                            <span className="font-bold text-emerald-200">{c.corrected}</span>
                           </span>
                         ))}
                       </div>
@@ -669,106 +841,136 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
           </div>
         </div>
 
-        {/* 右側カラム (モバイル: 非表示, デスクトップ: 4カラム常時展開クイック臨床パネル) */}
+        {/* 右側カラム (モバイル: 非表示, デスクトップ: 4カラム常時展開 カルテ100%連動臨床意思決定パネル) */}
         <aside className="hidden lg:flex lg:col-span-4 flex-col gap-3.5 h-full overflow-y-auto pr-1">
-          {/* クイックアクション1: 32GB MicroSD 臨床データ */}
-          <div className="bg-[#1E293B]/50 border border-slate-800 rounded-2xl p-3.5 flex flex-col gap-2 shadow-lg backdrop-blur-sm">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
-              <span className="text-xs font-bold text-slate-200 tracking-wider uppercase flex items-center gap-1.5">
-                <span>📚</span>
-                <span>32GB 臨床データクイックアクセス</span>
+          {/* カルテ100%動的連動: 臨床意思決定支援 ＆ 32GBデータパネル */}
+          <div className="bg-[#1E293B]/70 border-2 border-amber-500/40 rounded-2xl p-3.5 flex flex-col gap-2.5 shadow-xl backdrop-blur-md">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-700/80">
+              <span className="text-xs font-bold text-amber-300 tracking-wider uppercase flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <span>🎯 カルテ100%連動 臨床意思決定支援</span>
               </span>
-              <span className="text-[10px] font-mono text-sky-400 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
-                MicroSD
+              <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/40">
+                {chartContext.allKeywords.length} キーワード抽出済
               </span>
             </div>
+
+            {/* カルテ全体から抽出された臨床キーワードタグクラウド */}
             <div className="space-y-1.5">
-              <button
-                type="button"
+              <div className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
+                <span>カルテ抽出キーワード（タップで即照合）:</span>
+                <span className="text-[10px] text-slate-400 font-mono">10大マスター連動</span>
+              </div>
+              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
+                {chartContext.allKeywords.length > 0 ? (
+                  chartContext.allKeywords.slice(0, 12).map((kw, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic(10);
+                        onOpenSearch('all');
+                      }}
+                      className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-800 hover:bg-amber-500/20 text-slate-200 hover:text-amber-200 border border-slate-700 hover:border-amber-500/50 transition-colors flex items-center gap-1 cursor-pointer"
+                      title={`「${kw}」で全10大医療データを検索`}
+                    >
+                      <span className="text-amber-400">#</span>
+                      <span>{kw}</span>
+                    </button>
+                  ))
+                ) : (
+                  <span className="text-xs text-slate-400 italic">
+                    所見を入力すると自動で臨床キーワードを抽出します
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* カルテ内容と100%リンクした3大臨床データダイレクトカード */}
+            <div className="space-y-2 pt-1 border-t border-slate-700/60">
+              {/* 1. 連動医薬品 ＆ 錠剤鑑別 */}
+              <div
                 onClick={() => {
                   triggerHaptic(15);
                   onOpenSearch('pill');
                 }}
-                className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-all group hover:border-slate-600"
+                className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-teal-500/30 hover:border-teal-400/60 transition-all cursor-pointer group"
               >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base">💊</span>
-                  <div>
-                    <div className="text-xs font-semibold text-slate-200 group-hover:text-amber-300 transition-colors">
-                      医薬品添付文書 ＆ 錠剤識別
-                    </div>
-                    <div className="text-[10px] text-teal-400 font-mono">
-                      PMDA約22,000品目・表裏刻印写真
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-teal-300 flex items-center gap-1.5">
+                    <Pill className="w-3.5 h-3.5 text-teal-400" />
+                    <span>連動医薬品 ＆ 錠剤刻印</span>
+                  </span>
+                  <span className="text-[10px] text-teal-400 font-mono group-hover:translate-x-0.5 transition-transform">
+                    {chartContext.drugKeywords.length}件 ➔
+                  </span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
-              </button>
+                <div className="text-[11px] text-slate-300 mt-1 line-clamp-1 font-mono">
+                  {chartContext.drugKeywords.length > 0
+                    ? `処方・内服: ${chartContext.drugKeywords.slice(0, 3).join('、')}`
+                    : 'カルテ内の薬剤（アムロジピン、ニトロペン等）を常時検出'}
+                </div>
+              </div>
 
-              <button
-                type="button"
+              {/* 2. 連動12誘導心電図 ＆ 臨床波形解析 */}
+              <div
                 onClick={() => {
                   triggerHaptic(15);
                   onOpenSearch('atlas');
                 }}
-                className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-all group hover:border-slate-600"
+                className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-rose-500/30 hover:border-rose-400/60 transition-all cursor-pointer group"
               >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base">📈</span>
-                  <div>
-                    <div className="text-xs font-semibold text-slate-200 group-hover:text-rose-300 transition-colors">
-                      12誘導心電図 ＆ 臨床波形解析
-                    </div>
-                    <div className="text-[10px] text-rose-400 font-mono">
-                      実測ミリ波形・1mm/5mm方眼紙測定
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
+                    <Activity className="w-3.5 h-3.5 text-rose-400" />
+                    <span>連動12誘導心電図 ＆ 波形</span>
+                  </span>
+                  <span className="text-[10px] text-rose-400 font-mono group-hover:translate-x-0.5 transition-transform">
+                    {chartContext.atlasEcgKeywords.length}件 ➔
+                  </span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
-              </button>
+                <div className="text-[11px] text-slate-300 mt-1 line-clamp-1 font-mono">
+                  {chartContext.atlasEcgKeywords.length > 0
+                    ? `病態波形: ${chartContext.atlasEcgKeywords.slice(0, 3).join('、')}`
+                    : '主訴・症状から狭心症・心筋虚血・不整脈波形を自動抽出'}
+                </div>
+              </div>
 
-              <button
-                type="button"
+              {/* 3. 連動Mindsガイドライン ＆ 救急プロトコル */}
+              <div
                 onClick={() => {
                   triggerHaptic(15);
                   onOpenSearch('minds');
                 }}
-                className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-all group hover:border-slate-600"
+                className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-emerald-500/30 hover:border-emerald-400/60 transition-all cursor-pointer group"
               >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base">📚</span>
-                  <div>
-                    <div className="text-xs font-semibold text-slate-200 group-hover:text-emerald-300 transition-colors">
-                      Minds ガイドライン ＆ 救急DMAT
-                    </div>
-                    <div className="text-[10px] text-emerald-400 font-mono">
-                      169CQ 全文原本・中毒解毒処置
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>連動Minds原本 ＆ 救急CQ</span>
+                  </span>
+                  <span className="text-[10px] text-emerald-400 font-mono group-hover:translate-x-0.5 transition-transform">
+                    {chartContext.mindsEmerKeywords.length}件 ➔
+                  </span>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
-              </button>
+                <div className="text-[11px] text-slate-300 mt-1 line-clamp-1 font-mono">
+                  {chartContext.mindsEmerKeywords.length > 0
+                    ? `ガイドライン: ${chartContext.mindsEmerKeywords.slice(0, 3).join('、')}`
+                    : '学会公式原本PDF 450タイトル・CQ構造化照合'}
+                </div>
+              </div>
 
+              {/* 全件一括照合ボタン */}
               <button
                 type="button"
                 onClick={() => {
                   triggerHaptic(15);
                   onOpenSearch('all');
                 }}
-                className="w-full p-2.5 rounded-xl bg-sky-950/40 hover:bg-sky-900/50 border border-sky-500/40 flex items-center justify-between text-left transition-all group"
+                className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500/20 via-sky-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 border border-amber-500/40 text-amber-200 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
               >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base">🔍</span>
-                  <div>
-                    <div className="text-xs font-semibold text-sky-200 group-hover:text-white transition-colors">
-                      臨床データ総合検索 (カルテ100%連動)
-                    </div>
-                    <div className="text-[10px] text-sky-400 font-mono">
-                      全10大マスター・カルテ抽出キーワード一括照合
-                    </div>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-sky-400 group-hover:text-white transition-colors" />
+                <Search className="w-3.5 h-3.5 text-amber-400" />
+                <span>カルテ全キーワードで総合照合 (32GB全領域)</span>
               </button>
             </div>
           </div>
@@ -1058,10 +1260,10 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       {/* 5. ハンバーガーメニュー ドロワー (設定 & 管理 - 戻るボタン常時表示・ハンバーガーメニュー消失防止) */}
       {/* ========================================================================= */}
       {isDrawerOpen && (
-        <div className="fixed inset-0 z-40 flex pt-[calc(env(safe-area-inset-top,0px)+3.5rem)]">
+        <div className="fixed inset-0 z-50 flex">
           {/* バックドロップ */}
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
             onClick={() => {
               triggerHaptic(10);
               setIsDrawerOpen(false);
@@ -1069,26 +1271,27 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
           />
 
           {/* スライドインドロワー本体 */}
-          <aside className="relative w-11/12 max-w-sm h-full bg-[#0F172A] border-r border-slate-800 text-slate-100 flex flex-col justify-between p-4 z-10 shadow-2xl overflow-y-auto overscroll-contain animate-in slide-in-from-left duration-200">
-            <div className="space-y-5">
-              {/* ドロワーヘッダー（← 戻るボタンを明示配置） */}
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3.5 gap-2">
-                <div className="flex items-center gap-2.5">
+          <aside className="relative w-11/12 max-w-sm h-full bg-[#0F172A] border-r border-slate-800 text-slate-100 flex flex-col justify-between p-4 z-10 shadow-2xl overflow-y-auto overscroll-contain animate-in slide-in-from-left duration-200 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)]">
+            <div className="space-y-4">
+              {/* ドロワーヘッダー（← 戻るボタンを明示配置、いつでも確実にメイン画面へ復帰可能） */}
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3 gap-2">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
                       triggerHaptic(15);
                       setIsDrawerOpen(false);
                     }}
-                    className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-xs font-bold flex items-center gap-1 transition-colors shrink-0 shadow-sm"
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0 shadow-md cursor-pointer active:scale-95"
                     aria-label="メイン画面へ戻る"
+                    title="メイン画面へ戻る"
                   >
-                    <ArrowLeft className="w-4 h-4" />
+                    <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
                     <span>戻る</span>
                   </button>
                   <div>
-                    <h3 className="text-base font-bold text-white tracking-tight">
-                      設定 & 管理
+                    <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                      設定 & 管理メニュー
                     </h3>
                     <p className="text-[10px] text-slate-400 font-mono">
                       Dr.Dongly System Menu
@@ -1101,11 +1304,45 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                     triggerHaptic(15);
                     setIsDrawerOpen(false);
                   }}
-                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors shrink-0"
+                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors shrink-0 cursor-pointer"
                   aria-label="閉じる"
+                  title="閉じる"
                 >
                   <X className="w-4 h-4" />
                 </button>
+              </div>
+
+              {/* カルテ100%連動 抽出キーワード（モバイルでも一目で把握可能） */}
+              <div className="p-2.5 rounded-xl bg-slate-800/80 border border-amber-500/40 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-bold">
+                  <span className="text-amber-300 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    <span>カルテ抽出キーワード</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/80 px-1.5 py-0.2 rounded border border-emerald-500/30">
+                    {chartContext.allKeywords.length}件連動中
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                  {chartContext.allKeywords.length > 0 ? (
+                    chartContext.allKeywords.slice(0, 8).map((kw, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic(10);
+                          setIsDrawerOpen(false);
+                          onOpenSearch('all');
+                        }}
+                        className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-900 text-amber-200 border border-amber-500/40 hover:bg-amber-500/20 transition-colors"
+                      >
+                        #{kw}
+                      </button>
+                    ))
+                  ) : (
+                    <span className="text-[11px] text-slate-400 italic">カルテ入力と自動同期中</span>
+                  )}
+                </div>
               </div>
 
               {/* グループ1: 臨床データ ＆ 意思決定支援 (カルテ100%連動) */}

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { decodeMedicalSpeech } from '../src/services/medicalSpeechDecoder';
+import {
+  decodeMedicalSpeech,
+  getDecodedSpeechTokens,
+  SPEECH_SAMPLE_CHIPS,
+} from '../src/services/medicalSpeechDecoder';
 import { normalizeMedicalSpeechTerms } from '../src/utils/chartTextCleaner';
 
 describe('医療音声認識 専門用語・略語・医薬品・バイタル自動解読エンジン (medicalSpeechDecoder)', () => {
@@ -144,4 +148,24 @@ describe('医療音声認識 専門用語・略語・医薬品・バイタル自
       expect(normalized).toContain('ニトロペン舌下錠0.3mg');
     });
   });
+
+  describe('7. リアルタイムUIトークン分割と例文チップス', () => {
+    it('getDecodedSpeechTokens で通常文字列と解読ハイライトトークンが正しく分割されること', () => {
+      const { tokens, result } = getDecodedSpeechTokens('大導寺に胸部圧迫感 ビーピー 140の90');
+      expect(result.decodedText).toContain('体動時');
+      expect(result.decodedText).toContain('BP 140/90 mmHg');
+
+      const decodedTokens = tokens.filter((t) => t.isDecoded);
+      expect(decodedTokens.length).toBeGreaterThanOrEqual(2);
+      expect(decodedTokens.some((t) => t.text === '体動時' && t.category === 'homophone')).toBe(true);
+      expect(decodedTokens.some((t) => t.text === 'BP 140/90 mmHg' && t.category === 'vital')).toBe(true);
+    });
+
+    it('SPEECH_SAMPLE_CHIPS が臨床例文を定義していること', () => {
+      expect(SPEECH_SAMPLE_CHIPS.length).toBeGreaterThanOrEqual(5);
+      expect(SPEECH_SAMPLE_CHIPS[0]).toHaveProperty('label');
+      expect(SPEECH_SAMPLE_CHIPS[0]).toHaveProperty('speech');
+    });
+  });
 });
+
