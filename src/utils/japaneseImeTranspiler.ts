@@ -24,6 +24,29 @@ export const FULLWIDTH_ASCII_MAP: Record<string, string> = {
 // 医療・カルテ・頻出単語・漢字 ➔ ローマ字・IME変換語彙辞書 (MEDICAL_DICTIONARY)
 // MS-IMEで誤変換しやすい単語（光熱、兄性、最新、返答、主題、長身等）を徹底防止
 export const MEDICAL_KANJI_ROMAJI_MAP: Record<string, string> = {
+  // ★ ORCA/DMiME 臨床急性症候・所見・キーストローク確実化
+  '体動時に': 'taidouzini ',
+  '体動時': 'taidouzi ',
+  '放散痛あり': 'housanntuuari ',
+  '放散痛なし': 'housanntuunasi ',
+  '放散痛': 'housanntuu ',
+  '胸部圧迫感': 'kyoubuappakukan ',
+  '胸部絞扼感': 'kyoubukouyakukan ',
+  '胸部絞扼痛': 'kyoubukouyakutuu ',
+  '前胸部痛': 'zennkyoubutuu ',
+  '心窩部痛': 'sinnkabutuu ',
+  '湿性ラ音': 'sisseiraonn ',
+  '乾性ラ音': 'kannseiraonn ',
+  '起坐呼吸': 'kizakokyuu ',
+  '下腿浮腫なし': 'kataifusyunasi ',
+  '心音整': 'sinnonnsei ',
+  '陥凹病変': 'kannoubyouhenn ',
+  '不整陥凹': 'fuseikannou ',
+  '境界明瞭': 'kyoukaimeiryou ',
+  '境界不明瞭': 'kyoukaifumeiryou ',
+  'びらん性胃炎': 'biranseiienn ',
+  '微細血管構築異常': 'bisaikekkankoutikuijyou ',
+
   // ★ 高価値ヘルスケア (HVC) / 健診 / 生活習慣 / 精査 専門文節 (長文・形態素完全保護)
   '健診で低い': 'kennsinndehikui ',
   '健診で': 'kennsinnde ',
