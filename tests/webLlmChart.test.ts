@@ -93,10 +93,10 @@ describe('WebLLM Gemma 2 日本語カルテ整形 ＆ ジベリッシュ完全�
 
   it('Gemma 2 プロンプト生成関数がSOAP形式・箇条書き要約の厳密な指示を含むこと', () => {
     const soapPrompt = buildGemma2MedicalPrompt(DEFAULT_SAMPLE_CHART_TEXT, 'soap');
-    expect(soapPrompt).toContain('【S】(Subjective');
-    expect(soapPrompt).toContain('【O】(Objective');
-    expect(soapPrompt).toContain('【A】(Assessment');
-    expect(soapPrompt).toContain('【P】(Plan');
+    expect(soapPrompt).toContain('【S】(主観的情報)');
+    expect(soapPrompt).toContain('【O】(客観的情報)');
+    expect(soapPrompt).toContain('【A】(臨床評価)');
+    expect(soapPrompt).toContain('【P】(治療・検査計画)');
     expect(soapPrompt).toContain('ハルシネーション');
 
     const concisePrompt = buildGemma2MedicalPrompt(DEFAULT_SAMPLE_CHART_TEXT, 'concise');

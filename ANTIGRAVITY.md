@@ -427,6 +427,23 @@
        - `finalTranscriptRef.current` および `interimTranscript` の更新時に `mergeSpeechTranscripts` と `removeSpeechDuplications` を適用し、リアルタイム表示・カルテ反映の両面で重複を完全撲滅。
     4. **ユニットテストの追加と検証 (`tests/medicalSpeechDecoder.test.ts`)**:
        - ユーザー報告実例（サチュレーション、血圧、外傷性硬膜下血腫、UA 9.0）を含むテストケースを追加し、全66テストPASS。
+- [x] **ステップ45**: 「ガイドライン・Minds・処方箋禁忌」モーダル復帰時のハンバーガーボタン画面外消失バグ修正 ＆ ビューポートスクロール完全ロック (v2.13.1) - 【完了】
+  - **背景と課題**:
+    - 「ガイドライン・Minds・処方禁忌をローカル検索...」（`MedicalDataSearchModal`）を開き、左上の「戻る」ボタンをタップしてメイン画面に戻った際、メイン画面最上部のハンバーガーメニューボタンが隠れて見えなくなる不具合が発生していた。
+    - 原因：モーダル内の `<input>` にフォーカスが当たった際（またはキーボード表示時・モーダル内スクロール時）に、モバイルブラウザがビューポート（`window.scrollY`）を垂直方向にオフセットさせていた。モーダルを閉じた際、`window.scrollY` が元の 0 に戻らず正の値のまま残留したため、メイン画面最上部（高さ約50pxの `<header>`）がブラウザのアドレスバーや画面外上部に押し出されて不可視化していた。また、ヘッダー自体が `sticky` 固定されておらず、`body` にも縦スクロール抑止（`overflow: hidden`）が欠落していた。
+  - **実装内容**:
+    1. **ヘッダーの最上部完全吸着固定 (`src/components/NativePwaEdgeLayout.tsx`)**:
+       - `<header>` を `sticky top-0 left-0 right-0 z-50` に強化。親コンテナのスクロール状態に関わらず、ビューポート最上部に1ピクセルもズレずに常時吸着固定。
+       - セーフエリアパディング（`pt-[calc(env(safe-area-inset-top,0px)+0.35rem)]`）をヘッダー自身に直接付与し、ノッチ・ステータスバー下の安全なタップ領域を常に確保。
+       - ハンバーガーボタンに `shrink-0 z-10` を付与し、圧縮や隠蔽を物理的に防止。
+    2. **モーダルクローズ時のフォーカス解除 ＆ スクロール強制原点復帰 (`src/components/MedicalDataSearchModal.tsx`, `src/App.tsx`)**:
+       - モーダルの「戻る」ボタン（上部・下部）および「✕」ボタンに `handleClose` をバインドし、`inputRef.current?.blur()`、`document.activeElement?.blur()` を実行して仮想キーボードを即座に収納。
+       - `window.scrollTo({ top: 0, left: 0, behavior: 'instant' })`、`document.body.scrollTop = 0`、`document.documentElement.scrollTop = 0` を実行し、ビューポートのスクロールを強制的に原点（0, 0）へリセット。
+       - モーダルマウント時に `document.body.style.overflow = 'hidden'` を適用し、親ドキュメントへのスクロール貫通を完全遮断。
+       - `App.tsx` 内で全モーダル（`isMedicalSearchOpen`, `isCoprocessorModalOpen`, `isAiModalOpen`, `isTemplateModalOpen`, `isCameraOcrOpen`）の `onClose` で `resetViewportScroll()` を呼び出す安全防壁を構築。
+    3. **HTML / CSS レベルのビューポートスクロール固定 (`index.html`, `src/index.css`)**:
+       - `index.html` の `body` クラスに `w-full h-full min-h-screen select-none overflow-hidden fixed inset-0` を追加。
+       - `src/index.css` の `html, body` に `height: 100%; width: 100%; overflow: hidden;` を追加し、意図しないドキュメントスクロールの発生をブラウザ基盤レベルで完全防止。
 
 ---
 

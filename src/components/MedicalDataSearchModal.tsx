@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Search,
   BookOpen,
@@ -167,6 +167,23 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
     }
   };
 
+  // モーダルを閉じてメイン画面へ戻る（キーボード格納・スクロール位置ゼロリセット・ハンバーガーボタン消失防止）
+  const handleClose = useCallback(() => {
+    playMacBeep();
+    if (inputRef.current) {
+      inputRef.current.blur();
+    }
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.body.scrollTop = 0;
+      document.documentElement.scrollTop = 0;
+    }
+    onClose();
+  }, [onClose]);
+
   useEffect(() => {
     if (isOpen) {
       if (initialQuery) {
@@ -176,13 +193,34 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
         setIsChartLinked(true);
       }
       setSecretTapCount(0);
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = 'hidden';
+      }
     } else {
       setActiveMindsItem(null);
       setLlmStreamingOutput('');
       setIsLlmGenerating(false);
       setSelectedAtlas(null);
       setHighResAtlasUrl(null);
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+      }
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        document.body.scrollTop = 0;
+        document.documentElement.scrollTop = 0;
+      }
     }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+      }
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        document.body.scrollTop = 0;
+        document.documentElement.scrollTop = 0;
+      }
+    };
   }, [isOpen, initialQuery]);
 
   // アトラス大判モーダルオープン
@@ -406,13 +444,13 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 select-none animate-in fade-in">
+    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 select-none animate-in fade-in pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]">
       <div className="bg-[#0F172A] border border-slate-700/80 rounded-2xl max-w-4xl w-full h-[94vh] sm:h-[88vh] flex flex-col shadow-2xl overflow-hidden font-sans text-slate-100">
         {/* ネイティブ風 PWA ヘッダー（戻るボタン常設 ＆ 3省2ガイドライン準拠バッジ） */}
         <div className="bg-[#1E293B] border-b border-slate-800 px-3 sm:px-4 py-2.5 flex items-center justify-between shrink-0 gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <button
-              onClick={() => { playMacBeep(); onClose(); }}
+              onClick={handleClose}
               className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 flex items-center gap-1 text-xs font-bold transition-colors cursor-pointer shrink-0"
               title="メイン画面へ戻る"
             >
@@ -451,7 +489,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
             </div>
 
             <button
-              onClick={() => { playMacBeep(); onClose(); }}
+              onClick={handleClose}
               className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer shrink-0"
               title="閉じる"
             >
@@ -1606,7 +1644,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
             <span className="truncate">収録: 32GB MicroSD (29.8GB) 10大医療ポートフォリオ / カルテ全体100%連動・完全オフライン医療知識均てん化エンジン</span>
           </div>
           <button
-            onClick={() => { playMacBeep(); onClose(); }}
+            onClick={handleClose}
             className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
           >
             <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />

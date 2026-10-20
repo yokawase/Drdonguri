@@ -48,6 +48,10 @@ html, body {
   touch-action: manipulation;
   /* iOS タップハイライト抑止 */
   -webkit-tap-highlight-color: transparent;
+  /* ビューポートの不要なスクロールシフトを完全遮断 */
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
 @layer base {

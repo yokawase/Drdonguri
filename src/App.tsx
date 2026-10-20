@@ -220,6 +220,18 @@ export default function App() {
     }
   };
 
+  // モーダルクローズ時のビューポート強制原点復帰（ハンバーガーボタン画面外消失の完全防止）
+  const resetViewportScroll = useCallback(() => {
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.body.scrollTop = 0;
+      document.documentElement.scrollTop = 0;
+    }
+  }, []);
+
   // 統合検索モーダルを開く
   const handleOpenSearch = (initialTab: any = 'all') => {
     setMedicalSearchInitialTab(initialTab);
@@ -277,7 +289,10 @@ export default function App() {
         {isMedicalSearchOpen && (
           <MedicalDataSearchModal
             isOpen={isMedicalSearchOpen}
-            onClose={() => setIsMedicalSearchOpen(false)}
+            onClose={() => {
+              setIsMedicalSearchOpen(false);
+              resetViewportScroll();
+            }}
             inputText={inputText}
             initialTab={medicalSearchInitialTab}
             onInsertText={(text) => {
@@ -289,7 +304,10 @@ export default function App() {
         {isCoprocessorModalOpen && (
           <MedicalCoprocessorModal
             isOpen={isCoprocessorModalOpen}
-            onClose={() => setIsCoprocessorModalOpen(false)}
+            onClose={() => {
+              setIsCoprocessorModalOpen(false);
+              resetViewportScroll();
+            }}
             isBleConnected={isBleConnected}
             onWriteBackToChart={async (text: string) => {
               const cleaned = cleanExtractedMedicalText(text);
@@ -305,7 +323,10 @@ export default function App() {
         {isAiModalOpen && (
           <AiAssistModal
             isOpen={isAiModalOpen}
-            onClose={() => setIsAiModalOpen(false)}
+            onClose={() => {
+              setIsAiModalOpen(false);
+              resetViewportScroll();
+            }}
             originalText={inputText}
             initialStyle={aiModalInitialStyle}
             isBleConnected={isBleConnected}
@@ -330,7 +351,10 @@ export default function App() {
         {isTemplateModalOpen && (
           <TemplateManagerModal
             isOpen={isTemplateModalOpen}
-            onClose={() => setIsTemplateModalOpen(false)}
+            onClose={() => {
+              setIsTemplateModalOpen(false);
+              resetViewportScroll();
+            }}
             currentInputText={inputText}
             templates={templates}
             onApplyTemplate={(content: string, mode: 'replace' | 'append') => {
@@ -373,7 +397,10 @@ export default function App() {
         {isCameraOcrOpen && (
           <CameraOcrModal
             isOpen={isCameraOcrOpen}
-            onClose={() => setIsCameraOcrOpen(false)}
+            onClose={() => {
+              setIsCameraOcrOpen(false);
+              resetViewportScroll();
+            }}
             onApplyText={(extracted: string, mode: 'replace' | 'append') => {
               const cleanedExtracted = cleanExtractedMedicalText(extracted);
               if (mode === 'append') {

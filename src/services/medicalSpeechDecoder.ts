@@ -419,7 +419,6 @@ export const CLINICAL_ORCA_TERMS: ClinicalOrcaTerm[] = [
   { term: '微細血管構築異常', phonetic: 'bisaikekkankouchikuijou', desc: '微細血管構築異常' },
   { term: '肝機能障害', phonetic: 'kankinoushougai', desc: '肝機能障害' },
   { term: '胆石症', phonetic: 'tansekishou', desc: '胆石症' },
-  { term: '膵炎', phonetic: 'suien', desc: '膵炎' },
 ];
 
 /**
@@ -589,6 +588,7 @@ function decodeDynamicPhonetics(text: string, corrections: DecodedCorrection[]):
 
   for (const item of CLINICAL_ORCA_TERMS) {
     if (result.includes(item.term)) continue;
+    if (item.term.length <= 2) continue; // 2文字以下の短縮語は誤爆防止のため音素ファジー照合を除外
 
     const targetLen = item.term.length;
     const minChunk = Math.max(2, targetLen - 1);
