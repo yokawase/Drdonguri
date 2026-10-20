@@ -216,15 +216,41 @@ import {
   cleanExtractedMedicalText,
   normalizeMedicalSpeechTerms,
 } from '../utils/chartTextCleaner';
+import {
+  expandMedicalAbbreviations,
+  auditRenalAndPrescriptions,
+  detectClinicalRedFlags,
+  generateGuidelineEvidenceSnippets,
+} from './clinicalCopilotEngine';
 
 /**
- * 医師の入力文・抽出カルテから安全・確実にSOAPカルテ/箇条書き要約を生成する高精度臨床構造化エンジン
+ * 医師のリアルな痛みを解消する Gemma 2 臨床出力モード型
+ * - soap: ① つぶやき・独り言からの完全SOAPカルテ構造化
+ * - referral: ② 殴り書きからの「診療情報提供書（紹介状）・退院時サマリー」爆速ドラフト
+ * - order_sbar: ③ 走り書きからの「看護師指示簿（Dr's Order）」＆「SBAR申し送り」安全定型化
+ * - patient_ic: ④ 「中学生でもわかる」患者・家族向けIC説明書・帰宅後生活指導シート
+ * - clinical_audit: ⑤ 処方・腎機能(eGFR)監査 ＆ 鑑別Red Flags ＆ Mindsガイドライン根拠文一括生成
+ * - concise: ⑥ 箇条書き臨床要約
+ * - interview: ⑦ 問診・現病歴 (OPQRST) 格調清書
+ */
+export type ClinicalFormatStyle =
+  | 'soap'
+  | 'referral'
+  | 'order_sbar'
+  | 'patient_ic'
+  | 'clinical_audit'
+  | 'concise'
+  | 'interview';
+
+/**
+ * 医師の入力文・抽出カルテから安全・確実に各臨床文書を生成する高精度臨床構造化エンジン
  */
 export function generateSafeFallbackChart(
   rawText: string,
-  style: 'soap' | 'concise' | 'interview' = 'soap'
+  style: ClinicalFormatStyle = 'soap'
 ): string {
-  const cleanedText = normalizeMedicalSpeechTerms(cleanExtractedMedicalText(rawText));
+  const { expandedText } = expandMedicalAbbreviations(rawText);
+  const cleanedText = normalizeMedicalSpeechTerms(cleanExtractedMedicalText(expandedText));
   const lines = cleanedText
     .split(/\n+/)
     .map((l) => l.trim())
@@ -333,6 +359,135 @@ export function generateSafeFallbackChart(
     ...medAndHistoryItems.map((m) => (m.startsWith('既往') || m.startsWith('内服') ? m : `既往・内服: ${m}`)),
   ];
 
+  // ② 紹介状（診療情報提供書）・退院時サマリー ドラフト生成
+  if (style === 'referral') {
+    const mainDiagnosis = aItems.length > 0 ? aItems.map(refineClinicalPhrase).join('、') : '精査・加療対象疾患';
+    const chiefHistory = sItems.length > 0 ? sItems.map(refineClinicalPhrase).join('。') : refineClinicalPhrase(cleanedText);
+    const pastMed = medAndHistoryItems.length > 0 ? medAndHistoryItems.join(' / ') : '特記すべき重篤な既往・アレルギーなし';
+    const findings = oItems.length > 0 ? oItems.join('、') : 'バイタルサイン安定、特記異常所見なし';
+    const currentPlan = pItems.length > 0 ? pItems.join('、') : '対症療法および初期精査を実施';
+
+    return [
+      '【診療情報提供書 / 退院時サマリー ドラフト】',
+      '拝啓 時下ますますご清祥のこととお慶び申し上げます。平素より格別のご高配を賜り厚く御礼申し上げます。',
+      `今般、下記患者様につきまして専門的精査・加療をお願いしたくご紹介申し上げます。`,
+      '',
+      `【傷病名】${mainDiagnosis}`,
+      `【紹介目的】専門的精査および今後の方針ご高診のお願い`,
+      `【既往歴・常用薬】${pastMed}`,
+      `【症状経過・現病歴】`,
+      `${chiefHistory}。`,
+      `【身体所見・検査所見】`,
+      `${findings}。`,
+      `【治療経過・現在の処方】`,
+      `${currentPlan}。`,
+      '',
+      'ご多忙中恐れ入りますが、何卒ご高診・ご加療のほどよろしくお願い申し上げます。敬具',
+    ].join('\n');
+  }
+
+  // ③ 看護師指示簿（Dr's Order）＆ 当直SBAR申し送り生成
+  if (style === 'order_sbar') {
+    const sSummary = sItems.length > 0 ? sItems.map(refineClinicalPhrase).join(' / ') : refineClinicalPhrase(cleanedText);
+    const bSummary = medAndHistoryItems.length > 0 ? medAndHistoryItems.join(' / ') : '基礎疾患・持参薬確認済';
+    const aSummary = aItems.length > 0 ? aItems.map(refineClinicalPhrase).join(' / ') : 'バイタル・症状推移の慎重観察を要する状態';
+    const rSummary = pItems.length > 0 ? pItems.join(' / ') : '症状増悪時の早期報告および指示薬投与';
+
+    return [
+      '【1. 看護師指示簿 (Dr\'s Order 安全定型化)】',
+      '■ バイタル測定: 検温・血圧・脈拍・SpO2 1日3回（状態変化時は随時測定）',
+      '■ 発熱時指示 (38.5℃以上 または 悪寒・頭痛時):',
+      '  ・アセトアミノフェン(カロナール) 500mg 1回1錠 内服（投与間隔6時間以上、1日最大3回まで）',
+      '■ 疼痛・胸部症状時指示:',
+      `  ・${pItems.length > 0 ? pItems.join(' / ') : '安静臥床の上、12誘導心電図・バイタル測定し主治医/当直医コール'}`,
+      '■ ドクターコール基準 (直ちに医師報告):',
+      '  ・収縮期血圧 <90 または >180mmHg、脈拍 >120/分、SpO2 <92%、意識変容・症状増悪時',
+      '',
+      '【2. 病棟・当直カンファレンス申し送り (SBAR形式)】',
+      `【S (Situation: 現状)】${sSummary}`,
+      `【B (Background: 背景・既往)】${bSummary} / 所見: ${oItems.join('、') || 'バイタル安定'}`,
+      `【A (Assessment: 評価)】${aSummary}`,
+      `【R (Recommendation: 依頼・方針)】${rSummary}`,
+    ].join('\n');
+  }
+
+  // ④ 患者・家族向けIC説明書（中学生でもわかる平易な言葉への翻訳）
+  if (style === 'patient_ic') {
+    const toLayman = (txt: string) =>
+      txt
+        .replace(/労作性狭心症/g, '動いたときに心臓の血管が一時的に狭くなる病気（労作性狭心症）')
+        .replace(/胸部圧迫感|胸部絞扼感/g, '胸が締め付けられるような苦しさ')
+        .replace(/労作時の息切れ|労作時呼吸困難/g, '階段や坂道を上ったときの息切れ')
+        .replace(/脂質異常症/g, '血液中のコレステロール値が高い状態（脂質異常症）')
+        .replace(/高血圧症?/g, '血圧が高い状態（高血圧）')
+        .replace(/下腿浮腫/g, '足のむくみ')
+        .replace(/心雑音なし/g, '心臓の音に異常なし')
+        .replace(/ラ音聴取せず/g, '肺の音に異常なし')
+        .replace(/硝酸薬/g, '心臓の血管を広げるお薬')
+        .replace(/舌下錠/g, '舌の下で溶かして使うお薬（飲み込まないでください）')
+        .replace(/頓用/g, '症状が出たときだけ使うお薬')
+        .replace(/対診/g, '専門の医師による詳しい診察');
+
+    const laymanDiagnosis = toLayman(aItems.join('、') || '本日の症状に関する検査・治療');
+    const laymanSymptom = toLayman(sItems.join('、') || cleanedText);
+    const laymanPlan = toLayman(pItems.join('\n・') || 'お薬の調整と詳しい検査を行います');
+
+    return [
+      '【患者様・ご家族様へ 本日の診察ご説明書】',
+      `■ 本日の症状・ご相談内容`,
+      `・${laymanSymptom}`,
+      '',
+      `■ 考えられるご病気・現在の状態`,
+      `・${laymanDiagnosis}`,
+      '※確定診断と安全な治療のため、検査結果や症状の変化を丁寧に確認していきます。',
+      '',
+      `■ 今後の検査・お薬・生活上の注意点`,
+      `・${laymanPlan}`,
+      '・処方されたお薬は、医師の指示通りに用法・用量を守ってお使いください。',
+      '',
+      '■ 【重要】すぐに病院へ連絡・受診していただきたい症状',
+      '・安静にしていても治まらない強い痛みや苦しさ、冷や汗、意識が遠のく感じがある場合は、次回予約を待たずにすぐにご連絡・受診してください。',
+    ].join('\n');
+  }
+
+  // ⑤ 処方・腎機能監査 ＆ 鑑別Red Flags ＆ Mindsガイドライン根拠 一括出力
+  if (style === 'clinical_audit') {
+    const renalAudit = auditRenalAndPrescriptions(cleanedText);
+    const redFlags = detectClinicalRedFlags(cleanedText);
+    const glSnippets = generateGuidelineEvidenceSnippets(cleanedText);
+
+    const outLines: string[] = ['【🛡️ 臨床安全・処方・ガイドライン統合監査レポート】'];
+
+    outLines.push('■ 1. 見落とし防止 鑑別Red Flags ＆ 防衛カルテ記載:');
+    for (const rf of redFlags) {
+      outLines.push(`・対象症候: ${rf.syndrome}`);
+      outLines.push(`・除外すべき緊急疾患: ${rf.criticalDifferentials.join(' / ')}`);
+      outLines.push(`・確認すべき危険徴候: ${rf.mustCheckSigns.join(' / ')}`);
+      outLines.push(`・${rf.defensiveChartSnippet}`);
+    }
+
+    outLines.push('');
+    outLines.push(
+      `■ 2. 処方・腎機能(eGFR)ドーズアジャスト監査 (${renalAudit.detectedEgfr !== null ? `検出eGFR: ${renalAudit.detectedEgfr} mL/min` : 'eGFR数値未記載'}):`
+    );
+    if (renalAudit.alerts.length > 0) {
+      for (const al of renalAudit.alerts) {
+        outLines.push(`・[${al.drugName}] ${al.recommendedAction}`);
+        outLines.push(`  ➔ ${al.orderSnippet}`);
+      }
+    } else {
+      outLines.push('・現在記載されている薬剤に明らかな腎機能禁忌・重篤な用量逸脱は検出されませんでした。');
+    }
+
+    outLines.push('');
+    outLines.push('■ 3. Minds診療ガイドライン ＆ レセプト算定根拠文:');
+    for (const gl of glSnippets) {
+      outLines.push(`・${gl.snippet}`);
+    }
+
+    return outLines.join('\n');
+  }
+
   if (style === 'concise') {
     const bulletLines: string[] = ['【臨床要約】'];
     bulletLines.push(
@@ -372,7 +527,7 @@ export function generateSafeFallbackChart(
     return narrativeParts.join('\n');
   }
 
-  // デフォルト: 構造化SOAP形式
+  // デフォルト: ① 構造化SOAP形式
   return (
     `【S】\n` +
     (formattedS.length > 0
@@ -407,6 +562,7 @@ function cleanGeneratedChartText(text: string): string {
     .replace(/^【整形本文】\s*/g, '')
     .replace(/^【補正本文】\s*/g, '')
     .replace(/^【ガイドライン準拠の臨床アドバイス】\s*/g, '')
+    .replace(/^(?:はい[、。]?|承知いたしました[、。]?|以下[がに][^\n]*\n+)/i, '')
     .replace(/^```(?:markdown|text)?\s*/i, '')
     .replace(/```\s*$/i, '')
     .trim();
@@ -415,35 +571,38 @@ function cleanGeneratedChartText(text: string): string {
 
 /**
  * Google Gemma 2 (gemma-2-2b-jpn-it) 専用の臨床カルテ構造化・校正プロンプトビルダー
- * SOAP形式、箇条書き要約、問診要約のそれぞれに最適化された厳密な指示体系を構築します。
+ * ベストプラクティス（処理ステップ連番化・重複表現/無駄な空白排除・前置き完全禁止・事実改変禁止）を徹底適用
  */
 export function buildGemma2MedicalPrompt(
   rawInput: string,
-  style: 'soap' | 'concise' | 'interview' = 'soap'
+  style: ClinicalFormatStyle = 'soap'
 ): string {
-  const cleanInput = normalizeMedicalSpeechTerms(cleanExtractedMedicalText(rawInput)).slice(0, 1200);
+  const { expandedText } = expandMedicalAbbreviations(rawInput);
+  const cleanInput = normalizeMedicalSpeechTerms(cleanExtractedMedicalText(expandedText)).slice(0, 1200);
+
+  const commonRules = `【絶対厳守ルール】
+1. 重複した表現、言い直し、フィラー（えーと、あの等）を完全に削除すること。
+2. 全角スペース（　）や連続半角スペース、不要な装飾記号、無駄な空行をすべて排除し、意味のまとまりごとに適切に改行すること。
+3. 入力にない架空の検査値や薬品名を絶対に捏造（ハルシネーション）しないこと。
+4. 挨拶、前置き（「承知しました」「以下が〜」等）、解説は一切出力せず、整形後の本文のみを100%日本語で出力すること。`;
 
   if (style === 'soap') {
     return `あなたは日本の医師を支援する医療電子カルテ作成・文章校正専門AIです。
-以下の【入力カルテ/音声メモ】の誤字脱字・音声誤認識（同音異義語）を正確な医学用語に校正し、無駄な全角/半角スペースや余剰な空行を徹底的に排除した上で、標準的な【SOAP形式】に厳密構造化して出力してください。
+以下の【入力カルテ/音声メモ】を内容ごとに分類し、重複や無駄な空白を排除して標準的な【SOAP形式】に出力してください。
 
-【SOAP各セクションの厳密な振り分け基準】
-- 【S】(Subjective / 主観的情報): 主訴、発症時期、症状の性質・経過（OPQRST）、増悪・寛解因子、既往歴、内服薬（持参薬）、アレルギー歴。患者の口語表現（「胸が締め付けられる」「息が苦しい」等）は正確な医学用語（「胸部絞扼感」「労作時呼吸困難」等）へ校正しつつ訴えの内容を正確に記述すること。
-- 【O】(Objective / 客観的情報): バイタルサイン（BP, PR, SpO2, BT等）、身体診察所見、12誘導心電図所見、血液・尿検査値、画像所見。入力文に存在する数値・単位（mmHg, bpm, mg/dL等）は1文字も改変せず正確に転記すること。
-- 【A】(Assessment / 臨床評価): 【S】と【O】から導かれる主病態診断名、鑑別診断（除外診断を含む）、重症度評価、リスク評価。
-- 【P】(Plan / 治療・検査計画): 処方薬（薬剤名・規格・用法用量）、追加検査計画（採血・心電図・画像CT等）、処置、他科・専門医紹介、患者指導・安静指示。
+【SOAP分類基準】
+- 【S】(主観的情報): 主訴、発症時期、症状の経過、既往歴、内服薬。口語表現は正確な医学用語へ校正。
+- 【O】(客観的情報): バイタルサイン、身体診察所見、心電図・血液・画像検査所見（数値・単位は正確に保持）。
+- 【A】(臨床評価): 主病態の診断名、鑑別診断、重症度評価。
+- 【P】(治療・検査計画): 処方薬・用法用量、追加検査、他科紹介、患者指導。
 
-【絶対厳守ルール】
-1. 100%日本語（および標準医療略語: BP, HR, SpO2, ECG, ST, eGFR, HbA1c, mg等）のみで出力し、挨拶、前置き、解説、マークダウン装飾（\`\`\`等）は一切出力しないこと。
-2. 全角スペース（　）や2つ以上の連続半角スペース、行頭・行末の無駄な空白、連続する空行を1箇所も出力しないこと。日本語文字間に不自然なスペースを挟まないこと。
-3. 入力テキストに存在しない架空の検査値や薬剤を捏造（ハルシネーション）しないこと。
-4. 各項目は「・」から始まる簡潔なカルテ文体（体言止め、または「〜を認める」「〜方針」）で記述すること。
+${commonRules}
 
-【出力フォーマット（無駄な改行・スペースなし）】
+【出力フォーマット】
 【S】
 ・(主訴・現病歴・既往歴・内服薬)
 【O】
-・(バイタルサイン・身体所見・検査所見)
+・(バイタル・身体所見・検査所見)
 【A】
 ・(診断・病態評価・鑑別疾患)
 【P】
@@ -456,22 +615,102 @@ ${cleanInput}
 `;
   }
 
+  if (style === 'referral') {
+    return `あなたは日本の医師を支援する診療情報提供書（紹介状）・退院時サマリー作成専門AIです。
+以下の【入力カルテ/音声メモ】の重複や無駄な空白を整理し、紹介先医療機関へそのまま提出できる格調高い【診療情報提供書ドラフト】を作成してください。
+
+【構成項目】
+- 頭語・挨拶文（拝啓 時下ますますご清祥のこととお慶び申し上げます〜）
+- 【傷病名】
+- 【紹介目的】
+- 【既往歴・常用薬】
+- 【症状経過・現病歴】
+- 【身体所見・検査所見】
+- 【治療経過・現在の処方】
+- 結語（ご多忙中恐れ入りますが何卒ご高診のほど〜 敬具）
+
+${commonRules}
+
+【入力カルテ/音声メモ】
+${cleanInput}
+
+【整形本文】
+`;
+  }
+
+  if (style === 'order_sbar') {
+    return `あなたは日本の病棟・救急医師を支援する医療安全・指示簿＆申し送り作成専門AIです。
+以下の【入力カルテ/音声メモ】から、看護師が迷わない【1. 看護師指示簿 (Dr's Order)】と、当直・病棟カンファレンス用の【2. SBAR申し送り要約】を作成してください。
+
+【構成項目】
+【1. 看護師指示簿 (Dr's Order)】
+- バイタル測定頻度・観察項目
+- 症状時（発熱・疼痛・血圧変動時）の具体的な頓用薬・処置と上限回数
+- 明確なドクターコール基準（BP, HR, SpO2数値基準）
+【2. SBAR申し送り】
+- 【S (Situation: 現状)】
+- 【B (Background: 背景・既往・所見)】
+- 【A (Assessment: 評価)】
+- 【R (Recommendation: 依頼・今後の方針)】
+
+${commonRules}
+
+【入力カルテ/音声メモ】
+${cleanInput}
+
+【整形本文】
+`;
+  }
+
+  if (style === 'patient_ic') {
+    return `あなたは日本の医師を支援するインフォームド・コンセント（患者・家族説明文書）作成専門AIです。
+以下の専門的な【入力カルテ/音声メモ】を、中学生や高齢のご家族でも安心して理解できる平易で丁寧な日本語の【患者様向けご説明書】に翻訳・整理してください。
+
+【構成項目】
+■ 本日の症状・ご相談内容（専門用語をわかりやすい日常語に言い換える）
+■ 考えられるご病気・現在の状態
+■ 今後の検査・お薬の使い方・生活上の注意点
+■ すぐに病院へ連絡・受診すべき危険な症状（帰宅後指示）
+
+${commonRules}
+
+【入力カルテ/音声メモ】
+${cleanInput}
+
+【整形本文】
+`;
+  }
+
+  if (style === 'clinical_audit') {
+    return `あなたは日本の臨床意思決定支援・医療安全監査専門AIです。
+以下の【入力カルテ/音声メモ】を分析し、医師の見落としを防止するための【臨床安全・処方・ガイドライン統合監査レポート】を簡潔に出力してください。
+
+【構成項目】
+■ 1. 鑑別診断 Red Flags（除外すべき致死的疾患と確認すべき身体所見・防衛的カルテ記載文）
+■ 2. 処方・腎機能(eGFR)ドーズアジャスト・併用注意監査
+■ 3. 診療ガイドライン推奨根拠・レセプト算定コメント案
+
+${commonRules}
+
+【入力カルテ/音声メモ】
+${cleanInput}
+
+【整形本文】
+`;
+  }
+
   if (style === 'concise') {
     return `あなたは日本の医師を支援する医療電子カルテ要約・文章校正専門AIです。
-以下の【入力カルテ/音声メモ】の誤字脱字・音声誤認識を正確な医学用語へ校正し、冗長な助詞や無駄なスペース・空行をすべて削除して、医師が一目で全体像を把握できる【箇条書き臨床要約】を作成してください。
+以下の【入力カルテ/音声メモ】の誤字脱字・重複表現・無駄なスペースをすべて削除して、医師が一目で全体像を把握できる【箇条書き臨床要約】を作成してください。
 
-【箇条書き要約の厳密な構成ルール】
-以下の5項目に整理し、各項目1〜2行で医学的ファクト（数値・薬品名・病名・経過）のみを凝縮して記載してください：
-■ 主訴・経過: (発症時期・部位・症状の性質・誘因を端的に)
-■ 既往・内服: (基礎疾患・現在の内服薬と用量。該当なければ「特記なし」)
-■ 客観所見・検査: (血圧・脈拍・SpO2・身体所見・心電図・採血異常値)
+【構成項目】
+■ 主訴・経過: (発症時期・部位・症状の性質・誘因)
+■ 既往・内服: (基礎疾患・現在の内服薬と用量)
+■ 客観所見・検査: (血圧・脈拍・SpO2・身体所見・検査異常値)
 ■ 診断・臨床評価: (最有力診断・鑑別疾患・重症度)
-■ 治療・処方方針: (新規処方・検査オーダー・指導・フォロー方針)
+■ 治療・処方方針: (新規処方・検査オーダー・フォロー方針)
 
-【絶対厳守ルール】
-1. 100%日本語（および標準医療略語）のみで出力し、前置きや解説は一切出力しないこと。
-2. 全角スペース（　）や無駄な連続改行を一切含めず、体言止め中心の引き締まった臨床サマリーにすること。
-3. 入力にない数値や薬品名を絶対に捏造しないこと。
+${commonRules}
 
 【入力カルテ/音声メモ】
 ${cleanInput}
@@ -482,17 +721,14 @@ ${cleanInput}
 
   // style === 'interview'
   return `あなたは日本の医師を支援する医療問診・現病歴作成専門AIです。
-以下の【入力カルテ/音声メモ】の誤字脱字・音声誤認識を正確な医学用語へ校正し、無駄な全角スペースや余計な改行を排除した上で、紹介状（診療情報提供書）や初診カルテにそのまま記載できる格調高い【問診・現病歴要約】を作成してください。
+以下の【入力カルテ/音声メモ】の重複表現や無駄な空白を排除し、初診カルテにそのまま記載できる格調高い【問診・現病歴要約（OPQRST）】を作成してください。
 
-【問診・現病歴要約の構成ルール】
-・現病歴: 発症時期、誘因・状況、部位・放散、性状・程度、持続時間、増悪・寛解因子、随伴症状を時系列（OPQRST）で自然な医学的文章にまとめる。
+【構成ルール】
+・現病歴: 発症時期、誘因、部位、性状、持続時間、増悪・寛解因子、随伴症状を時系列で自然な医学的文章にまとめる。
 ・既往歴・常用薬: 基礎疾患および現在内服中の薬剤名・用量を明記する。
 ・来院時所見・初期方針: バイタルサインや主要所見、本日の診断評価と処方・検査方針を簡潔に付記する。
 
-【絶対厳守ルール】
-1. 100%日本語（および標準医療略語）のみで出力し、挨拶や前置きは一切出力しないこと。
-2. 無駄な全角/半角スペースや連続空行を完全に排除すること。
-3. 入力にない事実や検査値を絶対に捏造しないこと。
+${commonRules}
 
 【入力カルテ/音声メモ】
 ${cleanInput}
@@ -502,16 +738,17 @@ ${cleanInput}
 }
 
 /**
- * 医療カルテテキストのAI自動校正・SOAP整形 (Google Gemma 2 日本語特化プロンプト)
+ * 医療カルテテキストのAI自動校正・構造化 (Google Gemma 2 日本語特化プロンプト)
  */
 export async function formatMedicalChartWithWebLLM(
   text: string,
-  style: 'soap' | 'concise' | 'interview' = 'soap',
+  style: ClinicalFormatStyle = 'soap',
   onProgress?: (report: ModelLoadProgress) => void,
   onStream?: (accumulatedText: string) => void,
   modelId: string = DEFAULT_WEBLLM_MODEL
 ): Promise<string> {
-  const cleanedSource = normalizeMedicalSpeechTerms(cleanExtractedMedicalText(text));
+  const { expandedText } = expandMedicalAbbreviations(text);
+  const cleanedSource = normalizeMedicalSpeechTerms(cleanExtractedMedicalText(expandedText));
   const engine = await getWebLlmEngine(onProgress, modelId);
 
   // Gemma 2 には system ロールが存在しないため、指示を user メッセージ内に統合 (RLHF完全適合)
@@ -527,7 +764,7 @@ export async function formatMedicalChartWithWebLLM(
       // Gemma 2 多言語ジベリッシュ発散を防止しつつ正確な校正を行う低温度設定 (temperature=0.15)
       temperature: 0.15,
       top_p: 0.85,
-      max_tokens: 480,
+      max_tokens: 550,
       presence_penalty: 0.0,
       frequency_penalty: 0.05,
       stop: ['<end_of_turn>', '<start_of_turn>', '【入力カルテ/音声メモ】', '【入力テキスト】', '【入力】'],

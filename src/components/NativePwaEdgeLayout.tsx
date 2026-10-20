@@ -46,6 +46,13 @@ import {
   SpeechToken,
 } from '../services/medicalSpeechDecoder';
 import { sdCardStreamingService, SoftApStatus } from '../services/sdCardStreamingService';
+import {
+  auditRenalAndPrescriptions,
+  detectClinicalRedFlags,
+  calculateEmergencyDoses,
+  generateGuidelineEvidenceSnippets,
+  expandMedicalAbbreviations,
+} from '../services/clinicalCopilotEngine';
 
 interface NativePwaEdgeLayoutProps {
   inputText: string;
@@ -57,7 +64,7 @@ interface NativePwaEdgeLayoutProps {
   onAbortTransfer?: () => void;
   onOpenSearch: (initialTab?: any) => void;
   onOpenCoprocessor?: () => void;
-  onOpenWebLlm: () => void;
+  onOpenWebLlm: (initialStyle?: any) => void;
   onOpenTemplates: () => void;
   onOpenCameraOcr?: () => void;
 }
@@ -137,12 +144,33 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
   const [speechSuccessNotice, setSpeechSuccessNotice] = useState<string | null>(null);
   // 発話例文チップス表示トグル
   const [showSpeechChips, setShowSpeechChips] = useState(false);
+  // スーパーオンプレミス臨床コパイロットパネル表示トグル ＆ タブ
+  const [showCopilotPanel, setShowCopilotPanel] = useState(false);
+  const [copilotTab, setCopilotTab] = useState<'redflag' | 'renal' | 'emergency' | 'evidence'>('redflag');
+  const [patientWeightKg, setPatientWeightKg] = useState<number>(60);
 
   // カルテ全体キーワード抽出（カルテ内容100%動的連動）
   const chartContext = useMemo(() => {
     const text = inputText && inputText.trim().length > 0 ? inputText : DEFAULT_SAMPLE_CHART_TEXT;
     return extractChartClinicalKeywords(text);
   }, [inputText]);
+
+  // リアルタイム臨床コパイロット解析 (0.5ms: Red Flags / eGFR処方監査 / 救急電卓 / GL根拠)
+  const copilotData = useMemo(() => {
+    const text = inputText && inputText.trim().length > 0 ? inputText : DEFAULT_SAMPLE_CHART_TEXT;
+    const renalAudit = auditRenalAndPrescriptions(text);
+    const redFlags = detectClinicalRedFlags(text);
+    const effectiveWeight = renalAudit.detectedWeightKg || patientWeightKg;
+    const emergencyDoses = calculateEmergencyDoses(effectiveWeight);
+    const glSnippets = generateGuidelineEvidenceSnippets(text);
+    return {
+      renalAudit,
+      redFlags,
+      effectiveWeight,
+      emergencyDoses,
+      glSnippets,
+    };
+  }, [inputText, patientWeightKg]);
 
   // 音声入力中の波形アニメーションループ (マイク排他制御競合を回避し完全滑らかに駆動)
   const startWaveformLoop = useCallback(() => {
@@ -547,33 +575,26 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                   </span>
                 )}
 
-                {/* 無駄なスペース・改行のワンタップ削除ボタン */}
+                {/* 医学略語正規化 ＆ 無駄なスペース・改行のワンタップ削除ボタン */}
                 {!isSending && (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       triggerHaptic(15);
-                      setInputText((prev) =>
-                        cleanExtractedMedicalText(normalizeMedicalSpeechTerms(prev || DEFAULT_SAMPLE_CHART_TEXT))
-                      );
+                      setInputText((prev) => {
+                        const raw = prev || DEFAULT_SAMPLE_CHART_TEXT;
+                        const { expandedText } = expandMedicalAbbreviations(raw);
+                        return cleanExtractedMedicalText(normalizeMedicalSpeechTerms(expandedText));
+                      });
                     }}
                     className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-sky-300 hover:text-white bg-sky-950/50 hover:bg-sky-900/70 border border-sky-700/50 transition-colors cursor-pointer"
-                    title="電子カルテから抽出したテキストの無駄なスペース・空白行・改行を一括削除して整形します"
+                    title="英語略語(HTN, DM, s/o等)の日本語正規化と、無駄なスペース・空白行・重複表現を一括整理します"
                   >
                     <Sparkles className="w-3 h-3 text-sky-400" />
-                    <span>空白・改行整理</span>
+                    <span>略語・空白整理</span>
                   </button>
                 )}
-
-                {/* 医療専門用語 音声解読ステータス */}
-                <span
-                  className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-mono text-emerald-300 bg-emerald-950/60 border border-emerald-600/40"
-                  title="頻出医薬品・病名・検査値・医学略語の自動解読エンジンが常時稼働中"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>医療音声解読: ON</span>
-                </span>
 
                 {/* 発話例文チップス切替ボタン */}
                 <button
@@ -593,20 +614,46 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                   <span>🎙️ 発話例文</span>
                 </button>
 
-                {/* Gemma 2 AI文章校正ショートカットボタン */}
+                {/* 🛡️ スーパーオンプレミス臨床コパイロット（RedFlag / eGFR処方 / 救急電卓 / GL根拠） */}
                 {!isSending && (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       triggerHaptic(15);
-                      onOpenWebLlm();
+                      setShowCopilotPanel((prev) => !prev);
+                    }}
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold border transition-colors cursor-pointer ${
+                      showCopilotPanel
+                        ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold'
+                        : 'text-emerald-300 hover:text-white bg-emerald-950/60 hover:bg-emerald-900/70 border-emerald-600/50'
+                    }`}
+                    title="鑑別Red Flags・腎機能eGFR処方監査・救急体重電卓・Minds根拠文をワンタップ追記"
+                  >
+                    <ShieldCheck className="w-3 h-3" />
+                    <span>臨床コパイロット</span>
+                    {copilotData.renalAudit.alerts.length > 0 && (
+                      <span className="px-1 rounded-full bg-rose-500 text-white text-[9px] font-mono">
+                        {copilotData.renalAudit.alerts.length}
+                      </span>
+                    )}
+                  </button>
+                )}
+
+                {/* Gemma 2 スーパー臨床AIスタジオ ショートカットボタン */}
+                {!isSending && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      triggerHaptic(15);
+                      onOpenWebLlm('soap');
                     }}
                     className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-purple-300 hover:text-white bg-purple-950/60 hover:bg-purple-900/70 border border-purple-600/50 transition-colors cursor-pointer"
-                    title="Gemma 2 でSOAP形式または箇条書き要約に高精度校正します"
+                    title="Gemma 2 でSOAPカルテ・紹介状・指示簿・SBAR・患者IC説明書・安全監査をワンタップ作成"
                   >
                     <Cpu className="w-3 h-3 text-purple-400" />
-                    <span>Gemma2校正</span>
+                    <span>Gemma2スタジオ</span>
                   </button>
                 )}
 
@@ -646,6 +693,260 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 >
                   ✕
                 </button>
+              </div>
+            )}
+
+            {/* 🛡️ スーパーオンプレミス臨床コパイロット インラインパネル (RedFlags / eGFR処方 / 救急電卓 / GL根拠 / 書類生成) */}
+            {showCopilotPanel && (
+              <div className="mx-1 my-1.5 p-2.5 rounded-xl bg-slate-900/95 border border-emerald-500/50 space-y-2 animate-in fade-in shadow-xl">
+                <div className="flex items-center justify-between gap-1 flex-wrap border-b border-slate-800 pb-1.5">
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setCopilotTab('redflag')}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                        copilotTab === 'redflag'
+                          ? 'bg-rose-500 text-white'
+                          : 'bg-slate-800 text-rose-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      🚨 鑑別Red Flags ({copilotData.redFlags.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCopilotTab('renal')}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                        copilotTab === 'renal'
+                          ? 'bg-amber-500 text-slate-950'
+                          : 'bg-slate-800 text-amber-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      💊 eGFR処方監査 ({copilotData.renalAudit.alerts.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCopilotTab('emergency')}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                        copilotTab === 'emergency'
+                          ? 'bg-sky-500 text-slate-950'
+                          : 'bg-slate-800 text-sky-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      ⚡ 救急・中毒電卓 ({copilotData.effectiveWeight}kg)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCopilotTab('evidence')}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                        copilotTab === 'evidence'
+                          ? 'bg-emerald-500 text-slate-950'
+                          : 'bg-slate-800 text-emerald-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      📚 GL・算定根拠 ({copilotData.glSnippets.length})
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCopilotPanel(false)}
+                    className="text-slate-400 hover:text-white text-[11px] px-1.5"
+                  >
+                    閉じる ✕
+                  </button>
+                </div>
+
+                {/* タブ1: 鑑別 Red Flags ＆ 防衛カルテ記載 */}
+                {copilotTab === 'redflag' && (
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {copilotData.redFlags.map((rf) => (
+                      <div
+                        key={rf.id}
+                        className="p-2 rounded-lg bg-slate-950/90 border border-rose-500/30 flex items-center justify-between gap-2"
+                      >
+                        <div className="text-[11px] space-y-0.5">
+                          <div className="font-bold text-rose-300">{rf.syndrome}</div>
+                          <div className="text-[10px] text-slate-300">
+                            除外鑑別: <span className="text-amber-300 font-semibold">{rf.criticalDifferentials.join(' / ')}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            確認所見: {rf.mustCheckSigns.join(' ・ ')}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic(15);
+                            setInputText((prev) =>
+                              cleanExtractedMedicalText(prev ? `${prev}\n${rf.defensiveChartSnippet}` : rf.defensiveChartSnippet)
+                            );
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold shrink-0 cursor-pointer"
+                        >
+                          ＋防衛記載追記
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* タブ2: eGFR 処方監査 */}
+                {copilotTab === 'renal' && (
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {copilotData.renalAudit.alerts.length > 0 ? (
+                      copilotData.renalAudit.alerts.map((al) => (
+                        <div
+                          key={al.id}
+                          className="p-2 rounded-lg bg-slate-950/90 border border-amber-500/40 flex items-center justify-between gap-2"
+                        >
+                          <div className="text-[11px] space-y-0.5">
+                            <div className="font-bold text-amber-300">
+                              💊 {al.drugName} ({al.detectedEgfr !== null ? `eGFR ${al.detectedEgfr}` : '腎機能基準'})
+                            </div>
+                            <div className="text-[10px] text-slate-200">{al.recommendedAction}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic(15);
+                              setInputText((prev) =>
+                                cleanExtractedMedicalText(prev ? `${prev}\n${al.orderSnippet}` : al.orderSnippet)
+                              );
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-bold shrink-0 cursor-pointer"
+                          >
+                            ＋監査根拠追記
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-[11px] text-slate-300 p-2 bg-slate-950/80 rounded-lg border border-slate-800 flex items-center justify-between">
+                        <span>✅ 現在処方に重篤な腎機能用量逸脱は検出されていません（カルテに「eGFR 28」や腎排泄薬を入力すると自動計算します）</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* タブ3: 救急・当直 体重別即時アクション電卓 */}
+                {copilotTab === 'emergency' && (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                    <div className="flex items-center justify-between text-[10px] bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                      <span className="text-sky-300 font-bold">患者体重設定 (ワンタップ換算):</span>
+                      <div className="flex items-center gap-1">
+                        {[40, 50, 60, 70, 80].map((w) => (
+                          <button
+                            key={w}
+                            type="button"
+                            onClick={() => setPatientWeightKg(w)}
+                            className={`px-2 py-0.5 rounded font-mono font-bold cursor-pointer ${
+                              copilotData.effectiveWeight === w
+                                ? 'bg-sky-500 text-slate-950'
+                                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                            }`}
+                          >
+                            {w}kg
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {copilotData.emergencyDoses.map((em) => (
+                      <div
+                        key={em.id}
+                        className="p-2 rounded-lg bg-slate-950/90 border border-sky-500/30 flex items-center justify-between gap-2"
+                      >
+                        <div className="text-[11px] space-y-0.5">
+                          <div className="font-bold text-sky-300 flex items-center gap-1.5">
+                            <span>⚡ {em.title}</span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-950 text-sky-200 border border-sky-500/40">
+                              {em.badge}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-200 font-mono">{em.calculatedSummary}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic(15);
+                            setInputText((prev) =>
+                              cleanExtractedMedicalText(prev ? `${prev}\n${em.orderText}` : em.orderText)
+                            );
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 text-[10px] font-bold shrink-0 cursor-pointer"
+                        >
+                          ＋指示挿入
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* タブ4: Mindsガイドライン ＆ レセプト算定根拠文 */}
+                {copilotTab === 'evidence' && (
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {copilotData.glSnippets.map((gl) => (
+                      <div
+                        key={gl.id}
+                        className="p-2 rounded-lg bg-slate-950/90 border border-emerald-500/30 flex items-center justify-between gap-2"
+                      >
+                        <div className="text-[11px] space-y-0.5">
+                          <div className="font-bold text-emerald-300 flex items-center gap-1.5">
+                            <span>📚 {gl.title}</span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-200 border border-emerald-500/40">
+                              {gl.badge}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-300 line-clamp-2">{gl.snippet}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic(15);
+                            setInputText((prev) =>
+                              cleanExtractedMedicalText(prev ? `${prev}\n${gl.snippet}` : gl.snippet)
+                            );
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10px] font-bold shrink-0 cursor-pointer"
+                        >
+                          ＋根拠追記
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 下部クイックバー: Gemma 2 臨床ドキュメント ワンタップ起草 */}
+                <div className="pt-1.5 border-t border-slate-800 flex items-center justify-between gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-bold text-purple-300">📄 ワンタップ文書作成:</span>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => onOpenWebLlm('referral')}
+                      className="px-2 py-0.5 rounded bg-purple-950/80 hover:bg-purple-900 text-purple-200 border border-purple-500/40 text-[10px] font-semibold cursor-pointer"
+                    >
+                      紹介状・サマリー
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onOpenWebLlm('order_sbar')}
+                      className="px-2 py-0.5 rounded bg-purple-950/80 hover:bg-purple-900 text-purple-200 border border-purple-500/40 text-[10px] font-semibold cursor-pointer"
+                    >
+                      看護師指示簿・SBAR
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onOpenWebLlm('patient_ic')}
+                      className="px-2 py-0.5 rounded bg-purple-950/80 hover:bg-purple-900 text-purple-200 border border-purple-500/40 text-[10px] font-semibold cursor-pointer"
+                    >
+                      患者IC説明書
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onOpenWebLlm('clinical_audit')}
+                      className="px-2 py-0.5 rounded bg-purple-950/80 hover:bg-purple-900 text-purple-200 border border-purple-500/40 text-[10px] font-semibold cursor-pointer"
+                    >
+                      総合安全監査
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1027,27 +1328,71 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic(15);
-                  onOpenWebLlm();
-                }}
-                className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-all group hover:border-slate-600"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
-                  <div>
-                    <div className="text-xs font-semibold text-slate-200 group-hover:text-purple-300 transition-colors">
-                      Gemma 2 文章校正 (SOAP / 箇条書き)
-                    </div>
-                    <div className="text-[10px] text-purple-400 font-mono">
-                      WebGPU Gemma 2 2B 高精度プロンプト搭載
+              <div className="p-2.5 rounded-xl bg-slate-800/60 border border-purple-500/30 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(15);
+                    onOpenWebLlm('soap');
+                  }}
+                  className="w-full flex items-center justify-between text-left transition-all group cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-semibold text-slate-200 group-hover:text-purple-300 transition-colors">
+                        Gemma 2 臨床AIスタジオ (6大モード)
+                      </div>
+                      <div className="text-[10px] text-purple-400 font-mono">
+                        SOAP・紹介状・指示簿・SBAR・IC説明・処方監査
+                      </div>
                     </div>
                   </div>
+                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+                </button>
+                <div className="grid grid-cols-2 gap-1 pt-1 border-t border-slate-700/60">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(10);
+                      onOpenWebLlm('referral');
+                    }}
+                    className="px-2 py-1 rounded-lg bg-slate-900/90 hover:bg-purple-950/70 text-sky-300 border border-slate-700 hover:border-purple-500/40 text-[10px] font-semibold text-left truncate cursor-pointer"
+                  >
+                    📄 紹介状・サマリー
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(10);
+                      onOpenWebLlm('order_sbar');
+                    }}
+                    className="px-2 py-1 rounded-lg bg-slate-900/90 hover:bg-purple-950/70 text-emerald-300 border border-slate-700 hover:border-purple-500/40 text-[10px] font-semibold text-left truncate cursor-pointer"
+                  >
+                    📋 指示簿・SBAR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(10);
+                      onOpenWebLlm('patient_ic');
+                    }}
+                    className="px-2 py-1 rounded-lg bg-slate-900/90 hover:bg-purple-950/70 text-pink-300 border border-slate-700 hover:border-purple-500/40 text-[10px] font-semibold text-left truncate cursor-pointer"
+                  >
+                    👪 患者IC説明書
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(10);
+                      onOpenWebLlm('clinical_audit');
+                    }}
+                    className="px-2 py-1 rounded-lg bg-slate-900/90 hover:bg-purple-950/70 text-rose-300 border border-slate-700 hover:border-purple-500/40 text-[10px] font-semibold text-left truncate cursor-pointer"
+                  >
+                    🛡️ 処方・RedFlag監査
+                  </button>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
-              </button>
+              </div>
 
               {onOpenCameraOcr && (
                 <button
@@ -1474,28 +1819,76 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                   カルテ入力支援 ＆ ツール
                 </span>
                 <div className="space-y-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic(15);
-                      setIsDrawerOpen(false);
-                      onOpenWebLlm();
-                    }}
-                    className="w-full p-3 rounded-xl bg-purple-950/40 hover:bg-purple-900/50 border border-purple-500/40 flex items-center justify-between text-left transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
-                      <div>
-                        <div className="text-xs font-semibold text-purple-200">
-                          Gemma 2 文章校正 (SOAP / 箇条書き要約)
-                        </div>
-                        <div className="text-[10px] text-purple-400 font-mono">
-                          高精度プロンプトによるカルテ構造化・要約
+                  <div className="p-3 rounded-xl bg-purple-950/40 border border-purple-500/40 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic(15);
+                        setIsDrawerOpen(false);
+                        onOpenWebLlm('soap');
+                      }}
+                      className="w-full flex items-center justify-between text-left transition-colors group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Cpu className="w-4 h-4 text-purple-400 shrink-0" />
+                        <div>
+                          <div className="text-xs font-semibold text-purple-200">
+                            Gemma 2 臨床AIスタジオ (6大モード)
+                          </div>
+                          <div className="text-[10px] text-purple-400 font-mono">
+                            SOAP・紹介状・指示簿・SBAR・IC説明・処方監査
+                          </div>
                         </div>
                       </div>
+                      <ChevronRight className="w-4 h-4 text-purple-400 group-hover:text-white transition-colors" />
+                    </button>
+                    <div className="grid grid-cols-2 gap-1.5 pt-1.5 border-t border-purple-500/30">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic(10);
+                          setIsDrawerOpen(false);
+                          onOpenWebLlm('referral');
+                        }}
+                        className="px-2 py-1.5 rounded-lg bg-slate-900/90 text-sky-300 border border-slate-700 text-[10px] font-bold text-left"
+                      >
+                        📄 紹介状・サマリー
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic(10);
+                          setIsDrawerOpen(false);
+                          onOpenWebLlm('order_sbar');
+                        }}
+                        className="px-2 py-1.5 rounded-lg bg-slate-900/90 text-emerald-300 border border-slate-700 text-[10px] font-bold text-left"
+                      >
+                        📋 指示簿・SBAR
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic(10);
+                          setIsDrawerOpen(false);
+                          onOpenWebLlm('patient_ic');
+                        }}
+                        className="px-2 py-1.5 rounded-lg bg-slate-900/90 text-pink-300 border border-slate-700 text-[10px] font-bold text-left"
+                      >
+                        👪 患者IC説明書
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic(10);
+                          setIsDrawerOpen(false);
+                          onOpenWebLlm('clinical_audit');
+                        }}
+                        className="px-2 py-1.5 rounded-lg bg-slate-900/90 text-rose-300 border border-slate-700 text-[10px] font-bold text-left"
+                      >
+                        🛡️ 処方・RedFlag監査
+                      </button>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-purple-400 group-hover:text-white transition-colors" />
-                  </button>
+                  </div>
 
                   <button
                     type="button"

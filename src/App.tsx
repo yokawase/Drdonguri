@@ -70,6 +70,7 @@ export default function App() {
   const [medicalSearchInitialTab, setMedicalSearchInitialTab] = useState<any>('all');
   const [isCoprocessorModalOpen, setIsCoprocessorModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [aiModalInitialStyle, setAiModalInitialStyle] = useState<any>('soap');
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isCameraOcrOpen, setIsCameraOcrOpen] = useState(false);
 
@@ -263,7 +264,10 @@ export default function App() {
         onAbortTransfer={handleAbortTransfer}
         onOpenSearch={handleOpenSearch}
         onOpenCoprocessor={() => setIsCoprocessorModalOpen(true)}
-        onOpenWebLlm={() => setIsAiModalOpen(true)}
+        onOpenWebLlm={(style?: any) => {
+          setAiModalInitialStyle(style || 'soap');
+          setIsAiModalOpen(true);
+        }}
         onOpenTemplates={() => setIsTemplateModalOpen(true)}
         onOpenCameraOcr={() => setIsCameraOcrOpen(true)}
       />
@@ -303,8 +307,22 @@ export default function App() {
             isOpen={isAiModalOpen}
             onClose={() => setIsAiModalOpen(false)}
             originalText={inputText}
+            initialStyle={aiModalInitialStyle}
+            isBleConnected={isBleConnected}
             onApplyFormattedText={(text: string) => {
               setInputText(cleanExtractedMedicalText(text));
+              showToast('success', '生成ドキュメントをカルテ領域に反映しました！');
+            }}
+            onDirectSendToEmr={async (text: string) => {
+              const cleaned = cleanExtractedMedicalText(text);
+              setInputText(cleaned);
+              if (isBleConnected) {
+                const session = buildTransmissionSession(cleaned, DispatchMode.MODE_HYBRID_UNICODE);
+                await bleManager.transmitSession(session);
+                showToast('success', '生成ドキュメントを電子カルテへUSB-HID直接打鍵しました！');
+              } else {
+                showToast('info', 'カルテに反映しました（BLE接続後に「電カル送信」で打鍵できます）。');
+              }
             }}
           />
         )}

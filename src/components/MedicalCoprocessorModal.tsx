@@ -9,11 +9,17 @@ import {
   Copy,
   Check,
   ArrowLeft,
-  Eraser
+  Eraser,
+  Zap,
+  FileText
 } from 'lucide-react';
 import { bleManager } from '../utils/webBluetooth';
 import { playMacBeep, playSosumi, triggerMacScreenFlash } from '../utils/macAudio';
 import { cleanExtractedMedicalText } from '../utils/chartTextCleaner';
+import {
+  generateFourPointChartDigest,
+  expandMedicalAbbreviations,
+} from '../services/clinicalCopilotEngine';
 
 interface MedicalCoprocessorModalProps {
   isOpen: boolean;
@@ -21,6 +27,13 @@ interface MedicalCoprocessorModalProps {
   isBleConnected: boolean;
   onWriteBackToChart: (text: string) => Promise<void>;
 }
+
+const SAMPLE_INGESTED_PAST_CHART = `2026/09/15 内科外来
+Hx: HTN, T2DM, CKD G3b, pAf (ペニシリンアレルギーあり)
+Rp) アムロジピン 5mg 1T 1x 朝食後、メトグルコ 500mg 2T 2x 朝夕食後、エリキュース 5mg 2T 2x 朝夕食後
+BP 148/88 mmHg, HR 78/min, SpO2 98%, Cre 1.45 mg/dL, eGFR 36.2 mL/min, HbA1c 7.4%
+c/o 階段昇降時の軽い息切れ。s/o 労作性狭心症、r/o 心不全増悪。
+次回心エコー・BNP再検予定。腎機能低下につきメトホルミン・DOAC減量基準要確認。`;
 
 export const MedicalCoprocessorModal: React.FC<MedicalCoprocessorModalProps> = ({
   isOpen,
@@ -35,6 +48,7 @@ export const MedicalCoprocessorModal: React.FC<MedicalCoprocessorModalProps> = (
   const [isReceiving, setIsReceiving] = useState<boolean>(false);
   const [isStructuring, setIsStructuring] = useState<boolean>(false);
   const [structuredSoapText, setStructuredSoapText] = useState<string>('');
+  const [outputMode, setOutputMode] = useState<'soap' | 'digest'>('soap');
   const [copied, setCopied] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>('電カル待機中：USBプリンター吸い上げ準備完了');
   const [isWritingBack, setIsWritingBack] = useState<boolean>(false);
@@ -53,22 +67,23 @@ export const MedicalCoprocessorModal: React.FC<MedicalCoprocessorModalProps> = (
     const unregComplete = bleManager.addPrinterCompleteListener((fullText: string, totalBytes: number) => {
       setIsReceiving(false);
       setIsPulling(false);
-      const cleaned = cleanExtractedMedicalText(fullText);
+      const { expandedText } = expandMedicalAbbreviations(fullText);
+      const cleaned = cleanExtractedMedicalText(expandedText);
       setIngestedBytes(totalBytes);
       setIngestedRawText(cleaned);
-      setStatusMessage(`✅ 電カル生データ吸い上げ＆無駄な空白・改行削除完了 (${totalBytes} Bytes / ${cleaned.length} 文字)`);
+      setStatusMessage(`✅ 電カル生データ吸い上げ＆略語正規化・空白削除完了 (${totalBytes} Bytes / ${cleaned.length} 文字)`);
       playSosumi();
       triggerMacScreenFlash();
       
-      // 自動SOAP構造化をトリガー
-      structureIntoSoap(cleaned);
+      // 自動構造化をトリガー
+      structureIntoSoap(cleaned, outputMode);
     });
 
     return () => {
       unregData();
       unregComplete();
     };
-  }, [isOpen]);
+  }, [isOpen, outputMode]);
 
   // フットペダル (Space / Enter キー) での書き戻しショートカット待機
   useEffect(() => {
@@ -92,7 +107,7 @@ export const MedicalCoprocessorModal: React.FC<MedicalCoprocessorModalProps> = (
   const handleTriggerAutoPull = async () => {
     playMacBeep();
     if (!isBleConnected) {
-      alert('AtomS3U (どんぐり君) とBLE接続されていません。\n右上の「実機BLE接続」を行ってください。');
+      alert('AtomS3U / T-Dongle-S3 とBLE接続されていません。\n右上の「BLE接続」を行うか、「長文過去カルテ試用読込」をお試しください。');
       return;
     }
     try {
@@ -101,7 +116,7 @@ export const MedicalCoprocessorModal: React.FC<MedicalCoprocessorModalProps> = (
       setIngestedBytes(0);
       setStructuredSoapText('');
       bleManager.clearPrinterBuffer();
-      setStatusMessage('⚡ AtomS3Uが電カル画面へ [Ctrl+P] -> [Enter] を自動打鍵中...');
+      setStatusMessage('⚡ ドングルが電カル画面へ [Ctrl+P] -> [Enter] を自動打鍵中...');
       await bleManager.triggerAutoPull();
       setStatusMessage('⏳ 電カルからの印刷スプール着弾を待機中...');
     } catch (err: any) {
@@ -111,17 +126,31 @@ export const MedicalCoprocessorModal: React.FC<MedicalCoprocessorModalProps> = (
     }
   };
 
-  // 2. スマホエッジAIによる自律構造化 (無駄なスペース・改行削除 ＋ SOAP下書き自動再構成)
-  const structureIntoSoap = (raw: string) => {
-    const cleanedRaw = cleanExtractedMedicalText(raw);
+  // 2. スマホエッジAIによる自律構造化 (SOAP下書き または 過去カルテ4点ダイジェスト)
+  const structureIntoSoap = (raw: string, targetMode: 'soap' | 'digest' = outputMode) => {
+    const { expandedText, appliedCount } = expandMedicalAbbreviations(raw);
+    const cleanedRaw = cleanExtractedMedicalText(expandedText);
     if (!cleanedRaw.trim()) return;
     setIngestedRawText(cleanedRaw);
     setIsStructuring(true);
-    setStatusMessage('🧠 無駄な空白・改行を除去し、SOAP自律構造化中...');
+    setOutputMode(targetMode);
+    setStatusMessage(
+      targetMode === 'digest'
+        ? '⚡ 過去カルテから4点爆速ダイジェスト（既往/処方/経過/To-Do）を生成中...'
+        : '🧠 略語正規化・無駄な空白除去 ＆ 本日のSOAP自律構造化中...'
+    );
 
-    // 高度なローカル構文解析 & SOAP構造化
     setTimeout(() => {
       try {
+        if (targetMode === 'digest') {
+          const digest = generateFourPointChartDigest(cleanedRaw);
+          setStructuredSoapText(digest);
+          setStatusMessage(
+            `✨ 過去カルテ4点ダイジェスト完了！${appliedCount > 0 ? `（医学略語${appliedCount}件を日本語正規化）` : ''}`
+          );
+          return;
+        }
+
         const lines = cleanedRaw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
         
         // カテゴリ別分類
@@ -134,12 +163,12 @@ export const MedicalCoprocessorModal: React.FC<MedicalCoprocessorModalProps> = (
         const vitalRegex = /(?:BP|血圧|HR|心拍|脈拍|BT|体温|SpO2|KT|PR|RR)[:：\s]?\s*([0-9/.]+)/i;
         const labRegex = /(?:WBC|RBC|Hb|Plt|CRP|AST|ALT|γ-GTP|BUN|Cre|eGFR|HbA1c|Glu|BS)[:：\s]?\s*([0-9/.]+)/i;
         const rxRegex = /(?:処方|内服|Rp|錠|Cap|mg|g|日分|包|外用|点眼)/i;
-        const dxRegex = /(?:病名|診断|疑い|症候群|炎|症|不全|癌|病|障害)/i;
+        const dxRegex = /(?:病名|診断|疑い|除外|症候群|炎|症|不全|癌|病|障害)/i;
 
         lines.forEach(line => {
           if (vitalRegex.test(line) || labRegex.test(line) || line.includes('所見') || line.includes('検査')) {
             objectiveLines.push(line);
-          } else if (rxRegex.test(line) || line.includes('指示') || line.includes('次回') || line.includes('点滴')) {
+          } else if (rxRegex.test(line) || line.includes('指示') || line.includes('次回') || line.includes('点滴') || line.includes('予定')) {
             planLines.push(line);
           } else if (dxRegex.test(line) && !line.includes('処方')) {
             assessmentLines.push(line);
@@ -177,11 +206,13 @@ ${aPart}
 ${pPart}`;
 
         setStructuredSoapText(soapDraft);
-        setStatusMessage('✨ スマホAI自律構造化完了！内容を確認し、足踏みペダルまたは書き戻しを押してください。');
+        setStatusMessage(
+          `✨ スマホAI自律構造化完了！${appliedCount > 0 ? `（略語${appliedCount}件正規化済）` : ''}内容を確認し書き戻しを押してください。`
+        );
       } finally {
         setIsStructuring(false);
       }
-    }, 250);
+    }, 150);
   };
 
   // 3. カルテへの書き戻し打鍵実行
@@ -296,34 +327,48 @@ ${pPart}`;
                 ) : (
                   <>
                     <Download className="w-3.5 h-3.5 text-slate-950" />
-                    <span>📥 過去カルテ吸い上げ (Ctrl+P自動実行)</span>
+                    <span>📥 過去カルテ吸い上げ (Ctrl+P)</span>
                   </>
                 )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  playMacBeep();
+                  setIngestedBytes(412);
+                  structureIntoSoap(SAMPLE_INGESTED_PAST_CHART, 'digest');
+                }}
+                className="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-sky-500/40 text-sky-300 text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0 transition-colors"
+                title="略語を含む過去カルテの吸い上げ＆4点ダイジェストを即座にシミュレートします"
+              >
+                <FileText className="w-3.5 h-3.5 text-sky-400" />
+                <span>過去カルテ試用</span>
               </button>
             </div>
 
             <div className="text-[10px] text-slate-400 bg-slate-900/60 p-2 rounded-xl border border-slate-800 mb-2 leading-relaxed">
-              💡 <strong>自動吸い上げ＆空白除去:</strong> ボタンを押すとドングルが0.2秒で電カルへ <code className="bg-slate-800 text-amber-300 px-1 py-0.5 rounded border border-slate-700">[Ctrl+P] ➔ [Enter]</code> を自動打鍵！電カルの印刷スプールに含まれる無駄な空白・改行を自動削除して取り込みます。
+              💡 <strong>逆流スキャン＆略語正規化:</strong> ドングルが電カルへ <code className="bg-slate-800 text-amber-300 px-1 py-0.5 rounded border border-slate-700">[Ctrl+P] ➔ [Enter]</code> を自動打鍵！英語略語（HTN, DM, s/o, r/o等）を正式日本語に展開し、無駄な空白を除去して取り込みます。
             </div>
 
             {/* 吸い上げ生テキストモニター */}
             <div className="flex-1 flex flex-col min-h-[160px]">
               <div className="text-[10px] font-bold text-slate-400 mb-1 flex items-center justify-between">
-                <span>着弾テキスト (無駄なスペース・改行自動削除済):</span>
+                <span>着弾テキスト (略語正規化 ＆ 空白・改行削除済):</span>
                 {ingestedRawText && (
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => {
-                        const cleaned = cleanExtractedMedicalText(ingestedRawText);
+                        const { expandedText } = expandMedicalAbbreviations(ingestedRawText);
+                        const cleaned = cleanExtractedMedicalText(expandedText);
                         setIngestedRawText(cleaned);
-                        setStatusMessage('✨ 無駄なスペース・改行を削除しました');
+                        setStatusMessage('✨ 医学略語の正規化 ＆ 無駄な空白削除を実行しました');
                       }}
                       className="text-emerald-400 hover:text-emerald-300 font-normal flex items-center gap-1 cursor-pointer transition-colors"
                     >
-                      <Eraser className="w-2.5 h-2.5" /> 空白・改行削除
+                      <Eraser className="w-2.5 h-2.5" /> 略語・空白整理
                     </button>
                     <button
-                      onClick={() => structureIntoSoap(ingestedRawText)}
+                      onClick={() => structureIntoSoap(ingestedRawText, outputMode)}
                       className="text-sky-400 hover:text-sky-300 font-normal flex items-center gap-1 cursor-pointer transition-colors"
                     >
                       <RefreshCw className="w-2.5 h-2.5" /> 再解析
@@ -339,7 +384,7 @@ ${pPart}`;
                     setIngestedRawText(cleanExtractedMedicalText(ingestedRawText));
                   }
                 }}
-                placeholder="電カルから吸い上げた過去カルテや検査結果テキストがここに自動着弾します... (直接ペースト時も自動で無駄な空白・改行を削除)"
+                placeholder="電カルから吸い上げた過去カルテや紹介状テキストがここに自動着弾します... (直接ペースト時も自動で略語正規化・空白削除)"
                 className="flex-1 w-full p-2.5 text-xs font-mono border border-slate-700/80 rounded-xl resize-none bg-[#0F172A] text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 leading-relaxed"
               />
             </div>
@@ -350,7 +395,7 @@ ${pPart}`;
             <div className="flex items-center justify-between pb-2 border-b border-slate-700/70 mb-2">
               <div className="flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-purple-400" />
-                <span className="font-bold text-xs text-slate-100">② スマホAI 自律構造化 ＆ SOAP整形</span>
+                <span className="font-bold text-xs text-slate-100">② 過去カルテ4点ダイジェスト / SOAP下書き</span>
               </div>
               <div className="flex items-center gap-1">
                 <button
@@ -365,24 +410,31 @@ ${pPart}`;
               </div>
             </div>
 
-            {/* AI再生成ボタン */}
-            <div className="flex gap-2 mb-2">
+            {/* AI再生成 2モード切替ボタン */}
+            <div className="grid grid-cols-2 gap-2 mb-2">
               <button
-                onClick={() => structureIntoSoap(ingestedRawText)}
-                disabled={!ingestedRawText.trim() || isStructuring}
-                className="flex-1 font-bold text-xs py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_12px_rgba(168,85,247,0.3)] active:scale-98 transition-all cursor-pointer disabled:opacity-50"
+                onClick={() => structureIntoSoap(ingestedRawText || SAMPLE_INGESTED_PAST_CHART, 'digest')}
+                disabled={isStructuring}
+                className={`font-bold text-xs py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  outputMode === 'digest'
+                    ? 'bg-amber-500 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+                    : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40'
+                }`}
               >
-                {isStructuring ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
-                    <span>AI構造化解析中...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-3.5 h-3.5 text-white" />
-                    <span>🧠 SOAP下書き再構成 (S/O/A/P)</span>
-                  </>
-                )}
+                <Zap className="w-3.5 h-3.5" />
+                <span>⚡ 4点爆速ダイジェスト</span>
+              </button>
+              <button
+                onClick={() => structureIntoSoap(ingestedRawText || SAMPLE_INGESTED_PAST_CHART, 'soap')}
+                disabled={isStructuring}
+                className={`font-bold text-xs py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  outputMode === 'soap'
+                    ? 'bg-purple-600 text-white shadow-[0_0_12px_rgba(168,85,247,0.3)]'
+                    : 'bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/40'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>🧠 本日のSOAP下書き</span>
               </button>
             </div>
 
