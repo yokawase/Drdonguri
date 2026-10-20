@@ -29,7 +29,10 @@ import {
   Activity,
   BookOpen,
   HeartPulse,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
+import { isAudioMuted, toggleAudioMuted, addAudioMuteListener, playMacBeep } from '../utils/macAudio';
 import { APP_VERSION, LATEST_FIRMWARE_VERSION } from '../version';
 import {
   cleanExtractedMedicalText,
@@ -96,6 +99,25 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
 }) => {
   // ドロワー開閉状態
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // ボタンタップ音・操作効果音のミュート状態
+  const [isMuted, setIsMuted] = useState<boolean>(() => isAudioMuted());
+
+  useEffect(() => {
+    const unsub = addAudioMuteListener((muted) => {
+      setIsMuted(muted);
+    });
+    return unsub;
+  }, []);
+
+  const handleToggleMute = useCallback(() => {
+    triggerHaptic(10);
+    const next = toggleAudioMuted();
+    setIsMuted(next);
+    if (!next) {
+      playMacBeep();
+    }
+  }, []);
 
   // 隠し機能: 3省2ガイドライン エアギャップWi-Fi SoftAPモーダル
   const [secretTapCount, setSecretTapCount] = useState(0);
@@ -482,31 +504,59 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
             </button>
           </nav>
 
-          {/* 右側: 【t-dongle-S3とBLE接続】トグルボタン */}
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic(20);
-              onConnectBle();
-            }}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95 ${
-              isBleConnected
-                ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
-                : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:border-slate-600'
-            }`}
-            title="ESP32ドングル（T-Dongle-S3 / AtomS3U）とBLE接続"
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isBleConnected
-                  ? 'bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]'
-                  : 'bg-slate-500'
+          {/* 右側: ボタンタップ音ミュート切替ボタン ＆ 【t-dongle-S3とBLE接続】トグルボタン */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* ボタンタップ音・ビープ音 ミュート切替ボタン */}
+            <button
+              type="button"
+              onClick={handleToggleMute}
+              className={`px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 active:scale-95 ${
+                isMuted
+                  ? 'bg-rose-950/80 text-rose-300 border-rose-500/70 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
+                  : 'bg-slate-800/90 text-slate-300 hover:text-white border-slate-700 hover:bg-slate-700'
               }`}
-            />
-            <span className="font-sans text-[11px] sm:text-xs">
-              {isBleConnected ? 'T-Dongle-S3 接続中' : 'T-Dongle-S3 未接続'}
-            </span>
-          </button>
+              title={isMuted ? 'タップ音・ビープ音を有効化（消音解除）' : 'タップ音・ビープ音を消音（ミュート）'}
+              aria-label={isMuted ? '消音中（タップで音声有効化）' : '効果音ON（タップで消音）'}
+            >
+              {isMuted ? (
+                <>
+                  <VolumeX className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span className="text-[10px] sm:text-[11px] font-bold text-rose-300">消音中</span>
+                </>
+              ) : (
+                <>
+                  <Volume2 className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="text-[10px] sm:text-[11px] font-medium hidden sm:inline">効果音ON</span>
+                </>
+              )}
+            </button>
+
+            {/* 【t-dongle-S3とBLE接続】トグルボタン */}
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(20);
+                onConnectBle();
+              }}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all active:scale-95 ${
+                isBleConnected
+                  ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
+                  : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:border-slate-600'
+              }`}
+              title="ESP32ドングル（T-Dongle-S3 / AtomS3U）とBLE接続"
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isBleConnected
+                    ? 'bg-emerald-400 animate-pulse shadow-[0_0_6px_#34d399]'
+                    : 'bg-slate-500'
+                }`}
+              />
+              <span className="font-sans text-[11px] sm:text-xs">
+                {isBleConnected ? 'T-Dongle-S3 接続中' : 'T-Dongle-S3 未接続'}
+              </span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1940,7 +1990,41 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 </div>
               </div>
 
-              {/* グループ3: 3省2ガイドライン準拠 ＆ 医療安全 */}
+              {/* グループ3: システム環境設定（タップ音ミュート・静音診療） */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase flex items-center justify-between">
+                  <span>システム環境設定</span>
+                  <span className="text-[10px] text-amber-400 font-mono">外来・病棟静音設計</span>
+                </span>
+                <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 space-y-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {isMuted ? (
+                        <VolumeX className="w-4 h-4 text-rose-400 shrink-0" />
+                      ) : (
+                        <Volume2 className="w-4 h-4 text-amber-400 shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-200 text-xs truncate">ボタンタップ音・操作音</div>
+                        <div className="text-[10px] text-slate-400 truncate">ビープ音・打鍵確認音の消音制御</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleToggleMute}
+                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0 active:scale-95 ${
+                        isMuted
+                          ? 'bg-rose-950/80 text-rose-300 border-rose-500/70 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
+                          : 'bg-slate-800 text-slate-200 border-slate-600 hover:bg-slate-700'
+                      }`}
+                    >
+                      {isMuted ? '🔇 消音中 (Muted)' : '🔊 出力中 (ON)'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* グループ4: 3省2ガイドライン準拠 ＆ 医療安全 */}
               <div className="space-y-2">
                 <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase flex items-center justify-between">
                   <span>3省2ガイドライン準拠 ＆ 通信</span>

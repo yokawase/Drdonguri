@@ -444,6 +444,22 @@
     3. **HTML / CSS レベルのビューポートスクロール固定 (`index.html`, `src/index.css`)**:
        - `index.html` の `body` クラスに `w-full h-full min-h-screen select-none overflow-hidden fixed inset-0` を追加。
        - `src/index.css` の `html, body` に `height: 100%; width: 100%; overflow: hidden;` を追加し、意図しないドキュメントスクロールの発生をブラウザ基盤レベルで完全防止。
+- [x] **ステップ46**: ボタンタップ音・操作効果音のワンタップミュート（消音）機能 ＆ 静音診療モード (v2.13.2) - 【完了】
+  - **背景と課題**:
+    - 外来診察中や病棟巡回、カンファレンス中において、ボタンタップ時やモーダル操作時、検索タブ切替時に鳴るレトロMacビープ音（`playMacBeep()`）やアラート音を消音し、静かに電子カルテ入力を進めたいという強い臨床現場ニーズがあった。
+  - **実装内容**:
+    1. **音声合成エンジンのグローバルミュート制御 ＆ Local-first永続化 (`src/utils/macAudio.ts`)**:
+       - `isAudioMuted()`, `setAudioMuted()`, `toggleAudioMuted()`, `addAudioMuteListener()` を新設。
+       - `localStorage`（キー: `drvoice_audio_muted`）へ自動永続化し、ブラウザを再起動しても消音設定を維持。
+       - `playMacBeep()`, `playSosumi()`, `playStartupChime()`, `playTrashSound()`, `playKeyClick()`, `playWildEep()`, `playQuack()` のすべての効果音再生関数の先頭に `if (isMuted) return;` を組み込み、ワンアクションでシステム全体のタップ音を完全消音。
+    2. **メイン画面ヘッダー常設ミュート切替ボタン (`src/components/NativePwaEdgeLayout.tsx`)**:
+       - ヘッダー右側（BLE接続バッジの左隣）に常設トグルボタン（🔊 効果音ON ↔ 🔇 消音中）を配置。モバイルでもPCでも一目で消音状態が把握可能。
+       - 消音時はローズ赤（`bg-rose-950/80 text-rose-300 border-rose-500/70`）で明示され、診察室での音漏れ不安を完全に解消。
+       - 設定＆管理ドロワー（システムメニュー）内にも「システム環境設定（ボタンタップ音・操作音）」トグルを追加。
+    3. **臨床意思決定支援検索モーダルヘッダーへのミュートボタン配置 (`src/components/MedicalDataSearchModal.tsx`)**:
+       - 検索モーダルの右上（閉じるボタンの左隣）にもミュートボタンを連動配置。10大医療ポートフォリオの検索・タブ切替中もワンタップで即座に消音切り替えが可能。
+    4. **ユニットテストの追加と全件検証 (`tests/macAudio.test.ts`)**:
+       - ミュート状態の切り替え、リスナー変更通知、再生関数ガードを検証する5件のテストを追加。全6ファイル・全71テスト100% PASS。
 
 ---
 

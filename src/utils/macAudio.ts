@@ -5,6 +5,68 @@
 
 let audioCtx: AudioContext | null = null;
 
+const STORAGE_KEY_MUTED = 'drvoice_audio_muted';
+
+// 音声ミュート状態 (Local-first: 自動永続化)
+let isMuted: boolean = (() => {
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_MUTED);
+      if (saved !== null) {
+        return saved === 'true';
+      }
+    } catch {}
+  }
+  return false;
+})();
+
+type MuteChangeListener = (muted: boolean) => void;
+const muteListeners = new Set<MuteChangeListener>();
+
+/**
+ * 現在のボタンタップ音・ビープ音のミュート状態を取得
+ */
+export function isAudioMuted(): boolean {
+  return isMuted;
+}
+
+/**
+ * ボタンタップ音・ビープ音のミュート状態を設定
+ */
+export function setAudioMuted(muted: boolean): void {
+  isMuted = muted;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(STORAGE_KEY_MUTED, String(muted));
+    } catch {}
+  }
+  muteListeners.forEach((fn) => {
+    try {
+      fn(isMuted);
+    } catch (e) {
+      console.error(e);
+    }
+  });
+}
+
+/**
+ * ボタンタップ音・ビープ音のミュート状態をトグル
+ */
+export function toggleAudioMuted(): boolean {
+  setAudioMuted(!isMuted);
+  return isMuted;
+}
+
+/**
+ * ミュート状態変更リスナーを登録
+ */
+export function addAudioMuteListener(listener: MuteChangeListener): () => void {
+  muteListeners.add(listener);
+  return () => {
+    muteListeners.delete(listener);
+  };
+}
+
 function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
   if (!audioCtx) {
@@ -31,6 +93,7 @@ export function triggerMacScreenFlash() {
 
 // 2. クラシック Macintosh "Simple Beep" (750Hz 矩形波・高速減衰)
 export function playMacBeep() {
+  if (isMuted) return;
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -57,6 +120,7 @@ export function playMacBeep() {
 
 // 3. System 7 代表的アラート音 "Sosumi" (名作コードアルペジオ)
 export function playSosumi() {
+  if (isMuted) return;
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -85,6 +149,7 @@ export function playSosumi() {
 
 // 4. クラシック Macintosh 起動音 (C Major Startup Chime)
 export function playStartupChime() {
+  if (isMuted) return;
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -114,6 +179,7 @@ export function playStartupChime() {
 
 // 5. ゴミ箱を空にする音 (Paper Crumple / Trash)
 export function playTrashSound() {
+  if (isMuted) return;
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -152,6 +218,7 @@ export function playTrashSound() {
 
 // 6. キータイピング打鍵音 (Classic Mechanical Keyboard Clack)
 export function playKeyClick() {
+  if (isMuted) return;
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -178,6 +245,7 @@ export function playKeyClick() {
 
 // 7. System 7 "Wild Eep" サウンド
 export function playWildEep() {
+  if (isMuted) return;
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -205,6 +273,7 @@ export function playWildEep() {
 
 // 8. System 7 "Quack" サウンド
 export function playQuack() {
+  if (isMuted) return;
   try {
     const ctx = getAudioContext();
     if (!ctx) return;

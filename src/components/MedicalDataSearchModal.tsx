@@ -31,6 +31,8 @@ import {
   ArrowLeft,
   ShieldCheck,
   Lock,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import {
   searchUnifiedMedicalKnowledge,
@@ -72,7 +74,7 @@ import {
   extractChartClinicalKeywords,
   DEFAULT_SAMPLE_CHART_TEXT,
 } from '../utils/chartTextCleaner';
-import { playMacBeep, playSosumi } from '../utils/macAudio';
+import { playMacBeep, playSosumi, isAudioMuted, toggleAudioMuted, addAudioMuteListener } from '../utils/macAudio';
 
 interface MedicalDataSearchModalProps {
   isOpen: boolean;
@@ -166,6 +168,24 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
       setSecretTapCount(next);
     }
   };
+
+  // ボタンタップ音・操作効果音のミュート状態
+  const [isMuted, setIsMuted] = useState<boolean>(() => isAudioMuted());
+
+  useEffect(() => {
+    const unsub = addAudioMuteListener((muted) => {
+      setIsMuted(muted);
+    });
+    return unsub;
+  }, []);
+
+  const handleToggleMute = useCallback(() => {
+    const next = toggleAudioMuted();
+    setIsMuted(next);
+    if (!next) {
+      playMacBeep();
+    }
+  }, []);
 
   // モーダルを閉じてメイン画面へ戻る（キーボード格納・スクロール位置ゼロリセット・ハンバーガーボタン消失防止）
   const handleClose = useCallback(() => {
@@ -487,6 +507,25 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
               <Brain className="w-3 h-3 text-purple-400" />
               <span>Gemma 2 MRL</span>
             </div>
+
+            {/* サウンドミュート切替ボタン */}
+            <button
+              type="button"
+              onClick={handleToggleMute}
+              className={`p-1.5 rounded-xl border flex items-center gap-1 text-xs font-bold transition-all cursor-pointer shrink-0 active:scale-95 ${
+                isMuted
+                  ? 'bg-rose-950/80 text-rose-300 border-rose-500/70 shadow-[0_0_8px_rgba(244,63,94,0.3)]'
+                  : 'bg-slate-800 text-slate-300 hover:text-white border-slate-700 hover:bg-slate-700'
+              }`}
+              title={isMuted ? 'タップ音・ビープ音を有効化（消音解除）' : 'タップ音・ビープ音を消音（ミュート）'}
+              aria-label={isMuted ? '消音中' : '効果音ON'}
+            >
+              {isMuted ? (
+                <VolumeX className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              )}
+            </button>
 
             <button
               onClick={handleClose}
