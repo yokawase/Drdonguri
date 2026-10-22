@@ -295,8 +295,8 @@ export const Gemma2MedicalChatPanel: React.FC<Gemma2MedicalChatPanelProps> = ({
       {/* チャットメッセージタイムライン */}
       <div
         ref={scrollContainerRef}
-        className={`p-3 space-y-3 overflow-y-auto ${
-          compact ? 'max-h-[280px] min-h-[190px]' : 'max-h-[380px] min-h-[240px]'
+        className={`p-3 space-y-3 overflow-y-auto min-h-0 ${
+          compact ? 'max-h-[280px] min-h-[190px]' : 'flex-1 min-h-[180px]'
         }`}
       >
         {messages.map((msg) => {

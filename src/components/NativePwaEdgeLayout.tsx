@@ -40,6 +40,7 @@ import {
   Volume2,
   VolumeX,
   MessageSquare,
+  Bot,
   Sun,
   Zap,
   CheckCircle2,
@@ -224,6 +225,8 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
   const [showKanjiInspector, setShowKanjiInspector] = useState(false);
   // 💬 インライン Gemma 2 専属医療秘書チャット 表示トグル (モバイル・メイン領域用)
   const [showInlineChat, setShowInlineChat] = useState(false);
+  // 📱 モバイル画面でのカルテカード内タブ ('editor': カルテ入力全文 | 'chat': 医療秘書チャット全文)
+  const [mobileCardTab, setMobileCardTab] = useState<'editor' | 'chat'>('editor');
   // 🖥️ T-Dongle-S3 液晶コックピット & LED輝度スライダー インライン表示トグル
   const [showDongleCockpit, setShowDongleCockpit] = useState(false);
   // デスクトップ右ペインタブ ('clinical' | 'chat' | 'dongle')
@@ -1180,7 +1183,15 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       triggerHaptic(15);
-                      setShowInlineChat((prev) => !prev);
+                      setShowInlineChat((prev) => {
+                        const next = !prev;
+                        if (next) {
+                          setMobileCardTab('chat');
+                        } else {
+                          setMobileCardTab('editor');
+                        }
+                        return next;
+                      });
                       setRightPaneTab('chat');
                     }}
                     className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold border transition-colors cursor-pointer ${
@@ -1235,6 +1246,56 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
               </div>
             </div>
 
+            {/* 📱 モバイル画面専用: カルテテキスト ↔ Gemma2医療秘書チャット 切り替えタブ */}
+            {showInlineChat && (
+              <div className="lg:hidden flex items-center justify-between bg-slate-900/90 p-1 rounded-xl border border-indigo-500/40 mb-2 shrink-0 animate-in fade-in shadow-md">
+                <div className="grid grid-cols-2 gap-1 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(10);
+                      setMobileCardTab('editor');
+                    }}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      mobileCardTab === 'editor'
+                        ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>📝 カルテテキスト</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(10);
+                      setMobileCardTab('chat');
+                    }}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      mobileCardTab === 'chat'
+                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md font-extrabold'
+                        : 'text-indigo-300 hover:text-white'
+                    }`}
+                  >
+                    <Bot className="w-3.5 h-3.5" />
+                    <span>💬 医療秘書チャット</span>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(10);
+                    setShowInlineChat(false);
+                    setMobileCardTab('editor');
+                  }}
+                  className="ml-1.5 p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                  title="チャットを終了してカルテ画面に戻る"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             {/* 音声解読完了マイクロ通知 */}
             {speechSuccessNotice && (
               <div className="mx-2 my-1 px-3 py-1.5 rounded-xl bg-emerald-950/90 border border-emerald-500/60 text-emerald-200 text-xs font-semibold flex items-center justify-between shadow-lg animate-in fade-in duration-200">
@@ -1253,14 +1314,14 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
             )}
 
             {/* 🖥️ インライン T-Dongle-S3 液晶コックピット ＆ LED輝度調節パネル (ヘッダーLEDボタンタップ時) */}
-            {showDongleCockpit && (
+            {showDongleCockpit && (!showInlineChat || mobileCardTab === 'editor') && (
               <div className="mx-1 my-1.5 animate-in fade-in">
                 {renderDongleHardwareCockpit(false)}
               </div>
             )}
 
             {/* 🎯 全電子カルテ 100% 決定論的漢字変換インスペクタ (Sudachi Mode C + v20.1 HYBRID + 単漢字BSアンカー) */}
-            {showKanjiInspector && (
+            {showKanjiInspector && (!showInlineChat || mobileCardTab === 'editor') && (
               <div className="mx-1 my-1.5 p-2.5 rounded-xl bg-slate-900/95 border border-emerald-500/50 space-y-2 animate-in fade-in shadow-xl">
                 <div className="flex items-center justify-between gap-2 flex-wrap border-b border-slate-800 pb-1.5">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -1318,9 +1379,9 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
               </div>
             )}
 
-            {/* 💬 インライン Gemma 2 専属医療秘書チャット (ワンタップ展開) */}
-            {showInlineChat && (
-              <div className="mx-1 my-1.5 animate-in fade-in">
+            {/* 💬 モバイル専用 Gemma 2 専属医療秘書チャット (フルサイズビュー: カルテ入力画面を極小化させず100%の縦幅で快適対話) */}
+            {showInlineChat && mobileCardTab === 'chat' && (
+              <div className="lg:hidden flex-1 flex flex-col min-h-0 animate-in fade-in mb-1">
                 <Gemma2MedicalChatPanel
                   chartText={localDraft || inputText}
                   isBleConnected={isBleConnected}
@@ -1336,6 +1397,10 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                       setLocalDraft(cleaned);
                       setInputText(cleaned);
                     }
+                    // カルテ反映後は自動的にカルテテキストタブへ切り替えて全文を確認可能にする
+                    setMobileCardTab('editor');
+                    setSpeechSuccessNotice('✨ 医療秘書の回答をカルテに反映しました');
+                    setTimeout(() => setSpeechSuccessNotice(null), 3500);
                   }}
                   onDirectSendToEmr={(newText) => {
                     const cleaned = cleanExtractedMedicalText(newText);
@@ -1343,13 +1408,14 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                     setInputText(cleaned);
                     setTimeout(() => onSendSession(), 80);
                   }}
-                  compact={true}
+                  compact={false}
+                  className="flex-1 h-full min-h-0"
                 />
               </div>
             )}
 
             {/* 🛡️ スーパーオンプレミス臨床コパイロット インラインパネル (RedFlags / eGFR処方 / 救急電卓 / GL根拠 / 書類生成) */}
-            {showCopilotPanel && (
+            {showCopilotPanel && (!showInlineChat || mobileCardTab === 'editor') && (
               <div className="mx-1 my-1.5 p-2.5 rounded-xl bg-slate-900/95 border border-emerald-500/50 space-y-2 animate-in fade-in shadow-xl">
                 <div className="flex items-center justify-between gap-1 flex-wrap border-b border-slate-800 pb-1.5">
                   <div className="flex items-center gap-1 flex-wrap">
@@ -1611,7 +1677,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
             )}
 
             {/* 発話例文クイックチップスパネル */}
-            {showSpeechChips && (
+            {showSpeechChips && (!showInlineChat || mobileCardTab === 'editor') && (
               <div className="mx-2 my-1.5 p-2.5 rounded-xl bg-slate-900/90 border border-amber-500/40 space-y-1.5 animate-in fade-in">
                 <div className="flex items-center justify-between text-[11px] font-bold text-amber-300">
                   <span className="flex items-center gap-1">
@@ -1654,8 +1720,9 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
             )}
 
             {/* テキストコンテンツ領域 (タップで編集切り替え可能・0ms Zero-Lag Local Buffer駆動) */}
-            <div
-              className="flex-1 overflow-y-auto overscroll-contain pr-1 text-[13px] lg:text-sm leading-relaxed font-sans text-slate-200 select-text"
+            {(!showInlineChat || mobileCardTab === 'editor') && (
+              <div
+                className="flex-1 overflow-y-auto overscroll-contain pr-1 text-[13px] lg:text-sm leading-relaxed font-sans text-slate-200 select-text min-h-0"
               onClick={() => {
                 if (!isEditing) {
                   setLocalDraft(inputText);
@@ -1828,6 +1895,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 );
               })()}
             </div>
+            )}
           </div>
         </div>
 
