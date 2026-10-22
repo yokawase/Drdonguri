@@ -11,3 +11,4 @@ coverage/
 DrdonguriGITHUB
 data/mozc_cache/
 __pycache__/
+*.traineddata

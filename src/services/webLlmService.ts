@@ -820,11 +820,16 @@ export async function formatMedicalChartWithWebLLM(
  */
 export async function refineOcrChartWithWebLLM(
   rawOcrText: string,
-  mode: 'chart' | 'soap' | 'prescription' = 'chart',
+  mode: 'chart' | 'soap' | 'prescription' | 'document' | 'auto' = 'chart',
   onProgress?: (report: ModelLoadProgress) => void,
   onStream?: (accumulatedText: string) => void,
   modelId: string = DEFAULT_WEBLLM_MODEL
 ): Promise<string> {
+  // ドキュメントモードの場合はカルテ整形を一切行わない
+  if (mode === 'document') {
+    return rawOcrText;
+  }
+
   const engine = await getWebLlmEngine(onProgress, modelId);
 
   const styleDesc =
