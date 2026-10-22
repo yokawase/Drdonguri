@@ -839,11 +839,11 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
     <div className="relative w-full h-[100dvh] max-h-[100dvh] bg-[#0F172A] text-slate-100 flex flex-col justify-between overflow-hidden select-none font-sans overscroll-none touch-manipulation">
 
       {/* ========================================================================= */}
-      {/* 2. ヘッダー部: 常時表示ハンバーガーメニュー + ロゴ + デスクトップナビ + BLE接続バッジ (sticky top-0 常時固定・画面外消失防止) */}
+      {/* 2. ヘッダー部: 常時表示ハンバーガーメニュー + デスクトップナビ + BLE接続バッジ (sticky top-0 常時固定) */}
       {/* ========================================================================= */}
-      <header className="sticky top-0 left-0 right-0 w-full px-4 pt-[calc(env(safe-area-inset-top,0px)+0.35rem)] pb-2 shrink-0 border-b border-slate-800/80 bg-[#0F172A]/95 backdrop-blur-md z-50">
+      <header className="sticky top-0 left-0 right-0 w-full px-4 pt-[calc(env(safe-area-inset-top,0px)+0.35rem)] pb-1.5 shrink-0 border-b border-slate-800/80 bg-[#0F172A]/95 backdrop-blur-md z-50">
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
-          {/* 左側: ハンバーガーメニュー & 戻るトグル & ロゴ (常時表示・非表示にならない安全設計) */}
+          {/* 左側: ハンバーガーメニュー & 戻るトグル (常時表示・非表示にならない安全設計) */}
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -851,7 +851,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 triggerHaptic(15);
                 setIsDrawerOpen((prev) => !prev);
               }}
-              className={`px-2 py-1.5 -ml-1 rounded-xl border flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer shrink-0 z-10 ${
+              className={`px-2.5 py-1.5 -ml-1 rounded-xl border flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer shrink-0 z-10 ${
                 isDrawerOpen
                   ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold shadow-[0_0_10px_rgba(245,158,11,0.3)]'
                   : 'bg-slate-800/90 hover:bg-slate-700 text-slate-200 border-slate-700'
@@ -867,19 +867,10 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
               ) : (
                 <>
                   <Menu className="w-5 h-5 stroke-[2.2]" />
-                  <span className="text-[11px] font-bold hidden sm:inline">メニュー</span>
+                  <span className="text-[11px] font-bold">メニュー</span>
                 </>
               )}
             </button>
-
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-bold tracking-tight text-white font-sans">
-                Dr.Dongly
-              </span>
-              <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-700/70">
-                漢字変換100%・医療秘書
-              </span>
-            </div>
           </div>
 
           {/* デスクトップ専用: ヘッダー中央クイックナビ (lg:flex hidden) */}
@@ -1031,11 +1022,11 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       {/* ========================================================================= */}
       {/* 3. メインコンテンツ部 (スクロール可能・バウンス抑止・レスポンシブ2ペイン) */}
       {/* ========================================================================= */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-3.5 py-2 overflow-y-auto overscroll-contain flex flex-col lg:grid lg:grid-cols-12 lg:gap-6 lg:p-4 lg:overflow-hidden">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-2.5 sm:px-3.5 py-1.5 sm:py-2 overflow-hidden flex flex-col lg:grid lg:grid-cols-12 lg:gap-6 lg:p-4">
         {/* 左側カラム (モバイル: 全幅, デスクトップ: 8カラム) */}
-        <div className="flex-1 flex flex-col gap-2.5 h-full overflow-hidden lg:col-span-8">
-          {/* ガイドライン・処方禁忌 ローカル検索バー */}
-          <div className="relative w-full shrink-0">
+        <div className="flex-1 flex flex-col gap-2 h-full min-h-0 overflow-hidden lg:col-span-8">
+          {/* デスクトップ専用 ガイドライン・処方禁忌 ローカル検索バー (モバイルではドロワー内に集約) */}
+          <div className="relative w-full shrink-0 hidden lg:block">
             <button
               type="button"
               onClick={() => {
@@ -1055,19 +1046,16 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
           </div>
 
           {/* 臨床所見・SOAP整形テキスト カード */}
-          <div className="flex-1 w-full bg-[#1E293B]/50 border border-slate-800 rounded-2xl p-3 lg:p-4 flex flex-col overflow-hidden shadow-lg backdrop-blur-sm relative">
-            {/* カードヘッダー */}
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800/80 mb-2 shrink-0 gap-1.5 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-4 bg-amber-500 rounded-[2px] inline-block shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
-                <h2 className="text-xs lg:text-sm font-bold text-slate-200 tracking-wide font-sans">
+          <div className="flex-1 w-full bg-[#1E293B]/50 border border-slate-800 rounded-2xl p-2.5 sm:p-3 lg:p-4 flex flex-col overflow-hidden shadow-lg backdrop-blur-sm relative min-h-0">
+            {/* カードヘッダー (1行スリム化・最小限表示) */}
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-800/80 mb-1.5 shrink-0 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2.5 h-4 bg-amber-500 rounded-[2px] inline-block shadow-[0_0_8px_rgba(245,158,11,0.5)] shrink-0" />
+                <h2 className="text-xs sm:text-sm font-bold text-slate-200 tracking-wide font-sans truncate">
                   臨床所見・SOAP整形テキスト
                 </h2>
-                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-600/40 hidden sm:inline">
-                  ⚡0ms爆速入力
-                </span>
               </div>
-              <div className="flex items-center gap-1 flex-wrap">
+              <div className="flex items-center gap-1.5 shrink-0">
                 {isSending ? (
                   <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-950/70 border border-rose-500/50 text-rose-300 text-[10px] font-bold animate-pulse">
                     <RefreshCw className="w-2.5 h-2.5 animate-spin text-rose-400" />
@@ -1092,138 +1080,14 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                   </span>
                 ) : null}
 
-                {/* 🎯 全電子カルテ 100%漢字変換確定インスペクタ トグルボタン */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    triggerHaptic(10);
-                    setShowKanjiInspector((prev) => !prev);
-                  }}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold border transition-colors cursor-pointer ${
-                    showKanjiInspector
-                      ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold'
-                      : 'text-emerald-300 hover:text-white bg-emerald-950/60 hover:bg-emerald-900/70 border-emerald-600/50'
-                  }`}
-                  title="どんな電子カルテでも漢字変換精度100%を保証する Sudachi Mode C + v20.1 HYBRID ストリームを確認"
-                >
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>漢字100%保証 ({compiledStreamPreview.zCount}熟語)</span>
-                </button>
-
-                {/* 医学略語正規化 ＆ 無駄なスペース・改行のワンタップ削除ボタン */}
-                {!isSending && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      triggerHaptic(15);
-                      const raw = localDraft || inputText || DEFAULT_SAMPLE_CHART_TEXT;
-                      const { expandedText } = expandMedicalAbbreviations(raw);
-                      const cleaned = cleanExtractedMedicalText(normalizeMedicalSpeechTerms(expandedText));
-                      setLocalDraft(cleaned);
-                      setInputText(cleaned);
-                    }}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-sky-300 hover:text-white bg-sky-950/50 hover:bg-sky-900/70 border border-sky-700/50 transition-colors cursor-pointer"
-                    title="英語略語(HTN, DM, s/o等)の日本語正規化と、無駄なスペース・空白行・重複表現を一括整理します"
-                  >
-                    <Sparkles className="w-3 h-3 text-sky-400" />
-                    <span>略語・空白整理</span>
-                  </button>
+                {/* 入力文字数カウンター (入力時のみ表示) */}
+                {(localDraft.trim() || inputText.trim()) && (
+                  <span className="text-[10px] font-mono text-slate-400 bg-slate-900/80 px-1.5 py-0.5 rounded border border-slate-800">
+                    {(localDraft || inputText).length}文字
+                  </span>
                 )}
 
-                {/* 発話例文チップス切替ボタン */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    triggerHaptic(10);
-                    setShowSpeechChips((prev) => !prev);
-                  }}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold border transition-colors cursor-pointer ${
-                    showSpeechChips
-                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold'
-                      : 'text-amber-300 hover:text-white bg-amber-950/60 hover:bg-amber-900/70 border-amber-600/50'
-                  }`}
-                  title="医師向け音声入力の解読例文チップスを表示"
-                >
-                  <span>🎙️ 発話例文</span>
-                </button>
-
-                {/* 🛡️ スーパーオンプレミス臨床コパイロット */}
-                {!isSending && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      triggerHaptic(15);
-                      setShowCopilotPanel((prev) => !prev);
-                    }}
-                    className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold border transition-colors cursor-pointer ${
-                      showCopilotPanel
-                        ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold'
-                        : 'text-emerald-300 hover:text-white bg-emerald-950/60 hover:bg-emerald-900/70 border-emerald-600/50'
-                    }`}
-                    title="鑑別Red Flags・腎機能eGFR処方監査・救急体重電卓・Minds根拠文をワンタップ追記"
-                  >
-                    <ShieldCheck className="w-3 h-3" />
-                    <span>コパイロット</span>
-                    {copilotData.renalAudit.alerts.length > 0 && (
-                      <span className="px-1 rounded-full bg-rose-500 text-white text-[9px] font-mono">
-                        {copilotData.renalAudit.alerts.length}
-                      </span>
-                    )}
-                  </button>
-                )}
-
-                {/* 💬 Gemma 2 専属医療秘書チャット インライントグル */}
-                {!isSending && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      triggerHaptic(15);
-                      setShowInlineChat((prev) => {
-                        const next = !prev;
-                        if (next) {
-                          setMobileCardTab('chat');
-                        } else {
-                          setMobileCardTab('editor');
-                        }
-                        return next;
-                      });
-                      setRightPaneTab('chat');
-                    }}
-                    className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold border transition-colors cursor-pointer ${
-                      showInlineChat
-                        ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold'
-                        : 'text-amber-300 hover:text-white bg-amber-950/60 hover:bg-amber-900/70 border-amber-600/50'
-                    }`}
-                    title="Gemma 2 専属医療秘書とチャット対話して鑑別・処方・紹介状・要約を相談します"
-                  >
-                    <MessageSquare className="w-3 h-3" />
-                    <span>Gemma2チャット</span>
-                  </button>
-                )}
-
-                {/* Gemma 2 スーパー臨床AIスタジオ ショートカットボタン */}
-                {!isSending && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      triggerHaptic(15);
-                      onOpenWebLlm('soap');
-                    }}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-purple-300 hover:text-white bg-purple-950/60 hover:bg-purple-900/70 border border-purple-600/50 transition-colors cursor-pointer"
-                    title="Gemma 2 でSOAPカルテ・紹介状・指示簿・SBAR・患者IC説明書・安全監査をワンタップ作成"
-                  >
-                    <Cpu className="w-3 h-3 text-purple-400" />
-                    <span>AI文書起草</span>
-                  </button>
-                )}
-
-                {/* カルテ消去ボタン */}
+                {/* カルテ消去ボタン (コンパクトアイコン) */}
                 {(localDraft.trim() || inputText.trim()) && !isSending && (
                   <button
                     type="button"
@@ -1236,69 +1100,19 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                         setIsEditing(false);
                       }
                     }}
-                    className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-slate-700/60 hover:border-rose-500/50 transition-colors cursor-pointer"
+                    className="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-slate-700/60 hover:border-rose-500/50 transition-colors cursor-pointer"
                     title="入力内容を消去"
+                    aria-label="消去"
                   >
-                    <Trash2 className="w-3 h-3" />
-                    <span>消去</span>
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
             </div>
 
-            {/* 📱 モバイル画面専用: カルテテキスト ↔ Gemma2医療秘書チャット 切り替えタブ */}
-            {showInlineChat && (
-              <div className="lg:hidden flex items-center justify-between bg-slate-900/90 p-1 rounded-xl border border-indigo-500/40 mb-2 shrink-0 animate-in fade-in shadow-md">
-                <div className="grid grid-cols-2 gap-1 flex-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic(10);
-                      setMobileCardTab('editor');
-                    }}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                      mobileCardTab === 'editor'
-                        ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>📝 カルテテキスト</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic(10);
-                      setMobileCardTab('chat');
-                    }}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                      mobileCardTab === 'chat'
-                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md font-extrabold'
-                        : 'text-indigo-300 hover:text-white'
-                    }`}
-                  >
-                    <Bot className="w-3.5 h-3.5" />
-                    <span>💬 医療秘書チャット</span>
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic(10);
-                    setShowInlineChat(false);
-                    setMobileCardTab('editor');
-                  }}
-                  className="ml-1.5 p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-                  title="チャットを終了してカルテ画面に戻る"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-
             {/* 音声解読完了マイクロ通知 */}
             {speechSuccessNotice && (
-              <div className="mx-2 my-1 px-3 py-1.5 rounded-xl bg-emerald-950/90 border border-emerald-500/60 text-emerald-200 text-xs font-semibold flex items-center justify-between shadow-lg animate-in fade-in duration-200">
+              <div className="mx-2 my-1 px-3 py-1.5 rounded-xl bg-emerald-950/90 border border-emerald-500/60 text-emerald-200 text-xs font-semibold flex items-center justify-between shadow-lg animate-in fade-in duration-200 shrink-0">
                 <span className="flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
                   <span>{speechSuccessNotice}</span>
@@ -1313,416 +1127,9 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
               </div>
             )}
 
-            {/* 🖥️ インライン T-Dongle-S3 液晶コックピット ＆ LED輝度調節パネル (ヘッダーLEDボタンタップ時) */}
-            {showDongleCockpit && (!showInlineChat || mobileCardTab === 'editor') && (
-              <div className="mx-1 my-1.5 animate-in fade-in">
-                {renderDongleHardwareCockpit(false)}
-              </div>
-            )}
-
-            {/* 🎯 全電子カルテ 100% 決定論的漢字変換インスペクタ (Sudachi Mode C + v20.1 HYBRID + 単漢字BSアンカー) */}
-            {showKanjiInspector && (!showInlineChat || mobileCardTab === 'editor') && (
-              <div className="mx-1 my-1.5 p-2.5 rounded-xl bg-slate-900/95 border border-emerald-500/50 space-y-2 animate-in fade-in shadow-xl">
-                <div className="flex items-center justify-between gap-2 flex-wrap border-b border-slate-800 pb-1.5">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[11px] font-bold text-emerald-300 flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>全電子カルテ100%漢字変換確定ストリーム (Sudachi Mode C + v20.1 HYBRID)</span>
-                    </span>
-                    <span className="text-[9px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded">
-                      ALTコード:0件 / Mozc・DMiME医療辞書: 32万語完全連動
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowKanjiInspector(false)}
-                    className="text-slate-400 hover:text-white text-[11px] px-1.5 cursor-pointer"
-                  >
-                    閉じる ✕
-                  </button>
-                </div>
-
-                <div className="text-[10px] text-slate-300 leading-relaxed">
-                  Google Mozc公式辞書（最小コスト最適選別）＋DMiME医療辞書（4.2万語）＋長単位結合オートマトン（Sudachi Mode C）により、MS-IME / ATOKの学習履歴に左右されず<strong className="text-emerald-300">100%狙った漢字に確定</strong>し、助詞は<strong className="text-amber-300">[H] Space禁止即時Enter</strong>で誤変換を完全遮断します。
-                </div>
-
-                <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto p-2 rounded-lg bg-slate-950/90 border border-slate-800">
-                  {compiledStreamPreview.stream.tokens.slice(0, 60).map((tok, i) => {
-                    const hasBsAnchor = tok.romaji.includes('\x08');
-                    const badgeStyle =
-                      tok.tag === 'Z'
-                        ? hasBsAnchor
-                          ? 'bg-teal-950/90 text-teal-200 border-teal-400/60'
-                          : 'bg-emerald-950/80 text-emerald-200 border-emerald-500/50'
-                        : tok.tag === 'K'
-                        ? 'bg-sky-950/80 text-sky-200 border-sky-500/50'
-                        : tok.tag === 'H'
-                        ? 'bg-amber-950/80 text-amber-200 border-amber-500/50'
-                        : 'bg-purple-950/80 text-purple-200 border-purple-500/50';
-                    return (
-                      <span
-                        key={i}
-                        className={`px-1.5 py-0.5 rounded border text-[10px] font-mono inline-flex items-center gap-1 ${badgeStyle}`}
-                        title={`[${tok.tag}] ローマ字打鍵: ${tok.romaji.replace(/\x08/g, '[BS]')}`}
-                      >
-                        <span className="font-bold opacity-75">[{tok.tag}]</span>
-                        <span>{tok.surface === '\n' ? '↵改行' : tok.surface}</span>
-                        {hasBsAnchor && (
-                          <span className="text-[8px] px-1 rounded bg-teal-500/30 text-teal-200">
-                            ⚓100%確定
-                          </span>
-                        )}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* 💬 モバイル専用 Gemma 2 専属医療秘書チャット (フルサイズビュー: カルテ入力画面を極小化させず100%の縦幅で快適対話) */}
-            {showInlineChat && mobileCardTab === 'chat' && (
-              <div className="lg:hidden flex-1 flex flex-col min-h-0 animate-in fade-in mb-1">
-                <Gemma2MedicalChatPanel
-                  chartText={localDraft || inputText}
-                  isBleConnected={isBleConnected}
-                  onApplyToChart={(newText, mode) => {
-                    const cleaned = cleanExtractedMedicalText(newText);
-                    if (mode === 'append') {
-                      const merged = cleanExtractedMedicalText(
-                        localDraft ? `${localDraft}\n\n${cleaned}` : cleaned
-                      );
-                      setLocalDraft(merged);
-                      setInputText(merged);
-                    } else {
-                      setLocalDraft(cleaned);
-                      setInputText(cleaned);
-                    }
-                    // カルテ反映後は自動的にカルテテキストタブへ切り替えて全文を確認可能にする
-                    setMobileCardTab('editor');
-                    setSpeechSuccessNotice('✨ 医療秘書の回答をカルテに反映しました');
-                    setTimeout(() => setSpeechSuccessNotice(null), 3500);
-                  }}
-                  onDirectSendToEmr={(newText) => {
-                    const cleaned = cleanExtractedMedicalText(newText);
-                    setLocalDraft(cleaned);
-                    setInputText(cleaned);
-                    setTimeout(() => onSendSession(), 80);
-                  }}
-                  compact={false}
-                  className="flex-1 h-full min-h-0"
-                />
-              </div>
-            )}
-
-            {/* 🛡️ スーパーオンプレミス臨床コパイロット インラインパネル (RedFlags / eGFR処方 / 救急電卓 / GL根拠 / 書類生成) */}
-            {showCopilotPanel && (!showInlineChat || mobileCardTab === 'editor') && (
-              <div className="mx-1 my-1.5 p-2.5 rounded-xl bg-slate-900/95 border border-emerald-500/50 space-y-2 animate-in fade-in shadow-xl">
-                <div className="flex items-center justify-between gap-1 flex-wrap border-b border-slate-800 pb-1.5">
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => setCopilotTab('redflag')}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                        copilotTab === 'redflag'
-                          ? 'bg-rose-500 text-white'
-                          : 'bg-slate-800 text-rose-300 hover:bg-slate-700'
-                      }`}
-                    >
-                      🚨 鑑別Red Flags ({copilotData.redFlags.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCopilotTab('renal')}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                        copilotTab === 'renal'
-                          ? 'bg-amber-500 text-slate-950'
-                          : 'bg-slate-800 text-amber-300 hover:bg-slate-700'
-                      }`}
-                    >
-                      💊 eGFR処方監査 ({copilotData.renalAudit.alerts.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCopilotTab('emergency')}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                        copilotTab === 'emergency'
-                          ? 'bg-sky-500 text-slate-950'
-                          : 'bg-slate-800 text-sky-300 hover:bg-slate-700'
-                      }`}
-                    >
-                      ⚡ 救急・中毒電卓 ({copilotData.effectiveWeight}kg)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCopilotTab('evidence')}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                        copilotTab === 'evidence'
-                          ? 'bg-emerald-500 text-slate-950'
-                          : 'bg-slate-800 text-emerald-300 hover:bg-slate-700'
-                      }`}
-                    >
-                      📚 GL・算定根拠 ({copilotData.glSnippets.length})
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowCopilotPanel(false)}
-                    className="text-slate-400 hover:text-white text-[11px] px-1.5"
-                  >
-                    閉じる ✕
-                  </button>
-                </div>
-
-                {/* タブ1: 鑑別 Red Flags ＆ 防衛カルテ記載 */}
-                {copilotTab === 'redflag' && (
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                    {copilotData.redFlags.map((rf) => (
-                      <div
-                        key={rf.id}
-                        className="p-2 rounded-lg bg-slate-950/90 border border-rose-500/30 flex items-center justify-between gap-2"
-                      >
-                        <div className="text-[11px] space-y-0.5">
-                          <div className="font-bold text-rose-300">{rf.syndrome}</div>
-                          <div className="text-[10px] text-slate-300">
-                            除外鑑別: <span className="text-amber-300 font-semibold">{rf.criticalDifferentials.join(' / ')}</span>
-                          </div>
-                          <div className="text-[10px] text-slate-400">
-                            確認所見: {rf.mustCheckSigns.join(' ・ ')}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            triggerHaptic(15);
-                            const next = cleanExtractedMedicalText(
-                              localDraft ? `${localDraft}\n${rf.defensiveChartSnippet}` : rf.defensiveChartSnippet
-                            );
-                            setLocalDraft(next);
-                            setInputText(next);
-                          }}
-                          className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold shrink-0 cursor-pointer"
-                        >
-                          ＋防衛記載追記
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* タブ2: eGFR 処方監査 */}
-                {copilotTab === 'renal' && (
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                    {copilotData.renalAudit.alerts.length > 0 ? (
-                      copilotData.renalAudit.alerts.map((al) => (
-                        <div
-                          key={al.id}
-                          className="p-2 rounded-lg bg-slate-950/90 border border-amber-500/40 flex items-center justify-between gap-2"
-                        >
-                          <div className="text-[11px] space-y-0.5">
-                            <div className="font-bold text-amber-300">
-                              💊 {al.drugName} ({al.detectedEgfr !== null ? `eGFR ${al.detectedEgfr}` : '腎機能基準'})
-                            </div>
-                            <div className="text-[10px] text-slate-200">{al.recommendedAction}</div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              triggerHaptic(15);
-                              const next = cleanExtractedMedicalText(
-                                localDraft ? `${localDraft}\n${al.orderSnippet}` : al.orderSnippet
-                              );
-                              setLocalDraft(next);
-                              setInputText(next);
-                            }}
-                            className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-bold shrink-0 cursor-pointer"
-                          >
-                            ＋監査根拠追記
-                          </button>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-[11px] text-slate-300 p-2 bg-slate-950/80 rounded-lg border border-slate-800 flex items-center justify-between">
-                        <span>✅ 現在処方に重篤な腎機能用量逸脱は検出されていません（カルテに「eGFR 28」や腎排泄薬を入力すると自動計算します）</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* タブ3: 救急・当直 体重別即時アクション電卓 */}
-                {copilotTab === 'emergency' && (
-                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                    <div className="flex items-center justify-between text-[10px] bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-                      <span className="text-sky-300 font-bold">患者体重設定 (ワンタップ換算):</span>
-                      <div className="flex items-center gap-1">
-                        {[40, 50, 60, 70, 80].map((w) => (
-                          <button
-                            key={w}
-                            type="button"
-                            onClick={() => setPatientWeightKg(w)}
-                            className={`px-2 py-0.5 rounded font-mono font-bold cursor-pointer ${
-                              copilotData.effectiveWeight === w
-                                ? 'bg-sky-500 text-slate-950'
-                                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                            }`}
-                          >
-                            {w}kg
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {copilotData.emergencyDoses.map((em) => (
-                      <div
-                        key={em.id}
-                        className="p-2 rounded-lg bg-slate-950/90 border border-sky-500/30 flex items-center justify-between gap-2"
-                      >
-                        <div className="text-[11px] space-y-0.5">
-                          <div className="font-bold text-sky-300 flex items-center gap-1.5">
-                            <span>⚡ {em.title}</span>
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-950 text-sky-200 border border-sky-500/40">
-                              {em.badge}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-slate-200 font-mono">{em.calculatedSummary}</div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            triggerHaptic(15);
-                            const next = cleanExtractedMedicalText(
-                              localDraft ? `${localDraft}\n${em.orderText}` : em.orderText
-                            );
-                            setLocalDraft(next);
-                            setInputText(next);
-                          }}
-                          className="px-2.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 text-[10px] font-bold shrink-0 cursor-pointer"
-                        >
-                          ＋指示挿入
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* タブ4: Mindsガイドライン ＆ レセプト算定根拠文 */}
-                {copilotTab === 'evidence' && (
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                    {copilotData.glSnippets.map((gl) => (
-                      <div
-                        key={gl.id}
-                        className="p-2 rounded-lg bg-slate-950/90 border border-emerald-500/30 flex items-center justify-between gap-2"
-                      >
-                        <div className="text-[11px] space-y-0.5">
-                          <div className="font-bold text-emerald-300 flex items-center gap-1.5">
-                            <span>📚 {gl.title}</span>
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-200 border border-emerald-500/40">
-                              {gl.badge}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-slate-300 line-clamp-2">{gl.snippet}</div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            triggerHaptic(15);
-                            const next = cleanExtractedMedicalText(
-                              localDraft ? `${localDraft}\n${gl.snippet}` : gl.snippet
-                            );
-                            setLocalDraft(next);
-                            setInputText(next);
-                          }}
-                          className="px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10px] font-bold shrink-0 cursor-pointer"
-                        >
-                          ＋根拠追記
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* 下部クイックバー: Gemma 2 臨床ドキュメント ワンタップ起草 */}
-                <div className="pt-1.5 border-t border-slate-800 flex items-center justify-between gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-bold text-purple-300">📄 ワンタップ文書作成:</span>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => onOpenWebLlm('referral')}
-                      className="px-2 py-0.5 rounded bg-purple-950/80 hover:bg-purple-900 text-purple-200 border border-purple-500/40 text-[10px] font-semibold cursor-pointer"
-                    >
-                      紹介状・サマリー
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onOpenWebLlm('order_sbar')}
-                      className="px-2 py-0.5 rounded bg-purple-950/80 hover:bg-purple-900 text-purple-200 border border-purple-500/40 text-[10px] font-semibold cursor-pointer"
-                    >
-                      看護師指示簿・SBAR
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onOpenWebLlm('patient_ic')}
-                      className="px-2 py-0.5 rounded bg-purple-950/80 hover:bg-purple-900 text-purple-200 border border-purple-500/40 text-[10px] font-semibold cursor-pointer"
-                    >
-                      患者IC説明書
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onOpenWebLlm('clinical_audit')}
-                      className="px-2 py-0.5 rounded bg-purple-950/80 hover:bg-purple-900 text-purple-200 border border-purple-500/40 text-[10px] font-semibold cursor-pointer"
-                    >
-                      総合安全監査
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 発話例文クイックチップスパネル */}
-            {showSpeechChips && (!showInlineChat || mobileCardTab === 'editor') && (
-              <div className="mx-2 my-1.5 p-2.5 rounded-xl bg-slate-900/90 border border-amber-500/40 space-y-1.5 animate-in fade-in">
-                <div className="flex items-center justify-between text-[11px] font-bold text-amber-300">
-                  <span className="flex items-center gap-1">
-                    <span>💡</span>
-                    <span>医療音声解読 推奨発話例文（タップでカルテに即反映）</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowSpeechChips(false)}
-                    className="text-slate-400 hover:text-white text-xs"
-                  >
-                    閉じる
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {SPEECH_SAMPLE_CHIPS.map((chip, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        triggerHaptic(15);
-                        const decoded = decodeMedicalSpeech(chip.speech);
-                        const next = cleanExtractedMedicalText(
-                          localDraft ? `${localDraft}\n${decoded.decodedText}` : decoded.decodedText
-                        );
-                        setLocalDraft(next);
-                        setInputText(next);
-                      }}
-                      className="px-2 py-1 rounded-lg text-[11px] font-mono bg-slate-800 hover:bg-amber-950/70 text-slate-200 hover:text-amber-200 border border-slate-700 hover:border-amber-500/50 transition-all flex items-center gap-1 group cursor-pointer"
-                      title={`発話: 「${chip.speech}」➔ 自動解読挿入`}
-                    >
-                      <span className="font-semibold text-amber-400">{chip.label}</span>
-                      <span className="text-[9px] text-slate-400 group-hover:text-amber-300">
-                        ({chip.speech})
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* テキストコンテンツ領域 (タップで編集切り替え可能・0ms Zero-Lag Local Buffer駆動) */}
-            {(!showInlineChat || mobileCardTab === 'editor') && (
-              <div
-                className="flex-1 overflow-y-auto overscroll-contain pr-1 text-[13px] lg:text-sm leading-relaxed font-sans text-slate-200 select-text min-h-0"
+            <div
+              className="flex-1 overflow-y-auto overscroll-contain pr-1 text-[13px] lg:text-sm leading-relaxed font-sans text-slate-200 select-text min-h-0 flex flex-col"
               onClick={() => {
                 if (!isEditing) {
                   setLocalDraft(inputText);
@@ -1761,9 +1168,8 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                       setInputText(cleaned);
                     }
                   }}
-                  placeholder="所見を入力、またはマイクボタンをタップして音声入力してください..."
-                  className="w-full h-full bg-transparent text-slate-100 text-xs sm:text-[13px] lg:text-sm leading-relaxed resize-none focus:outline-none font-mono selection:bg-amber-500/30"
-                  style={{ minHeight: '180px' }}
+                  placeholder="所見を入力、または下の音声入力ボタンをタップして音声入力してください..."
+                  className="w-full flex-1 h-full min-h-[280px] bg-transparent text-slate-100 text-xs sm:text-[13px] lg:text-sm leading-relaxed resize-none focus:outline-none font-mono selection:bg-amber-500/30"
                 />
               ) : (
                 <div className="space-y-1 cursor-text">
@@ -1895,7 +1301,6 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 );
               })()}
             </div>
-            )}
           </div>
         </div>
 
@@ -2290,26 +1695,26 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       </main>
 
       {/* ========================================================================= */}
-      {/* 4. 親指ボトムアクションバー (左: 電カル受信, 中央: 音声入力FAB, 右: 電カル送信) */}
+      {/* 4. 親指ボトムアクションバー (コンパクト化: 左: 電カル受信, 中央: 音声入力FAB, 右: 電カル送信) */}
       {/* ========================================================================= */}
-      <nav className="w-full pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-2 px-6 bg-[#0F172A]/95 border-t border-slate-800/80 backdrop-blur-md shrink-0 flex flex-col items-center relative z-20">
+      <nav className="w-full pb-[calc(env(safe-area-inset-bottom,0px)+0.35rem)] pt-1 px-4 bg-[#0F172A]/95 border-t border-slate-800/80 backdrop-blur-md shrink-0 flex flex-col items-center relative z-20">
         {/* 音声録音中のオシロスコープ波形（FAB上部） */}
         {isRecording && (
-          <div className="w-full max-w-xs sm:max-w-sm h-10 flex items-center justify-center mb-1 animate-in fade-in">
-            <svg className="w-full h-10 overflow-visible" viewBox="0 0 240 40" fill="none">
+          <div className="w-full max-w-xs sm:max-w-sm h-6 flex items-center justify-center mb-0.5 animate-in fade-in">
+            <svg className="w-full h-6 overflow-visible" viewBox="0 0 240 24" fill="none">
               {/* 第1波形 (主波形: ローズレッド) */}
               <path
-                d={`M 10 20 Q 40 ${20 - audioLevel * 35 - 2} 70 20 T 120 ${20 + audioLevel * 30 + 1} T 170 ${20 - audioLevel * 28} T 230 20`}
+                d={`M 10 12 Q 40 ${12 - audioLevel * 20 - 1} 70 12 T 120 ${12 + audioLevel * 18 + 1} T 170 ${12 - audioLevel * 16} T 230 12`}
                 stroke="#F43F5E"
-                strokeWidth="2.5"
+                strokeWidth="2"
                 strokeLinecap="round"
                 className="animate-waveform-1"
               />
               {/* 第2波形 (副波形: ソフトピンク・位相ずれ) */}
               <path
-                d={`M 10 20 Q 50 ${20 + audioLevel * 25 + 3} 90 20 T 140 ${20 - audioLevel * 20 - 2} T 190 ${20 + audioLevel * 22} T 230 20`}
+                d={`M 10 12 Q 50 ${12 + audioLevel * 14 + 2} 90 12 T 140 ${12 - audioLevel * 12 - 1} T 190 ${12 + audioLevel * 13} T 230 12`}
                 stroke="#FB7185"
-                strokeWidth="1.5"
+                strokeWidth="1.2"
                 strokeLinecap="round"
                 opacity="0.8"
                 className="animate-waveform-2"
@@ -2318,65 +1723,65 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
           </div>
         )}
 
-        <div className="w-full flex items-center justify-between max-w-sm sm:max-w-md mx-auto">
-          {/* 【左側】電カルから受信 (コーラルピンク) */}
-          <div className="flex flex-col items-center gap-1.5">
+        <div className="w-full flex items-center justify-between max-w-xs sm:max-w-sm mx-auto">
+          {/* 【左側】電カルから受信 (コーラルピンク・コンパクト44px) */}
+          <div className="flex flex-col items-center gap-0.5">
             <button
               type="button"
               onClick={() => {
                 triggerHaptic(25);
                 onOpenCoprocessor?.();
               }}
-              className="w-14 h-14 rounded-full bg-[#1E293B] border border-[#F43F5E]/60 text-[#F43F5E] hover:bg-[#F43F5E]/10 active:scale-90 transition-all flex items-center justify-center shadow-lg group"
+              className="w-11 h-11 rounded-full bg-[#1E293B] border border-[#F43F5E]/60 text-[#F43F5E] hover:bg-[#F43F5E]/10 active:scale-90 transition-all flex items-center justify-center shadow-md group cursor-pointer"
               title="閉域網電子カルテから過去カルテを吸い上げ"
             >
-              <Download className="w-6 h-6 group-hover:translate-y-0.5 transition-transform" />
+              <Download className="w-5 h-5 group-hover:translate-y-0.5 transition-transform" />
             </button>
-            <span className="text-[11px] font-semibold text-[#F43F5E] tracking-tight">
+            <span className="text-[10px] font-semibold text-[#F43F5E] tracking-tight">
               電カル受信
             </span>
           </div>
 
-          {/* 【中央】音声入力 ⇒ 自動テキスト化整形 (直径68px 特大FAB + 同心円グロー) */}
-          <div className="flex flex-col items-center gap-1.5 -translate-y-3">
+          {/* 【中央】音声入力 ⇒ 自動テキスト化整形 (コンパクト48px FAB) */}
+          <div className="flex flex-col items-center gap-0.5 -translate-y-1">
             <div className="relative flex items-center justify-center">
               {/* 同心円の外側グローサークル */}
               <div
-                className={`absolute w-20 h-20 rounded-full transition-all duration-300 pointer-events-none ${
+                className={`absolute w-15 h-15 rounded-full transition-all duration-300 pointer-events-none ${
                   isRecording
-                    ? 'bg-rose-950/70 ring-2 ring-rose-500/50 shadow-[0_0_35px_rgba(244,63,94,0.4)] animate-pulse'
-                    : 'bg-amber-500/15 ring-2 ring-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.25)]'
+                    ? 'bg-rose-950/70 ring-2 ring-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.4)] animate-pulse'
+                    : 'bg-amber-500/15 ring-1.5 ring-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
                 }`}
               />
 
               <button
                 type="button"
                 onClick={toggleSpeechRecognition}
-                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 relative z-10 shadow-2xl ${
+                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 relative z-10 shadow-lg cursor-pointer ${
                   isRecording
-                    ? 'bg-[#F43F5E] hover:bg-[#E11D48] text-white shadow-[0_10px_25px_-5px_rgba(225,29,72,0.6)]'
-                    : 'bg-[#F59E0B] hover:bg-[#D97706] text-slate-950 shadow-[0_10px_25px_-5px_rgba(245,158,11,0.4)]'
+                    ? 'bg-[#F43F5E] hover:bg-[#E11D48] text-white shadow-[0_6px_20px_rgba(225,29,72,0.5)]'
+                    : 'bg-[#F59E0B] hover:bg-[#D97706] text-slate-950 shadow-[0_6px_20px_rgba(245,158,11,0.35)]'
                 }`}
                 title={isRecording ? '録音を停止してカルテを自動整形' : 'マイクを起動して音声入力開始'}
               >
                 {isRecording ? (
-                  <Square className="w-6 h-6 fill-white" />
+                  <Square className="w-5 h-5 fill-white" />
                 ) : (
-                  <Mic className="w-7 h-7 stroke-[2.4]" />
+                  <Mic className="w-5.5 h-5.5 stroke-[2.4]" />
                 )}
               </button>
             </div>
             <span
-              className={`text-[11px] font-bold tracking-tight transition-colors ${
+              className={`text-[10px] font-bold tracking-tight transition-colors ${
                 isRecording ? 'text-rose-400 animate-pulse' : 'text-slate-100'
               }`}
             >
-              {isRecording ? 'タップで完了・整形' : '音声入力'}
+              {isRecording ? '完了・整形' : '音声入力'}
             </span>
           </div>
 
-          {/* 【右側】電カルへ送信 / 転送中断 (スカイブルー / ローズ) */}
-          <div className="flex flex-col items-center gap-1.5">
+          {/* 【右側】電カルへ送信 / 転送中断 (スカイブルー / ローズ・コンパクト44px) */}
+          <div className="flex flex-col items-center gap-0.5">
             {isSending ? (
               <button
                 type="button"
@@ -2384,10 +1789,10 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                   triggerHaptic([40, 80]);
                   onAbortTransfer?.();
                 }}
-                className="w-14 h-14 rounded-full bg-rose-600 hover:bg-rose-500 border border-rose-400 text-white active:scale-90 transition-all flex items-center justify-center shadow-[0_0_20px_rgba(244,63,94,0.6)] animate-pulse group cursor-pointer"
+                className="w-11 h-11 rounded-full bg-rose-600 hover:bg-rose-500 border border-rose-400 text-white active:scale-90 transition-all flex items-center justify-center shadow-[0_0_15px_rgba(244,63,94,0.6)] animate-pulse group cursor-pointer"
                 title="電子カルテへの転送・打鍵を安全に中断"
               >
-                <OctagonX className="w-7 h-7" />
+                <OctagonX className="w-5 h-5" />
               </button>
             ) : (
               <button
@@ -2397,16 +1802,16 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                   onSendSession();
                 }}
                 disabled={!inputText.trim()}
-                className={`w-14 h-14 rounded-full bg-[#1E293B] border border-sky-400/60 text-sky-400 hover:bg-sky-400/10 active:scale-90 transition-all flex items-center justify-center shadow-lg group cursor-pointer ${
+                className={`w-11 h-11 rounded-full bg-[#1E293B] border border-sky-400/60 text-sky-400 hover:bg-sky-400/10 active:scale-90 transition-all flex items-center justify-center shadow-md group cursor-pointer ${
                   !inputText.trim() ? 'opacity-40 cursor-not-allowed' : ''
                 }`}
                 title="電子カルテ端末へUSB-HID自動打鍵転送"
               >
-                <Send className="w-6 h-6 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                <Send className="w-5 h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
               </button>
             )}
             <span
-              className={`text-[11px] font-semibold tracking-tight transition-colors ${
+              className={`text-[10px] font-semibold tracking-tight transition-colors ${
                 isSending ? 'text-rose-400 font-bold animate-pulse' : 'text-sky-400'
               }`}
             >
@@ -2416,7 +1821,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         </div>
 
         {/* ホームインジケータバー */}
-        <div className="w-32 h-1 bg-slate-600/70 rounded-full mt-3 shrink-0" />
+        <div className="w-24 h-0.5 bg-slate-600/60 rounded-full mt-1.5 shrink-0" />
       </nav>
 
       {/* ========================================================================= */}
@@ -2473,6 +1878,132 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 >
                   <X className="w-4 h-4" />
                 </button>
+              </div>
+
+              {/* 🔍 臨床データ高速ローカル検索バー */}
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(15);
+                  setIsDrawerOpen(false);
+                  onOpenSearch('all');
+                }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 hover:border-amber-500/60 rounded-xl text-left transition-all group shadow-inner cursor-pointer"
+              >
+                <Search className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="text-xs text-slate-300 truncate">
+                  ガイドライン・Minds・処方禁忌を検索...
+                </span>
+                <span className="ml-auto text-[10px] font-mono text-emerald-400 border border-emerald-700/60 bg-emerald-950/60 rounded px-1.5 py-0.5 shrink-0">
+                  ⚡0.1ms
+                </span>
+              </button>
+
+              {/* ⚡ カルテテキスト操作 ＆ 入力支援 (メイン画面から集約) */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-bold text-amber-400 tracking-wider uppercase flex items-center justify-between">
+                  <span>カルテテキスト操作 ＆ 入力支援</span>
+                  <span className="text-[10px] font-mono text-emerald-300">ワンタップ実行</span>
+                </span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {/* 略語・空白整理 */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(15);
+                      const raw = localDraft || inputText || DEFAULT_SAMPLE_CHART_TEXT;
+                      const { expandedText } = expandMedicalAbbreviations(raw);
+                      const cleaned = cleanExtractedMedicalText(normalizeMedicalSpeechTerms(expandedText));
+                      setLocalDraft(cleaned);
+                      setInputText(cleaned);
+                      setIsDrawerOpen(false);
+                      setSpeechSuccessNotice('✨ 略語と無駄な空白・改行を一括整理しました');
+                      setTimeout(() => setSpeechSuccessNotice(null), 3000);
+                    }}
+                    className="col-span-2 p-2.5 rounded-xl bg-sky-950/50 hover:bg-sky-900/60 border border-sky-600/40 text-left transition-colors flex items-center justify-between group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Sparkles className="w-4 h-4 text-sky-400 shrink-0" />
+                      <div>
+                        <div className="text-xs font-semibold text-sky-200">略語・空白整理</div>
+                        <div className="text-[10px] text-sky-400 font-mono">HTN/DM正規化 ＆ 無駄な空白一括削除</div>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-sky-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
+                  </button>
+
+                  {/* 🎙️ 音声推奨発話例文 */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(10);
+                      setIsDrawerOpen(false);
+                      setShowSpeechChips(true);
+                    }}
+                    className="p-2 rounded-xl bg-amber-950/40 hover:bg-amber-900/50 border border-amber-600/40 text-left transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <span className="text-base">🎙️</span>
+                    <div>
+                      <div className="text-xs font-semibold text-amber-200">推奨発話例文</div>
+                      <div className="text-[9px] text-amber-400">ワンタップ挿入</div>
+                    </div>
+                  </button>
+
+                  {/* 🛡️ 臨床コパイロット */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(15);
+                      setIsDrawerOpen(false);
+                      setShowCopilotPanel(true);
+                    }}
+                    className="p-2 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-600/40 text-left transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-semibold text-emerald-200">臨床コパイロット</div>
+                      <div className="text-[9px] text-emerald-400">RedFlags/eGFR/電卓</div>
+                    </div>
+                  </button>
+
+                  {/* 🎯 漢字100%保証インスペクタ */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(10);
+                      setIsDrawerOpen(false);
+                      setShowKanjiInspector(true);
+                    }}
+                    className="p-2 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-600/40 text-left transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-semibold text-emerald-200">漢字100%保証</div>
+                      <div className="text-[9px] text-emerald-400">{compiledStreamPreview.zCount}熟語 分解確認</div>
+                    </div>
+                  </button>
+
+                  {/* 🗑️ カルテ全消去 */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(20);
+                      if (window.confirm('入力中のカルテテキストをすべて消去しますか？')) {
+                        setLocalDraft('');
+                        setInputText('');
+                        setIsEditing(false);
+                        setIsDrawerOpen(false);
+                      }
+                    }}
+                    className="p-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/50 border border-rose-600/40 text-left transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4 text-rose-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-semibold text-rose-200">カルテ消去</div>
+                      <div className="text-[9px] text-rose-400">入力内容クリア</div>
+                    </div>
+                  </button>
+                </div>
               </div>
 
               {/* カルテ100%連動 抽出キーワード（モバイルでも一目で把握可能） */}
@@ -2929,6 +2460,439 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 了解して戻る
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🎯 全電子カルテ 100% 決定論的漢字変換インスペクタ モーダル */}
+      {showKanjiInspector && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-lg max-h-[85vh] bg-[#0F172A] border border-emerald-500/50 rounded-2xl p-4 shadow-2xl flex flex-col space-y-3 overflow-hidden">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2 shrink-0">
+              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                <span className="text-xs sm:text-sm font-bold text-emerald-300 flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>全電子カルテ100%漢字変換確定ストリーム</span>
+                </span>
+                <span className="text-[9px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded">
+                  ALTコード:0件 / 32万語連動
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowKanjiInspector(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="text-[10px] text-slate-300 leading-relaxed shrink-0">
+              Google Mozc公式辞書＋DMiME医療辞書＋長単位結合オートマトン（Sudachi Mode C）により、<strong className="text-emerald-300">100%狙った漢字に確定</strong>し、助詞は<strong className="text-amber-300">[H] Space禁止即時Enter</strong>で誤変換を完全遮断します。
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-2 rounded-lg bg-slate-950/90 border border-slate-800 flex flex-wrap gap-1 min-h-[140px] max-h-60">
+              {compiledStreamPreview.stream.tokens.slice(0, 100).map((tok, i) => {
+                const hasBsAnchor = tok.romaji.includes('\x08');
+                const badgeStyle =
+                  tok.tag === 'Z'
+                    ? hasBsAnchor
+                      ? 'bg-teal-950/90 text-teal-200 border-teal-400/60'
+                      : 'bg-emerald-950/80 text-emerald-200 border-emerald-500/50'
+                    : tok.tag === 'K'
+                    ? 'bg-sky-950/80 text-sky-200 border-sky-500/50'
+                    : tok.tag === 'H'
+                    ? 'bg-amber-950/80 text-amber-200 border-amber-500/50'
+                    : 'bg-purple-950/80 text-purple-200 border-purple-500/50';
+                return (
+                  <span
+                    key={i}
+                    className={`px-1.5 py-0.5 rounded border text-[10px] font-mono inline-flex items-center gap-1 ${badgeStyle}`}
+                    title={`[${tok.tag}] ローマ字打鍵: ${tok.romaji.replace(/\x08/g, '[BS]')}`}
+                  >
+                    <span className="font-bold opacity-75">[{tok.tag}]</span>
+                    <span>{tok.surface === '\n' ? '↵改行' : tok.surface}</span>
+                    {hasBsAnchor && (
+                      <span className="text-[8px] px-1 rounded bg-teal-500/30 text-teal-200">
+                        ⚓100%確定
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowKanjiInspector(false)}
+              className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold shrink-0 transition-colors cursor-pointer"
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🛡️ スーパーオンプレミス臨床コパイロット モーダル */}
+      {showCopilotPanel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-xl max-h-[85vh] bg-[#0F172A] border border-emerald-500/50 rounded-2xl p-4 shadow-2xl flex flex-col space-y-3 overflow-hidden">
+            <div className="flex items-center justify-between gap-1 border-b border-slate-800 pb-2 shrink-0">
+              <span className="text-xs sm:text-sm font-bold text-emerald-300 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>スーパーオンプレミス臨床コパイロット</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowCopilotPanel(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* タブ切り替え */}
+            <div className="flex items-center gap-1 flex-wrap shrink-0">
+              <button
+                type="button"
+                onClick={() => setCopilotTab('redflag')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                  copilotTab === 'redflag'
+                    ? 'bg-rose-500 text-white'
+                    : 'bg-slate-800 text-rose-300 hover:bg-slate-700'
+                }`}
+              >
+                🚨 鑑別Red Flags ({copilotData.redFlags.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setCopilotTab('renal')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                  copilotTab === 'renal'
+                    ? 'bg-amber-500 text-slate-950'
+                    : 'bg-slate-800 text-amber-300 hover:bg-slate-700'
+                }`}
+              >
+                💊 eGFR処方監査 ({copilotData.renalAudit.alerts.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setCopilotTab('emergency')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                  copilotTab === 'emergency'
+                    ? 'bg-sky-500 text-slate-950'
+                    : 'bg-slate-800 text-sky-300 hover:bg-slate-700'
+                }`}
+              >
+                ⚡ 救急電卓 ({copilotData.effectiveWeight}kg)
+              </button>
+              <button
+                type="button"
+                onClick={() => setCopilotTab('evidence')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                  copilotTab === 'evidence'
+                    ? 'bg-emerald-500 text-slate-950'
+                    : 'bg-slate-800 text-emerald-300 hover:bg-slate-700'
+                }`}
+              >
+                📚 GL根拠 ({copilotData.glSnippets.length})
+              </button>
+            </div>
+
+            {/* コパイロットコンテンツ部 (スクロール可能) */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[160px]">
+              {copilotTab === 'redflag' && (
+                <div className="space-y-1.5">
+                  {copilotData.redFlags.map((rf) => (
+                    <div
+                      key={rf.id}
+                      className="p-2 rounded-lg bg-slate-950/90 border border-rose-500/30 flex items-center justify-between gap-2"
+                    >
+                      <div className="text-[11px] space-y-0.5">
+                        <div className="font-bold text-rose-300">{rf.syndrome}</div>
+                        <div className="text-[10px] text-slate-300">
+                          除外鑑別: <span className="text-amber-300 font-semibold">{rf.criticalDifferentials.join(' / ')}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400">確認所見: {rf.mustCheckSigns.join(' ・ ')}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic(15);
+                          const next = cleanExtractedMedicalText(
+                            localDraft ? `${localDraft}\n${rf.defensiveChartSnippet}` : rf.defensiveChartSnippet
+                          );
+                          setLocalDraft(next);
+                          setInputText(next);
+                          setShowCopilotPanel(false);
+                          setSpeechSuccessNotice('✨ 防衛カルテ記載を追記しました');
+                          setTimeout(() => setSpeechSuccessNotice(null), 3000);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold shrink-0 cursor-pointer"
+                      >
+                        ＋防衛記載追記
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {copilotTab === 'renal' && (
+                <div className="space-y-1.5">
+                  {copilotData.renalAudit.alerts.length > 0 ? (
+                    copilotData.renalAudit.alerts.map((al) => (
+                      <div
+                        key={al.id}
+                        className="p-2 rounded-lg bg-slate-950/90 border border-amber-500/40 flex items-center justify-between gap-2"
+                      >
+                        <div className="text-[11px] space-y-0.5">
+                          <div className="font-bold text-amber-300">
+                            💊 {al.drugName} ({al.detectedEgfr !== null ? `eGFR ${al.detectedEgfr}` : '腎機能基準'})
+                          </div>
+                          <div className="text-[10px] text-slate-200">{al.recommendedAction}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic(15);
+                            const next = cleanExtractedMedicalText(
+                              localDraft ? `${localDraft}\n${al.orderSnippet}` : al.orderSnippet
+                            );
+                            setLocalDraft(next);
+                            setInputText(next);
+                            setShowCopilotPanel(false);
+                            setSpeechSuccessNotice('✨ 処方監査根拠を追記しました');
+                            setTimeout(() => setSpeechSuccessNotice(null), 3000);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-[10px] font-bold shrink-0 cursor-pointer"
+                        >
+                          ＋監査根拠追記
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-[11px] text-slate-300 p-2.5 bg-slate-950/80 rounded-lg border border-slate-800">
+                      ✅ 現在処方に重篤な腎機能用量逸脱は検出されていません
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {copilotTab === 'emergency' && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[10px] bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+                    <span className="text-sky-300 font-bold">患者体重設定 (ワンタップ換算):</span>
+                    <div className="flex items-center gap-1">
+                      {[40, 50, 60, 70, 80].map((w) => (
+                        <button
+                          key={w}
+                          type="button"
+                          onClick={() => setPatientWeightKg(w)}
+                          className={`px-2 py-0.5 rounded font-mono font-bold cursor-pointer ${
+                            copilotData.effectiveWeight === w
+                              ? 'bg-sky-500 text-slate-950'
+                              : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                          }`}
+                        >
+                          {w}kg
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {copilotData.emergencyDoses.map((em) => (
+                    <div
+                      key={em.id}
+                      className="p-2 rounded-lg bg-slate-950/90 border border-sky-500/30 flex items-center justify-between gap-2"
+                    >
+                      <div className="text-[11px] space-y-0.5">
+                        <div className="font-bold text-sky-300 flex items-center gap-1.5">
+                          <span>⚡ {em.title}</span>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-sky-950 text-sky-200 border border-sky-500/40">
+                            {em.badge}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-200 font-mono">{em.calculatedSummary}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic(15);
+                          const next = cleanExtractedMedicalText(
+                            localDraft ? `${localDraft}\n${em.orderText}` : em.orderText
+                          );
+                          setLocalDraft(next);
+                          setInputText(next);
+                          setShowCopilotPanel(false);
+                          setSpeechSuccessNotice('✨ 救急指示を挿入しました');
+                          setTimeout(() => setSpeechSuccessNotice(null), 3000);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 text-[10px] font-bold shrink-0 cursor-pointer"
+                      >
+                        ＋指示挿入
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {copilotTab === 'evidence' && (
+                <div className="space-y-1.5">
+                  {copilotData.glSnippets.map((gl) => (
+                    <div
+                      key={gl.id}
+                      className="p-2 rounded-lg bg-slate-950/90 border border-emerald-500/30 flex items-center justify-between gap-2"
+                    >
+                      <div className="text-[11px] space-y-0.5">
+                        <div className="font-bold text-emerald-300 flex items-center gap-1.5">
+                          <span>📚 {gl.title}</span>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-200 border border-emerald-500/40">
+                            {gl.badge}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-300 line-clamp-2">{gl.snippet}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic(15);
+                          const next = cleanExtractedMedicalText(
+                            localDraft ? `${localDraft}\n${gl.snippet}` : gl.snippet
+                          );
+                          setLocalDraft(next);
+                          setInputText(next);
+                          setShowCopilotPanel(false);
+                          setSpeechSuccessNotice('✨ ガイドライン根拠を追記しました');
+                          setTimeout(() => setSpeechSuccessNotice(null), 3000);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10px] font-bold shrink-0 cursor-pointer"
+                      >
+                        ＋根拠追記
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 下部クイック起草 & 閉じる */}
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-1 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCopilotPanel(false);
+                    onOpenWebLlm('referral');
+                  }}
+                  className="px-2 py-1 rounded bg-purple-950/80 hover:bg-purple-900 text-purple-200 border border-purple-500/40 text-[10px] font-semibold cursor-pointer"
+                >
+                  📄 紹介状
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCopilotPanel(false);
+                    onOpenWebLlm('order_sbar');
+                  }}
+                  className="px-2 py-1 rounded bg-purple-950/80 hover:bg-purple-900 text-purple-200 border border-purple-500/40 text-[10px] font-semibold cursor-pointer"
+                >
+                  📋 指示簿
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCopilotPanel(false)}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-colors cursor-pointer"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🎙️ 発話例文クイックチップス モーダル */}
+      {showSpeechChips && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-lg max-h-[85vh] bg-[#0F172A] border border-amber-500/50 rounded-2xl p-4 shadow-2xl flex flex-col space-y-3 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2 shrink-0">
+              <div className="text-xs sm:text-sm font-bold text-amber-300 flex items-center gap-1.5">
+                <span>🎙️</span>
+                <span>医療音声解読 推奨発話例文</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSpeechChips(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400 shrink-0">タップすると例文をカルテに即挿入・解読します：</p>
+            <div className="flex-1 overflow-y-auto flex flex-wrap gap-1.5 pr-1 min-h-[140px]">
+              {SPEECH_SAMPLE_CHIPS.map((chip, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(15);
+                    const decoded = decodeMedicalSpeech(chip.speech);
+                    const next = cleanExtractedMedicalText(
+                      localDraft ? `${localDraft}\n${decoded.decodedText}` : decoded.decodedText
+                    );
+                    setLocalDraft(next);
+                    setInputText(next);
+                    setShowSpeechChips(false);
+                    setSpeechSuccessNotice(`✨ 発話例文「${chip.label}」を挿入しました`);
+                    setTimeout(() => setSpeechSuccessNotice(null), 3000);
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-mono bg-slate-800 hover:bg-amber-950/70 text-slate-200 hover:text-amber-200 border border-slate-700 hover:border-amber-500/50 transition-all flex items-center gap-1.5 group cursor-pointer"
+                  title={`発話: 「${chip.speech}」➔ 自動解読挿入`}
+                >
+                  <span className="font-semibold text-amber-400">{chip.label}</span>
+                  <span className="text-[10px] text-slate-400 group-hover:text-amber-300">
+                    ({chip.speech})
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSpeechChips(false)}
+              className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold shrink-0 transition-colors cursor-pointer"
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🖥️ T-Dongle-S3 液晶コックピット & LED輝度調節 モーダル */}
+      {showDongleCockpit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-sm animate-in fade-in">
+          <div className="relative w-full max-w-md max-h-[85vh] bg-[#0F172A] border border-sky-500/50 rounded-2xl p-4 shadow-2xl flex flex-col space-y-3 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2 shrink-0">
+              <span className="text-xs sm:text-sm font-bold text-sky-300 flex items-center gap-1.5">
+                <Sun className="w-4 h-4 text-amber-400" />
+                <span>T-Dongle-S3 液晶 ＆ LED輝度調節</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowDongleCockpit(false)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {renderDongleHardwareCockpit(false)}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDongleCockpit(false)}
+              className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold shrink-0 transition-colors cursor-pointer"
+            >
+              閉じる
+            </button>
           </div>
         </div>
       )}
