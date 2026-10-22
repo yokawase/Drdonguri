@@ -188,8 +188,9 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '疑い': 'utagai',
 
   // 診療情報提供書・紹介状・時候挨拶・退院サマリー
-  '診療情報提供書': 'shinryoujouhouteikyoujo',
-  '情報提供書': 'jouhouteikyoujo',
+  '医療提供体制': 'iryouteikyoutaisei',
+  '診療情報提供書': 'shinryoujouhouteikyousho',
+  '情報提供書': 'jouhouteikyousho',
   '退院時サマリードラフト': 'taiinjisamari-dorafuto',
   '退院時サマリー': 'taiinjisamari-',
   '退院時': 'taiinji',
@@ -207,8 +208,9 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   'ご高配': 'gokouhai',
   '高配': 'kouhai',
   '格別': 'kakubetsu',
-  '厚く御礼申し上げます': 'atsukuoreimoushiagemasu',
-  '御礼': 'orei',
+  '厚く御礼申し上げます': 'atsukuonreimoushiagemasu',
+  '厚く御礼': 'atsukuonrei',
+  '御礼': 'onrei',
   '今般': 'kompan',
   '患者様': 'kanjasama',
   '専門的精査': 'semmontekiseisa',
@@ -499,6 +501,128 @@ export type MultiChunkItem = {
 // 最適チャンク分割 ＆ 複合語アンカー＋Backspace ([BS]) 辞書
 // -----------------------------------------------------------------------------
 export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
+  // ===========================================================================
+  // ★ 誤変換防止5大ルール: 診療情報提供書・紹介状・サマリー完全適応
+  // ===========================================================================
+  // 法則④: 公的レジストリ複合語打鍵（厚労省公式名称で一括確定・「提供所」誤変換根絶）
+  '診療情報提供書': [
+    { tag: 'Z', text: '診療情報提供書', romaji: 'shinryoujouhouteikyousho' },
+  ],
+  '情報提供書': [
+    { tag: 'Z', text: '情報提供書', romaji: 'jouhouteikyousho' },
+  ],
+
+  // 法則①: 最長一致キラー（「専門的」＋「精査」を医療境界で物理遮断し「適正さ」誤爆を完全阻止）
+  '専門的精査': [
+    { tag: 'Z', text: '専門的', romaji: 'semmonteki' },
+    { tag: 'Z', text: '精査', romaji: 'seisa' },
+  ],
+  '専門的加療': [
+    { tag: 'Z', text: '専門的', romaji: 'semmonteki' },
+    { tag: 'Z', text: '加療', romaji: 'karyou' },
+  ],
+  '初期精査': [
+    { tag: 'Z', text: '初期', romaji: 'shoki' },
+    { tag: 'Z', text: '精査', romaji: 'seisa' },
+  ],
+  '精査加療': [
+    { tag: 'Z', text: '精査', romaji: 'seisa' },
+    { tag: 'Z', text: '加療', romaji: 'karyou' },
+  ],
+  '対症療法': [
+    { tag: 'Z', text: '対症', romaji: 'taisyou' },
+    { tag: 'Z', text: '療法', romaji: 'ryouhou' },
+  ],
+
+  // 法則③: 長単位コロケーション打鍵（手紙・紹介状の格式ある漢字を強制召喚）
+  '厚く御礼申し上げます': [
+    { tag: 'Z', text: '厚く御礼', romaji: 'atsukuonrei' },
+    { tag: 'Z', text: '申し上げます', romaji: 'moushiagemasu' },
+  ],
+  '厚く御礼': [
+    { tag: 'Z', text: '厚く御礼', romaji: 'atsukuonrei' },
+  ],
+  'お慶び申し上げます': [
+    { tag: 'Z', text: 'お慶び', romaji: 'oyorokobi' },
+    { tag: 'Z', text: '申し上げます', romaji: 'moushiagemasu' },
+  ],
+  'のこととお慶び申し上げます': [
+    { tag: 'H', text: 'のことと', romaji: 'nokototo' },
+    { tag: 'Z', text: 'お慶び', romaji: 'oyorokobi' },
+    { tag: 'Z', text: '申し上げます', romaji: 'moushiagemasu' },
+  ],
+  'こととお慶び申し上げます': [
+    { tag: 'H', text: 'ことと', romaji: 'kototo' },
+    { tag: 'Z', text: 'お慶び', romaji: 'oyorokobi' },
+    { tag: 'Z', text: '申し上げます', romaji: 'moushiagemasu' },
+  ],
+  'こととお慶び': [
+    { tag: 'H', text: 'ことと', romaji: 'kototo' },
+    { tag: 'Z', text: 'お慶び', romaji: 'oyorokobi' },
+  ],
+  'お慶び': [
+    { tag: 'Z', text: 'お慶び', romaji: 'oyorokobi' },
+  ],
+  '格別のご高配': [
+    { tag: 'Z', text: '格別', romaji: 'kakubetsu' },
+    { tag: 'H', text: 'の', romaji: 'no' },
+    { tag: 'Z', text: 'ご高配', romaji: 'gokouhai' },
+  ],
+  'ご清祥': [
+    { tag: 'Z', text: 'ご清祥', romaji: 'goseishou' },
+  ],
+  '何卒ご高診': [
+    { tag: 'Z', text: '何卒', romaji: 'nanitozo' },
+    { tag: 'Z', text: 'ご高診', romaji: 'gokoushin' },
+  ],
+  'ご高診のお願い': [
+    { tag: 'Z', text: 'ご高診', romaji: 'gokoushin' },
+    { tag: 'H', text: 'の', romaji: 'no' },
+    { tag: 'Z', text: 'お願い', romaji: 'onegai' },
+  ],
+  'お願いしたくご紹介申し上げます': [
+    { tag: 'Z', text: 'お願い', romaji: 'onegai' },
+    { tag: 'H', text: 'したく', romaji: 'shitaku' },
+    { tag: 'Z', text: 'ご紹介', romaji: 'goshoukai' },
+    { tag: 'Z', text: '申し上げます', romaji: 'moushiagemasu' },
+  ],
+  'お願い申し上げます': [
+    { tag: 'Z', text: 'お願い', romaji: 'onegai' },
+    { tag: 'Z', text: '申し上げます', romaji: 'moushiagemasu' },
+  ],
+  'のほどよろしくお願い申し上げます': [
+    { tag: 'H', text: 'のほどよろしく', romaji: 'nohodoyoroshiku' },
+    { tag: 'Z', text: 'お願い', romaji: 'onegai' },
+    { tag: 'Z', text: '申し上げます', romaji: 'moushiagemasu' },
+  ],
+  'ほどよろしくお願い申し上げます': [
+    { tag: 'H', text: 'ほどよろしく', romaji: 'hodoyoroshiku' },
+    { tag: 'Z', text: 'お願い', romaji: 'onegai' },
+    { tag: 'Z', text: '申し上げます', romaji: 'moushiagemasu' },
+  ],
+  'よろしくお願い申し上げます': [
+    { tag: 'H', text: 'よろしく', romaji: 'yoroshiku' },
+    { tag: 'Z', text: 'お願い', romaji: 'onegai' },
+    { tag: 'Z', text: '申し上げます', romaji: 'moushiagemasu' },
+  ],
+  'ご紹介申し上げます': [
+    { tag: 'Z', text: 'ご紹介', romaji: 'goshoukai' },
+    { tag: 'Z', text: '申し上げます', romaji: 'moushiagemasu' },
+  ],
+  '恐れ入りますが': [
+    { tag: 'Z', text: '恐れ入りますが', romaji: 'osoreirimasuga' },
+  ],
+
+  // 法則⑤: 完全同音異義語コントロール（健診 vs 検診）
+  // 「健診」はMS-IME初期順位で第2候補となるため [G] (Space 2回 ➔ Enter) で第2候補「健診」を1発確定！
+  '健診': [
+    { tag: 'G', text: '健診', romaji: 'kennsinn' },
+  ],
+  // 「検診」は第1候補なので通常 [Z] (Space 1回 ➔ Enter)
+  '検診': [
+    { tag: 'Z', text: '検診', romaji: 'kennsinn' },
+  ],
+
   // ★ 英数混在医療フレーズ (英字は[A]直接送出、漢字は決定論的Space確定)
   '非ST上昇型心筋梗塞': [
     { tag: 'G', text: '非', romaji: 'hi' },
@@ -989,13 +1113,55 @@ export const SUFFIX_READING: Record<string, string> = {
   '的': 'teki',
 };
 
+// 法則②: 数詞＋助数詞の膠着一体変換マスター（助数詞の単独孤立・誤爆防止）
+// 例: 「60歳」➔ [Z]60sai[/Z], 「38度」➔ [Z]38do[/Z], 「1回」➔ [Z]1kai[/Z], 「2錠」➔ [Z]2jyou[/Z]
+export const COUNTER_SUFFIX_ROMAJI: Record<string, string> = {
+  '歳': 'sai',
+  '才': 'sai',
+  '日': 'niti',
+  '回': 'kai',
+  '錠': 'jyou',
+  '度': 'do',
+  '分': 'hunn',
+  '秒': 'byou',
+  '年': 'nenn',
+  '人': 'ninn',
+  '名': 'mei',
+  '個': 'ko',
+  '包': 'hou',
+  '本': 'honn',
+  '枚': 'mai',
+  '倍': 'bai',
+  '点': 'tenn',
+  '割': 'wari',
+  '台': 'dai',
+  '匹': 'hiki',
+  '頭': 'tou',
+  '足': 'soku',
+  '羽': 'wa',
+  '滴': 'teki',
+  '管': 'kann',
+  '袋': 'hukuro',
+  '箱': 'hako',
+  '缶': 'kann',
+  '組': 'kumi',
+  '件': 'kenn',
+  '発': 'hatu',
+  '番': 'bann',
+  '号': 'gou',
+};
+
 // 付属語・助詞・述部（[H] Enter即時確定）
 export const PARTICLES = new Set([
   'から', 'まで', 'が', 'を', 'に', 'へ', 'と', 'より', 'で', 'の', 'は', 'も', 'や',
   'など', 'あり', 'なし', 'です', 'ます', 'でした', 'ました', 'ない', 'ぬ', 'ば',
   'ので', 'のに', 'けど', 'けれど', 'ながら', 'つつ', 'すと', 'して', 'され', 'せる', 'た', 'て',
-  'するも', 'する', 'した', 'された', 'および', 'または', 'にて', 'のみ'
+  'するも', 'する', 'した', 'したく', 'たく', 'すべく', 'すべき', 'された', 'および', 'または', 'にて', 'のみ',
+  'つきまして', 'につきまして', 'について', 'により', 'とともに', 'とともに', 'にあたり'
 ]);
+
+// 最長一致を保証するため文字数降順でソート
+export const SORTED_PARTICLES = Array.from(PARTICLES).sort((a, b) => b.length - a.length);
 
 // 語幹・語尾ペアルール（動詞・形容詞の誤変換防止）
 export const VERB_STEM_RULES: { pattern: RegExp; stemSurface: string; stemRomaji: string; endingSurface: string; endingRomaji: string }[] = [
@@ -1273,6 +1439,18 @@ export class KeyStrokeCompiler {
       }
       if (matchedVerb) continue;
 
+      // D-2. 最長一致マルチチャンク最適分解 ＆ 5大誤変換防止ルール探索 (最優先実行)
+      let matchedMultiChunk = false;
+      for (const [phrase, chunks] of SORTED_MULTI_CHUNK_ENTRIES) {
+        if (remaining.startsWith(phrase)) {
+          appendChunkItems(chunks);
+          i += phrase.length;
+          matchedMultiChunk = true;
+          break;
+        }
+      }
+      if (matchedMultiChunk) continue;
+
       // E. カタカナ語 + 「性」+ 漢字名詞 の特殊結合
       // 例: 「アルコール性肝機能障害」 ➔ [K]aruko-ru[/K] + [Z]seikankinousyougai[/Z]
       const katakanaMatch = remaining.match(/^([\u30A1-\u30FA\u30FC]+)性([\u4E00-\u9FFF]+)/);
@@ -1321,6 +1499,31 @@ export class KeyStrokeCompiler {
         continue;
       }
 
+      // G-0. 【法則② 密結合打鍵】数詞＋助数詞の膠着一体変換（助数詞の単独孤立・差異誤爆防止）
+      // 例: 「60歳」➔ [Z]60sai[/Z], 「38度」➔ [Z]38do[/Z], 「2錠」➔ [Z]2jyou[/Z], 「3日」➔ [Z]3niti[/Z]
+      const numCounterMatch = remaining.match(/^([0-9０-９]+(?:\.[0-9０-９]+)?)(歳|才|日|回|錠|度|分|秒|年|人|名|個|包|本|枚|倍|点|割|台|匹|頭|足|羽|滴|管|袋|箱|缶|組|件|発|番|号)/);
+      if (numCounterMatch) {
+        const fullMatched = numCounterMatch[0];
+        const rawDigits = numCounterMatch[1];
+        const counterChar = numCounterMatch[2];
+        const counterRomaji = COUNTER_SUFFIX_ROMAJI[counterChar];
+        if (counterRomaji) {
+          // 全角数字を半角数字へ正規化
+          const asciiDigits = rawDigits.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+          const payload = `${asciiDigits}${counterRomaji}`;
+          blocks.push({
+            type: 'z_kanji',
+            tag: 'Z',
+            rawText: fullMatched,
+            compiledPayload: `[Z]${payload}[/Z]`,
+          });
+          zCount++;
+          totalKeystrokes += payload.length + 2;
+          i += fullMatched.length;
+          continue;
+        }
+      }
+
       // G. 半角英数字・記号 (ASCII / ギリシャ文字 / カンマ) ➔ [A] (直接送出 / F10確定)
       const asciiMatch = remaining.match(/^(?:[\u0370-\u03FFa-zA-Z0-9_\-\.\,\:\/\%\+\(\)]+)/);
       if (asciiMatch) {
@@ -1338,17 +1541,6 @@ export class KeyStrokeCompiler {
       }
 
       // H. 熟語・複合名詞・接尾辞結合オートマトン (Mode C)
-      // H-0. マルチチャンク最適分解・[BS]アンカー辞書探索 (最長一致順)
-      let matchedMultiChunk = false;
-      for (const [phrase, chunks] of SORTED_MULTI_CHUNK_ENTRIES) {
-        if (remaining.startsWith(phrase)) {
-          appendChunkItems(chunks);
-          i += phrase.length;
-          matchedMultiChunk = true;
-          break;
-        }
-      }
-      if (matchedMultiChunk) continue;
 
       // H-1. 既存の臨床・検証済み辞書 (COMPOUND_LEXICON) 最長一致探索 (最長24文字〜2文字)
       // ※サ変語尾（する/した/され/して）や「な」は [Z] に混ぜず [H] で無変換確定させることでIME誤爆を根絶
@@ -1436,7 +1628,7 @@ export class KeyStrokeCompiler {
 
       // H-2. 助詞・付属語 (ひらがな) ➔ [H] 即時確定
       let matchedParticle = false;
-      for (const p of PARTICLES) {
+      for (const p of SORTED_PARTICLES) {
         if (remaining.startsWith(p)) {
           const romaji = kanaToNormalizedRomaji(p);
           blocks.push({
