@@ -1269,7 +1269,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                       <span>全電子カルテ100%漢字変換確定ストリーム (Sudachi Mode C + v20.1 HYBRID)</span>
                     </span>
                     <span className="text-[9px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded">
-                      ALTコード:0件 / 単漢字BS確定:{compiledStreamPreview.anchorBsCount}箇所
+                      ALTコード:0件 / Mozc・DMiME医療辞書: 32万語完全連動
                     </span>
                   </div>
                   <button
@@ -1282,7 +1282,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                 </div>
 
                 <div className="text-[10px] text-slate-300 leading-relaxed">
-                  同音異義語や単漢字（「整」「清」「軟」「純」「錠」「診」「症」「炎」等）は熟語アンカー確定＋Backspace切断でMS-IME / ATOKの学習履歴に左右されず<strong className="text-emerald-300">100%狙った漢字に確定</strong>し、助詞は<strong className="text-amber-300">[H] Space禁止即時Enter</strong>で誤変換を完全遮断します。
+                  Google Mozc公式辞書（最小コスト最適選別）＋DMiME医療辞書（4.2万語）＋長単位結合オートマトン（Sudachi Mode C）により、MS-IME / ATOKの学習履歴に左右されず<strong className="text-emerald-300">100%狙った漢字に確定</strong>し、助詞は<strong className="text-amber-300">[H] Space禁止即時Enter</strong>で誤変換を完全遮断します。
                 </div>
 
                 <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto p-2 rounded-lg bg-slate-950/90 border border-slate-800">

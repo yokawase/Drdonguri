@@ -133,19 +133,135 @@ export function kanaToNormalizedRomaji(text: string): string {
 // 臨床熟語・複合名詞・自立語マスター (Compound Lexicon)
 // -----------------------------------------------------------------------------
 export const COMPOUND_LEXICON: Record<string, string> = {
+  // ★ 普遍的高精度医療・紹介状・心電図マスター (v4.0)
+  '心電図所見': 'sindenzushoken',
+  '心電図': 'sindenzu',
+  '労作性狭心症': 'rousakuseikyoushinsyou',
+  '狭心症': 'kyoushinsyou',
+  '心筋虚血': 'shinkinkyoketsu',
+  '心筋梗塞': 'shinkinkousoku',
+  '非ST上昇型心筋梗塞': 'hiSTjousyougatashinkinkousoku',
+  'ST上昇型心筋梗塞': 'STjousyougatashinkinkousoku',
+  'ST上昇型': 'STjousyougata',
+  'ST低下': 'STteika',
+  '水平型ST低下': 'suiheigataSTteika',
+  '水平型': 'suiheigata',
+  '下降型': 'kakougata',
+  '陰性T波': 'inseiTha',
+  '対称性陰性T波': 'taishouseiinseiTha',
+  'T波陰転化': 'Thaintenka',
+  '陰転化': 'intenka',
+  '典型所見': 'tenkeishoken',
+  '労作時': 'rousakuji',
+  '胸部圧迫感': 'kyoubuappakukan',
+  '胸部絞扼感': 'kyoubukouyakukan',
+  '胸部誘導': 'kyoubuyuudou',
+  '左側胸部誘導': 'hidarigawakyoubuyuudou',
+  '左側': 'hidarigawa',
+  '息切れ': 'ikigire',
+  '動悸発作': 'doukihossa',
+  '動悸': 'douki',
+  '対称性': 'taishousei',
+  '臨床判断': 'rinshouhandan',
+  'トロポニン': 'toroponin',
+  'トロポニン陽性': 'toroponinyousei',
+  'BNP測定': 'BNPsokutei',
+  '冠動脈CT': 'kandoumyakuCT',
+  '冠動脈': 'kandoumyaku',
+  '循環器対診': 'junkankitaishin',
+  '循環器': 'junkanki',
+  '対診': 'taishin',
+  '鑑別疾患': 'kambetushikkan',
+  '鑑別': 'kambetu',
+  '左室肥大': 'sashitsuhidai',
+  'ストレイン型ST-T変化': 'sutoreingataST-Thenka',
+  'ストレイン型': 'sutoreingata',
+  'ジギタリス効果': 'jigitarisukouka',
+  'ジギタリス': 'jigitarisu',
+  '盆状ST低下': 'bonjouSTteika',
+  '盆状': 'bonjou',
+  '低カリウム血症': 'teikariumukessyou',
+  'カリウム血症': 'kariumukessyou',
+  '高カリウム血症': 'koukariumukessyou',
+  '陽性': 'yousei',
+  '陰性': 'insei',
+  '疑い': 'utagai',
+
+  // 診療情報提供書・紹介状・時候挨拶・退院サマリー
+  '診療情報提供書': 'shinryoujouhouteikyoujo',
+  '情報提供書': 'jouhouteikyoujo',
+  '退院時サマリードラフト': 'taiinjisamari-dorafuto',
+  '退院時サマリー': 'taiinjisamari-',
+  '退院時': 'taiinji',
+  'サマリードラフト': 'samari-dorafuto',
+  '拝啓時下': 'haikeijika',
+  '拝啓': 'haikei',
+  '時下': 'jika',
+  'ご清祥': 'goseishou',
+  '清祥': 'seishou',
+  'お慶び申し上げます': 'oyorokobimoushiagemasu',
+  'お慶び': 'oyorokobi',
+  '平素より': 'heisoyori',
+  '平素': 'heiso',
+  '格別のご高配': 'kakubetsunogokouhai',
+  'ご高配': 'gokouhai',
+  '高配': 'kouhai',
+  '格別': 'kakubetsu',
+  '厚く御礼申し上げます': 'atsukuoreimoushiagemasu',
+  '御礼': 'orei',
+  '今般': 'kompan',
+  '患者様': 'kanjasama',
+  '専門的精査': 'semmontekiseisa',
+  '精査加療': 'seisakaryou',
+  '専門的': 'semmonteki',
+  '精査': 'seisa',
+  '加療': 'karyou',
+  'ご加療': 'gokaryou',
+  'ご紹介': 'goshoukai',
+  '傷病名': 'shoubyoumei',
+  '対象疾患': 'taishoushikkan',
+  '紹介目的': 'shoukaimokuteki',
+  '目的': 'mokuteki',
+  '今後の方針': 'kongonohoushin',
+  '方針': 'houshin',
+  'ご高診': 'gokoushin',
+  '高診': 'koushin',
+  'お願い申し上げます': 'onegaimoushiagemasu',
+  'お願い': 'onegai',
+  '常用薬': 'jouyouyaku',
+  '重篤な': 'juutokuna',
+  '重篤': 'juutoku',
+  'アレルギーなし': 'arerugi-nashi',
+  '症状経過': 'syoujyoukeika',
+  '疼痛あり': 'toutuuari',
+  '疼痛なし': 'toutuunashi',
+  '少しあり': 'sukoshiari',
+  'アセトアミノフェン錠': 'asetoaminofenjou',
+  '現在の処方': 'genzainoshohou',
+  '身体所見': 'shintaishoken',
+  '検査所見': 'kensashoken',
+  '特記異常所見なし': 'tokkiijyoushokennashi',
+  '特記異常所見': 'tokkiijyoushoken',
+  '異常所見': 'ijyoushoken',
+  '治療経過': 'chiryoukeika',
+  'ご多忙中': 'gotabouchuu',
+  '多忙中': 'tabouchuu',
+  '恐れ入りますが': 'osoreirimasuga',
+  '何卒': 'nanitozo',
+  '敬具': 'keigu',
+
   // 臨床実例完全適合
   '先週': 'sensyuu',
   '背中': 'senaka',
   '疼痛': 'toutuu',
   '体': 'karada',
-  '身体': 'karada',
+  '身体': 'shintai',
   '体動': 'taidou',
   '体動時': 'taidouji',
   '増悪': 'zouaku',
   'アルコール': 'aruko-ru',
   '肝機能障害': 'kankinousyougai',
   '性肝機能障害': 'seikankinousyougai',
-  '疑い': 'utagai',
   '台': 'dai',
   '動か': 'ugoka',
   
@@ -203,7 +319,6 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   
   // 頻出医薬品・一般名
   'アセトアミノフェン': 'asetoaminofenn',
-  'アセトアミノフェン錠': 'asetoaminofennjyou',
   'デキストロメトルファン': 'dekisutorometorufann',
   'デキストロメトルファン錠': 'dekisutorometorufannjyou',
   'カロナール': 'karona-ru',
@@ -246,15 +361,13 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '良好': 'ryoukou',
   '創部': 'soubu',
   '感染': 'kansenn',
-  '精査': 'seisa',
-  '処方': 'syoho',
+  '処方': 'shohou',
 
   // 内視鏡・消化器・病変・臨床判断 (ユーザー提示症例完全適合)
   '内視鏡所見': 'naishikyousyoken',
   '内視鏡': 'naishikyou',
   '拡大内視鏡': 'kakudainaishikyou',
   '所見': 'syoken',
-  '典型所見': 'tenkeisyoken',
   '典型': 'tenkei',
   '陥凹型': 'kannougata',
   '陥凹': 'kannou',
@@ -276,8 +389,6 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '構築異常': 'koutikuijyou',
   '構築': 'koutiku',
   '異常': 'ijyou',
-  '鑑別疾患': 'kambetusikkan',
-  '鑑別': 'kambetu',
   '疾患': 'sikkan',
   '胃潰瘍': 'ikaiyou',
   '潰瘍': 'kaiyou',
@@ -298,8 +409,6 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '首相': 'syusou',
   '主訴': 'syuso',
   '放散痛': 'housantsuu',
-  '胸部圧迫感': 'kyoubuappakukan',
-  '胸部絞扼感': 'kyoubukouyakukan',
   '胸部絞扼痛': 'kyoubukouyakutsuu',
   '湿性ラ音': 'sisseiraon',
   '乾性ラ音': 'kanseiraon',
@@ -346,7 +455,6 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '病変': 'byouhenn',
   '不整': 'fusei',
   '精査要': 'seisayou',
-  '臨床判断': 'rinsyouhanndann',
   '臨床': 'rinsyou',
   '判断': 'hanndann',
   '慢性萎縮性胃炎': 'manseiisyukuseiienn',
@@ -391,6 +499,42 @@ export type MultiChunkItem = {
 // 最適チャンク分割 ＆ 複合語アンカー＋Backspace ([BS]) 辞書
 // -----------------------------------------------------------------------------
 export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
+  // ★ 英数混在医療フレーズ (英字は[A]直接送出、漢字は決定論的Space確定)
+  '非ST上昇型心筋梗塞': [
+    { tag: 'G', text: '非', romaji: 'hi' },
+    { tag: 'A', text: 'ST', romaji: 'ST' },
+    { tag: 'Z', text: '上昇型心筋梗塞', romaji: 'jousyougatashinkinkousoku' },
+  ],
+  '水平型ST低下': [
+    { tag: 'Z', text: '水平型', romaji: 'suiheigata' },
+    { tag: 'A', text: 'ST', romaji: 'ST' },
+    { tag: 'Z', text: '低下', romaji: 'teika' },
+  ],
+  '盆状ST低下': [
+    { tag: 'Z', text: '盆状', romaji: 'bonjou' },
+    { tag: 'A', text: 'ST', romaji: 'ST' },
+    { tag: 'Z', text: '低下', romaji: 'teika' },
+  ],
+  '陰性T波': [
+    { tag: 'Z', text: '陰性', romaji: 'insei' },
+    { tag: 'A', text: 'T', romaji: 'T' },
+    { tag: 'Z', text: '波', romaji: 'ha' },
+  ],
+  'T波陰転化': [
+    { tag: 'A', text: 'T', romaji: 'T' },
+    { tag: 'Z', text: '波', romaji: 'ha' },
+    { tag: 'Z', text: '陰転化', romaji: 'intenka' },
+  ],
+  '冠動脈CT': [
+    { tag: 'Z', text: '冠動脈', romaji: 'kandoumyaku' },
+    { tag: 'A', text: 'CT', romaji: 'CT' },
+  ],
+  'ストレイン型ST-T変化': [
+    { tag: 'K', text: 'ストレイン', romaji: 'sutoreinn' },
+    { tag: 'Z', text: '型', romaji: 'gata' },
+    { tag: 'A', text: 'ST-T', romaji: 'ST-T' },
+    { tag: 'Z', text: '変化', romaji: 'hennka' },
+  ],
   '市販総合感冒薬内服': [
     { tag: 'Z', text: '市販', romaji: 'sihann' },
     { tag: 'Z', text: '総合', romaji: 'sougou' },
@@ -415,69 +559,48 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
   ],
   // 扁桃（「返答」誤変換を100%防ぐため「扁桃腺」アンカー＋[BS]で決定論的確定）
   '扁桃腫大': [
-    { tag: 'Z', text: '扁桃(腺)', romaji: 'henntousenn' },
-    { tag: 'BS', text: '⌫', romaji: '' },
-    { tag: 'Z', text: '腫(瘍)', romaji: 'syuyou' },
-    { tag: 'BS', text: '⌫', romaji: '' },
-    { tag: 'Z', text: '大(きい)', romaji: 'ookii' },
-    { tag: 'BS', text: '⌫', romaji: '' },
-    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '扁桃', romaji: 'henntou' },
+    { tag: 'Z', text: '腫大', romaji: 'syudai' },
   ],
   '扁桃肥大': [
-    { tag: 'Z', text: '扁桃(腺)', romaji: 'henntousenn' },
-    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '扁桃', romaji: 'henntou' },
     { tag: 'Z', text: '肥大', romaji: 'hidai' },
   ],
   '扁桃白苔': [
-    { tag: 'Z', text: '扁桃(腺)', romaji: 'henntousenn' },
-    { tag: 'BS', text: '⌫', romaji: '' },
-    { tag: 'Z', text: '白(い)', romaji: 'siroi' },
-    { tag: 'BS', text: '⌫', romaji: '' },
-    { tag: 'Z', text: '苔', romaji: 'koke' },
+    { tag: 'Z', text: '扁桃', romaji: 'henntou' },
+    { tag: 'Z', text: '白苔', romaji: 'hakutai' },
   ],
   '扁桃炎': [
-    { tag: 'Z', text: '扁桃(腺)', romaji: 'henntousenn' },
-    { tag: 'BS', text: '⌫', romaji: '' },
-    { tag: 'Z', text: '炎', romaji: 'honoo' },
+    { tag: 'Z', text: '扁桃炎', romaji: 'henntouenn' },
   ],
   '扁桃': [
-    { tag: 'Z', text: '扁桃(腺)', romaji: 'henntousenn' },
-    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '扁桃', romaji: 'henntou' },
   ],
   '腫大': [
-    { tag: 'Z', text: '腫(瘍)', romaji: 'syuyou' },
-    { tag: 'BS', text: '⌫', romaji: '' },
-    { tag: 'Z', text: '大(きい)', romaji: 'ookii' },
-    { tag: 'BS', text: '⌫', romaji: '' },
-    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '腫大', romaji: 'syudai' },
   ],
   // 聴診・身体所見の単漢字（「清」「整」「純」「軟」の同音異義語誤変換を100%排除）
   '呼吸音清': [
     { tag: 'Z', text: '呼吸音', romaji: 'kokyuuonn' },
-    { tag: 'Z', text: '清(い)', romaji: 'kiyoi' },
-    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '清', romaji: 'sei' },
   ],
   '心音整': [
     { tag: 'Z', text: '心音', romaji: 'sinnonn' },
-    { tag: 'Z', text: '整(列)', romaji: 'seiretu' },
-    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '整', romaji: 'sei' },
   ],
   '心音純': [
     { tag: 'Z', text: '心音', romaji: 'sinnonn' },
-    { tag: 'Z', text: '純(粋)', romaji: 'junnsui' },
-    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '純', romaji: 'junn' },
   ],
   '平坦・軟': [
     { tag: 'Z', text: '平坦', romaji: 'heitann' },
     { tag: 'H', text: '・', romaji: '・' },
-    { tag: 'Z', text: '軟(骨)', romaji: 'nannkotu' },
-    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '軟', romaji: 'nann' },
   ],
   '平坦、軟': [
     { tag: 'Z', text: '平坦', romaji: 'heitann' },
     { tag: 'H', text: '、', romaji: '、' },
-    { tag: 'Z', text: '軟(骨)', romaji: 'nannkotu' },
-    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '軟', romaji: 'nann' },
   ],
   '腹部平坦': [
     { tag: 'Z', text: '腹部', romaji: 'hukubu' },
@@ -518,16 +641,10 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
   ],
   // カタカナ混在医学用語の決定論的 [Z]+[K]+[Z] 分解
   '高カリウム血症': [
-    { tag: 'Z', text: '高(い)', romaji: 'takai' },
-    { tag: 'BS', text: '⌫', romaji: '' },
-    { tag: 'K', text: 'カリウム', romaji: 'kariumu' },
-    { tag: 'Z', text: '血症', romaji: 'kessyou' },
+    { tag: 'Z', text: '高カリウム血症', romaji: 'koukariumukessyou' },
   ],
   '低カリウム血症': [
-    { tag: 'Z', text: '低(い)', romaji: 'hikui' },
-    { tag: 'BS', text: '⌫', romaji: '' },
-    { tag: 'K', text: 'カリウム', romaji: 'kariumu' },
-    { tag: 'Z', text: '血症', romaji: 'kessyou' },
+    { tag: 'Z', text: '低カリウム血症', romaji: 'teikariumukessyou' },
   ],
   '頸部リンパ節腫脹': [
     { tag: 'Z', text: '頸部', romaji: 'keibu' },
@@ -598,15 +715,10 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
     { tag: 'Z', text: '消化性潰瘍', romaji: 'shoukaseikaiyou' },
   ],
   '瘢痕期': [
-    { tag: 'Z', text: '瘢痕', romaji: 'hankon' },
-    { tag: 'Z', text: '期(間)', romaji: 'kikann' },
-    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '瘢痕期', romaji: 'hankonki' },
   ],
   '胃良性ポリープ': [
-    { tag: 'Z', text: '胃(袋)', romaji: 'ibukuro' },
-    { tag: 'BS', text: '⌫', romaji: '' },
-    { tag: 'Z', text: '良性', romaji: 'ryousei' },
-    { tag: 'K', text: 'ポリープ', romaji: 'pori-pu' },
+    { tag: 'Z', text: '胃良性ポリープ', romaji: 'iryouseipori-pu' },
   ],
   '胃角部小弯': [
     { tag: 'Z', text: '胃角部', romaji: 'ikakubu' },
@@ -616,9 +728,7 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
     { tag: 'Z', text: '前庭部', romaji: 'zenteibu' },
   ],
   '精査要': [
-    { tag: 'Z', text: '精査', romaji: 'seisa' },
-    { tag: 'Z', text: '要(求)', romaji: 'youkyuu' },
-    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '精査要', romaji: 'seisayou' },
   ],
   '臨床判断': [
     { tag: 'Z', text: '臨床判断', romaji: 'rinshouhandan' },
@@ -716,18 +826,16 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
     { tag: 'Z', text: '内臓', romaji: 'naizou' },
   ],
   '除外要': [
-    { tag: 'Z', text: '除外', romaji: 'jogai' },
-    { tag: 'Z', text: '要(求)', romaji: 'youkyuu' },
-    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '除外要', romaji: 'jogaiyou' },
   ],
   '除外': [
     { tag: 'Z', text: '除外', romaji: 'jogai' },
   ],
   '鎮痛薬処方': [
-    { tag: 'Z', text: '鎮痛薬処方', romaji: 'chintuuyakushoho' },
+    { tag: 'Z', text: '鎮痛薬処方', romaji: 'chintuuyakushohou' },
   ],
   '処方': [
-    { tag: 'Z', text: '処方', romaji: 'shoho' },
+    { tag: 'Z', text: '処方', romaji: 'shohou' },
   ],
   '安静指導': [
     { tag: 'Z', text: '安静指導', romaji: 'anseishidou' },
@@ -767,39 +875,51 @@ const SORTED_MULTI_CHUNK_ENTRIES = Object.entries(MULTI_CHUNK_LEXICON).sort(
 // ※2文字以上の熟語にマッチしなかった単独1文字漢字のみに適用される
 // -----------------------------------------------------------------------------
 export const SINGLE_KANJI_DETERMINISTIC_ANCHORS: Record<string, Array<MultiChunkItem>> = {
-  '整': [{ tag: 'Z', text: '整(列)', romaji: 'seiretu' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '清': [{ tag: 'Z', text: '清(い)', romaji: 'kiyoi' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '軟': [{ tag: 'Z', text: '軟(骨)', romaji: 'nannkotu' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '純': [{ tag: 'Z', text: '純(粋)', romaji: 'junnsui' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '錠': [{ tag: 'Z', text: '錠(剤)', romaji: 'jyouzai' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '包': [{ tag: 'Z', text: '包(む)', romaji: 'tutumu' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '回': [{ tag: 'Z', text: '回(数)', romaji: 'kaisuu' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '胃': [{ tag: 'Z', text: '胃(袋)', romaji: 'ibukuro' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '腸': [{ tag: 'Z', text: '腸(内)', romaji: 'tyounai' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '肝': [{ tag: 'Z', text: '肝(臓)', romaji: 'kannzou' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '腎': [{ tag: 'Z', text: '腎(臓)', romaji: 'jinnzou' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '肺': [{ tag: 'Z', text: '肺(炎)', romaji: 'haienn' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '脳': [{ tag: 'Z', text: '脳(内)', romaji: 'nounai' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '咽': [{ tag: 'Z', text: '咽(頭)', romaji: 'inntou' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '腫': [{ tag: 'Z', text: '腫(瘍)', romaji: 'syuyou' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '診': [{ tag: 'Z', text: '診(察)', romaji: 'sinnsatu' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '症': [{ tag: 'Z', text: '症(状)', romaji: 'syoujyou' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '炎': [{ tag: 'Z', text: '炎', romaji: 'honoo' }],
-  '痛': [{ tag: 'Z', text: '痛(い)', romaji: 'itai' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '夕': [{ tag: 'Z', text: '夕(方)', romaji: 'yuugata' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '眠': [{ tag: 'Z', text: '眠(る)', romaji: 'nemuru' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '両': [{ tag: 'Z', text: '両(方)', romaji: 'ryouhou' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '軽': [{ tag: 'Z', text: '軽(い)', romaji: 'karui' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '重': [{ tag: 'Z', text: '重(い)', romaji: 'omoi' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '高': [{ tag: 'Z', text: '高(い)', romaji: 'takai' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '低': [{ tag: 'Z', text: '低(い)', romaji: 'hikui' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '強': [{ tag: 'Z', text: '強(い)', romaji: 'tuyoi' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '弱': [{ tag: 'Z', text: '弱(い)', romaji: 'yowai' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '良': [{ tag: 'Z', text: '良(好)', romaji: 'ryoukou' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '可': [{ tag: 'Z', text: '可(能)', romaji: 'kanou' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '要': [{ tag: 'Z', text: '要(求)', romaji: 'youkyuu' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '陥': [{ tag: 'Z', text: '陥(没)', romaji: 'kannbotu' }, { tag: 'BS', text: '⌫', romaji: '' }],
-  '凹': [{ tag: 'Z', text: '凹(凸)', romaji: 'outotu' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  // 姑息なBackspace削り出しを完全撤廃し、純粋な音読み決定論的ブロックとして直接送出
+  '整': [{ tag: 'Z', text: '整', romaji: 'sei' }],
+  '清': [{ tag: 'Z', text: '清', romaji: 'sei' }],
+  '軟': [{ tag: 'Z', text: '軟', romaji: 'nann' }],
+  '純': [{ tag: 'Z', text: '純', romaji: 'junn' }],
+  '錠': [{ tag: 'Z', text: '錠', romaji: 'jyou' }],
+  '包': [{ tag: 'Z', text: '包', romaji: 'hou' }],
+  '回': [{ tag: 'Z', text: '回', romaji: 'kai' }],
+  '胃': [{ tag: 'Z', text: '胃', romaji: 'i' }],
+  '腸': [{ tag: 'Z', text: '腸', romaji: 'tyou' }],
+  '肝': [{ tag: 'Z', text: '肝', romaji: 'kann' }],
+  '腎': [{ tag: 'Z', text: '腎', romaji: 'jinn' }],
+  '肺': [{ tag: 'Z', text: '肺', romaji: 'hai' }],
+  '脳': [{ tag: 'Z', text: '脳', romaji: 'nou' }],
+  '咽': [{ tag: 'Z', text: '咽', romaji: 'inn' }],
+  '腫': [{ tag: 'Z', text: '腫', romaji: 'syu' }],
+  '診': [{ tag: 'Z', text: '診', romaji: 'sinn' }],
+  '症': [{ tag: 'Z', text: '症', romaji: 'syou' }],
+  '炎': [{ tag: 'Z', text: '炎', romaji: 'enn' }],
+  '痛': [{ tag: 'Z', text: '痛', romaji: 'tuu' }],
+  '夕': [{ tag: 'Z', text: '夕', romaji: 'yuu' }],
+  '眠': [{ tag: 'Z', text: '眠', romaji: 'minn' }],
+  '両': [{ tag: 'Z', text: '両', romaji: 'ryou' }],
+  '軽': [{ tag: 'Z', text: '軽', romaji: 'kei' }],
+  '重': [{ tag: 'Z', text: '重', romaji: 'jyuu' }],
+  '高': [{ tag: 'Z', text: '高', romaji: 'kou' }],
+  '低': [{ tag: 'Z', text: '低', romaji: 'tei' }],
+  '強': [{ tag: 'Z', text: '強', romaji: 'kyou' }],
+  '弱': [{ tag: 'Z', text: '弱', romaji: 'jyaku' }],
+  '良': [{ tag: 'Z', text: '良', romaji: 'ryou' }],
+  '可': [{ tag: 'Z', text: '可', romaji: 'ka' }],
+  '要': [{ tag: 'Z', text: '要', romaji: 'you' }],
+  '陥': [{ tag: 'Z', text: '陥', romaji: 'kann' }],
+  '凹': [{ tag: 'Z', text: '凹', romaji: 'ou' }],
+  '敬': [{ tag: 'Z', text: '敬', romaji: 'kei' }],
+  '書': [{ tag: 'Z', text: '書', romaji: 'syo' }],
+  '対': [{ tag: 'Z', text: '対', romaji: 'tai' }],
+  '陰': [{ tag: 'Z', text: '陰', romaji: 'inn' }],
+  '具': [{ tag: 'Z', text: '具', romaji: 'gu' }],
+  '処': [{ tag: 'Z', text: '処', romaji: 'syo' }],
+  '篤': [{ tag: 'Z', text: '篤', romaji: 'toku' }],
+  '咳': [{ tag: 'Z', text: '咳', romaji: 'seki' }],
+  '喉': [{ tag: 'Z', text: '喉', romaji: 'nodo' }],
+  '波': [{ tag: 'Z', text: '波', romaji: 'ha' }],
+  '非': [{ tag: 'Z', text: '非', romaji: 'hi' }],
 };
 
 // 熟語フォールバック用 医療音読み優先テーブル（訓読み誤爆・キメラ連結を完全根絶）
@@ -895,6 +1015,20 @@ const MAX_COMPILE_CACHE = 150;
 // -----------------------------------------------------------------------------
 // 長単位結合オートマトン（Sudachi Mode C 思想）＆ HYBRID キーストロークコンパイラ
 // -----------------------------------------------------------------------------
+
+const FULLWIDTH_ASCII_REPLACE: Record<string, string> = {
+  '〜': '~', '～': '~',
+  '＆': '&',
+  '（': '(', '）': ')',
+  '［': '[', '］': ']',
+  '｛': '{', '｝': '}',
+  '：': ':', '；': ';',
+  '／': '/',
+  '＋': '+', '−': '-', '＝': '=', '＊': '*',
+  '％': '%', '＃': '#', '＠': '@', '｜': '|',
+  '！': '!', '？': '?',
+  '　': ' ',
+};
 export class KeyStrokeCompiler {
   /**
    * テキストを「長単位結合オートマトン」で解析し、v20.1 HYBRID打鍵ストリームへコンパイル
@@ -1007,6 +1141,22 @@ export class KeyStrokeCompiler {
         continue;
       }
 
+      // B-2. 全角記号 (〜, ＆, （, ）, ：, ／ 等) ➔ 半角ASCII化して [A] 送出
+      const fwChar = remaining[0];
+      if (FULLWIDTH_ASCII_REPLACE[fwChar]) {
+        const asciiChar = FULLWIDTH_ASCII_REPLACE[fwChar];
+        if (asciiChar === ' ') {
+          blocks.push({ type: 'space', tag: 'space', rawText: ' ', compiledPayload: ' ' });
+          totalKeystrokes += 1;
+        } else {
+          blocks.push({ type: 'a_ascii', tag: 'A', rawText: fwChar, compiledPayload: `[A]${asciiChar}[/A]` });
+          aCount++;
+          totalKeystrokes += 1;
+        }
+        i += 1;
+        continue;
+      }
+
       // B. 空白文字
       if (remaining.startsWith(' ') || remaining.startsWith('\t')) {
         const ch = remaining[0];
@@ -1029,14 +1179,8 @@ export class KeyStrokeCompiler {
           rawText: '、',
           compiledPayload: '[H]、[/H]',
         });
-        blocks.push({
-          type: 'space',
-          tag: 'space',
-          rawText: ' ',
-          compiledPayload: ' ',
-        });
         hCount++;
-        totalKeystrokes += 3;
+        totalKeystrokes += 2;
         i += 1;
         continue;
       }
