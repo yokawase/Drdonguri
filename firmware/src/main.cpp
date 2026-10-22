@@ -252,7 +252,8 @@ static uint32_t s_last_printer_rx_ms = 0;
 static volatile bool s_printer_job_active = false;
 static uint32_t s_printer_total_bytes = 0;
 
-void setLedColor(uint8_t r, uint8_t g, uint8_t b);
+void setLedColor(uint8_t r, uint8_t g, uint8_t b, bool forceRefresh = false);
+void setLedBrightness(uint8_t pct);
 
 void onPrinterDataReceived(const uint8_t* data, uint16_t len) {
   if (len == 0 || data == nullptr) return;
@@ -368,17 +369,35 @@ static void apa102_set_color(uint8_t r, uint8_t g, uint8_t b, uint8_t brightness
 }
 #endif
 
-void setLedColor(uint8_t r, uint8_t g, uint8_t b) {
+static uint8_t g_ledBrightnessPct = 80;
+static uint8_t g_lastRawR = 0, g_lastRawG = 0, g_lastRawB = 64;
+
+void setLedColor(uint8_t r, uint8_t g, uint8_t b, bool forceRefresh) {
   static uint8_t curR = 255, curG = 255, curB = 255;
-  if (r == curR && g == curG && b == curB) return;
-  curR = r; curG = g; curB = b;
+  static uint8_t curBri = 255;
+  if (!forceRefresh && r == curR && g == curG && b == curB && g_ledBrightnessPct == curBri) return;
+  curR = r; curG = g; curB = b; curBri = g_ledBrightnessPct;
+  g_lastRawR = r; g_lastRawG = g; g_lastRawB = b;
+
+  uint8_t scaledR = (uint8_t)(((uint16_t)r * g_ledBrightnessPct) / 100);
+  uint8_t scaledG = (uint8_t)(((uint16_t)g * g_ledBrightnessPct) / 100);
+  uint8_t scaledB = (uint8_t)(((uint16_t)b * g_ledBrightnessPct) / 100);
 
 #if defined(T_DONGLE_S3)
-  apa102_set_color(r, g, b, 31);
+  uint8_t hwBri = (g_ledBrightnessPct == 0) ? 0 : (uint8_t)constrain((g_ledBrightnessPct * 31 + 50) / 100, 1, 31);
+  apa102_set_color(scaledR, scaledG, scaledB, hwBri);
 #else
   if (RGB_LED_PIN >= 0) {
-    neopixelWrite(RGB_LED_PIN, r, g, b);
+    neopixelWrite(RGB_LED_PIN, scaledR, scaledG, scaledB);
   }
+#endif
+}
+
+void setLedBrightness(uint8_t pct) {
+  g_ledBrightnessPct = (uint8_t)constrain((int)pct, 0, 100);
+  setLedColor(g_lastRawR, g_lastRawG, g_lastRawB, true);
+#if defined(T_DONGLE_S3)
+  g_display.setLedBrightnessPercent(g_ledBrightnessPct);
 #endif
 }
 
@@ -2204,6 +2223,73 @@ void loop() {
         rebootToBootloader();
         continue;
       }
+
+      // 9. LED輝度調節コマンド (CMD:LED_BRIGHT:0〜100)
+      if (strncmp(cmdBuf, "CMD:LED_BRIGHT:", 15) == 0) {
+        int val = atoi(cmdBuf + 15);
+        setLedBrightness((uint8_t)constrain(val, 0, 100));
+        char ackDetail[16];
+        snprintf(ackDetail, sizeof(ackDetail), "%d", constrain(val, 0, 100));
+        sendBleAck("LED_BRIGHT_OK", 0, ackDetail);
+        continue;
+      }
+
+      // 10. LCDバックライト輝度調節コマンド (CMD:LCD_BRIGHT:5〜100)
+      if (strncmp(cmdBuf, "CMD:LCD_BRIGHT:", 15) == 0) {
+        int val = constrain(atoi(cmdBuf + 15), 5, 100);
+#if defined(T_DONGLE_S3)
+        g_display.setLcdBrightnessPercent((uint8_t)val);
+#endif
+        char ackDetail[16];
+        snprintf(ackDetail, sizeof(ackDetail), "%d", val);
+        sendBleAck("LCD_BRIGHT_OK", 0, ackDetail);
+        continue;
+      }
+
+      // 11. LCD表示ページ切替コマンド (CMD:LCD_PAGE:0〜3 または CMD:LCD_NEXT)
+      if (strncmp(cmdBuf, "CMD:LCD_PAGE:", 13) == 0) {
+        int page = constrain(atoi(cmdBuf + 13), 0, 3);
+#if defined(T_DONGLE_S3)
+        g_display.setPage((uint8_t)page);
+#endif
+        char ackDetail[16];
+        snprintf(ackDetail, sizeof(ackDetail), "%d", page);
+        sendBleAck("LCD_PAGE_OK", 0, ackDetail);
+        continue;
+      }
+      if (strcmp(cmdBuf, "CMD:LCD_NEXT") == 0) {
+        uint8_t nextP = 0;
+#if defined(T_DONGLE_S3)
+        nextP = g_display.nextPage();
+#endif
+        char ackDetail[16];
+        snprintf(ackDetail, sizeof(ackDetail), "%u", (unsigned int)nextP);
+        sendBleAck("LCD_PAGE_OK", 0, ackDetail);
+        continue;
+      }
+
+      // 12. 臨床コックピットテレメトリ同期 (CMD:HUD_SYNC:z,k,a,h,hvc,alerts,vitalSummary)
+      if (strncmp(cmdBuf, "CMD:HUD_SYNC:", 13) == 0) {
+        int z = 0, k = 0, a = 0, h = 0, hvc = 92, alerts = 0;
+        char vitalBuf[32] = {0};
+        const char* p = cmdBuf + 13;
+        sscanf(p, "%d,%d,%d,%d,%d,%d", &z, &k, &a, &h, &hvc, &alerts);
+        // 6番目のカンマ以降をバイタルサマリー文字列として取得
+        int commaCnt = 0;
+        while (*p && commaCnt < 6) {
+          if (*p == ',') commaCnt++;
+          p++;
+        }
+        if (commaCnt == 6 && *p) {
+          strncpy(vitalBuf, p, sizeof(vitalBuf) - 1);
+        }
+        g_tagZ = z; g_tagK = k; g_tagA = a; g_tagH = h;
+#if defined(T_DONGLE_S3)
+        g_display.syncClinicalTelemetry(z, k, a, h, hvc, alerts, vitalBuf);
+#endif
+        sendBleAck("HUD_SYNC_OK", 0);
+        continue;
+      }
     }
 
     // B. セッション初期化フレーム (8バイト)
@@ -2363,29 +2449,38 @@ void loop() {
     }
   }
 
-  // 4. 物理ボタン押下の判定 (Active LOW)
+  // 4. 物理ボタン押下の判定 (Active LOW: 短押し=LCDページ切替 / 2.5秒長押し=DFU書込モード)
   if (currentState == STATE_READY_TO_TYPE) {
     setLedColor(64, 64, 0); // 黄色点灯維持
     if (isFrontButtonPressed()) {
       sendBleAck("PHYSICAL_BTN_PRESSED", currentMsg.sessionId);
       dispatchOutput(); // ボタン押下でカルテへ安全打鍵送出
     }
-  } else if (digitalRead(FRONT_BTN_PIN) == LOW) {
-    // 待機中にBOOTボタン長押し（2.5秒）でファームウェア書込モードへ自動突入！
-    static unsigned long s_btnPressStart = 0;
-    if (s_btnPressStart == 0) {
-      s_btnPressStart = millis();
-    } else if (millis() - s_btnPressStart > 2500) {
-      setLedColor(64, 0, 64); // 紫色点滅
-#if defined(T_DONGLE_S3)
-      g_display.updateStatus("BOOTLOADER", 0, 0, 0, 0, 0, 0, "Entering DFU");
-#endif
-      delay(300);
-      rebootToBootloader();
-    }
   } else {
-    static unsigned long s_btnPressStart = 0;
-    s_btnPressStart = 0;
+    static unsigned long s_idleBtnStart = 0;
+    if (digitalRead(FRONT_BTN_PIN) == LOW) {
+      if (s_idleBtnStart == 0) {
+        s_idleBtnStart = millis();
+      } else if (millis() - s_idleBtnStart > 2500) {
+        setLedColor(64, 0, 64); // 紫色点灯
+#if defined(T_DONGLE_S3)
+        g_display.updateStatus("BOOTLOADER", 0, 0, 0, 0, 0, 0, "Entering DFU");
+#endif
+        delay(300);
+        rebootToBootloader();
+      }
+    } else if (s_idleBtnStart != 0) {
+      unsigned long heldMs = millis() - s_idleBtnStart;
+      s_idleBtnStart = 0;
+      if (heldMs >= 50 && heldMs < 1500) {
+#if defined(T_DONGLE_S3)
+        uint8_t newPage = g_display.nextPage();
+        char pDetail[8];
+        snprintf(pDetail, sizeof(pDetail), "%u", (unsigned int)newPage);
+        sendBleAck("LCD_PAGE_OK", 0, pDetail);
+#endif
+      }
+    }
   }
 
   // 5. LED状態の維持とエラー時自動復帰

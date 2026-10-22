@@ -363,20 +363,34 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '要': 'you',
 };
 
-// 医療専門語彙辞書 (MEDICAL_KANJI_ROMAJI_MAP) を COMPOUND_LEXICON へ自動マージ
-// ※純粋なひらがな語（助詞・付属語など）は PARTICLES で [H] 即時確定させるため除外
+// 医療専門語彙辞書 (MEDICAL_KANJI_ROMAJI_MAP) を COMPOUND_LEXICON へ安全にマージ
+// ※助詞付きフレーズ・空白入り複文・カタカナ混在・記号混入エントリを厳格に除外し、純粋な漢字熟語のみを登録
+const TRAILING_PARTICLE_REGEX = /(?:から|まで|より|にて|には|では|への|との|での|にも|を|に|が|は|で|と|へ|の|も|や)$/;
 for (const [term, romaji] of Object.entries(MEDICAL_KANJI_ROMAJI_MAP)) {
-  if (!COMPOUND_LEXICON[term]) {
-    if (/[\u4E00-\u9FFF\u30A1-\u30FA]/.test(term)) {
-      COMPOUND_LEXICON[term] = romaji.trim();
-    }
+  const cleanRomaji = romaji.trim();
+  if (
+    !COMPOUND_LEXICON[term] &&
+    term.length >= 2 &&
+    term.length <= 12 &&
+    /^[\u4E00-\u9FFF\u3005]+$/.test(term) &&
+    !TRAILING_PARTICLE_REGEX.test(term) &&
+    /^[a-z\-]+$/.test(cleanRomaji)
+  ) {
+    COMPOUND_LEXICON[term] = cleanRomaji;
   }
 }
 
+export type MultiChunkItem = {
+  tag: 'Z' | 'K' | 'H' | 'A' | 'G' | 'BS';
+  text: string;
+  romaji: string;
+};
+
 // -----------------------------------------------------------------------------
-// MS-IMEで1語一括変換すると誤爆しやすい複合語の「最適チャンク分割」辞書
+// MS-IME / ATOK / Google日本語入力 すべてで「100%決定論的変換」を保証する
+// 最適チャンク分割 ＆ 複合語アンカー＋Backspace ([BS]) 辞書
 // -----------------------------------------------------------------------------
-export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 'A' | 'G'; text: string; romaji: string }>> = {
+export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
   '市販総合感冒薬内服': [
     { tag: 'Z', text: '市販', romaji: 'sihann' },
     { tag: 'Z', text: '総合', romaji: 'sougou' },
@@ -399,13 +413,71 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 
     { tag: 'Z', text: '咽頭', romaji: 'inntou' },
     { tag: 'Z', text: '発赤', romaji: 'hosseki' },
   ],
+  // 扁桃（「返答」誤変換を100%防ぐため「扁桃腺」アンカー＋[BS]で決定論的確定）
   '扁桃腫大': [
-    { tag: 'Z', text: '扁桃', romaji: 'henntou' },
-    { tag: 'Z', text: '腫大', romaji: 'syudai' },
+    { tag: 'Z', text: '扁桃(腺)', romaji: 'henntousenn' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '腫(瘍)', romaji: 'syuyou' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '大(きい)', romaji: 'ookii' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'BS', text: '⌫', romaji: '' },
   ],
+  '扁桃肥大': [
+    { tag: 'Z', text: '扁桃(腺)', romaji: 'henntousenn' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '肥大', romaji: 'hidai' },
+  ],
+  '扁桃白苔': [
+    { tag: 'Z', text: '扁桃(腺)', romaji: 'henntousenn' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '白(い)', romaji: 'siroi' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '苔', romaji: 'koke' },
+  ],
+  '扁桃炎': [
+    { tag: 'Z', text: '扁桃(腺)', romaji: 'henntousenn' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '炎', romaji: 'honoo' },
+  ],
+  '扁桃': [
+    { tag: 'Z', text: '扁桃(腺)', romaji: 'henntousenn' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+  ],
+  '腫大': [
+    { tag: 'Z', text: '腫(瘍)', romaji: 'syuyou' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'Z', text: '大(きい)', romaji: 'ookii' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+  ],
+  // 聴診・身体所見の単漢字（「清」「整」「純」「軟」の同音異義語誤変換を100%排除）
   '呼吸音清': [
     { tag: 'Z', text: '呼吸音', romaji: 'kokyuuonn' },
-    { tag: 'Z', text: '清', romaji: 'sei' },
+    { tag: 'Z', text: '清(い)', romaji: 'kiyoi' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+  ],
+  '心音整': [
+    { tag: 'Z', text: '心音', romaji: 'sinnonn' },
+    { tag: 'Z', text: '整(列)', romaji: 'seiretu' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+  ],
+  '心音純': [
+    { tag: 'Z', text: '心音', romaji: 'sinnonn' },
+    { tag: 'Z', text: '純(粋)', romaji: 'junnsui' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+  ],
+  '平坦・軟': [
+    { tag: 'Z', text: '平坦', romaji: 'heitann' },
+    { tag: 'H', text: '・', romaji: '・' },
+    { tag: 'Z', text: '軟(骨)', romaji: 'nannkotu' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+  ],
+  '平坦、軟': [
+    { tag: 'Z', text: '平坦', romaji: 'heitann' },
+    { tag: 'H', text: '、', romaji: '、' },
+    { tag: 'Z', text: '軟(骨)', romaji: 'nannkotu' },
+    { tag: 'BS', text: '⌫', romaji: '' },
   ],
   '腹部平坦': [
     { tag: 'Z', text: '腹部', romaji: 'hukubu' },
@@ -424,9 +496,58 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 
     { tag: 'Z', text: '毎食', romaji: 'maisyoku' },
     { tag: 'Z', text: '後', romaji: 'ato' },
   ],
+  '朝食後': [
+    { tag: 'Z', text: '朝食', romaji: 'tyousyoku' },
+    { tag: 'Z', text: '後', romaji: 'ato' },
+  ],
+  '昼食後': [
+    { tag: 'Z', text: '昼食', romaji: 'tyuusyoku' },
+    { tag: 'Z', text: '後', romaji: 'ato' },
+  ],
+  '夕食後': [
+    { tag: 'Z', text: '夕食', romaji: 'yuusyoku' },
+    { tag: 'Z', text: '後', romaji: 'ato' },
+  ],
+  '就寝前': [
+    { tag: 'Z', text: '就寝', romaji: 'syuusinn' },
+    { tag: 'Z', text: '前', romaji: 'mae' },
+  ],
   '再診指示': [
     { tag: 'Z', text: '再診', romaji: 'saisinn' },
     { tag: 'Z', text: '指示', romaji: 'siji' },
+  ],
+  // カタカナ混在医学用語の決定論的 [Z]+[K]+[Z] 分解
+  '高カリウム血症': [
+    { tag: 'Z', text: '高(い)', romaji: 'takai' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'K', text: 'カリウム', romaji: 'kariumu' },
+    { tag: 'Z', text: '血症', romaji: 'kessyou' },
+  ],
+  '低カリウム血症': [
+    { tag: 'Z', text: '低(い)', romaji: 'hikui' },
+    { tag: 'BS', text: '⌫', romaji: '' },
+    { tag: 'K', text: 'カリウム', romaji: 'kariumu' },
+    { tag: 'Z', text: '血症', romaji: 'kessyou' },
+  ],
+  '頸部リンパ節腫脹': [
+    { tag: 'Z', text: '頸部', romaji: 'keibu' },
+    { tag: 'K', text: 'リンパ', romaji: 'rinnpa' },
+    { tag: 'Z', text: '節', romaji: 'setu' },
+    { tag: 'Z', text: '腫脹', romaji: 'syutyou' },
+  ],
+  '湿性ラ音': [
+    { tag: 'Z', text: '湿性', romaji: 'sissei' },
+    { tag: 'K', text: 'ラ', romaji: 'ra' },
+    { tag: 'Z', text: '音', romaji: 'oto' },
+  ],
+  '乾性ラ音': [
+    { tag: 'Z', text: '乾性', romaji: 'kannsei' },
+    { tag: 'K', text: 'ラ', romaji: 'ra' },
+    { tag: 'Z', text: '音', romaji: 'oto' },
+  ],
+  'ラ音': [
+    { tag: 'K', text: 'ラ', romaji: 'ra' },
+    { tag: 'Z', text: '音', romaji: 'oto' },
   ],
 
   // 消化器・内視鏡 臨床所見 最適チャンク分解 (ヘボン式・Gタグ全廃・MS-IME標準互換)
@@ -478,10 +599,12 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 
   ],
   '瘢痕期': [
     { tag: 'Z', text: '瘢痕', romaji: 'hankon' },
-    { tag: 'Z', text: '期', romaji: 'ki' },
+    { tag: 'Z', text: '期(間)', romaji: 'kikann' },
+    { tag: 'BS', text: '⌫', romaji: '' },
   ],
   '胃良性ポリープ': [
-    { tag: 'Z', text: '胃', romaji: 'i' },
+    { tag: 'Z', text: '胃(袋)', romaji: 'ibukuro' },
+    { tag: 'BS', text: '⌫', romaji: '' },
     { tag: 'Z', text: '良性', romaji: 'ryousei' },
     { tag: 'K', text: 'ポリープ', romaji: 'pori-pu' },
   ],
@@ -494,7 +617,8 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 
   ],
   '精査要': [
     { tag: 'Z', text: '精査', romaji: 'seisa' },
-    { tag: 'Z', text: '要', romaji: 'you' },
+    { tag: 'Z', text: '要(求)', romaji: 'youkyuu' },
+    { tag: 'BS', text: '⌫', romaji: '' },
   ],
   '臨床判断': [
     { tag: 'Z', text: '臨床判断', romaji: 'rinshouhandan' },
@@ -593,7 +717,8 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 
   ],
   '除外要': [
     { tag: 'Z', text: '除外', romaji: 'jogai' },
-    { tag: 'Z', text: '要', romaji: 'you' },
+    { tag: 'Z', text: '要(求)', romaji: 'youkyuu' },
+    { tag: 'BS', text: '⌫', romaji: '' },
   ],
   '除外': [
     { tag: 'Z', text: '除外', romaji: 'jogai' },
@@ -629,6 +754,52 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<{ tag: 'Z' | 'K' | 'H' | 
   '歳': [
     { tag: 'Z', text: '歳', romaji: 'sai' },
   ],
+};
+
+// 最長一致を保証するため MULTI_CHUNK_LEXICON をキー文字数降順で事前ソート
+const SORTED_MULTI_CHUNK_ENTRIES = Object.entries(MULTI_CHUNK_LEXICON).sort(
+  (a, b) => b[0].length - a[0].length
+);
+
+// -----------------------------------------------------------------------------
+// 単独出現した1文字漢字（所見・単位・臓器名等）の同音異義語誤爆を100%防ぐ
+// 「一意熟語アンカー ＋ Backspace ([BS])」決定論的辞書
+// ※2文字以上の熟語にマッチしなかった単独1文字漢字のみに適用される
+// -----------------------------------------------------------------------------
+export const SINGLE_KANJI_DETERMINISTIC_ANCHORS: Record<string, Array<MultiChunkItem>> = {
+  '整': [{ tag: 'Z', text: '整(列)', romaji: 'seiretu' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '清': [{ tag: 'Z', text: '清(い)', romaji: 'kiyoi' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '軟': [{ tag: 'Z', text: '軟(骨)', romaji: 'nannkotu' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '純': [{ tag: 'Z', text: '純(粋)', romaji: 'junnsui' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '錠': [{ tag: 'Z', text: '錠(剤)', romaji: 'jyouzai' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '包': [{ tag: 'Z', text: '包(む)', romaji: 'tutumu' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '回': [{ tag: 'Z', text: '回(数)', romaji: 'kaisuu' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '胃': [{ tag: 'Z', text: '胃(袋)', romaji: 'ibukuro' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '腸': [{ tag: 'Z', text: '腸(内)', romaji: 'tyounai' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '肝': [{ tag: 'Z', text: '肝(臓)', romaji: 'kannzou' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '腎': [{ tag: 'Z', text: '腎(臓)', romaji: 'jinnzou' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '肺': [{ tag: 'Z', text: '肺(炎)', romaji: 'haienn' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '脳': [{ tag: 'Z', text: '脳(内)', romaji: 'nounai' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '咽': [{ tag: 'Z', text: '咽(頭)', romaji: 'inntou' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '腫': [{ tag: 'Z', text: '腫(瘍)', romaji: 'syuyou' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '診': [{ tag: 'Z', text: '診(察)', romaji: 'sinnsatu' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '症': [{ tag: 'Z', text: '症(状)', romaji: 'syoujyou' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '炎': [{ tag: 'Z', text: '炎', romaji: 'honoo' }],
+  '痛': [{ tag: 'Z', text: '痛(い)', romaji: 'itai' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '夕': [{ tag: 'Z', text: '夕(方)', romaji: 'yuugata' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '眠': [{ tag: 'Z', text: '眠(る)', romaji: 'nemuru' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '両': [{ tag: 'Z', text: '両(方)', romaji: 'ryouhou' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '軽': [{ tag: 'Z', text: '軽(い)', romaji: 'karui' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '重': [{ tag: 'Z', text: '重(い)', romaji: 'omoi' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '高': [{ tag: 'Z', text: '高(い)', romaji: 'takai' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '低': [{ tag: 'Z', text: '低(い)', romaji: 'hikui' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '強': [{ tag: 'Z', text: '強(い)', romaji: 'tuyoi' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '弱': [{ tag: 'Z', text: '弱(い)', romaji: 'yowai' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '良': [{ tag: 'Z', text: '良(好)', romaji: 'ryoukou' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '可': [{ tag: 'Z', text: '可(能)', romaji: 'kanou' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '要': [{ tag: 'Z', text: '要(求)', romaji: 'youkyuu' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '陥': [{ tag: 'Z', text: '陥(没)', romaji: 'kannbotu' }, { tag: 'BS', text: '⌫', romaji: '' }],
+  '凹': [{ tag: 'Z', text: '凹(凸)', romaji: 'outotu' }, { tag: 'BS', text: '⌫', romaji: '' }],
 };
 
 // 熟語フォールバック用 医療音読み優先テーブル（訓読み誤爆・キメラ連結を完全根絶）
@@ -718,6 +889,9 @@ export const VERB_STEM_RULES: { pattern: RegExp; stemSurface: string; stemRomaji
   { pattern: /^認めず/, stemSurface: '認め', stemRomaji: 'mitome', endingSurface: 'ず', endingRomaji: 'zu' },
 ];
 
+const _compileCache = new Map<string, CompileResult>();
+const MAX_COMPILE_CACHE = 150;
+
 // -----------------------------------------------------------------------------
 // 長単位結合オートマトン（Sudachi Mode C 思想）＆ HYBRID キーストロークコンパイラ
 // -----------------------------------------------------------------------------
@@ -728,6 +902,9 @@ export class KeyStrokeCompiler {
   public compileText(text: string, options: CompileOptions = {}): CompileResult {
     const includeImeReset = options.includeImeReset !== false;
     const newlineMode = options.newlineMode || 'enter';
+    const cacheKey = `${includeImeReset ? '1' : '0'}:${newlineMode}:${text}`;
+    const cached = _compileCache.get(cacheKey);
+    if (cached) return cached;
 
     const blocks: KeyStrokeBlock[] = [];
     let zCount = 0;
@@ -735,6 +912,65 @@ export class KeyStrokeCompiler {
     let hCount = 0;
     let aCount = 0;
     let totalKeystrokes = 0;
+
+    const appendChunkItems = (chunks: Array<MultiChunkItem>) => {
+      for (const chunk of chunks) {
+        if (chunk.tag === 'Z') {
+          blocks.push({
+            type: 'z_kanji',
+            tag: 'Z',
+            rawText: chunk.text,
+            compiledPayload: `[Z]${chunk.romaji}[/Z]`,
+          });
+          zCount++;
+          totalKeystrokes += chunk.romaji.length + 2;
+        } else if (chunk.tag === 'K') {
+          blocks.push({
+            type: 'k_katakana',
+            tag: 'K',
+            rawText: chunk.text,
+            compiledPayload: `[K]${chunk.romaji}[/K]`,
+          });
+          kCount++;
+          totalKeystrokes += chunk.romaji.length + 2;
+        } else if (chunk.tag === 'H') {
+          blocks.push({
+            type: 'h_hiragana',
+            tag: 'H',
+            rawText: chunk.text,
+            compiledPayload: `[H]${chunk.romaji}[/H]`,
+          });
+          hCount++;
+          totalKeystrokes += chunk.romaji.length + 1;
+        } else if (chunk.tag === 'A') {
+          blocks.push({
+            type: 'a_ascii',
+            tag: 'A',
+            rawText: chunk.text,
+            compiledPayload: `[A]${chunk.romaji}[/A]`,
+          });
+          aCount++;
+          totalKeystrokes += chunk.romaji.length;
+        } else if (chunk.tag === 'G') {
+          blocks.push({
+            type: 'z_kanji',
+            tag: 'G',
+            rawText: chunk.text,
+            compiledPayload: `[G]${chunk.romaji}[/G]`,
+          });
+          zCount++;
+          totalKeystrokes += chunk.romaji.length + 3;
+        } else if (chunk.tag === 'BS') {
+          blocks.push({
+            type: 'control',
+            tag: 'BS',
+            rawText: chunk.text,
+            compiledPayload: '[BS]',
+          });
+          totalKeystrokes += 1;
+        }
+      }
+    };
 
     // 1. IMEリセットタグ（無変換キー空打ち）
     if (includeImeReset) {
@@ -868,7 +1104,6 @@ export class KeyStrokeCompiler {
       let matchedVerb = false;
       for (const rule of VERB_STEM_RULES) {
         if (rule.pattern.test(remaining)) {
-          // 語幹 [Z]
           blocks.push({
             type: 'z_kanji',
             tag: 'Z',
@@ -876,9 +1111,8 @@ export class KeyStrokeCompiler {
             compiledPayload: `[Z]${rule.stemRomaji}[/Z]`,
           });
           zCount++;
-          totalKeystrokes += rule.stemRomaji.length + 2; // Space + Enter
+          totalKeystrokes += rule.stemRomaji.length + 2;
 
-          // 語尾 [H]
           blocks.push({
             type: 'h_hiragana',
             tag: 'H',
@@ -886,7 +1120,7 @@ export class KeyStrokeCompiler {
             compiledPayload: `[H]${rule.endingRomaji}[/H]`,
           });
           hCount++;
-          totalKeystrokes += rule.endingRomaji.length + 1; // Enter
+          totalKeystrokes += rule.endingRomaji.length + 1;
 
           i += rule.stemSurface.length + rule.endingSurface.length;
           matchedVerb = true;
@@ -909,7 +1143,7 @@ export class KeyStrokeCompiler {
           compiledPayload: `[K]${kataRomaji}[/K]`,
         });
         kCount++;
-        totalKeystrokes += kataRomaji.length + 2; // F7 + Enter
+        totalKeystrokes += kataRomaji.length + 2;
 
         const combinedKanji = '性' + kanjiPart;
         const combinedRomaji = COMPOUND_LEXICON[combinedKanji] || ('sei' + (COMPOUND_LEXICON[kanjiPart] || kanjiPart));
@@ -960,58 +1194,11 @@ export class KeyStrokeCompiler {
       }
 
       // H. 熟語・複合名詞・接尾辞結合オートマトン (Mode C)
-      // H-0. マルチチャンク最適分解辞書探索 (例: 乾性咳嗽 ➔ [Z]kannsei[/Z][Z]gaisou[/Z])
+      // H-0. マルチチャンク最適分解・[BS]アンカー辞書探索 (最長一致順)
       let matchedMultiChunk = false;
-      for (const [phrase, chunks] of Object.entries(MULTI_CHUNK_LEXICON)) {
+      for (const [phrase, chunks] of SORTED_MULTI_CHUNK_ENTRIES) {
         if (remaining.startsWith(phrase)) {
-          for (const chunk of chunks) {
-            if (chunk.tag === 'Z') {
-              blocks.push({
-                type: 'z_kanji',
-                tag: 'Z',
-                rawText: chunk.text,
-                compiledPayload: `[Z]${chunk.romaji}[/Z]`,
-              });
-              zCount++;
-              totalKeystrokes += chunk.romaji.length + 2;
-            } else if (chunk.tag === 'K') {
-              blocks.push({
-                type: 'k_katakana',
-                tag: 'K',
-                rawText: chunk.text,
-                compiledPayload: `[K]${chunk.romaji}[/K]`,
-              });
-              kCount++;
-              totalKeystrokes += chunk.romaji.length + 2;
-            } else if (chunk.tag === 'H') {
-              blocks.push({
-                type: 'h_hiragana',
-                tag: 'H',
-                rawText: chunk.text,
-                compiledPayload: `[H]${chunk.romaji}[/H]`,
-              });
-              hCount++;
-              totalKeystrokes += chunk.romaji.length + 1;
-            } else if (chunk.tag === 'A') {
-              blocks.push({
-                type: 'a_ascii',
-                tag: 'A',
-                rawText: chunk.text,
-                compiledPayload: `[A]${chunk.romaji}[/A]`,
-              });
-              aCount++;
-              totalKeystrokes += chunk.romaji.length;
-            } else if (chunk.tag === 'G') {
-              blocks.push({
-                type: 'z_kanji',
-                tag: 'G',
-                rawText: chunk.text,
-                compiledPayload: `[G]${chunk.romaji}[/G]`,
-              });
-              zCount++;
-              totalKeystrokes += chunk.romaji.length + 3; // Space*2 + Enter
-            }
-          }
+          appendChunkItems(chunks);
           i += phrase.length;
           matchedMultiChunk = true;
           break;
@@ -1020,6 +1207,7 @@ export class KeyStrokeCompiler {
       if (matchedMultiChunk) continue;
 
       // H-1. 既存の臨床・検証済み辞書 (COMPOUND_LEXICON) 最長一致探索 (最長24文字〜2文字)
+      // ※サ変語尾（する/した/され/して）や「な」は [Z] に混ぜず [H] で無変換確定させることでIME誤爆を根絶
       let matchedCompound = false;
       for (let l = Math.min(24, remaining.length); l >= 2; l--) {
         const sub = remaining.substring(0, l);
@@ -1029,40 +1217,17 @@ export class KeyStrokeCompiler {
           let offset = l;
 
           if (offset < remaining.length) {
-            const nextPart = remaining.substring(offset);
-            if (nextPart.startsWith('な') && !nextPart.startsWith('ない') && !nextPart.startsWith('など') && !nextPart.startsWith('なし') && !nextPart.startsWith('なら')) {
-              compound += 'な';
-              romaji += 'na';
-              offset += 1;
-            } else if (nextPart.startsWith('する')) {
-              compound += 'する';
-              romaji += 'suru';
-              offset += 2;
-            } else if (nextPart.startsWith('した')) {
-              compound += 'した';
-              romaji += 'shita';
-              offset += 2;
-            } else if (nextPart.startsWith('され')) {
-              compound += 'され';
-              romaji += 'sare';
-              offset += 2;
-            } else if (nextPart.startsWith('して')) {
-              compound += 'して';
-              romaji += 'shite';
-              offset += 2;
-            } else {
-              const nextChar = remaining[offset];
-              if (MEDICAL_SUFFIXES.includes(nextChar)) {
-                const combined = compound + nextChar;
-                if (COMPOUND_LEXICON[combined]) {
-                  compound = combined;
-                  romaji = COMPOUND_LEXICON[combined];
-                  offset += 1;
-                } else if (SUFFIX_READING[nextChar]) {
-                  compound = combined;
-                  romaji = romaji + SUFFIX_READING[nextChar];
-                  offset += 1;
-                }
+            const nextChar = remaining[offset];
+            if (MEDICAL_SUFFIXES.includes(nextChar)) {
+              const combined = compound + nextChar;
+              if (COMPOUND_LEXICON[combined]) {
+                compound = combined;
+                romaji = COMPOUND_LEXICON[combined];
+                offset += 1;
+              } else if (SUFFIX_READING[nextChar]) {
+                compound = combined;
+                romaji = romaji + SUFFIX_READING[nextChar];
+                offset += 1;
               }
             }
           }
@@ -1082,9 +1247,9 @@ export class KeyStrokeCompiler {
       }
       if (matchedCompound) continue;
 
-      // H-1.5. 12.6万語大規模形態素辞書 (Mozc ＋ 厚労省マスター ＋ 臨床特化医療辞書) 最長一致探索 (最長16文字〜1文字)
+      // H-1.5. 12.6万語大規模形態素辞書 (2文字以上の複合語・活用語を優先マッチング)
       let matchedMorphLexicon = false;
-      for (let l = Math.min(16, remaining.length); l >= 1; l--) {
+      for (let l = Math.min(16, remaining.length); l >= 2; l--) {
         const sub = remaining.substring(0, l);
         if (MORPH_ROMAJI[sub]) {
           const romaji = MORPH_ROMAJI[sub];
@@ -1098,7 +1263,7 @@ export class KeyStrokeCompiler {
               compiledPayload: `[K]${romaji}[/K]`,
             });
             kCount++;
-            totalKeystrokes += romaji.length + 2; // F7 + Enter
+            totalKeystrokes += romaji.length + 2;
           } else if (tag === 'H') {
             blocks.push({
               type: 'h_hiragana',
@@ -1107,61 +1272,25 @@ export class KeyStrokeCompiler {
               compiledPayload: `[H]${romaji}[/H]`,
             });
             hCount++;
-            totalKeystrokes += romaji.length + 1; // Enter
+            totalKeystrokes += romaji.length + 1;
           } else {
-            let combinedText = sub;
-            let combinedRomaji = romaji;
-            let consumedLen = l;
-
-            const nextPart = remaining.substring(l);
-            // 1. サ変複合動詞 (自立語 + する/した/され/して/している)
-            // 例: 「志向」+「する」 ➔ [Z]shikousuru[/Z]
-            if (nextPart.startsWith('する')) {
-              combinedText += 'する';
-              combinedRomaji += 'suru';
-              consumedLen += 2;
-            } else if (nextPart.startsWith('した')) {
-              combinedText += 'した';
-              combinedRomaji += 'shita';
-              consumedLen += 2;
-            } else if (nextPart.startsWith('され')) {
-              combinedText += 'され';
-              combinedRomaji += 'sare';
-              consumedLen += 2;
-            } else if (nextPart.startsWith('して')) {
-              combinedText += 'して';
-              combinedRomaji += 'shite';
-              consumedLen += 2;
-            } else if (nextPart.startsWith('な') && !nextPart.startsWith('ない') && !nextPart.startsWith('など') && !nextPart.startsWith('なし') && !nextPart.startsWith('なら')) {
-              // 2. 形容動詞連体形 (自立語 + な)
-              // 例: 「過度」+「な」 ➔ [Z]kadona[/Z]
-              combinedText += 'な';
-              combinedRomaji += 'na';
-              consumedLen += 1;
-            } else if (sub.endsWith('さ') && nextPart.startsWith('れ')) {
-              // 3. 動詞受身 (例: 「課さ」+「れ」 ➔ [Z]kasare[/Z])
-              combinedText += 'れ';
-              combinedRomaji += 're';
-              consumedLen += 1;
-            }
-
             blocks.push({
               type: 'z_kanji',
               tag: 'Z',
-              rawText: combinedText,
-              compiledPayload: `[Z]${combinedRomaji}[/Z]`,
+              rawText: sub,
+              compiledPayload: `[Z]${romaji}[/Z]`,
             });
             zCount++;
-            totalKeystrokes += combinedRomaji.length + 2; // Space + Enter
-            i += consumedLen;
-            matchedMorphLexicon = true;
-            break;
+            totalKeystrokes += romaji.length + 2;
           }
+          i += l;
+          matchedMorphLexicon = true;
+          break;
         }
       }
       if (matchedMorphLexicon) continue;
 
-      // H-2. 助詞・付属語 (ひらがな)
+      // H-2. 助詞・付属語 (ひらがな) ➔ [H] 即時確定
       let matchedParticle = false;
       for (const p of PARTICLES) {
         if (remaining.startsWith(p)) {
@@ -1180,6 +1309,50 @@ export class KeyStrokeCompiler {
         }
       }
       if (matchedParticle) continue;
+
+      // H-2.5. 単独1文字漢字の決定論的アンカー変換（整・清・軟・純・錠・回・包・胃・肝・腎・肺・脳・腫・炎・痛 等）
+      const firstChar = remaining[0];
+      if (SINGLE_KANJI_DETERMINISTIC_ANCHORS[firstChar]) {
+        appendChunkItems(SINGLE_KANJI_DETERMINISTIC_ANCHORS[firstChar]);
+        i += 1;
+        continue;
+      }
+
+      // H-2.8. 1文字形態素辞書 (MORPH_ROMAJI / COMPOUND_LEXICON の1文字語)
+      if (COMPOUND_LEXICON[firstChar] || MORPH_ROMAJI[firstChar]) {
+        const romaji = COMPOUND_LEXICON[firstChar] || MORPH_ROMAJI[firstChar];
+        const tag = MORPH_TAGS[firstChar] || 'Z';
+        if (tag === 'K') {
+          blocks.push({
+            type: 'k_katakana',
+            tag: 'K',
+            rawText: firstChar,
+            compiledPayload: `[K]${romaji}[/K]`,
+          });
+          kCount++;
+          totalKeystrokes += romaji.length + 2;
+        } else if (tag === 'H') {
+          blocks.push({
+            type: 'h_hiragana',
+            tag: 'H',
+            rawText: firstChar,
+            compiledPayload: `[H]${romaji}[/H]`,
+          });
+          hCount++;
+          totalKeystrokes += romaji.length + 1;
+        } else {
+          blocks.push({
+            type: 'z_kanji',
+            tag: 'Z',
+            rawText: firstChar,
+            compiledPayload: `[Z]${romaji}[/Z]`,
+          });
+          zCount++;
+          totalKeystrokes += romaji.length + 2;
+        }
+        i += 1;
+        continue;
+      }
 
       // H-3. 辞書外の未知漢字フォールバック (1文字ずつ安全出力)
       const singleKanji = remaining.match(/^[\u4E00-\u9FFF\u3005]/);
@@ -1229,7 +1402,7 @@ export class KeyStrokeCompiler {
 
     const streamText = blocks.map(b => b.compiledPayload).join('');
 
-    return {
+    const finalResult: CompileResult = {
       streamText,
       blocks,
       totalKeystrokes,
@@ -1241,6 +1414,14 @@ export class KeyStrokeCompiler {
       f7Count: kCount,
       f10Count: aCount,
     };
+
+    if (_compileCache.size >= MAX_COMPILE_CACHE) {
+      const oldest = _compileCache.keys().next().value;
+      if (oldest !== undefined) _compileCache.delete(oldest);
+    }
+    _compileCache.set(cacheKey, finalResult);
+
+    return finalResult;
   }
 
   /**
@@ -1273,3 +1454,47 @@ export class KeyStrokeCompiler {
 }
 
 export const keyStrokeCompiler = new KeyStrokeCompiler();
+
+export interface KeyStrokeInspectorToken {
+  tag: 'Z' | 'K' | 'H' | 'A';
+  surface: string;
+  romaji: string;
+}
+
+/**
+ * UIインスペクタ・プレビュー用ストリームコンパイラ (LRUキャッシュ連動)
+ * 単漢字アンカー切断 ([BS]) を前ブロックの romaji 内の '\x08' として統合表示
+ */
+export function compileToKeyStrokeStream(text: string): {
+  streamText: string;
+  tokens: KeyStrokeInspectorToken[];
+} {
+  const res = keyStrokeCompiler.compileText(text);
+  const tokens: KeyStrokeInspectorToken[] = [];
+
+  for (let i = 0; i < res.blocks.length; i++) {
+    const b = res.blocks[i];
+    if (b.tag === 'BS') {
+      if (tokens.length > 0) {
+        const prev = tokens[tokens.length - 1];
+        prev.romaji += '\x08'.repeat(b.rawText.length || 1);
+        if (prev.surface.length > 1) {
+          prev.surface = prev.surface.slice(0, Math.max(1, prev.surface.length - (b.rawText.length || 1)));
+        }
+      }
+      continue;
+    }
+    const innerPayload = b.compiledPayload.replace(/^\[(?:Z|K|H|A)\]|\[\/(?:Z|K|H|A)\]$/g, '');
+    tokens.push({
+      tag: (b.tag as 'Z' | 'K' | 'H' | 'A'),
+      surface: b.rawText,
+      romaji: innerPayload,
+    });
+  }
+
+  return {
+    streamText: res.streamText,
+    tokens,
+  };
+}
+

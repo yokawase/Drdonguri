@@ -5,6 +5,7 @@ import { DispatchMode, DEFAULT_PRESET_TEMPLATES, MedicalTemplate } from './types
 import { APP_VERSION } from './version';
 import { NativePwaEdgeLayout } from './components/NativePwaEdgeLayout';
 import { cleanExtractedMedicalText, DEFAULT_SAMPLE_CHART_TEXT } from './utils/chartTextCleaner';
+import { prewarmWebLlmEngine } from './services/webLlmService';
 
 // 臨床現場で真に必要なモーダルのみオンデマンド遅延ロード
 const MedicalDataSearchModal = React.lazy(() =>
@@ -52,12 +53,21 @@ export default function App() {
     return DEFAULT_PRESET_TEMPLATES;
   });
 
-  // テキスト更新時に自動保存
+  // テキスト更新時に非同期デバウンス自動保存（タイピング中のメインスレッドブロッキングを完全排除）
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY_BUFFER, inputText);
-    }
+    if (typeof window === 'undefined') return;
+    const timer = window.setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY_BUFFER, inputText);
+      } catch {}
+    }, 300);
+    return () => window.clearTimeout(timer);
   }, [inputText]);
+
+  // 初回アイドル時に WebGPU Gemma 2 エンジンをバックグラウンドプリウォーム
+  useEffect(() => {
+    prewarmWebLlmEngine();
+  }, []);
 
   // ドングルBLE接続 & 送信状態
   const [isBleConnected, setIsBleConnected] = useState<boolean>(false);

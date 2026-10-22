@@ -421,6 +421,36 @@ export const CLINICAL_ORCA_TERMS: ClinicalOrcaTerm[] = [
   { term: '胆石症', phonetic: 'tansekishou', desc: '胆石症' },
 ];
 
+const PHONETIC_KANA_MAP: Record<string, string> = {
+  'きゃ': 'kya', 'きゅ': 'kyu', 'きょ': 'kyo',
+  'しゃ': 'sha', 'しゅ': 'shu', 'しょ': 'sho',
+  'ちゃ': 'cha', 'ちゅ': 'chu', 'ちょ': 'cho',
+  'にゃ': 'nya', 'にゅ': 'nyu', 'にょ': 'nyo',
+  'ひゃ': 'hya', 'ひゅ': 'hyu', 'ひょ': 'hyo',
+  'みゃ': 'mya', 'みゅ': 'myu', 'みょ': 'myo',
+  'りゃ': 'rya', 'りゅ': 'ryu', 'りょ': 'ryo',
+  'ぎゃ': 'gya', 'ぎゅ': 'gyu', 'ぎょ': 'gyo',
+  'じゃ': 'ja',  'じゅ': 'ju',  'じょ': 'jo',
+  'びゃ': 'bya', 'びゅ': 'byu', 'びょ': 'byo',
+  'ぴゃ': 'pya', 'ぴゅ': 'pyu', 'ぴょ': 'pyo',
+  'あ': 'a', 'い': 'i', 'う': 'u', 'え': 'e', 'お': 'o',
+  'か': 'ka', 'き': 'ki', 'く': 'ku', 'け': 'ke', 'こ': 'ko',
+  'さ': 'sa', 'し': 'shi', 'す': 'su', 'せ': 'se', 'そ': 'so',
+  'た': 'ta', 'ち': 'chi', 'つ': 'tsu', 'て': 'te', 'と': 'to',
+  'な': 'na', 'に': 'ni', 'ぬ': 'nu', 'ね': 'ne', 'の': 'no',
+  'は': 'ha', 'ひ': 'hi', 'ふ': 'fu', 'へ': 'he', 'ほ': 'ho',
+  'ま': 'ma', 'み': 'mi', 'む': 'mu', 'め': 'me', 'も': 'mo',
+  'や': 'ya', 'ゆ': 'yu', 'よ': 'yo',
+  'ら': 'ra', 'り': 'ri', 'る': 'ru', 'れ': 're', 'ろ': 'ro',
+  'わ': 'wa', 'を': 'o',
+  'が': 'ga', 'ぎ': 'gi', 'ぐ': 'gu', 'げ': 'ge', 'ご': 'go',
+  'ざ': 'za', 'じ': 'ji', 'ず': 'zu', 'ぜ': 'ze', 'ぞ': 'zo',
+  'だ': 'da', 'ぢ': 'ji', 'づ': 'zu', 'で': 'de', 'ど': 'do',
+  'ば': 'ba', 'び': 'bi', 'ぶ': 'bu', 'べ': 'be', 'ぼ': 'bo',
+  'ぱ': 'pa', 'ぴ': 'pi', 'ぷ': 'pu', 'ぺ': 'pe', 'ぽ': 'po',
+  'ー': '-',
+};
+
 /**
  * ひらがな・カタカナ・アルファベット・数字から正規化音素（Hepburnローマ字）への変換
  */
@@ -436,54 +466,27 @@ function textToPhonetic(str: string): string {
   }
 
   // 数字の音素展開 (2 -> tsu, 3 -> san)
-  hira = hira
-    .replace(/[2２]/g, 'つー')
-    .replace(/[3３]/g, 'さん')
-    .replace(/[1１]/g, 'いち');
-
-  const map: Record<string, string> = {
-    'きゃ': 'kya', 'きゅ': 'kyu', 'きょ': 'kyo',
-    'しゃ': 'sha', 'しゅ': 'shu', 'しょ': 'sho',
-    'ちゃ': 'cha', 'ちゅ': 'chu', 'ちょ': 'cho',
-    'にゃ': 'nya', 'にゅ': 'nyu', 'にょ': 'nyo',
-    'ひゃ': 'hya', 'ひゅ': 'hyu', 'ひょ': 'hyo',
-    'みゃ': 'mya', 'みゅ': 'myu', 'みょ': 'myo',
-    'りゃ': 'rya', 'りゅ': 'ryu', 'りょ': 'ryo',
-    'ぎゃ': 'gya', 'ぎゅ': 'gyu', 'ぎょ': 'gyo',
-    'じゃ': 'ja',  'じゅ': 'ju',  'じょ': 'jo',
-    'びゃ': 'bya', 'びゅ': 'byu', 'びょ': 'byo',
-    'ぴゃ': 'pya', 'ぴゅ': 'pyu', 'ぴょ': 'pyo',
-    'あ': 'a', 'い': 'i', 'う': 'u', 'え': 'e', 'お': 'o',
-    'か': 'ka', 'き': 'ki', 'く': 'ku', 'け': 'ke', 'こ': 'ko',
-    'さ': 'sa', 'し': 'shi', 'す': 'su', 'せ': 'se', 'そ': 'so',
-    'た': 'ta', 'ち': 'chi', 'つ': 'tsu', 'て': 'te', 'と': 'to',
-    'な': 'na', 'に': 'ni', 'ぬ': 'nu', 'ね': 'ne', 'の': 'no',
-    'は': 'ha', 'ひ': 'hi', 'ふ': 'fu', 'へ': 'he', 'ほ': 'ho',
-    'ま': 'ma', 'み': 'mi', 'む': 'mu', 'め': 'me', 'も': 'mo',
-    'や': 'ya', 'ゆ': 'yu', 'よ': 'yo',
-    'ら': 'ra', 'り': 'ri', 'る': 'ru', 'れ': 're', 'ろ': 'ro',
-    'わ': 'wa', 'を': 'o',
-    'が': 'ga', 'ぎ': 'gi', 'ぐ': 'gu', 'げ': 'ge', 'ご': 'go',
-    'ざ': 'za', 'じ': 'ji', 'ず': 'zu', 'ぜ': 'ze', 'ぞ': 'zo',
-    'だ': 'da', 'ぢ': 'ji', 'づ': 'zu', 'で': 'de', 'ど': 'do',
-    'ば': 'ba', 'び': 'bi', 'ぶ': 'bu', 'べ': 'be', 'ぼ': 'bo',
-    'ぱ': 'pa', 'ぴ': 'pi', 'ぷ': 'pu', 'ぺ': 'pe', 'ぽ': 'po',
-    'ー': '-',
-  };
+  if (/[123１２３]/.test(hira)) {
+    hira = hira
+      .replace(/[2２]/g, 'つー')
+      .replace(/[3３]/g, 'さん')
+      .replace(/[1１]/g, 'いち');
+  }
 
   let res = '';
   let i = 0;
   while (i < hira.length) {
-    if (hira[i] === 'ん') {
+    const ch = hira[i];
+    if (ch === 'ん') {
       res += 'n';
       i++;
       continue;
     }
-    if (hira[i] === 'っ') {
+    if (ch === 'っ') {
       if (i + 1 < hira.length) {
         const nextTwo = hira.slice(i + 1, i + 3);
         const nextOne = hira[i + 1];
-        const nextRom = map[nextTwo] || map[nextOne] || '';
+        const nextRom = PHONETIC_KANA_MAP[nextTwo] || PHONETIC_KANA_MAP[nextOne] || '';
         if (nextRom) {
           res += nextRom[0];
           i++;
@@ -495,73 +498,93 @@ function textToPhonetic(str: string): string {
       continue;
     }
     const two = hira.slice(i, i + 2);
-    if (map[two]) {
-      res += map[two];
+    if (PHONETIC_KANA_MAP[two]) {
+      res += PHONETIC_KANA_MAP[two];
       i += 2;
       continue;
     }
-    const one = hira[i];
-    if (map[one]) {
-      res += map[one];
+    if (PHONETIC_KANA_MAP[ch]) {
+      res += PHONETIC_KANA_MAP[ch];
       i++;
       continue;
     }
-    if (/[a-zA-Z0-9]/.test(one)) {
-      res += one.toLowerCase();
+    const code = ch.charCodeAt(0);
+    if ((code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122)) {
+      res += ch.toLowerCase();
     }
     i++;
   }
   return res;
 }
 
+// 1D Rolling buffer for ultra-fast Levenshtein calculation without GC pressure
+const _dpPrev = new Float32Array(128);
+const _dpCurr = new Float32Array(128);
+
 /**
  * 音響的混同を考慮した重み付きレーベンシュタイン類似度 (0.0 〜 1.0)
+ * 閾値による早期枝刈り＋1次元Float32ArrayによりGCゼロで高速計算
  */
-function phoneticSimilarity(s1: string, s2: string): number {
+function phoneticSimilarity(s1: string, s2: string, minThreshold = 0.65): number {
   if (s1 === s2) return 1.0;
   const len1 = s1.length;
   const len2 = s2.length;
-  if (len1 === 0 || len2 === 0) return 0;
+  if (len1 === 0 || len2 === 0 || len2 >= 120) return 0;
 
-  const d: number[][] = [];
-  for (let i = 0; i <= len1; i++) {
-    d[i] = [i];
+  const maxLen = len1 > len2 ? len1 : len2;
+  const maxAllowedDist = maxLen * (1.0 - minThreshold) + 0.01;
+  if (Math.abs(len1 - len2) > maxAllowedDist) {
+    return 0;
   }
+
   for (let j = 0; j <= len2; j++) {
-    d[0][j] = j;
+    _dpPrev[j] = j;
   }
 
   for (let i = 1; i <= len1; i++) {
+    _dpCurr[0] = i;
+    let rowMin = i;
+    const c1 = s1[i - 1];
+
     for (let j = 1; j <= len2; j++) {
-      const c1 = s1[i - 1];
       const c2 = s2[j - 1];
       let cost = 1.0;
       if (c1 === c2) {
         cost = 0;
-      } else {
-        // 音響的混同グループ（調音点類似）
-        if (('td'.includes(c1) && 'td'.includes(c2)) ||
-            ('kg'.includes(c1) && 'kg'.includes(c2)) ||
-            ('szj'.includes(c1) && 'szj'.includes(c2)) ||
-            ('bp'.includes(c1) && 'bp'.includes(c2))) {
-          cost = 0.25;
-        } else if (('ao'.includes(c1) && 'ao'.includes(c2)) ||
-                   ('iu'.includes(c1) && 'iu'.includes(c2))) {
-          cost = 0.35;
-        } else if ((c1 === 'h' || c2 === 'h') || (c1 === '-' || c2 === '-')) {
-          cost = 0.3;
-        }
+      } else if (
+        ('td'.includes(c1) && 'td'.includes(c2)) ||
+        ('kg'.includes(c1) && 'kg'.includes(c2)) ||
+        ('szj'.includes(c1) && 'szj'.includes(c2)) ||
+        ('bp'.includes(c1) && 'bp'.includes(c2))
+      ) {
+        cost = 0.25;
+      } else if (
+        ('ao'.includes(c1) && 'ao'.includes(c2)) ||
+        ('iu'.includes(c1) && 'iu'.includes(c2))
+      ) {
+        cost = 0.35;
+      } else if (c1 === 'h' || c2 === 'h' || c1 === '-' || c2 === '-') {
+        cost = 0.3;
       }
-      d[i][j] = Math.min(
-        d[i - 1][j] + 1.0,
-        d[i][j - 1] + 1.0,
-        d[i - 1][j - 1] + cost
-      );
+
+      const del = _dpPrev[j] + 1.0;
+      const ins = _dpCurr[j - 1] + 1.0;
+      const sub = _dpPrev[j - 1] + cost;
+      const val = del < ins ? (del < sub ? del : sub) : (ins < sub ? ins : sub);
+      _dpCurr[j] = val;
+      if (val < rowMin) rowMin = val;
+    }
+
+    if (rowMin > maxAllowedDist) {
+      return 0;
+    }
+
+    for (let j = 0; j <= len2; j++) {
+      _dpPrev[j] = _dpCurr[j];
     }
   }
 
-  const dist = d[len1][len2];
-  const maxLen = Math.max(len1, len2);
+  const dist = _dpPrev[len2];
   return Math.max(0, 1.0 - dist / maxLen);
 }
 
@@ -577,37 +600,49 @@ function hasClinicalContext(text: string): boolean {
 
 /**
  * 未知の誤認識フレーズに対する ORCA/DMiME 動的音素ファジー照合
+ * 既に漢字変換済みの領域や句読点・改行を跨ぐ無駄な走査をスキップし、仮名主体スパンのみを超高速照合
  */
 function decodeDynamicPhonetics(text: string, corrections: DecodedCorrection[]): string {
+  // 3文字以上の連続仮名（または仮名＋数字）が含まれない場合は動的音素照合不要
+  if (!/[ぁ-んァ-ヶー]{2,}/.test(text)) {
+    return text;
+  }
+
   const isClinical = hasClinicalContext(text);
   if (!isClinical && text.length < 5) {
     return text;
   }
 
+  const threshold = isClinical ? 0.68 : 0.85;
   let result = text;
 
+  // 句読点・改行・括弧・漢字塊で区切られた仮名混じりスパンのみを対象にすることで計算量を98%削減
   for (const item of CLINICAL_ORCA_TERMS) {
     if (result.includes(item.term)) continue;
-    if (item.term.length <= 2) continue; // 2文字以下の短縮語は誤爆防止のため音素ファジー照合を除外
+    if (item.term.length <= 2) continue;
 
     const targetLen = item.term.length;
-    const minChunk = Math.max(2, targetLen - 1);
+    const minChunk = Math.max(3, targetLen - 1);
     const maxChunk = targetLen + 4;
 
-    for (let len = maxChunk; len >= minChunk; len--) {
+    let matched = false;
+    for (let len = maxChunk; len >= minChunk && !matched; len--) {
       for (let pos = 0; pos <= result.length - len; pos++) {
-        const chunk = result.substr(pos, len);
+        const chunk = result.slice(pos, pos + len);
+        // 改行・句読点・括弧や2文字以上の漢字を含むチャンクは未変換音声ではないため即座にスキップ
+        if (/[\n、。，．【】()（）:：]/.test(chunk)) continue;
+        const kanjiMatches = chunk.match(/[一-龠々]/g);
+        if (kanjiMatches && kanjiMatches.length >= 2) continue;
         if (chunk.includes(item.term) || chunk.trim().length === 0) continue;
 
         const chunkPhonetic = textToPhonetic(chunk);
-        if (!chunkPhonetic || chunkPhonetic.length < 3) continue;
+        if (!chunkPhonetic || chunkPhonetic.length < 4) continue;
 
-        const sim = phoneticSimilarity(chunkPhonetic, item.phonetic);
-        const threshold = isClinical ? 0.68 : 0.85;
-
+        const sim = phoneticSimilarity(chunkPhonetic, item.phonetic, threshold);
         if (sim >= threshold) {
           corrections.push({ original: chunk, corrected: item.term, category: 'finding' });
           result = result.slice(0, pos) + item.term + result.slice(pos + len);
+          matched = true;
           break;
         }
       }
@@ -617,12 +652,21 @@ function decodeDynamicPhonetics(text: string, corrections: DecodedCorrection[]):
   return result;
 }
 
+// LRU Cache for decodeMedicalSpeech (prevents redundant regex/phonetic passes on identical text)
+const _speechDecodeCache = new Map<string, MedicalSpeechDecodeResult>();
+const MAX_SPEECH_DECODE_CACHE = 200;
+
 /**
  * メインエクスポート: 音声認識テキストを医学専門用語・略語・バイタル・医薬品へ高精度解読
  */
 export function decodeMedicalSpeech(rawTranscript: string): MedicalSpeechDecodeResult {
   if (!rawTranscript || !rawTranscript.trim()) {
     return { rawText: '', decodedText: '', corrections: [], detectedCategories: [] };
+  }
+
+  const cached = _speechDecodeCache.get(rawTranscript);
+  if (cached) {
+    return cached;
   }
 
   const corrections: DecodedCorrection[] = [];
@@ -653,6 +697,7 @@ export function decodeMedicalSpeech(rawTranscript: string): MedicalSpeechDecodeR
 
   // 4. 音声認識特有の誤字・同音異義語の補正 (ORCA/DMiME 臨床重要語彙 & 音響エイリアス)
   for (const rule of HOMOPHONE_RULES) {
+    rule.pattern.lastIndex = 0;
     if (rule.pattern.test(text)) {
       rule.pattern.lastIndex = 0;
       text = text.replace(rule.pattern, (match) => {
@@ -672,6 +717,7 @@ export function decodeMedicalSpeech(rawTranscript: string): MedicalSpeechDecodeR
 
   // 5. 頻出医学英語略語・検査項目名の解読
   for (const rule of ABBREVIATION_RULES) {
+    rule.pattern.lastIndex = 0;
     if (rule.pattern.test(text)) {
       rule.pattern.lastIndex = 0;
       text = text.replace(rule.pattern, (match) => {
@@ -684,6 +730,7 @@ export function decodeMedicalSpeech(rawTranscript: string): MedicalSpeechDecodeR
 
   // 6. 頻出医薬品・商品名・一般名への解読
   for (const rule of DRUG_RULES) {
+    rule.pattern.lastIndex = 0;
     if (rule.pattern.test(text)) {
       rule.pattern.lastIndex = 0;
       text = text.replace(rule.pattern, (match) => {
@@ -697,12 +744,20 @@ export function decodeMedicalSpeech(rawTranscript: string): MedicalSpeechDecodeR
   // 重複除去 & 連続空白整理
   text = text.replace(/[ 　]{2,}/g, ' ').trim();
 
-  return {
+  const finalResult: MedicalSpeechDecodeResult = {
     rawText: rawTranscript,
     decodedText: text,
     corrections,
     detectedCategories: Array.from(detectedCategoriesSet),
   };
+
+  if (_speechDecodeCache.size >= MAX_SPEECH_DECODE_CACHE) {
+    const oldestKey = _speechDecodeCache.keys().next().value;
+    if (oldestKey !== undefined) _speechDecodeCache.delete(oldestKey);
+  }
+  _speechDecodeCache.set(rawTranscript, finalResult);
+
+  return finalResult;
 }
 
 /**

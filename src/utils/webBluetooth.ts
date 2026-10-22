@@ -768,6 +768,53 @@ export class BleDongleManager {
       }
     });
   }
+
+  /**
+   * T-Dongle-S3 / AtomS3U 内蔵フルカラーLEDの輝度調節 (0〜100%)
+   */
+  async setLedBrightness(percent: number): Promise<void> {
+    const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+    if (!this.isConnected()) return;
+    await this.sendCommand(`CMD:LED_BRIGHT:${clamped}`);
+  }
+
+  /**
+   * T-Dongle-S3 液晶バックライトの輝度調節 (5〜100%)
+   */
+  async setLcdBrightness(percent: number): Promise<void> {
+    const clamped = Math.max(5, Math.min(100, Math.round(percent)));
+    if (!this.isConnected()) return;
+    await this.sendCommand(`CMD:LCD_BRIGHT:${clamped}`);
+  }
+
+  /**
+   * T-Dongle-S3 液晶画面の表示ページ切替 (0:コックピット, 1:漢字変換テレメトリ, 2:カルテバイタル監査, 3:3省2GLシステム診断)
+   */
+  async setLcdPage(page: number): Promise<void> {
+    const clamped = Math.max(0, Math.min(3, Math.round(page)));
+    if (!this.isConnected()) return;
+    await this.sendCommand(`CMD:LCD_PAGE:${clamped}`);
+  }
+
+  /**
+   * 現在のカルテの形態素カウント・HVCスコア・安全監査アラート・バイタル要約をT-Dongle-S3液晶へ同期
+   */
+  async syncHudTelemetry(
+    z: number,
+    k: number,
+    a: number,
+    h: number,
+    hvc: number,
+    alerts: number,
+    vitalSummary: string
+  ): Promise<void> {
+    if (!this.isConnected()) return;
+    const safeVital = (vitalSummary || 'BP 142/86 HR 82')
+      .replace(/[\r\n,]/g, ' ')
+      .slice(0, 24);
+    await this.sendCommand(`CMD:HUD_SYNC:${z},${k},${a},${h},${hvc},${alerts},${safeVital}`);
+  }
 }
 
 export const bleManager = new BleDongleManager();
+
