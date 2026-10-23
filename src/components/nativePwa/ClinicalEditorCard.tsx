@@ -18,6 +18,7 @@ interface ClinicalEditorCardProps {
   setInputText: React.Dispatch<React.SetStateAction<string>>;
   onAbortTransfer?: () => void;
   onOpenCameraOcr?: () => void;
+  onOpenWebLlm?: (initialStyle?: any) => void;
   speechSuccessNotice: string | null;
   setSpeechSuccessNotice: React.Dispatch<React.SetStateAction<string | null>>;
   handleEditorChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
@@ -38,6 +39,7 @@ export const ClinicalEditorCard: React.FC<ClinicalEditorCardProps> = ({
   setInputText,
   onAbortTransfer,
   onOpenCameraOcr,
+  onOpenWebLlm,
   speechSuccessNotice,
   setSpeechSuccessNotice,
   handleEditorChange,
@@ -53,7 +55,8 @@ export const ClinicalEditorCard: React.FC<ClinicalEditorCardProps> = ({
         <div className="flex items-center gap-2 min-w-0">
           <span className="w-2.5 h-4 bg-amber-500 rounded-[2px] inline-block shadow-[0_0_8px_rgba(245,158,11,0.5)] shrink-0" />
           <h2 className="text-xs sm:text-sm font-bold text-slate-200 tracking-wide font-sans truncate">
-            臨床所見・SOAP整形テキスト
+            <span className="hidden sm:inline">臨床所見・SOAP整形テキスト</span>
+            <span className="sm:hidden">臨床所見カルテ</span>
           </h2>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -71,6 +74,23 @@ export const ClinicalEditorCard: React.FC<ClinicalEditorCardProps> = ({
             >
               <Camera className="w-3 h-3 text-sky-400 shrink-0" />
               <span>カメラ取込</span>
+            </button>
+          )}
+
+          {/* ✨ Gemma2 テキスト整形ボタン (メイン画面からワンタップ起動) */}
+          {onOpenWebLlm && !isSending && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                triggerHaptic(15);
+                onOpenWebLlm('soap');
+              }}
+              className="px-2 py-0.5 rounded-lg bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500/50 text-emerald-200 hover:text-white text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95 group"
+              title="Google Gemma 2 (2B) によるローカルAIカルテ・SOAP自動整形"
+            >
+              <Sparkles className="w-3 h-3 text-emerald-400 group-hover:rotate-12 transition-transform shrink-0" />
+              <span>Gemma2整形</span>
             </button>
           )}
           {isSending ? (
@@ -318,6 +338,28 @@ export const ClinicalEditorCard: React.FC<ClinicalEditorCardProps> = ({
           );
         })()}
       </div>
+
+      {/* テキスト入力時のクイックアクションバー (Gemma2整形) */}
+      {(localDraft.trim() || inputText.trim()) && !isRecording && !isSending && onOpenWebLlm && (
+        <div className="pt-2 px-1 flex items-center justify-between border-t border-slate-800/80 mt-1 shrink-0">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              triggerHaptic(20);
+              onOpenWebLlm('soap');
+            }}
+            className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-emerald-600/20 via-teal-600/20 to-sky-600/20 hover:from-emerald-600/30 hover:to-sky-600/30 border border-emerald-500/40 text-emerald-300 hover:text-emerald-100 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95 group"
+            title="Google Gemma 2 (2B) によるSOAPカルテ自動整形"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400 group-hover:rotate-12 transition-transform shrink-0" />
+            <span>Gemma2 でカルテ自動整形 (SOAP)</span>
+          </button>
+          <span className="text-[10px] text-slate-500 font-mono hidden xs:inline">
+            Gemma 2 2B WebLLM
+          </span>
+        </div>
+      )}
     </div>
   );
 };

@@ -221,6 +221,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
             setInputText={setInputText}
             onAbortTransfer={onAbortTransfer}
             onOpenCameraOcr={onOpenCameraOcr}
+            onOpenWebLlm={onOpenWebLlm}
             speechSuccessNotice={speechRecognition.speechSuccessNotice}
             setSpeechSuccessNotice={speechRecognition.setSpeechSuccessNotice}
             handleEditorChange={handleEditorChange}
