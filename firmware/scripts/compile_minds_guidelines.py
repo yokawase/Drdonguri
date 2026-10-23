@@ -17,6 +17,7 @@ import sys
 import json
 import struct
 import importlib
+from minds_thesaurus_expander import expand_trigger_words
 
 def fnv1a_32(text: str) -> int:
     h = 0x811c9dc5
@@ -45,7 +46,7 @@ def load_all_guideline_entries() -> list:
         'gastroenterology', 'nephrology_urology', 'neurology',
         'psychiatry', 'orthopedics_rheumatology', 'dermatology',
         'ent_ophthalmology', 'pediatrics', 'gynecology', 'emergency_general',
-        'expanded_clinical_cqs'
+        'expanded_clinical_cqs', 'expanded_clinical_cqs_part2', 'expanded_clinical_cqs_part3'
     ]
 
     all_entries = []
@@ -109,7 +110,8 @@ def compile_minds_guidelines(base_dir: str):
         sd_len = len(encoded_detail)
         sdcard_fulltext_bytes.extend(encoded_detail)
 
-        for word in entry["trigger_words"]:
+        expanded_triggers = expand_trigger_words(entry)
+        for word in expanded_triggers:
             h = fnv1a_32(word)
             processed_records.append({
                 "id": rec_id,

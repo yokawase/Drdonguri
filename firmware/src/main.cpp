@@ -13,6 +13,7 @@
 
 #include "usb_descriptors.h"
 #include "typing_engine.h"
+#include "minds_guideline.h"
 
 #include "esp_system.h"
 #include "soc/rtc_cntl_reg.h"
@@ -34,6 +35,7 @@ static bool g_sdMounted = false;
 #include <WebServer.h>
 static WebServer g_httpServer(80);
 static bool g_wifiApActive = false;
+static MindsGuidelineEngine g_mindsEngine;
 
 void initWifiSoftAp() {
   WiFi.mode(WIFI_AP);
@@ -43,6 +45,51 @@ void initWifiSoftAp() {
     g_httpServer.sendHeader("Access-Control-Allow-Origin", "*");
     g_httpServer.sendHeader("Access-Control-Allow-Private-Network", "true");
     g_httpServer.send(200, "application/json", "{\"status\":\"ok\",\"model\":\"T-Dongle-S3\",\"sdMounted\":true}");
+  });
+
+  // Minds 診療ガイドライン CDS & SRAMキャッシュ統計API
+  g_httpServer.on("/api/minds/stats", HTTP_GET, []() {
+    g_httpServer.sendHeader("Access-Control-Allow-Origin", "*");
+    g_httpServer.sendHeader("Access-Control-Allow-Private-Network", "true");
+    auto s = g_mindsEngine.getStats();
+    char buf[256];
+    snprintf(buf, sizeof(buf), 
+      "{\"totalRecords\":%u,\"sramIndexBytes\":%u,\"sramLruBytes\":%u,\"totalLookups\":%u,\"lruHits\":%u,\"flashReads\":%u,\"lookupMisses\":%u}",
+      (unsigned int)s.totalRecords, (unsigned int)s.sramIndexBytes, (unsigned int)s.sramLruBytes,
+      s.totalLookups, s.lruHits, s.flashReads, s.lookupMisses);
+    g_httpServer.send(200, "application/json", buf);
+  });
+
+  // Minds 診療ガイドライン CDS 0.5ms 即時照合検索API
+  g_httpServer.on("/api/minds/search", HTTP_GET, []() {
+    g_httpServer.sendHeader("Access-Control-Allow-Origin", "*");
+    g_httpServer.sendHeader("Access-Control-Allow-Private-Network", "true");
+    if (!g_httpServer.hasArg("q")) {
+      g_httpServer.send(400, "application/json", "{\"error\":\"Missing q parameter\"}");
+      return;
+    }
+    String q = g_httpServer.arg("q");
+    MindsGuidelineRecord512 rec;
+    if (g_mindsEngine.lookupGuideline(q.c_str(), &rec)) {
+      String json = "{";
+      json += "\"found\":true,";
+      json += "\"id\":" + String(rec.id) + ",";
+      json += "\"icd10\":\"" + String(rec.icd10) + "\",";
+      json += "\"category\":\"" + String(rec.category) + "\",";
+      json += "\"disease\":\"" + String(rec.disease_name) + "\",";
+      json += "\"cqNum\":" + String(rec.cq_num) + ",";
+      json += "\"cqTitle\":\"" + String(rec.cq_title) + "\",";
+      json += "\"strength\":" + String(rec.strength) + ",";
+      json += "\"strengthLabel\":\"" + String(MindsGuidelineEngine::getStrengthLabel(rec.strength)) + "\",";
+      json += "\"evidence\":" + String(rec.evidence_level) + ",";
+      json += "\"evidenceLabel\":\"" + String(MindsGuidelineEngine::getEvidenceLabel(rec.evidence_level)) + "\",";
+      json += "\"alertFlags\":" + String(rec.alert_flags) + ",";
+      json += "\"recommendation\":\"" + String(rec.recommendation) + "\"";
+      json += "}";
+      g_httpServer.send(200, "application/json", json);
+    } else {
+      g_httpServer.send(404, "application/json", "{\"found\":false,\"query\":\"" + q + "\"}");
+    }
   });
 
   // MicroSD 直接高速ストリーミングエンドポイント (CORS開放 & PNA対応)
@@ -1913,7 +1960,7 @@ void dispatchOutput() {
   }
 #if defined(T_DONGLE_S3)
   g_display.showFace(FACE_IDLE);
-  g_display.updateStatus(isBleConnected ? "BLE READY" : "WAITING BLE", 0, 0, 0, 0, 0, 0, "Minds 111 Q");
+  g_display.updateStatus(isBleConnected ? "BLE READY" : "WAITING BLE", 0, 0, 0, 0, 0, 0, "Minds 3.3K (RAM)");
 #endif
 }
 
@@ -1927,7 +1974,7 @@ class MyServerCallbacks : public BLEServerCallbacks {
     setLedColor(0, 64, 0); // 接続完了: 緑点灯
 #if defined(T_DONGLE_S3)
     g_display.showFace(FACE_IDLE);
-    g_display.updateStatus("BLE READY", 0, 0, 0, 0, 0, 0, "Minds 111 Q");
+    g_display.updateStatus("BLE READY", 0, 0, 0, 0, 0, 0, "Minds 3.3K (RAM)");
 #endif
   }
 
@@ -1940,7 +1987,7 @@ class MyServerCallbacks : public BLEServerCallbacks {
     setLedColor(0, 0, 64); // 待機状態: 青点灯
 #if defined(T_DONGLE_S3)
     g_display.showFace(FACE_IDLE);
-    g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, "Minds 111 Q");
+    g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, "Minds 3.3K (RAM)");
 #endif
   }
 };
@@ -1995,11 +2042,19 @@ void setup() {
 
   g_display.init();
   g_display.showFace(FACE_IDLE);
-  g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, g_sdMounted ? "Minds (SD:OK)" : "Minds 111 Q");
+  g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, g_sdMounted ? "Minds (SD:OK)" : "Minds 3.3K (RAM)");
 #endif
 
   // SPIFFS初期化 (フォーマットフラグ: true)
   spiffsMounted = SPIFFS.begin(true);
+  if (spiffsMounted) {
+    g_mindsEngine.beginFlash("/minds_cds.bin");
+  }
+#if defined(T_DONGLE_S3)
+  if (g_sdMounted) {
+    g_mindsEngine.beginSdCard("/minds_fulltext.dat");
+  }
+#endif
 
   // 仮想プリンター (Class 07h) インターフェースの有効化 (TinyUSB Composite)
   initPrinterInterface();

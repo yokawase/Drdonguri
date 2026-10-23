@@ -364,7 +364,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                   </button>
                 </div>
                 <p className="text-[10px] text-slate-400 leading-normal">
-                  要約・判定インデックスはT-Dongle-S3の16MBメモリから0.1ms即時検索。医薬品添付文書原本PDFや高解像度12誘導心電図等の詳細データは、T-Dongle-S3の閉域Wi-Fi SoftAP (192.168.4.1) 接続時にストリーミング閲覧可能です。
+                  Minds意思決定支援 (3,295件) ＆ 10大マスターはT-Dongle-S3のSRAM高速キャッシュ＋16MB Flashから0.1ms即時照合。医薬品添付文書原本PDFや高解像度12誘導心電図等の詳細データは、T-Dongle-S3の閉域Wi-Fi SoftAP (192.168.4.1) 接続時にストリーミング閲覧可能です。
                 </p>
               </div>
             </div>

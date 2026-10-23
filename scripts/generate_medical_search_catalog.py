@@ -509,6 +509,10 @@ import {{
   ClinicalAtlasItem,
   DrugIdentificationItem,
   ClinicalScoreItem,
+  EMERGENCY_PROTOCOLS_CATALOG,
+  CLINICAL_ATLAS_CATALOG,
+  DRUG_IDENTIFICATION_CATALOG,
+  CLINICAL_SCORES_CATALOG,
 }} from './microSdMedicalCatalog';
 
 export interface MindsKnowledgeItem {{
@@ -597,6 +601,7 @@ export interface UnifiedMedicalSearchResult {{
   atlasData?: ClinicalAtlasItem;
   drugIdData?: DrugIdentificationItem;
   scoreData?: ClinicalScoreItem;
+  matchedKeywords?: string[];
 }}
 
 export const MINDS_KNOWLEDGE_CATALOG: MindsKnowledgeItem[] = {json.dumps(minds_catalog, ensure_ascii=False, indent=2)};
@@ -620,32 +625,81 @@ export function searchUnifiedMedicalKnowledge(
   limit: number = 30
 ): UnifiedMedicalSearchResult[] {{
   if (!query || !query.trim()) return [];
-  const q = query.trim().toLowerCase();
-  const results: UnifiedMedicalSearchResult[] = [];
+  const rawQ = query.trim().toLowerCase();
+  const rawTokens = rawQ
+    .split(/[\\s,、・/]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2);
+  const tokens = rawTokens.length > 0 ? rawTokens : [rawQ];
+
+  const scoredResults: {{ result: UnifiedMedicalSearchResult; score: number }}[] = [];
+
+  const computeMatch = (primaryFields: string[], secondaryFields: string[]): {{ score: number; matched: string[] }} => {{
+    const primaryText = primaryFields.join(' ').toLowerCase();
+    const secondaryText = secondaryFields.join(' ').toLowerCase();
+    let score = 0;
+    const matched: string[] = [];
+
+    for (const token of tokens) {{
+      if (primaryText.includes(token)) {{
+        score += 10;
+        matched.push(token);
+      }} else if (secondaryText.includes(token)) {{
+        score += 4;
+        matched.push(token);
+      }}
+    }}
+    return {{ score, matched: Array.from(new Set(matched)) }};
+  }};
 
   // 1. Minds ガイドライン
   if (filterType === 'all' || filterType === 'minds') {{
     for (const item of MINDS_KNOWLEDGE_CATALOG) {{
-      const match =
-        item.diseaseName.toLowerCase().includes(q) ||
-        item.icd10.toLowerCase().includes(q) ||
-        item.cqTitle.toLowerCase().includes(q) ||
-        item.recommendation.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q) ||
-        item.detail.practiceTip.toLowerCase().includes(q);
-
-      if (match) {{
-        results.push({{
-          type: 'minds',
-          title: `[Minds] ${{item.diseaseName}} CQ${{item.cqNum}}`,
-          subtitle: item.cqTitle,
-          codeOrAttr: `ICD-10: ${{item.icd10}} | 推奨度: ${{item.strength === 1 ? '強く推奨' : item.strength === 2 ? '弱く推奨' : item.strength === 3 ? '弱く非推奨' : '強く非推奨'}} (質${{item.evidenceLevel === 1 ? 'A' : item.evidenceLevel === 2 ? 'B' : item.evidenceLevel === 3 ? 'C' : 'D'}})`,
-          category: item.category,
-          content: item.recommendation,
-          extraInfo: item.detail.practiceTip,
-          mindsData: item,
+      const {{ score, matched }} = computeMatch(
+        [item.diseaseName, item.cqTitle, item.icd10],
+        [item.recommendation, item.category, item.detail.practiceTip, item.detail.guidelineTitle]
+      );
+      if (score > 0) {{
+        scoredResults.push({{
+          score,
+          result: {{
+            type: 'minds',
+            title: `[Minds] ${{item.diseaseName}} CQ${{item.cqNum}}`,
+            subtitle: item.cqTitle,
+            codeOrAttr: `ICD-10: ${{item.icd10}} | 推奨度: ${{item.strength === 1 ? '強く推奨' : item.strength === 2 ? '弱く推奨' : item.strength === 3 ? '弱く非推奨' : '強く非推奨'}} (質${{item.evidenceLevel === 1 ? 'A' : item.evidenceLevel === 2 ? 'B' : item.evidenceLevel === 3 ? 'C' : 'D'}})`,
+            category: item.category,
+            content: item.recommendation,
+            extraInfo: item.detail.practiceTip,
+            matchedKeywords: matched,
+            mindsData: item,
+          }},
         }});
-        if (results.length >= limit) return results;
+      }}
+    }}
+  }}
+
+  // 1b. 救急・中毒・災害医療(DMAT)プロトコル
+  if (filterType === 'all' || filterType === 'minds' || filterType === 'emer') {{
+    for (const emItem of EMERGENCY_PROTOCOLS_CATALOG) {{
+      const {{ score, matched }} = computeMatch(
+        [emItem.title, emItem.substanceOrCondition],
+        [emItem.category, emItem.antidoteOrTreatment, emItem.initialProtocol, emItem.cautions]
+      );
+      if (score > 0) {{
+        scoredResults.push({{
+          score: score + 2,
+          result: {{
+            type: 'emer',
+            title: `[救急・中毒] ${{emItem.title}}`,
+            subtitle: `原因/病態: ${{emItem.substanceOrCondition}}`,
+            codeOrAttr: `${{emItem.category}}`,
+            category: emItem.category,
+            content: `【治療/拮抗薬】${{emItem.antidoteOrTreatment}}\\n【初期プロトコル】${{emItem.initialProtocol}}`,
+            extraInfo: `留意点: ${{emItem.cautions}} (SD: ${{emItem.sdFilePath}})`,
+            matchedKeywords: matched,
+            emergencyData: emItem,
+          }},
+        }});
       }}
     }}
   }}
@@ -653,26 +707,51 @@ export function searchUnifiedMedicalKnowledge(
   // 2. 医薬品情報
   if (filterType === 'all' || filterType === 'drug') {{
     for (const d of DRUGS_CATALOG) {{
-      const match =
-        d.name.toLowerCase().includes(q) ||
-        d.genericName.toLowerCase().includes(q) ||
-        d.yomi.includes(q) ||
-        d.category.toLowerCase().includes(q) ||
-        d.cautions.toLowerCase().includes(q) ||
-        d.icd10.toLowerCase().includes(q);
-
-      if (match) {{
-        results.push({{
-          type: 'drug',
-          title: `[医薬品] ${{d.name}}`,
-          subtitle: `一般名: ${{d.genericName}} (${{d.yomi}})`,
-          codeOrAttr: `${{d.category}} | ${{d.standardDosage}}`,
-          category: d.category,
-          content: d.cautions,
-          extraInfo: `標準用法: ${{d.standardDosage}}`,
-          drugData: d,
+      const {{ score, matched }} = computeMatch(
+        [d.name, d.genericName, d.yomi],
+        [d.category, d.cautions, d.icd10, d.standardDosage]
+      );
+      if (score > 0) {{
+        scoredResults.push({{
+          score,
+          result: {{
+            type: 'drug',
+            title: `[医薬品] ${{d.name}}`,
+            subtitle: `一般名: ${{d.genericName}} (${{d.yomi}})`,
+            codeOrAttr: `${{d.category}} | ${{d.standardDosage}}`,
+            category: d.category,
+            content: d.cautions,
+            extraInfo: `標準用法: ${{d.standardDosage}}`,
+            matchedKeywords: matched,
+            drugData: d,
+          }},
         }});
-        if (results.length >= limit) return results;
+      }}
+    }}
+  }}
+
+  // 2b. 持参薬・錠剤識別マスター
+  if (filterType === 'all' || filterType === 'drug' || filterType === 'drug_id') {{
+    for (const diItem of DRUG_IDENTIFICATION_CATALOG) {{
+      const {{ score, matched }} = computeMatch(
+        [diItem.brandName, diItem.genericName, diItem.imprintCode],
+        [diItem.category, diItem.standardDose, diItem.majorCautions]
+      );
+      if (score > 0) {{
+        scoredResults.push({{
+          score,
+          result: {{
+            type: 'drug_id',
+            title: `[持参薬識別] ${{diItem.brandName}}`,
+            subtitle: `刻印: 【${{diItem.imprintCode}}】 | 外観: ${{diItem.colorAndShape}}`,
+            codeOrAttr: `${{diItem.category}}`,
+            category: diItem.category,
+            content: `【標準用法用量】${{diItem.standardDose}}\\n【禁忌・注意】${{diItem.majorCautions}}`,
+            extraInfo: `一般名: ${{diItem.genericName}} (SD: ${{diItem.sdFilePath}})`,
+            matchedKeywords: matched,
+            drugIdData: diItem,
+          }},
+        }});
       }}
     }}
   }}
@@ -680,108 +759,161 @@ export function searchUnifiedMedicalKnowledge(
   // 3. 傷病名マスター
   if (filterType === 'all' || filterType === 'disease') {{
     for (const dis of DISEASES_CATALOG) {{
-      const match =
-        dis.name.toLowerCase().includes(q) ||
-        dis.yomi.includes(q) ||
-        dis.icd10.toLowerCase().includes(q) ||
-        dis.category.toLowerCase().includes(q) ||
-        dis.tips.toLowerCase().includes(q);
-
-      if (match) {{
-        results.push({{
-          type: 'disease',
-          title: `[傷病名] ${{dis.name}}`,
-          subtitle: `ICD-10: ${{dis.icd10}} (${{dis.yomi}})`,
-          codeOrAttr: `診療科: ${{dis.category}}`,
-          category: dis.category,
-          content: dis.tips,
-          diseaseData: dis,
+      const {{ score, matched }} = computeMatch(
+        [dis.name, dis.yomi, dis.icd10],
+        [dis.category, dis.tips]
+      );
+      if (score > 0) {{
+        scoredResults.push({{
+          score,
+          result: {{
+            type: 'disease',
+            title: `[傷病名] ${{dis.name}}`,
+            subtitle: `ICD-10: ${{dis.icd10}} (${{dis.yomi}})`,
+            codeOrAttr: `診療科: ${{dis.category}}`,
+            category: dis.category,
+            content: dis.tips,
+            matchedKeywords: matched,
+            diseaseData: dis,
+          }},
         }});
-        if (results.length >= limit) return results;
       }}
     }}
   }}
 
-  // 4. 臨床検査値・基準値マスター (新規)
+  // 4. 臨床検査値・基準値マスター
   if (filterType === 'all' || filterType === 'lab') {{
     for (const lab of LAB_TESTS_CATALOG) {{
-      const match =
-        lab.name.toLowerCase().includes(q) ||
-        lab.yomi.includes(q) ||
-        lab.category.toLowerCase().includes(q) ||
-        lab.referenceRange.toLowerCase().includes(q) ||
-        lab.clinicalSignificance.toLowerCase().includes(q);
-
-      if (match) {{
-        results.push({{
-          type: 'lab',
-          title: `[検査値] ${{lab.name}}`,
-          subtitle: `基準値: ${{lab.referenceRange}} | パニック値: ${{lab.panicValue}}`,
-          codeOrAttr: `${{lab.category}}`,
-          category: lab.category,
-          content: lab.clinicalSignificance,
-          extraInfo: `カルテ定型文: ${{lab.soapTemplate}}`,
-          labData: lab,
+      const {{ score, matched }} = computeMatch(
+        [lab.name, lab.yomi],
+        [lab.category, lab.referenceRange, lab.clinicalSignificance]
+      );
+      if (score > 0) {{
+        scoredResults.push({{
+          score,
+          result: {{
+            type: 'lab',
+            title: `[検査値] ${{lab.name}}`,
+            subtitle: `基準値: ${{lab.referenceRange}} | パニック値: ${{lab.panicValue}}`,
+            codeOrAttr: `${{lab.category}}`,
+            category: lab.category,
+            content: lab.clinicalSignificance,
+            extraInfo: `カルテ定型文: ${{lab.soapTemplate}}`,
+            matchedKeywords: matched,
+            labData: lab,
+          }},
         }});
-        if (results.length >= limit) return results;
       }}
     }}
   }}
 
-  // 5. 診療行為・指導料マスター (新規)
+  // 5. 診療行為・指導料マスター
   if (filterType === 'all' || filterType === 'proc') {{
     for (const proc of PROCEDURES_CATALOG) {{
-      const match =
-        proc.name.toLowerCase().includes(q) ||
-        proc.code.toLowerCase().includes(q) ||
-        proc.yomi.includes(q) ||
-        proc.category.toLowerCase().includes(q) ||
-        proc.targetDisease.toLowerCase().includes(q) ||
-        proc.requirements.toLowerCase().includes(q);
-
-      if (match) {{
-        results.push({{
-          type: 'proc',
-          title: `[診療行為] ${{proc.name}} (${{proc.points}})`,
-          subtitle: `区分: ${{proc.code}} | 対象: ${{proc.targetDisease}}`,
-          codeOrAttr: `${{proc.category}}`,
-          category: proc.category,
-          content: proc.requirements,
-          extraInfo: `カルテ記載例: ${{proc.soapTemplate}}`,
-          procData: proc,
+      const {{ score, matched }} = computeMatch(
+        [proc.name, proc.code, proc.targetDisease],
+        [proc.yomi, proc.category, proc.requirements]
+      );
+      if (score > 0) {{
+        scoredResults.push({{
+          score,
+          result: {{
+            type: 'proc',
+            title: `[診療行為] ${{proc.name}} (${{proc.points}})`,
+            subtitle: `区分: ${{proc.code}} | 対象: ${{proc.targetDisease}}`,
+            codeOrAttr: `${{proc.category}}`,
+            category: proc.category,
+            content: proc.requirements,
+            extraInfo: `カルテ記載例: ${{proc.soapTemplate}}`,
+            matchedKeywords: matched,
+            procData: proc,
+          }},
         }});
-        if (results.length >= limit) return results;
       }}
     }}
   }}
 
-  // 6. 腎機能別(eGFR/CrCl) 投与設計マスター (新規)
+  // 6. 腎機能別(eGFR/CrCl) 投与設計マスター
   if (filterType === 'all' || filterType === 'renal') {{
     for (const ren of RENAL_DOSE_CATALOG) {{
       const cutoffsText = ren.cutoffs.map((c) => `${{c.range}}: ${{c.dose}}`).join(' / ');
-      const match =
-        ren.drugName.toLowerCase().includes(q) ||
-        ren.category.toLowerCase().includes(q) ||
-        ren.clinicalTip.toLowerCase().includes(q) ||
-        cutoffsText.toLowerCase().includes(q);
-
-      if (match) {{
-        results.push({{
-          type: 'renal',
-          title: `[腎機能減量] ${{ren.drugName}}`,
-          subtitle: `標準量: ${{ren.standardDose}} (${{ren.category}})`,
-          codeOrAttr: `eGFR/CrCl投与設計`,
-          category: ren.category,
-          content: cutoffsText,
-          extraInfo: `臨床ポイント: ${{ren.clinicalTip}}`,
-          renalData: ren,
+      const {{ score, matched }} = computeMatch(
+        [ren.drugName],
+        [ren.category, ren.clinicalTip, cutoffsText]
+      );
+      if (score > 0) {{
+        scoredResults.push({{
+          score,
+          result: {{
+            type: 'renal',
+            title: `[腎機能減量] ${{ren.drugName}}`,
+            subtitle: `標準量: ${{ren.standardDose}} (${{ren.category}})`,
+            codeOrAttr: `eGFR/CrCl投与設計`,
+            category: ren.category,
+            content: cutoffsText,
+            extraInfo: `臨床ポイント: ${{ren.clinicalTip}}`,
+            matchedKeywords: matched,
+            renalData: ren,
+          }},
         }});
-        if (results.length >= limit) return results;
       }}
     }}
   }}
 
-  return results;
+  // 7. 臨床アトラス (12誘導心電図・内視鏡・皮膚科)
+  if (filterType === 'all' || filterType === 'atlas') {{
+    for (const atItem of CLINICAL_ATLAS_CATALOG) {{
+      const {{ score, matched }} = computeMatch(
+        [atItem.title, atItem.category],
+        [atItem.typicalFeatures, atItem.clinicalSignificance, atItem.differentialDiagnosis]
+      );
+      if (score > 0) {{
+        scoredResults.push({{
+          score,
+          result: {{
+            type: 'atlas',
+            title: `[アトラス画像] ${{atItem.title}}`,
+            subtitle: `典型所見: ${{atItem.typicalFeatures}}`,
+            codeOrAttr: `${{atItem.category}}`,
+            category: atItem.category,
+            content: `【臨床的意義】${{atItem.clinicalSignificance}}\\n【鑑別診断】${{atItem.differentialDiagnosis}}`,
+            extraInfo: `画像: ${{atItem.imageFileName}} (SD: ${{atItem.sdFilePath}})`,
+            matchedKeywords: matched,
+            atlasData: atItem,
+          }},
+        }});
+      }}
+    }}
+  }}
+
+  // 8. 臨床スコアマスター (CHADS2 / Wells / CURB-65 / qSOFA等)
+  if (filterType === 'all' || filterType === 'score') {{
+    for (const scItem of CLINICAL_SCORES_CATALOG) {{
+      const {{ score, matched }} = computeMatch(
+        [scItem.scoreName, scItem.targetClinicalCondition],
+        [scItem.calculationFormula, scItem.riskEvaluation, scItem.clinicalAction]
+      );
+      if (score > 0) {{
+        scoredResults.push({{
+          score,
+          result: {{
+            type: 'score',
+            title: `[臨床スコア] ${{scItem.scoreName}}`,
+            subtitle: `対象: ${{scItem.targetClinicalCondition}}`,
+            codeOrAttr: `臨床スコアリング`,
+            category: `スコアリング`,
+            content: `【計算式】${{scItem.calculationFormula}}\\n【リスク評価】${{scItem.riskEvaluation}}`,
+            extraInfo: `臨床アクション: ${{scItem.clinicalAction}}`,
+            matchedKeywords: matched,
+            scoreData: scItem,
+          }},
+        }});
+      }}
+    }}
+  }}
+
+  scoredResults.sort((a, b) => b.score - a.score);
+  return scoredResults.slice(0, limit).map((s) => s.result);
 }}
 """
 

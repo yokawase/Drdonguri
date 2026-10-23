@@ -137,6 +137,67 @@ class SdCardStreamingService {
     this.openDirectUrl(pdfPath);
     return true;
   }
+
+  /**
+   * T-Dongle-S3 実機 SRAM キャッシュ統計 (Minds CDS) の取得
+   */
+  public async fetchMindsStats(): Promise<MindsLiveStats | null> {
+    if (!this.apStatus.isConnected) return null;
+    try {
+      const resp = await fetch(`${this.baseEndpoint}/api/minds/stats`, { mode: 'cors' });
+      if (resp.ok) {
+        return await resp.json();
+      }
+    } catch (e) {
+      console.warn('Failed to fetch minds stats:', e);
+    }
+    return null;
+  }
+
+  /**
+   * T-Dongle-S3 実機 SRAM インデックスによる Minds CDS 0.5ms 即時照合
+   */
+  public async searchMindsLive(keyword: string): Promise<MindsLiveSearchResult | null> {
+    if (!this.apStatus.isConnected || !keyword.trim()) return null;
+    try {
+      const resp = await fetch(`${this.baseEndpoint}/api/minds/search?q=${encodeURIComponent(keyword.trim())}`, {
+        mode: 'cors'
+      });
+      if (resp.ok) {
+        return await resp.json();
+      }
+    } catch (e) {
+      console.warn('Failed to search minds live:', e);
+    }
+    return null;
+  }
+}
+
+export interface MindsLiveStats {
+  totalRecords: number;
+  sramIndexBytes: number;
+  sramLruBytes: number;
+  totalLookups: number;
+  lruHits: number;
+  flashReads: number;
+  lookupMisses: number;
+}
+
+export interface MindsLiveSearchResult {
+  found: boolean;
+  id?: number;
+  icd10?: string;
+  category?: string;
+  disease?: string;
+  cqNum?: number;
+  cqTitle?: string;
+  strength?: number;
+  strengthLabel?: string;
+  evidence?: number;
+  evidenceLabel?: string;
+  alertFlags?: number;
+  recommendation?: string;
+  query?: string;
 }
 
 export const sdCardStreamingService = new SdCardStreamingService();
