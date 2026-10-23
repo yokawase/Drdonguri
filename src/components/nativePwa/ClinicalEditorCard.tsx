@@ -171,7 +171,7 @@ export const ClinicalEditorCard: React.FC<ClinicalEditorCardProps> = ({
             className="w-full flex-1 h-full min-h-[280px] bg-transparent text-slate-100 text-xs sm:text-[13px] lg:text-sm leading-relaxed resize-none focus:outline-none font-mono selection:bg-amber-500/30"
           />
         ) : (
-          <div className="space-y-1 cursor-text">
+          <div className="space-y-1 cursor-text flex-1 min-h-[280px]">
             {displayLines.map((line, idx) => {
               const trimmed = line.trim();
               const isCyanTag = /^【(S|主訴|現病歴|既往歴|内服薬|O|身体所見|検査)】/.test(trimmed);

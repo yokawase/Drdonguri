@@ -278,7 +278,19 @@ const _chartKeywordCache = new Map<string, ExtractedChartContext>();
  * カルテ全体のテキストから臨床キーワードを網羅的に抽出し、各専門タブ用のクエリ群を生成する
  */
 export function extractChartClinicalKeywords(chartText: string): ExtractedChartContext {
-  const cacheKey = chartText || DEFAULT_SAMPLE_CHART_TEXT;
+  if (!chartText || !chartText.trim()) {
+    return {
+      rawChartText: '',
+      allKeywords: [],
+      directKeywords: [],
+      inferredKeywords: [],
+      drugKeywords: [],
+      atlasEcgKeywords: [],
+      mindsEmerKeywords: [],
+      summaryLabel: '',
+    };
+  }
+  const cacheKey = chartText;
   const cached = _chartKeywordCache.get(cacheKey);
   if (cached) return cached;
 

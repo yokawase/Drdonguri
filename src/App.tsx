@@ -37,7 +37,7 @@ export default function App() {
   const [inputText, setInputText] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STORAGE_KEY_BUFFER);
-      if (saved && saved.trim()) {
+      if (saved !== null) {
         return cleanExtractedMedicalText(saved);
       }
     }

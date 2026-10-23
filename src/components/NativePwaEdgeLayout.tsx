@@ -8,10 +8,7 @@ import React, {
 } from 'react';
 import { Search } from 'lucide-react';
 import { isAudioMuted, toggleAudioMuted, addAudioMuteListener, playMacBeep } from '../utils/macAudio';
-import {
-  cleanExtractedMedicalText,
-  DEFAULT_SAMPLE_CHART_TEXT,
-} from '../utils/chartTextCleaner';
+import { cleanExtractedMedicalText } from '../utils/chartTextCleaner';
 import { decodeMedicalSpeech } from '../services/medicalSpeechDecoder';
 import { sdCardStreamingService } from '../services/sdCardStreamingService';
 import { useDongleHardware } from '../hooks/useDongleHardware';
@@ -156,12 +153,12 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
     onLearnAsrDiff,
   });
 
-  // デフォルトテキスト（編集モード中は計算自体をスキップして 0ms タイピングレスポンスを保証）
+  // 表示用テキスト（編集モード中は計算自体をスキップして 0ms タイピングレスポンスを保証）
   const displayLines = useMemo(() => {
     if (isEditing) return [];
-    return cleanExtractedMedicalText(
-      clinicalCopilot.deferredInputText.trim() || DEFAULT_SAMPLE_CHART_TEXT
-    ).split('\n');
+    const text = clinicalCopilot.deferredInputText.trim();
+    if (!text) return [];
+    return cleanExtractedMedicalText(text).split('\n');
   }, [isEditing, clinicalCopilot.deferredInputText]);
 
   // スニペット追記ハンドラ

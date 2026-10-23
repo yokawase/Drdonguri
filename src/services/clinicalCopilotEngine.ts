@@ -247,6 +247,9 @@ const RED_FLAG_RULES: Array<{
 
 export function detectClinicalRedFlags(chartText: string): RedFlagAdvisory[] {
   const normalized = normalizeMedicalSpeechTerms(cleanExtractedMedicalText(chartText));
+  if (!normalized.trim()) {
+    return [];
+  }
   const matched: RedFlagAdvisory[] = [];
 
   for (const rule of RED_FLAG_RULES) {

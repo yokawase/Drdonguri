@@ -24,4 +24,18 @@ describe('NativePwaEdgeLayout 分割モジュール検証', () => {
     const doses = calculateEmergencyDoses(60);
     expect(doses.length).toBeGreaterThan(0);
   });
+
+  it('空文字が渡された場合は DEFAULT_SAMPLE_CHART_TEXT にフォールバックせず空のコンテキストを返す', () => {
+    const emptyKw = extractChartClinicalKeywords('');
+    expect(emptyKw.allKeywords.length).toBe(0);
+    expect(emptyKw.directKeywords.length).toBe(0);
+    expect(emptyKw.drugKeywords.length).toBe(0);
+    expect(emptyKw.summaryLabel).toBe('');
+
+    const emptyRenal = auditRenalAndPrescriptions('');
+    expect(emptyRenal.alerts.length).toBe(0);
+
+    const emptyRedFlags = detectClinicalRedFlags('');
+    expect(emptyRedFlags.length).toBe(0);
+  });
 });

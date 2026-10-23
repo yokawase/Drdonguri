@@ -19,7 +19,6 @@ import { APP_VERSION, LATEST_FIRMWARE_VERSION } from '../../version';
 import {
   cleanExtractedMedicalText,
   normalizeMedicalSpeechTerms,
-  DEFAULT_SAMPLE_CHART_TEXT,
 } from '../../utils/chartTextCleaner';
 import { expandMedicalAbbreviations } from '../../services/clinicalCopilotEngine';
 import { DongleHardwareCockpit } from './DongleHardwareCockpit';
@@ -178,7 +177,11 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 type="button"
                 onClick={() => {
                   triggerHaptic(15);
-                  const raw = localDraft || inputText || DEFAULT_SAMPLE_CHART_TEXT;
+                  const raw = localDraft || inputText;
+                  if (!raw.trim()) {
+                    onClose();
+                    return;
+                  }
                   const { expandedText } = expandMedicalAbbreviations(raw);
                   const cleaned = cleanExtractedMedicalText(normalizeMedicalSpeechTerms(expandedText));
                   setLocalDraft(cleaned);

@@ -70,10 +70,7 @@ import {
   sdCardStreamingService,
   SoftApStatus,
 } from '../services/sdCardStreamingService';
-import {
-  extractChartClinicalKeywords,
-  DEFAULT_SAMPLE_CHART_TEXT,
-} from '../utils/chartTextCleaner';
+import { extractChartClinicalKeywords } from '../utils/chartTextCleaner';
 import { playMacBeep, playSosumi, isAudioMuted, toggleAudioMuted, addAudioMuteListener } from '../utils/macAudio';
 
 interface MedicalDataSearchModalProps {
@@ -104,7 +101,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
 
   // カルテ全体（主訴・現病歴・既往歴・内服薬・身体所見・検査・アセスメント・プラン）からのキーワード抽出
   const chartContext = useMemo(() => {
-    const sourceChart = inputText && inputText.trim().length > 0 ? inputText : DEFAULT_SAMPLE_CHART_TEXT;
+    const sourceChart = (inputText && inputText.trim()) || '';
     return extractChartClinicalKeywords(sourceChart);
   }, [inputText]);
 
@@ -433,7 +430,7 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
 
     try {
       const result = await consultGuidelineWithWebLLM(
-        inputText || DEFAULT_SAMPLE_CHART_TEXT,
+        inputText || '',
         {
           id: item.id,
           icd10: item.icd10,

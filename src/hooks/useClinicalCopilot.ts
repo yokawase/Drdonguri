@@ -1,8 +1,5 @@
 import { useState, useEffect, useMemo, useDeferredValue } from 'react';
-import {
-  DEFAULT_SAMPLE_CHART_TEXT,
-  extractChartClinicalKeywords,
-} from '../utils/chartTextCleaner';
+import { extractChartClinicalKeywords } from '../utils/chartTextCleaner';
 import {
   auditRenalAndPrescriptions,
   detectClinicalRedFlags,
@@ -36,13 +33,13 @@ export function useClinicalCopilot({ inputText, isBleConnected }: UseClinicalCop
 
   // カルテ全体キーワード抽出（deferredInputText によりタイピング遅延 0ms）
   const chartContext: ChartContext = useMemo(() => {
-    const text = deferredInputText.trim() || DEFAULT_SAMPLE_CHART_TEXT;
+    const text = deferredInputText.trim();
     return extractChartClinicalKeywords(text);
   }, [deferredInputText]);
 
   // スーパーオンプレミス臨床コパイロット（腎機能監査・Red Flags・救急電卓・GLエビデンス）
   const copilotData: CopilotData = useMemo(() => {
-    const text = deferredInputText.trim() || DEFAULT_SAMPLE_CHART_TEXT;
+    const text = deferredInputText.trim();
     const renalAudit = auditRenalAndPrescriptions(text);
     const redFlags = detectClinicalRedFlags(text);
     const effectiveWeight = patientWeightKg || 60;
@@ -70,7 +67,7 @@ export function useClinicalCopilot({ inputText, isBleConnected }: UseClinicalCop
   }, []);
 
   const compiledStreamPreview: CompiledStreamPreview = useMemo(() => {
-    const text = deferredInputText.trim() || DEFAULT_SAMPLE_CHART_TEXT;
+    const text = deferredInputText.trim();
     const stream = compileToKeyStrokeStream(text);
     let zCount = 0;
     let kCount = 0;
