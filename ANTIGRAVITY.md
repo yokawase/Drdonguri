@@ -637,6 +637,35 @@
        - `vitest`: 全9テストスイート・90テスト（100% PASS）。
        - TypeScript 型検査 (`npm run lint` / `tsc --noEmit`): 0エラー。
        - Vite 本番ビルド (`npm run build`): エラーなしで正常ビルド完了。
+- [x] **ステップ57**: NativePwaEdgeLayout（約3,030行）のカスタムフック・サブコンポーネント完全分割 ＆ 保守性・描画パフォーマンス劇的改善 (v2.23.0) - 【完了】
+  - **背景と課題**:
+    - `src/components/NativePwaEdgeLayout.tsx` が約3,025行におよび、単一コンポーネント内にWeb Speech API制御・波形描画・T-Dongle-S3ハードウェアコックピット・臨床コパイロット・5種類のモーダル/ドロワー・エディタバッファ管理が混在していた。
+    - 状態の密結合により、コードリーディング性やテスト容易性が低下し、不要なサブツリー再評価のリスクがあった。
+  - **実装内容**:
+    1. **専用カスタムフックの抽出・カプセル化 (`src/hooks/`)**:
+       - `useDongleHardware.ts`: LED輝度(0〜100%)・LCD輝度(5〜100%)・LCDページ(0〜3)のLocalStorage永続化、45msデバウンス付きBLE送信、コックピット開閉状態をカプセル化。
+       - `useClinicalCopilot.ts`: `deferredInputText` 駆動の臨床キーワード抽出（`chartContext`）、腎機能/RedFlag/救急電卓/GL根拠（`copilotData`）、100%確定ストリーム解析（`compiledStreamPreview`）、BLE HUDテレメトリ自動同期を分離。
+       - `useSpeechRecognition.ts`: Web Speech APIの録音ライフサイクル、~250ms間引きによるスマホ発熱防止、Aho-Corasick多パターン事前置換、ASR誤認識自己学習投入、SVG波形アニメーション制御をカプセル化。
+    2. **UIサブコンポーネントのモジュール化 (`src/components/nativePwa/`)**:
+       - `DongleHardwareCockpit.tsx`: 160×80 IPS実機液晶シミュレータ、4画面切替、LED輝度スライダー、プリセットボタンを分離。
+       - `HiddenAirGapModal.tsx`: 3省2ガイドライン完全準拠 T-Dongle-S3 Wi-Fiエアギャップ遮断モーダル。
+       - `KanjiInspectorModal.tsx`: 100%決定論的漢字変換ストリーム (`[Z][K][H][A]`) インスペクタ。
+       - `ClinicalCopilotModal.tsx`: スーパーオンプレミス臨床コパイロット（Red Flags / eGFR / 救急電卓 / GL根拠）。
+       - `SpeechChipsModal.tsx`: 医療音声解読推奨発話例文モーダル。
+       - `DongleCockpitModal.tsx`: T-Dongle-S3 液晶 ＆ LED輝度調節モーダル。
+       - `NavigationDrawer.tsx`: ハンバーガーメニュー設定 ＆ 管理ドロワー。
+       - `PwaHeader.tsx`: トップ固定ヘッダー（メニュー、デスクトップナビ、LED/音量クイック、BLE接続）。
+       - `PwaBottomBar.tsx`: 親指ボトムアクションバー（オシロスコープ波形、電カル受信、音声FAB、電カル送信/中断）。
+       - `ClinicalEditorCard.tsx`: 臨床所見・SOAPカルテ編集カード（0msローカルバッファ、インラインハイライト解読）。
+       - `ClinicalRightPane.tsx`: デスクトップ4カラム右側ペイン（臨床連動・Gemma2チャット・液晶/LED）。
+       - `types.ts`: 共通型定義および安全な触覚フィードバックユーティリティ `triggerHaptic`。
+    3. **オーケストレーターへのスリム化 (`src/components/NativePwaEdgeLayout.tsx`)**:
+       - ファイル行数を **3,025行 ➔ 385行（87.3%削減）** へ劇的スリム化。
+       - 外部API・Props仕様を100%維持し、既存コンポーネント（`App.tsx`）からの呼び出しに完全互換。
+    4. **回帰検証とビルド確認**:
+       - `vitest`: 新設した `tests/nativePwaLayout.test.ts` を含む全10テストスイート・92テスト（100% PASS）。
+       - TypeScript 型検査 (`npm run lint` / `tsc --noEmit`): 0エラー。
+       - Vite 本番ビルド (`npm run build`): 5.73秒で正常ビルド完了。
 
 ---
 
