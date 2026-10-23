@@ -86,6 +86,11 @@ interface NativePwaEdgeLayoutProps {
   onOpenWebLlm: (initialStyle?: any) => void;
   onOpenTemplates: () => void;
   onOpenCameraOcr?: () => void;
+  onLearnAsrDiff?: (rawSpeechText: string, finalizedText: string) => Promise<any>;
+  onAhoCorasickReplace?: (text: string) => { result: string; replacedCount: number };
+  whisperInitialPrompt?: string;
+  onOpenLearnedDict?: () => void;
+  learnedDictCount?: number;
 }
 
 /** 触覚フィードバックユーティリティ */
@@ -112,6 +117,11 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
   onOpenWebLlm,
   onOpenTemplates,
   onOpenCameraOcr,
+  onLearnAsrDiff,
+  onAhoCorasickReplace,
+  whisperInitialPrompt,
+  onOpenLearnedDict,
+  learnedDictCount,
 }) => {
   // ドロワー開閉状態
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -423,12 +433,30 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       const rawFull = removeSpeechDuplications(
         mergeSpeechTranscripts(finalTranscriptRef.current, interimTranscriptRef.current)
       );
-      const decodedResult = decodeMedicalSpeech(rawFull);
+
+      // 【系統B：ASR生音声の誤認識の自動学習 ＆ Aho-Corasick事前置換】
+      // 1. Aho-Corasick多パターン置換（ミリ秒）: 学習済みの「ひろゆき」「白井君」等を即時復元
+      const acResult = onAhoCorasickReplace ? onAhoCorasickReplace(rawFull) : { result: rawFull, replacedCount: 0 };
+      const preReplaced = acResult.result;
+
+      // 2. 医療音声解読エンジンで補正
+      const decodedResult = decodeMedicalSpeech(preReplaced);
       const fullRecorded = cleanExtractedMedicalText(decodedResult.decodedText);
 
-      if (decodedResult.corrections.length > 0) {
+      // 3. ASR誤認識自己学習パイプラインへ非同期投入 (rawFull ➔ fullRecorded)
+      if (onLearnAsrDiff && rawFull && fullRecorded && rawFull !== fullRecorded) {
+        onLearnAsrDiff(rawFull, fullRecorded).catch((err) => {
+          console.warn('[AutoLearn ASR] 学習エラー:', err);
+        });
+      }
+
+      const totalCorrections = decodedResult.corrections.length + acResult.replacedCount;
+      if (totalCorrections > 0) {
+        const catLabels = decodedResult.detectedCategories.length > 0 
+          ? decodedResult.detectedCategories.join('・') 
+          : 'Aho-Corasick自己学習辞書';
         setSpeechSuccessNotice(
-          `🩺 医療専門用語 ${decodedResult.corrections.length}件 (${decodedResult.detectedCategories.join('・')}) を自動解読・構造化しました`
+          `🩺 医療専門用語 ${totalCorrections}件 (${catLabels}) を自動解読・構造化しました`
         );
         setTimeout(() => setSpeechSuccessNotice(null), 3500);
       }
@@ -1930,6 +1958,35 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
                       </div>
                     </div>
                     <ChevronRight className="w-4 h-4 text-sky-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
+                  </button>
+
+                  {/* ⚡ 自己学習クローズドループ辞書 (Aho-Corasick & Whisper連動) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(15);
+                      setIsDrawerOpen(false);
+                      onOpenLearnedDict?.();
+                    }}
+                    className="col-span-2 p-2.5 rounded-xl bg-amber-950/40 hover:bg-amber-900/50 border border-amber-600/40 text-left transition-colors flex items-center justify-between group cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+                      <div>
+                        <div className="text-xs font-semibold text-amber-200 flex items-center gap-1.5">
+                          <span>自己学習辞書 (Aho-Corasick)</span>
+                          {learnedDictCount !== undefined && learnedDictCount > 0 && (
+                            <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded-full font-bold">
+                              {learnedDictCount}件
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-amber-400 font-mono">
+                          電カルIME誤変換 ＆ ASR誤認識の自己進化テーブル
+                        </div>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-amber-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
                   </button>
 
                   {/* 🎙️ 音声推奨発話例文 */}

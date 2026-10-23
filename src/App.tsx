@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { bleManager } from './utils/webBluetooth';
 import { buildTransmissionSession, PreparedSession } from './utils/packetBuilder';
 import { DispatchMode, DEFAULT_PRESET_TEMPLATES, MedicalTemplate } from './types';
@@ -6,6 +6,7 @@ import { APP_VERSION } from './version';
 import { NativePwaEdgeLayout } from './components/NativePwaEdgeLayout';
 import { cleanExtractedMedicalText, DEFAULT_SAMPLE_CHART_TEXT } from './utils/chartTextCleaner';
 import { prewarmWebLlmEngine } from './services/webLlmService';
+import { useAutoDictionary } from './hooks/useAutoDictionary';
 
 // 臨床現場で真に必要なモーダルのみオンデマンド遅延ロード
 const MedicalDataSearchModal = React.lazy(() =>
@@ -22,6 +23,9 @@ const TemplateManagerModal = React.lazy(() =>
 );
 const CameraOcrModal = React.lazy(() =>
   import('./components/CameraOcrModal').then((m) => ({ default: m.CameraOcrModal }))
+);
+const LearnedDictionaryModal = React.lazy(() =>
+  import('./components/LearnedDictionaryModal').then((m) => ({ default: m.LearnedDictionaryModal }))
 );
 
 const STORAGE_KEY_BUFFER = 'drvoice_dispatcher_buf';
@@ -83,6 +87,10 @@ export default function App() {
   const [aiModalInitialStyle, setAiModalInitialStyle] = useState<any>('soap');
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isCameraOcrOpen, setIsCameraOcrOpen] = useState(false);
+  const [isLearnedDictOpen, setIsLearnedDictOpen] = useState(false);
+
+  // 送信直前テキストのバッファ (【系統A：電カルIME誤変換自動学習】の正解ターゲット)
+  const lastSentTextRef = useRef<string>('');
 
   // 臨床通知トースト (自動消退)
   const [toastNotice, setToastNotice] = useState<{
@@ -97,6 +105,28 @@ export default function App() {
     }, duration);
   }, []);
 
+  // 自己学習クローズドループ辞書マネージャー (Aho-Corasick ＆ IndexedDB ＆ Whisper連動)
+  const {
+    entries: learnedEntries,
+    promotedEntries,
+    recordPair,
+    learnFromImeDiff,
+    learnFromAsrDiff,
+    replaceWithLearnedDict,
+    getWhisperInitialPrompt,
+  } = useAutoDictionary({
+    onNotice: (msg) => {
+      // 画面隅に控えめな学習インジケータ（1.5秒間トースト表示）
+      showToast('info', msg, 1800);
+    },
+  });
+
+  // 最新の学習関数をRefで保持 (イベントリスナー内のクロージャ問題を完全防止)
+  const learnFromImeDiffRef = useRef(learnFromImeDiff);
+  useEffect(() => {
+    learnFromImeDiffRef.current = learnFromImeDiff;
+  }, [learnFromImeDiff]);
+
   // BLE 接続イベントリスナー登録
   useEffect(() => {
     const ble = bleManager;
@@ -106,6 +136,19 @@ export default function App() {
       if (event.ackType === 'USB_REPORTS_SENT') {
         setIsSending(false);
         showToast('success', '【USB打鍵完了】電子カルテPCへの自動入力が正常に完了しました！');
+
+        // 【系統A：外部ループ自動吸い上げトリガー】
+        // HID打鍵完了後、電カルIMEの変換確定とカーソル落ち着きを待って即座に仮想プリンタBulk OUTから自動吸い上げ
+        setTimeout(async () => {
+          try {
+            if (ble.isConnected()) {
+              ble.clearPrinterBuffer();
+              await ble.triggerAutoPull();
+            }
+          } catch (e) {
+            console.debug('[AutoPull] 自動吸い上げトリガー待機:', e);
+          }
+        }, 350);
       } else if (event.ackType === 'ALL_PACKETS_READY') {
         showToast('info', '【転送完了】ドングル側で打鍵準備が整いました。');
       } else if (event.ackType === 'PHYSICAL_BTN_PRESSED') {
@@ -113,8 +156,21 @@ export default function App() {
       }
     });
 
-    // 電カルから仮想プリンタ経由で文章が抽出された際、無駄なスペース・改行を自動削除して反映
+    // 電カルから仮想プリンタ経由で文章が抽出された際、自動学習 ＆ 無駄なスペース・改行を自動削除して反映
     const removePrinterComplete = ble.addPrinterCompleteListener((fullText) => {
+      // 【系統A：電カルIME誤変換の自動学習】（外部ループ）
+      if (lastSentTextRef.current && fullText) {
+        learnFromImeDiffRef.current(fullText, lastSentTextRef.current)
+          .then((pairs) => {
+            if (pairs.length > 0) {
+              console.log('[AutoLearn IME] 学習候補ペア抽出完了:', pairs);
+            }
+          })
+          .catch((err) => {
+            console.warn('[AutoLearn IME] 学習処理エラー:', err);
+          });
+      }
+
       const cleaned = cleanExtractedMedicalText(fullText);
       if (cleaned) {
         setInputText(cleaned);
@@ -185,6 +241,9 @@ export default function App() {
       setIsSending(true);
       setTransmissionProgress(5);
       setTransmissionStage('長単位結合コンパイル中...');
+
+      // 【系統A：外部ループ】送信テキストをバッファ (電カル吸い上げ時の正解ターゲット)
+      lastSentTextRef.current = inputText;
 
       // Sudachi Mode C 形態素解析 & v20.1 HYBRID エンコード
       const session: PreparedSession = buildTransmissionSession(
@@ -292,6 +351,11 @@ export default function App() {
         }}
         onOpenTemplates={() => setIsTemplateModalOpen(true)}
         onOpenCameraOcr={() => setIsCameraOcrOpen(true)}
+        onLearnAsrDiff={learnFromAsrDiff}
+        onAhoCorasickReplace={(text) => replaceWithLearnedDict(text)}
+        whisperInitialPrompt={getWhisperInitialPrompt()}
+        onOpenLearnedDict={() => setIsLearnedDictOpen(true)}
+        learnedDictCount={promotedEntries.length}
       />
 
       {/* 臨床モーダル群 (オンデマンド遅延マウント) */}
@@ -322,6 +386,7 @@ export default function App() {
             onWriteBackToChart={async (text: string) => {
               const cleaned = cleanExtractedMedicalText(text);
               setInputText(cleaned);
+              lastSentTextRef.current = cleaned;
               const session = buildTransmissionSession(cleaned, DispatchMode.MODE_HYBRID_UNICODE);
               if (isBleConnected) {
                 await bleManager.transmitSession(session);
@@ -341,12 +406,20 @@ export default function App() {
             initialStyle={aiModalInitialStyle}
             isBleConnected={isBleConnected}
             onApplyFormattedText={(text: string) => {
-              setInputText(cleanExtractedMedicalText(text));
+              const cleaned = cleanExtractedMedicalText(text);
+              // 【系統B：SLM整形によるASR誤認識の自動自己学習】
+              if (inputText && cleaned && inputText !== cleaned) {
+                learnFromAsrDiff(inputText, cleaned).catch((err) => {
+                  console.warn('[AutoLearn ASR SLM] 学習エラー:', err);
+                });
+              }
+              setInputText(cleaned);
               showToast('success', '生成ドキュメントをカルテ領域に反映しました！');
             }}
             onDirectSendToEmr={async (text: string) => {
               const cleaned = cleanExtractedMedicalText(text);
               setInputText(cleaned);
+              lastSentTextRef.current = cleaned;
               if (isBleConnected) {
                 const session = buildTransmissionSession(cleaned, DispatchMode.MODE_HYBRID_UNICODE);
                 await bleManager.transmitSession(session);
@@ -355,6 +428,19 @@ export default function App() {
                 showToast('info', 'カルテに反映しました（BLE接続後に「電カル送信」で打鍵できます）。');
               }
             }}
+          />
+        )}
+
+        {isLearnedDictOpen && (
+          <LearnedDictionaryModal
+            isOpen={isLearnedDictOpen}
+            onClose={() => {
+              setIsLearnedDictOpen(false);
+              resetViewportScroll();
+            }}
+            entries={learnedEntries}
+            onAddPair={recordPair}
+            whisperPrompt={getWhisperInitialPrompt()}
           />
         )}
 

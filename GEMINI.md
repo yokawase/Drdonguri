@@ -8,7 +8,7 @@
 - **プロダクト名**: DrVoice どんぐり君！ (`dr-dongly` / `Drdonguri`)
 - **目的**: スマホ音声入力・テキストを、ESP32デバイス（AtomS3U / T-dongle-S3）経由で医療用電子カルテ端末にUSB-HID（キーボード）として超高速・無誤爆で直接打鍵転送するシステム。
 - **公開WebUI (PWA)**: [https://yokawase.github.io/Drdonguri/](https://yokawase.github.io/Drdonguri/)
-- **現在のバージョン**: **`v2.18.0`** (ファームウェア: `v23.0`)
+- **現在のバージョン**: **`v2.19.0`** (ファームウェア: `v23.0`)
 
 ---
 
@@ -61,8 +61,12 @@ T-Dongle-S3 32GB MicroSDおよびPWAセマンティック検索エンジンで�
 
 | ファイル / ディレクトリ | 役割・技術スタック |
 | :--- | :--- |
-| [`src/version.ts`](file:///home/medart-code/Drdonguri/src/version.ts) | アプリケーションバージョン (`2.11.0`)・ビルド時刻一元管理 |
-| [`src/components/NativePwaEdgeLayout.tsx`](file:///home/medart-code/Drdonguri/src/components/NativePwaEdgeLayout.tsx) | ネイティブ風PWA仕様 (セーフエリア・バウンス抑止・スプリットコンプリメンタリー配色・リアルタイム音声波形・5大コアアクション) |
+| [`src/version.ts`](file:///home/medart-code/Drdonguri/src/version.ts) | アプリケーションバージョン (`2.19.0`)・ビルド時刻一元管理 |
+| [`src/workers/diffWorker.ts`](file:///home/medart-code/Drdonguri/src/workers/diffWorker.ts) | 局所Diff ＆ 分離判定モジュール (Anchor Matching / SequenceMatcher / PIIフィルタ / Sudachi Mode C平滑化) |
+| [`src/utils/ahoCorasick.ts`](file:///home/medart-code/Drdonguri/src/utils/ahoCorasick.ts) | Aho-Corasick 多パターン文字列検索・最長一致自動置換エンジン ($O(N)$ ミリ秒置換) |
+| [`src/hooks/useAutoDictionary.ts`](file:///home/medart-code/Drdonguri/src/hooks/useAutoDictionary.ts) | 2大自動学習パイプライン (電カルIME誤変換 / ASR誤認識) ＆ n≥2厳格昇格 ＆ IndexedDB永続化 ＆ Whisper動的プロンプト注入 |
+| [`src/components/LearnedDictionaryModal.tsx`](file:///home/medart-code/Drdonguri/src/components/LearnedDictionaryModal.tsx) | 自己学習クローズドループ辞書管理モーダル (手動登録・削除・観測回数可視化) |
+| [`src/components/NativePwaEdgeLayout.tsx`](file:///home/medart-code/Drdonguri/src/components/NativePwaEdgeLayout.tsx) | ネイティブ風PWA仕様 (Aho-Corasick音声パイプライン直結・セーフエリア・スプリットコンプリメンタリー配色) |
 | [`tailwind.config.js`](file:///home/medart-code/Drdonguri/tailwind.config.js) | スプリットコンプリメンタリー配色トークン (`dongly.base/amber/coral/status`) ＆ FABシャドウ定義 |
 | [`src/data/microSdMedicalCatalog.ts`](file:///home/medart-code/Drdonguri/src/data/microSdMedicalCatalog.ts) | 32GB MicroSD 10大医療カテゴリ構造化データ ＆ 29.8GB全領域配分マップ |
 | [`src/services/bleMedicalIndexService.ts`](file:///home/medart-code/Drdonguri/src/services/bleMedicalIndexService.ts) | フェーズ1: BLE完結 添付文書要約・錠剤刻印識別（表裏）・用量マスター・サムネイル提供 |
@@ -83,4 +87,4 @@ T-Dongle-S3 32GB MicroSDおよびPWAセマンティック検索エンジンで�
 | [`src/services/webLlmService.ts`](file:///home/medart-code/Drdonguri/src/services/webLlmService.ts) | WebGPUによる完全ブラウザ内完結・通信不要のローカルLLM (Gemma 2 2B FP32) |
 | [`setup_denkaru_printer.ps1`](file:///home/medart-code/Drdonguri/setup_denkaru_printer.ps1) | T-dongle-S3 複合機（仮想プリンタ＋キーボード）のWindows伝カル自動開通スクリプト |
 | [`firmware/src/main.cpp`](file:///home/medart-code/Drdonguri/firmware/src/main.cpp) | AtomS3U / T-dongle-S3 ファームウェア本体（Single Source of Truth, Wi-Fi SoftAP Port 80 WebServer内蔵） |
-| [`ANTIGRAVITY.md`](file:///home/medart-code/Drdonguri/ANTIGRAVITY.md) | 全開発ステップ（ステップ1〜29）の詳細開発履歴・技術仕様書 |
+| [`ANTIGRAVITY.md`](file:///home/medart-code/Drdonguri/ANTIGRAVITY.md) | 全開発ステップ（ステップ1〜30）の詳細開発履歴・技術仕様書 |
