@@ -69,7 +69,7 @@ import {
   generateGuidelineEvidenceSnippets,
   expandMedicalAbbreviations,
 } from '../services/clinicalCopilotEngine';
-import { compileToKeyStrokeStream } from '../services/KeyStrokeCompiler';
+import { compileToKeyStrokeStream, ensureLexiconLoaded, isLexiconLoaded } from '../services/KeyStrokeCompiler';
 import { bleManager } from '../utils/webBluetooth';
 import { Gemma2MedicalChatPanel } from './Gemma2MedicalChatPanel';
 
@@ -334,6 +334,16 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
     };
   }, [deferredInputText, patientWeightKg]);
 
+  // 形態素辞書 (32万語) の動的ロード完了を追跡し、ロード完了時にプレビューをフル精度へ自動昇格
+  const [lexiconVersion, setLexiconVersion] = useState(() => (isLexiconLoaded() ? 1 : 0));
+  useEffect(() => {
+    if (!isLexiconLoaded()) {
+      ensureLexiconLoaded().then(() => {
+        setLexiconVersion((v) => v + 1);
+      });
+    }
+  }, []);
+
   // 🎯 Sudachi Mode C + v20.1 HYBRID 100%決定論的漢字変換ストリーム解析 (LRUキャッシュ + deferredInputText)
   const compiledStreamPreview = useMemo(() => {
     const text =
@@ -363,7 +373,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       aCount,
       anchorBsCount,
     };
-  }, [deferredInputText]);
+  }, [deferredInputText, lexiconVersion]);
 
   // BLE接続時・カルテ更新時に T-Dongle-S3 実機の液晶 (Page 2: CLINICAL HUD) へ臨床テレメトリを自動同期
   useEffect(() => {

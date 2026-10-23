@@ -7,6 +7,7 @@ import { NativePwaEdgeLayout } from './components/NativePwaEdgeLayout';
 import { cleanExtractedMedicalText, DEFAULT_SAMPLE_CHART_TEXT } from './utils/chartTextCleaner';
 import { prewarmWebLlmEngine } from './services/webLlmService';
 import { useAutoDictionary } from './hooks/useAutoDictionary';
+import { ensureLexiconLoaded } from './services/KeyStrokeCompiler';
 
 // 臨床現場で真に必要なモーダルのみオンデマンド遅延ロード
 const MedicalDataSearchModal = React.lazy(() =>
@@ -273,6 +274,9 @@ export default function App() {
 
       // 【系統A：外部ループ】送信テキストをバッファ (電カル吸い上げ時の正解ターゲット)
       lastSentTextRef.current = inputText;
+
+      // 形態素辞書（32万語）のロード完了を保証（未ロード時のみ非同期ロード）
+      await ensureLexiconLoaded();
 
       // Sudachi Mode C 形態素解析 & v20.1 HYBRID エンコード
       const session: PreparedSession = buildTransmissionSession(

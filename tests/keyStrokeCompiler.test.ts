@@ -4,17 +4,22 @@
 //       v20.1 HYBRIDキーストローク（[Z][K][H][A] ＋ 11ms遅延）の単体テスト
 // =============================================================================
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import {
   KeyStrokeCompiler,
   kanaToNormalizedRomaji,
   katakanaToRomaji,
   keyStrokeCompiler,
+  ensureLexiconLoaded,
 } from '../src/services/KeyStrokeCompiler';
 import { preprocessMedicalText } from '../src/utils/medicalTextPreprocessor';
 
 describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキーストローク', () => {
   const compiler = new KeyStrokeCompiler();
+
+  beforeAll(async () => {
+    await ensureLexiconLoaded();
+  });
 
   describe('1. 臨床テキストにおけるタグ生成実例（100%完全一致検証）', () => {
     it('ユーザー提示の臨床文章が指定のペイロードと1文字の狂いもなく完全一致すること', () => {

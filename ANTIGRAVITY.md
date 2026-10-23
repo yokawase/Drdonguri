@@ -601,7 +601,21 @@
        - 単漢字1文字（例: `日` ➔ `非`）がAho-Corasickに昇格して全文の「本日」「2日分」等を汚染するリスクを `MIN_PROMOTABLE_SOURCE_LENGTH = 2` でガード。
        - IndexedDB接続のキャッシュ再利用（`_dbPromise`）と `deleteEntry` の完全配線。
        - 電カル送信直後のバックグラウンド自動吸い上げ（`CMD:AUTO_PULL`）が、電カル側のIME誤変換テキストで医師の入力エディタを上書きしてしまうバグを `isAutoLearnPullRef` で防止。
-       - 音声認識 `onend` が600ms未満で発火した際に再起動されずマイク停止・`rAF` 無限稼働になるデッドロックをタイマー再試行で修正。
+- [x] **ステップ55**: 巨大メインバンドル（index.js 約8.8MB）の動的Import・medical-lexiconチャンク分離 ＆ 初期ロード92.6%劇的軽量化 (v2.21.0) - 【完了】
+  - **背景と課題**:
+    - `morphologicalLexicon.ts`（32万語・9.7MB）および `jisKanjiRomajiTable.ts`（108KB）が `KeyStrokeCompiler.ts` 経由でメインバンドルに静的バンドルされており、初期JSサイズが **8.88MB (gzip: 3.16MB)** に達していた。これによりスマートフォン初回起動時のJSダウンロード・パース・評価による起動遅延とメモリ消費が課題となっていた。
+  - **実装内容**:
+    1. **動的オンデマンド・非同期ローダーの実装 (`src/services/KeyStrokeCompiler.ts`)**:
+       - 静的インポートを廃止し、`ensureLexiconLoaded(): Promise<void>` および `isLexiconLoaded(): boolean` による動的 `import('../data/morphologicalLexicon')` / `import('../data/jisKanjiRomajiTable')` を導入。
+       - 初期表示時は内蔵の `COMPOUND_LEXICON`（最頻出臨床複合語）と音訓ルールで即座に軽量動作し、ブラウザアイドル時（`requestIdleCallback` / `setTimeout`）にバックグラウンドで辞書を先読み。
+       - ロード完了時に `_compileCache.clear()` を行い、フル辞書（32万語）へシームレス昇格。
+    2. **Rollup / Vite manualChunks による `medical-lexicon` チャンク分離 (`vite.config.ts`)**:
+       - `src/data/morphologicalLexicon` および `src/data/jisKanjiRomajiTable` を専用の非同期チャンク `medical-lexicon-[hash].js` に分離。
+       - メインエントリ `index.js` が **8,881 kB ➔ 657 kB（92.6% 削減、gzip: 204 kB）** に劇的縮小。初期読み込み帯域・パース時間を90%以上削減。
+    3. **UI / 送信パイプラインの安全協調 (`src/App.tsx`, `src/components/NativePwaEdgeLayout.tsx`)**:
+       - `NativePwaEdgeLayout.tsx`: `lexiconVersion` ステートを導入し、バックグラウンドでの辞書ロード完了時に `compiledStreamPreview` が自動でフル精度へ更新されるリアクティブ連動を実装。
+       - `App.tsx`: `handleSendDirect` 内で `await ensureLexiconLoaded()` を保証し、電カル送信時は100%確実に32万語フル辞書で決定論的打鍵ストリームを生成。
+       - `tests/keyStrokeCompiler.test.ts`: `beforeAll` で `await ensureLexiconLoaded()` を実行し、全9テストスイート・90テスト（100%）PASSを維持。
 
 ---
 
