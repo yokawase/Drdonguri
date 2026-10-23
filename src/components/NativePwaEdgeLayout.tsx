@@ -176,10 +176,23 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
   const recognitionRef = useRef<any>(null);
   const lastRestartTimeRef = useRef<number>(0);
 
-  // マイク波形（発話アクティビティ連動）
-  const [audioLevel, setAudioLevel] = useState(0);
+  // マイク波形（発話アクティビティ連動）— React state を使わず ref で直接描画（発熱対策）
+  const wavePath1Ref = useRef<SVGPathElement | null>(null);
+  const wavePath2Ref = useRef<SVGPathElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const isSpeakingRef = useRef(false);
+  const applyWaveformLevel = useCallback((level: number) => {
+    wavePath1Ref.current?.setAttribute(
+      'd',
+      `M 10 12 Q 40 ${12 - level * 20 - 1} 70 12 T 120 ${12 + level * 18 + 1} T 170 ${12 - level * 16} T 230 12`
+    );
+    wavePath2Ref.current?.setAttribute(
+      'd',
+      `M 10 12 Q 50 ${12 + level * 14 + 2} 90 12 T 140 ${12 - level * 12 - 1} T 190 ${12 + level * 13} T 230 12`
+    );
+  }, []);
+  // 中間認識結果のUI反映を間引くタイマー（onresult 毎の全体再レンダー＋正規表現解読を抑制）
+  const interimFlushTimerRef = useRef<number | null>(null);
 
   // 検索入力ステート
   const [searchQuery, setSearchQuery] = useState('');
@@ -383,33 +396,41 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
     return () => window.clearTimeout(timer);
   }, [isBleConnected, copilotData, chartContext, compiledStreamPreview]);
 
-  // 音声入力中の波形アニメーションループ (マイク排他制御競合を回避し完全滑らかに駆動)
+  // 音声入力中の波形アニメーションループ
+  // 【発熱対策】以前は rAF 毎 (60fps) に setAudioLevel → 巨大コンポーネント全体が毎秒60回再レンダーされ
+  // スマホのCPU/GPUを常時フル稼働させていた。現在は React state を経由せず SVG path の d 属性を
+  // ref 経由で直接書き換え、更新頻度も約20fpsに間引く（見た目はほぼ同一、再レンダー0回）。
   const startWaveformLoop = useCallback(() => {
     let phase = 0;
-    const waveLoop = () => {
+    let lastFrame = 0;
+    const FRAME_INTERVAL_MS = 50; // 約20fps
+    const waveLoop = (now: number) => {
       if (!isRecordingRef.current) {
-        setAudioLevel(0);
+        applyWaveformLevel(0);
+        animFrameRef.current = null;
         return;
       }
-      phase += isSpeakingRef.current ? 0.25 : 0.08;
-      const baseAmp = isSpeakingRef.current ? 0.75 : 0.2;
-      const noise = isSpeakingRef.current ? (Math.random() * 0.25) : (Math.random() * 0.05);
-      const level = Math.min(1.0, (Math.sin(phase) + 1) / 2 * baseAmp + noise);
-      setAudioLevel(level);
+      if (now - lastFrame >= FRAME_INTERVAL_MS) {
+        lastFrame = now;
+        phase += isSpeakingRef.current ? 0.6 : 0.2;
+        const baseAmp = isSpeakingRef.current ? 0.75 : 0.2;
+        const noise = isSpeakingRef.current ? Math.random() * 0.25 : Math.random() * 0.05;
+        applyWaveformLevel(Math.min(1.0, ((Math.sin(phase) + 1) / 2) * baseAmp + noise));
+      }
       animFrameRef.current = requestAnimationFrame(waveLoop);
     };
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     animFrameRef.current = requestAnimationFrame(waveLoop);
-  }, []);
+  }, [applyWaveformLevel]);
 
   const stopWaveformLoop = useCallback(() => {
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
     }
-    setAudioLevel(0);
+    applyWaveformLevel(0);
     isSpeakingRef.current = false;
-  }, []);
+  }, [applyWaveformLevel]);
 
   // 音声認識（Web Speech API / SpeechRecognition）の初期化と制御
   const toggleSpeechRecognition = useCallback(async () => {
@@ -471,6 +492,10 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         });
       }
 
+      if (interimFlushTimerRef.current !== null) {
+        window.clearTimeout(interimFlushTimerRef.current);
+        interimFlushTimerRef.current = null;
+      }
       setInterimTranscript('');
       interimTranscriptRef.current = '';
       finalTranscriptRef.current = '';
@@ -532,11 +557,21 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
           );
         }
 
-        const mergedDisplay = removeSpeechDuplications(
-          mergeSpeechTranscripts(finalTranscriptRef.current, interim)
-        );
         interimTranscriptRef.current = interim;
-        setInterimTranscript(mergedDisplay);
+        // 【発熱対策】onresult は発話中に毎秒10回以上発火する。毎回 setState すると巨大コンポーネントの
+        // 全体再レンダー＋数百本の正規表現による医療用語解読が走るため、UI反映は約250ms間隔に間引く。
+        // （停止時の確定処理は ref の最新値を使うので取りこぼしは発生しない）
+        if (interimFlushTimerRef.current === null) {
+          interimFlushTimerRef.current = window.setTimeout(() => {
+            interimFlushTimerRef.current = null;
+            if (!isRecordingRef.current) return;
+            setInterimTranscript(
+              removeSpeechDuplications(
+                mergeSpeechTranscripts(finalTranscriptRef.current, interimTranscriptRef.current)
+              )
+            );
+          }, 250);
+        }
         // ※ triggerHaptic(8) は毎秒連発による端末異音・ビープ音の原因となるため廃止
       };
 
@@ -562,22 +597,23 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
           return;
         }
 
-        // 短時間での再起動（OSマイク起動ビープ音の連発）を防止するため最低600msデバウンス
+        // 短時間での再起動（OSマイク起動ビープ音の連発）を防止するため最低600ms間隔を空ける。
+        // 【バグ修正】以前は600ms以内の onend を return で捨てていたため、認識エンジンが停止したまま
+        // UIだけ「録音中」になる（無音で数分間 rAF だけ回り続ける）ことがあった。現在は破棄せず遅延再起動する。
         const now = Date.now();
-        if (now - lastRestartTimeRef.current < 600) {
-          return;
-        }
-        lastRestartTimeRef.current = now;
+        const elapsed = now - lastRestartTimeRef.current;
+        const delay = Math.max(300, 600 - elapsed);
+        lastRestartTimeRef.current = now + delay;
 
         setTimeout(() => {
-          if (isRecordingRef.current) {
+          if (isRecordingRef.current && recognitionRef.current === recognition) {
             try {
               recognition.start();
             } catch (e) {
               console.debug('Speech recognition restart suppressed:', e);
             }
           }
-        }, 300);
+        }, delay);
       };
 
       recognition.start();
@@ -589,7 +625,25 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
       stopWaveformLoop();
       alert(`音声認識の起動に失敗しました: ${err?.message || err}`);
     }
-  }, [setInputText, startWaveformLoop, stopWaveformLoop]);
+  }, [setInputText, startWaveformLoop, stopWaveformLoop, onAhoCorasickReplace, onLearnAsrDiff]);
+
+  // アンマウント時に音声認識・波形ループ・間引きタイマーを確実に解放（バックグラウンドでのマイク/CPU占有防止）
+  useEffect(() => {
+    return () => {
+      isRecordingRef.current = false;
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      if (interimFlushTimerRef.current !== null) window.clearTimeout(interimFlushTimerRef.current);
+      try {
+        recognitionRef.current?.abort?.();
+      } catch {}
+    };
+  }, []);
+
+  // 録音中の医療用語ライブ解読は interimTranscript が変わった時だけ計算（以前は毎レンダーで再計算）
+  const liveSpeechDecode = useMemo(
+    () => (isRecording ? getDecodedSpeechTokens(interimTranscript) : null),
+    [isRecording, interimTranscript]
+  );
 
   // デフォルトテキスト（編集モード中は計算自体をスキップして 0ms タイピングレスポンスを保証）
   const displayLines = useMemo(() => {
@@ -1229,8 +1283,8 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
               )}
 
               {/* 音声入力中のリアルタイムプレビュー ＆ 医療用語インラインハイライト解読 */}
-              {isRecording && (() => {
-                const { tokens, result: liveDecoded } = getDecodedSpeechTokens(interimTranscript);
+              {isRecording && liveSpeechDecode && (() => {
+                const { tokens, result: liveDecoded } = liveSpeechDecode;
                 return (
                   <div className="mt-3 p-3 rounded-2xl bg-gradient-to-br from-rose-950/60 via-slate-900/90 to-purple-950/50 border-2 border-rose-600/70 shadow-2xl animate-in fade-in space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-bold">
@@ -1730,9 +1784,10 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         {isRecording && (
           <div className="w-full max-w-xs sm:max-w-sm h-6 flex items-center justify-center mb-0.5 animate-in fade-in">
             <svg className="w-full h-6 overflow-visible" viewBox="0 0 240 24" fill="none">
-              {/* 第1波形 (主波形: ローズレッド) */}
+              {/* 第1波形 (主波形: ローズレッド) — d 属性は startWaveformLoop が ref 経由で直接更新 */}
               <path
-                d={`M 10 12 Q 40 ${12 - audioLevel * 20 - 1} 70 12 T 120 ${12 + audioLevel * 18 + 1} T 170 ${12 - audioLevel * 16} T 230 12`}
+                ref={wavePath1Ref}
+                d="M 10 12 Q 40 11 70 12 T 120 13 T 170 12 T 230 12"
                 stroke="#F43F5E"
                 strokeWidth="2"
                 strokeLinecap="round"
@@ -1740,7 +1795,8 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
               />
               {/* 第2波形 (副波形: ソフトピンク・位相ずれ) */}
               <path
-                d={`M 10 12 Q 50 ${12 + audioLevel * 14 + 2} 90 12 T 140 ${12 - audioLevel * 12 - 1} T 190 ${12 + audioLevel * 13} T 230 12`}
+                ref={wavePath2Ref}
+                d="M 10 12 Q 50 14 90 12 T 140 11 T 190 12 T 230 12"
                 stroke="#FB7185"
                 strokeWidth="1.2"
                 strokeLinecap="round"

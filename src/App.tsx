@@ -91,6 +91,10 @@ export default function App() {
 
   // 送信直前テキストのバッファ (【系統A：電カルIME誤変換自動学習】の正解ターゲット)
   const lastSentTextRef = useRef<string>('');
+  // 送信直後のバックグラウンド自動学習用吸い上げかどうかのフラグ（エディタ内容を誤変換テキストで上書きしないため）
+  const isAutoLearnPullRef = useRef<boolean>(false);
+  const autoLearnPullResetTimerRef = useRef<number | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
 
   // 臨床通知トースト (自動消退)
   const [toastNotice, setToastNotice] = useState<{
@@ -99,9 +103,13 @@ export default function App() {
   } | null>(null);
 
   const showToast = useCallback((type: 'info' | 'success' | 'warning' | 'error', message: string, duration = 3500) => {
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+    }
     setToastNotice({ type, message });
-    setTimeout(() => {
+    toastTimerRef.current = window.setTimeout(() => {
       setToastNotice((cur) => (cur?.message === message ? null : cur));
+      toastTimerRef.current = null;
     }, duration);
   }, []);
 
@@ -110,13 +118,14 @@ export default function App() {
     entries: learnedEntries,
     promotedEntries,
     recordPair,
+    deleteEntry,
     learnFromImeDiff,
     learnFromAsrDiff,
     replaceWithLearnedDict,
     getWhisperInitialPrompt,
   } = useAutoDictionary({
     onNotice: (msg) => {
-      // 画面隅に控えめな学習インジケータ（1.5秒間トースト表示）
+      // 画面隅に控えめな学習インジケータ（1.8秒間トースト表示）
       showToast('info', msg, 1800);
     },
   });
@@ -142,10 +151,19 @@ export default function App() {
         setTimeout(async () => {
           try {
             if (ble.isConnected()) {
+              isAutoLearnPullRef.current = true;
+              if (autoLearnPullResetTimerRef.current !== null) {
+                window.clearTimeout(autoLearnPullResetTimerRef.current);
+              }
+              autoLearnPullResetTimerRef.current = window.setTimeout(() => {
+                isAutoLearnPullRef.current = false;
+                autoLearnPullResetTimerRef.current = null;
+              }, 3500);
               ble.clearPrinterBuffer();
               await ble.triggerAutoPull();
             }
           } catch (e) {
+            isAutoLearnPullRef.current = false;
             console.debug('[AutoPull] 自動吸い上げトリガー待機:', e);
           }
         }, 350);
@@ -158,6 +176,13 @@ export default function App() {
 
     // 電カルから仮想プリンタ経由で文章が抽出された際、自動学習 ＆ 無駄なスペース・改行を自動削除して反映
     const removePrinterComplete = ble.addPrinterCompleteListener((fullText) => {
+      const wasBackgroundAutoLearnPull = isAutoLearnPullRef.current;
+      isAutoLearnPullRef.current = false;
+      if (autoLearnPullResetTimerRef.current !== null) {
+        window.clearTimeout(autoLearnPullResetTimerRef.current);
+        autoLearnPullResetTimerRef.current = null;
+      }
+
       // 【系統A：電カルIME誤変換の自動学習】（外部ループ）
       if (lastSentTextRef.current && fullText) {
         learnFromImeDiffRef.current(fullText, lastSentTextRef.current)
@@ -171,10 +196,14 @@ export default function App() {
           });
       }
 
-      const cleaned = cleanExtractedMedicalText(fullText);
-      if (cleaned) {
-        setInputText(cleaned);
-        showToast('success', '【電カル抽出完了】無駄なスペース・改行を削除し、カルテ内容を100%同期しました！');
+      // 送信直後のバックグラウンド自動学習吸い上げ時は、電カル側のIME誤変換テキストで
+      // 医師のクリーンな入力エディタを上書きしない（手動吸い上げ時のみエディタへ同期）
+      if (!wasBackgroundAutoLearnPull) {
+        const cleaned = cleanExtractedMedicalText(fullText);
+        if (cleaned) {
+          setInputText(cleaned);
+          showToast('success', '【電カル抽出完了】無駄なスペース・改行を削除し、カルテ内容を100%同期しました！');
+        }
       }
     });
 
@@ -440,6 +469,7 @@ export default function App() {
             }}
             entries={learnedEntries}
             onAddPair={recordPair}
+            onDeleteEntry={deleteEntry}
             whisperPrompt={getWhisperInitialPrompt()}
           />
         )}

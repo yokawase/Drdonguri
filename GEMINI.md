@@ -8,7 +8,7 @@
 - **プロダクト名**: DrVoice どんぐり君！ (`dr-dongly` / `Drdonguri`)
 - **目的**: スマホ音声入力・テキストを、ESP32デバイス（AtomS3U / T-dongle-S3）経由で医療用電子カルテ端末にUSB-HID（キーボード）として超高速・無誤爆で直接打鍵転送するシステム。
 - **公開WebUI (PWA)**: [https://yokawase.github.io/Drdonguri/](https://yokawase.github.io/Drdonguri/)
-- **現在のバージョン**: **`v2.19.0`** (ファームウェア: `v23.0`)
+- **現在のバージョン**: **`v2.20.0`** (ファームウェア: `v23.0`)
 
 ---
 
@@ -61,7 +61,7 @@ T-Dongle-S3 32GB MicroSDおよびPWAセマンティック検索エンジンで�
 
 | ファイル / ディレクトリ | 役割・技術スタック |
 | :--- | :--- |
-| [`src/version.ts`](file:///home/medart-code/Drdonguri/src/version.ts) | アプリケーションバージョン (`2.19.0`)・ビルド時刻一元管理 |
+| [`src/version.ts`](file:///home/medart-code/Drdonguri/src/version.ts) | アプリケーションバージョン (`2.20.0`)・ビルド時刻一元管理 |
 | [`src/workers/diffWorker.ts`](file:///home/medart-code/Drdonguri/src/workers/diffWorker.ts) | 局所Diff ＆ 分離判定モジュール (Anchor Matching / SequenceMatcher / PIIフィルタ / Sudachi Mode C平滑化) |
 | [`src/utils/ahoCorasick.ts`](file:///home/medart-code/Drdonguri/src/utils/ahoCorasick.ts) | Aho-Corasick 多パターン文字列検索・最長一致自動置換エンジン ($O(N)$ ミリ秒置換) |
 | [`src/hooks/useAutoDictionary.ts`](file:///home/medart-code/Drdonguri/src/hooks/useAutoDictionary.ts) | 2大自動学習パイプライン (電カルIME誤変換 / ASR誤認識) ＆ n≥2厳格昇格 ＆ IndexedDB永続化 ＆ Whisper動的プロンプト注入 |

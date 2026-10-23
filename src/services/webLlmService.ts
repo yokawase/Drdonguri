@@ -154,9 +154,14 @@ export async function getWebLlmEngine(
 
 /**
  * アイドル時にバックグラウンドでWebLLMエンジンを事前ウォームアップ（キャッシュ済みの場合に即応化）
+ * ※スマートフォン等のモバイル端末では、音声認識中のWebGPUシェーダコンパイル・VRAM常駐による
+ * 異常発熱を防止するため、起動時の自動プリウォームをスキップしオンデマンド起動とする。
  */
 export function prewarmWebLlmEngine(modelId: string = DEFAULT_WEBLLM_MODEL): void {
   if (engineInstance || isLoadingEngine || !isWebGpuSupported()) return;
+  if (typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    return;
+  }
   if (typeof caches !== 'undefined') {
     caches.keys().then((keys) => {
       const hasCachedWeights = keys.some((k) => k.includes('webllm') || k.includes('mlc'));

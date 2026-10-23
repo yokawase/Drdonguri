@@ -584,6 +584,24 @@
        - ドロワーメニューに「⚡ 自己学習辞書 (Aho-Corasick)」を新設し、`LearnedDictionaryModal.tsx` で全登録内容の可視化・手動調整・Whisperプロンプト確認を完備。
     6. **テストスイート完全通過**:
        - `tests/ahoCorasick.test.ts` および `tests/diffWorker.test.ts` を新設し、全9テストスイート・90テスト（100%）PASSを確認。
+- [x] **ステップ54**: スマホ音声認識時の異常発熱解消（60fpsフルツリー再レンダリング根絶・GPUコンポジット負荷削減）＆ 潜在バグ一掃 (v2.20.0) - 【完了】
+  - **背景と課題**:
+    - スマートフォンで音声認識（`isRecording`）を使用中に端末が異常発熱する事象が発生。コードベース全体の精査により、メインスレッドおよびモバイルGPUを飽和させていた4大ボトルネックと複数の潜在バグを特定・修正した。
+  - **実装内容**:
+    1. **60fps Reactフルツリー再レンダリングの完全排除 (`src/components/NativePwaEdgeLayout.tsx`)**:
+       - `requestAnimationFrame` ループ内で毎秒60回 `setAudioLevel(level)` を呼び出し、約3,000行のコンポーネントツリー全体を毎秒60回再調整（Reconciliation）していた問題を根絶。
+       - React State（`audioLevel`）を廃止し、`wavePath1Ref` / `wavePath2Ref` によるSVG DOM属性（`setAttribute('d', ...)`）の直接更新（約20fps / 50msスロットル）へ移行し、録音中のReact再レンダリング回数を **0回/秒** に削減。
+    2. **音声認識 `onresult` の250msスロットリング ＆ 医療辞書デコードの `useMemo` 化**:
+       - 秒間10〜15回発火する `SpeechRecognition.onresult` の中間結果（`interimTranscript`）更新を250ms間隔でスロットリングし、`getDecodedSpeechTokens` の正規表現走査を `useMemo` でメモ化。
+       - 録音中の無限CSSアニメーション（`animate-spin`, `animate-waveform` 等）や過剰なGPUコンポジットレイヤーを整理。
+    3. **モバイル端末でのWebGPUバックグラウンド自動プリウォーム抑止 (`src/services/webLlmService.ts`)**:
+       - スマートフォン（Android / iOS）では起動時のGemma 2（1.5GB）自動プリウォームをスキップし、AIアシスト起動時のオンデマンドロードに限定することで、音声入力中のVRAM占有・シェーダコンパイル発熱を遮断。
+    4. **潜在バグの一掃 (`src/hooks/useAutoDictionary.ts`, `src/App.tsx`, `src/components/NativePwaEdgeLayout.tsx`)**:
+       - `recordPair` の古いStateクロージャ参照バグ（連続呼び出し・手動即時登録時に `count` が2にならず未昇格のままになる問題）を `entriesRef` 同期参照で修正。
+       - 単漢字1文字（例: `日` ➔ `非`）がAho-Corasickに昇格して全文の「本日」「2日分」等を汚染するリスクを `MIN_PROMOTABLE_SOURCE_LENGTH = 2` でガード。
+       - IndexedDB接続のキャッシュ再利用（`_dbPromise`）と `deleteEntry` の完全配線。
+       - 電カル送信直後のバックグラウンド自動吸い上げ（`CMD:AUTO_PULL`）が、電カル側のIME誤変換テキストで医師の入力エディタを上書きしてしまうバグを `isAutoLearnPullRef` で防止。
+       - 音声認識 `onend` が600ms未満で発火した際に再起動されずマイク停止・`rAF` 無限稼働になるデッドロックをタイマー再試行で修正。
 
 ---
 

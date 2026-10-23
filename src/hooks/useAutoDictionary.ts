@@ -37,6 +37,7 @@ export interface LearnedDictRecord {
 const DB_NAME = 'drdonguri_knowledge_db';
 const DB_VERSION = 1;
 const STORE_NAME = 'dongly_learned_dict';
+const MIN_PROMOTABLE_SOURCE_LENGTH = 2;
 
 /**
  * 初期プリセット代表辞書（臨床現場で即座に効果を発揮するベースライン）
@@ -63,10 +64,15 @@ const INITIAL_PRESET_ENTRIES: Omit<LearnedDictRecord, 'firstSeen' | 'lastSeen'>[
 
 /**
  * IndexedDB ヘルパー
+ * 【リーク修正】以前は保存のたびに indexedDB.open() で新規接続を作り、close しないまま放置していた。
+ * 現在は接続を1本だけキャッシュして使い回す。
  */
+let _dbPromise: Promise<IDBDatabase> | null = null;
 function openLearnedDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  if (_dbPromise) return _dbPromise;
+  _dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     if (typeof window === 'undefined' || !window.indexedDB) {
+      _dbPromise = null;
       reject(new Error('IndexedDB not supported in this environment'));
       return;
     }
@@ -95,8 +101,12 @@ function openLearnedDatabase(): Promise<IDBDatabase> {
     };
 
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onerror = () => {
+      _dbPromise = null;
+      reject(request.error);
+    };
   });
+  return _dbPromise;
 }
 
 async function getAllLearnedRecords(): Promise<LearnedDictRecord[]> {
@@ -133,6 +143,22 @@ async function saveLearnedRecord(record: LearnedDictRecord): Promise<void> {
   }
 }
 
+async function deleteLearnedRecord(id: string): Promise<void> {
+  try {
+    const db = await openLearnedDatabase();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.delete(id);
+
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) {
+    console.warn('[useAutoDictionary] IndexedDB削除エラー:', e);
+  }
+}
+
 export interface UseAutoDictionaryOptions {
   onPromoted?: (entry: LearnedDictRecord) => void;
   onNotice?: (message: string) => void;
@@ -141,6 +167,9 @@ export interface UseAutoDictionaryOptions {
 export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
   const [entries, setEntries] = useState<LearnedDictRecord[]>([]);
   const [isReady, setIsReady] = useState(false);
+  const entriesRef = useRef<LearnedDictRecord[]>([]);
+  const optionsRef = useRef<UseAutoDictionaryOptions | undefined>(options);
+  optionsRef.current = options;
   const ahoEngineRef = useRef<AhoCorasickEngine>(new AhoCorasickEngine());
   const workerRef = useRef<Worker | null>(null);
   const pendingRequestsRef = useRef<Map<string, (pairs: LearnedPair[]) => void>>(new Map());
@@ -181,10 +210,11 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
 
     getAllLearnedRecords().then((records) => {
       if (!active) return;
+      entriesRef.current = records;
       setEntries(records);
 
-      // 昇格済みエントリを Aho-Corasick エンジンへ登録
-      const promoted = records.filter((r) => r.promoted);
+      // 昇格済みエントリを Aho-Corasick エンジンへ登録（1文字パターンは無差別置換防止のため除外）
+      const promoted = records.filter((r) => r.promoted && r.source.length >= MIN_PROMOTABLE_SOURCE_LENGTH);
       const dictMap = new Map<string, string>();
       for (const r of promoted) {
         dictMap.set(r.source, r.target);
@@ -199,6 +229,9 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
   }, []);
 
   // 3. ペアの記録 ＆ n >= 2 昇格ロジック
+  // 【バグ修正】以前は state の entries をクロージャで参照していたため、連続呼び出し
+  // （1回のDiffで複数ペア / 手動登録の2連続呼び出し）で直前の更新が見えず count が 1 のまま昇格しなかった。
+  // 現在は同期的に更新される entriesRef を正とする。
   const recordPair = useCallback(
     async (source: string, target: string, type: 'ime' | 'asr'): Promise<{ isNewPromotion: boolean; record: LearnedDictRecord }> => {
       const s = source.trim();
@@ -210,7 +243,7 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
       const id = `${type}:::${s}:::${t}`;
       const now = Date.now();
 
-      let targetRecord: LearnedDictRecord | undefined = entries.find((e) => e.id === id);
+      let targetRecord: LearnedDictRecord | undefined = entriesRef.current.find((e) => e.id === id);
       let isNewPromotion = false;
 
       if (!targetRecord) {
@@ -228,7 +261,8 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
       } else {
         // 2回目以降の観測
         const nextCount = targetRecord.count + 1;
-        const willPromote = nextCount >= 2;
+        // 1文字パターン（例: 「日」➔「非」）は全文中の同字を無差別置換する危険があるため昇格させない
+        const willPromote = nextCount >= 2 && s.length >= MIN_PROMOTABLE_SOURCE_LENGTH;
         isNewPromotion = !targetRecord.promoted && willPromote;
 
         targetRecord = {
@@ -239,30 +273,30 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
         };
       }
 
-      // IndexedDB 保存
-      await saveLearnedRecord(targetRecord);
+      const finalRecord = targetRecord;
+      entriesRef.current = [...entriesRef.current.filter((e) => e.id !== id), finalRecord];
 
       // ステート更新
-      setEntries((prev) => {
-        const next = prev.filter((e) => e.id !== id);
-        return [...next, targetRecord!];
-      });
+      setEntries(entriesRef.current);
+
+      // IndexedDB 保存
+      await saveLearnedRecord(finalRecord);
 
       // 昇格した場合は即時 Aho-Corasick エンジンへ反映
-      if (targetRecord.promoted) {
-        ahoEngineRef.current.addPattern(targetRecord.source, targetRecord.target);
+      if (finalRecord.promoted) {
+        ahoEngineRef.current.addPattern(finalRecord.source, finalRecord.target);
         ahoEngineRef.current.build();
       }
 
       // 通知コールバック
       if (isNewPromotion) {
-        options?.onPromoted?.(targetRecord);
-        options?.onNotice?.(`⚡ 辞書を自動更新: 「${targetRecord.source}」➔「${targetRecord.target}」`);
+        optionsRef.current?.onPromoted?.(finalRecord);
+        optionsRef.current?.onNotice?.(`⚡ 辞書を自動更新: 「${finalRecord.source}」➔「${finalRecord.target}」`);
       }
 
-      return { isNewPromotion, record: targetRecord };
+      return { isNewPromotion, record: finalRecord };
     },
-    [entries, options]
+    []
   );
 
   // 4. 【系統A：電カルIME誤変換】の自動抽出・学習
@@ -352,6 +386,22 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
     return uniqueTargets.join('、');
   }, [entries]);
 
+  // 8. 辞書エントリの削除 & Aho-Corasick Trie 再構築
+  const deleteEntry = useCallback(async (id: string) => {
+    entriesRef.current = entriesRef.current.filter((e) => e.id !== id);
+    setEntries(entriesRef.current);
+    await deleteLearnedRecord(id);
+
+    const promoted = entriesRef.current.filter(
+      (r) => r.promoted && r.source.length >= MIN_PROMOTABLE_SOURCE_LENGTH
+    );
+    const dictMap = new Map<string, string>();
+    for (const r of promoted) {
+      dictMap.set(r.source, r.target);
+    }
+    ahoEngineRef.current.loadDictionary(dictMap);
+  }, []);
+
   // 昇格済み・未昇格候補エントリ
   const promotedEntries = entries.filter((e) => e.promoted);
   const candidateEntries = entries.filter((e) => !e.promoted);
@@ -362,6 +412,7 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
     promotedEntries,
     candidateEntries,
     recordPair,
+    deleteEntry,
     learnFromImeDiff,
     learnFromAsrDiff,
     replaceWithLearnedDict,
