@@ -11,12 +11,26 @@ import { cleanExtractedMedicalText } from './chartTextCleaner';
 export const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
 export const CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
 
+const BLE_DB_NAME = 'donguri_ble_db';
+const BLE_DB_VERSION = 1;
+const BLE_STORE_NAME = 'paired_devices';
+const KEY_LAST_DEVICE_ID = 'last_paired_device_id';
+
+export type BleConnectionState = 'disconnected' | 'connecting' | 'connected';
+
 export interface BleAckEvent {
   raw: string;
   sessionId: number;
   ackType: string;
   detail?: string;
   timestamp: number;
+}
+
+export interface BleEventMap {
+  stateChange: (state: BleConnectionState) => void;
+  printerTextReceived: (text: string, rawBytes: Uint8Array) => void;
+  ackReceived: (ack: string, sessionId?: number, extra?: string) => void;
+  error: (err: Error) => void;
 }
 
 export type AckCallback = (event: BleAckEvent) => void;
@@ -52,11 +66,119 @@ export class BleDongleManager {
   private isNotifyActive: boolean = false;
   private isWriting: boolean = false;
 
+  private state: BleConnectionState = 'disconnected';
+  private eventListeners: { [K in keyof BleEventMap]?: BleEventMap[K][] } = {};
+
   // 仮想プリンター吸い上げストリーミングバッファ
   private printerBuffer: number[] = [];
   private printerDataListeners: PrinterDataCallback[] = [];
   private printerCompleteListeners: PrinterJobCompleteCallback[] = [];
   private isTransmissionAborted: boolean = false;
+
+  public getState(): BleConnectionState {
+    return this.state;
+  }
+
+  private setState(newState: BleConnectionState): void {
+    if (this.state !== newState) {
+      this.state = newState;
+      this.emit('stateChange', newState);
+    }
+  }
+
+  public on<K extends keyof BleEventMap>(event: K, cb: BleEventMap[K]): void {
+    if (!this.eventListeners[event]) {
+      this.eventListeners[event] = [];
+    }
+    this.eventListeners[event]?.push(cb);
+  }
+
+  public off<K extends keyof BleEventMap>(event: K, cb: BleEventMap[K]): void {
+    const list = this.eventListeners[event];
+    if (!list) return;
+    this.eventListeners[event] = list.filter(item => item !== cb) as any;
+  }
+
+  private emit<K extends keyof BleEventMap>(event: K, ...args: Parameters<BleEventMap[K]>): void {
+    const list = this.eventListeners[event];
+    if (list) {
+      for (const cb of list) {
+        try {
+          (cb as any)(...args);
+        } catch (e) {
+          console.error(`[BleDongleManager] Event ${event} error:`, e);
+        }
+      }
+    }
+  }
+
+  private async openDb(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+      if (typeof window === 'undefined' || !window.indexedDB) {
+        reject(new Error('IndexedDB not supported'));
+        return;
+      }
+      const req = indexedDB.open(BLE_DB_NAME, BLE_DB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(BLE_STORE_NAME)) {
+          db.createObjectStore(BLE_STORE_NAME);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  private async savePairedDeviceId(id: string): Promise<void> {
+    try {
+      const db = await this.openDb();
+      const tx = db.transaction(BLE_STORE_NAME, 'readwrite');
+      tx.objectStore(BLE_STORE_NAME).put(id, KEY_LAST_DEVICE_ID);
+    } catch (e) {
+      console.warn('[BleDongleManager] Failed to save device ID:', e);
+    }
+  }
+
+  private async getSavedPairedDeviceId(): Promise<string | null> {
+    try {
+      const db = await this.openDb();
+      return new Promise((resolve) => {
+        const tx = db.transaction(BLE_STORE_NAME, 'readonly');
+        const req = tx.objectStore(BLE_STORE_NAME).get(KEY_LAST_DEVICE_ID);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * サイレント自動再接続 (navigator.bluetooth.getDevices)
+   */
+  public async tryAutoReconnect(): Promise<boolean> {
+    if (typeof navigator === 'undefined' || !navigator.bluetooth) return false;
+    if (this.isConnected()) return true;
+
+    try {
+      const savedId = await this.getSavedPairedDeviceId();
+      if (!savedId) return false;
+
+      // Chrome 85+ 認可済みデバイス取得
+      if ('getDevices' in navigator.bluetooth) {
+        const devices = await (navigator.bluetooth as any).getDevices();
+        const target = devices.find((d: BluetoothDevice) => d.id === savedId);
+        if (target) {
+          this.log('sys', 'BLE', `以前のペアリング済みデバイスを検出: ${target.name || target.id}`);
+          return await this.connectToDevice(target);
+        }
+      }
+    } catch (err) {
+      this.log('sys', 'WARN', `サイレント再接続スキップ: ${err}`);
+    }
+    return false;
+  }
 
   /**
    * 送信中断 (打鍵中止 & ドングルメモリ消去)
@@ -197,7 +319,22 @@ export class BleDongleManager {
       throw new Error('Bluetoothデバイスが選択されませんでした。');
     }
 
-    this.device = chosenDevice;
+    return await this.connectToDevice(chosenDevice);
+  }
+
+  /**
+   * MedPilot互換エイリアス
+   */
+  public async requestAndConnect(): Promise<void> {
+    await this.connect();
+  }
+
+  /**
+   * 指定されたBluetoothDeviceへの接続確立処理（スマートリトライ＆キャラクタリスティック購読）
+   */
+  public async connectToDevice(targetDevice: BluetoothDevice): Promise<boolean> {
+    this.device = targetDevice;
+    this.setState('connecting');
 
     try {
       this.device.addEventListener('gattserverdisconnected', () => {
@@ -206,9 +343,12 @@ export class BleDongleManager {
         this.characteristic = null;
         this.isNotifyActive = false;
         this.isWriting = false;
+        this.setState('disconnected');
         if (this.onDisconnectListener) {
           this.onDisconnectListener();
         }
+        // 3秒後に自動サイレント再接続を試行
+        setTimeout(() => this.tryAutoReconnect(), 3000);
       });
 
       this.log('sys', 'GATT', `デバイス「${this.device.name || 'EHR-AI-Dongle'}」に接続中...`);
@@ -262,9 +402,16 @@ export class BleDongleManager {
         this.log('sys', 'WARN', `ACK通知購読をスキップ（片方向高速送信モードで安全に接続維持）: ${notifyErr?.message || notifyErr}`);
       }
 
+      if (this.device.id) {
+        await this.savePairedDeviceId(this.device.id);
+      }
+
+      this.setState('connected');
       this.log('sys', 'READY', 'AtomS3U (どんぐり君) とのBLE接続が完了しました！(LED緑色)');
       return true;
     } catch (err: any) {
+      this.setState('disconnected');
+      this.emit('error', err);
       this.log('sys', 'ERR', `接続失敗: ${err.message}`);
       throw err;
     }
@@ -333,18 +480,29 @@ export class BleDongleManager {
           console.error(e);
         }
       }
+      this.emit('printerTextReceived', fullText, fullBytes);
       this.printerBuffer = [];
       return;
     }
 
     this.log('rx', 'ACK', ackStr, toHexDump(rawBytes));
 
-    // フォーマット: "ACK:<sessionId>:<ackType>[:<detail>]"
+    // フォーマット: "ACK:<sessionId>:<ackType>[:<detail>]" または "ACK:<ackType>[:<detail>]"
     const parts = ackStr.split(':');
-    if (parts.length >= 3 && parts[0] === 'ACK') {
-      const sessionId = parseInt(parts[1], 10);
-      const ackType = parts[2];
-      const detail = parts.slice(3).join(':');
+    if (parts.length >= 2 && parts[0] === 'ACK') {
+      let sessionId = 0;
+      let ackType = '';
+      let detail = '';
+
+      if (parts.length >= 3 && /^\d+$/.test(parts[1])) {
+        sessionId = parseInt(parts[1], 10);
+        ackType = parts[2];
+        detail = parts.slice(3).join(':');
+      } else {
+        sessionId = 0;
+        ackType = parts[1] || '';
+        detail = parts.slice(2).join(':');
+      }
 
       const event: BleAckEvent = {
         raw: ackStr,
@@ -361,6 +519,7 @@ export class BleDongleManager {
           console.error(e);
         }
       }
+      this.emit('ackReceived', ackType, sessionId, detail);
     }
   }
 
@@ -390,7 +549,40 @@ export class BleDongleManager {
     this.characteristic = null;
     this.isNotifyActive = false;
     this.isWriting = false;
+    this.setState('disconnected');
     this.log('sys', 'BLE', '切断処理が完了しました。');
+  }
+
+  /**
+   * 打鍵ストリーム送出（BLE MTU 240バイトセーフチャンク分割＆フロー制御）
+   */
+  public async sendStream(
+    streamText: string,
+    onProgress?: (sent: number, total: number) => void
+  ): Promise<void> {
+    if (!this.isConnected() || !this.characteristic) {
+      throw new Error('ドングルがBluetooth接続されていません。');
+    }
+
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(streamText);
+    const totalBytes = bytes.length;
+    const chunkSize = 240;
+
+    let offset = 0;
+    while (offset < totalBytes) {
+      const end = Math.min(offset + chunkSize, totalBytes);
+      const chunk = bytes.slice(offset, end);
+
+      await this.writeData(chunk);
+
+      offset = end;
+      if (onProgress) {
+        onProgress(offset, totalBytes);
+      }
+      // FIFOバッファ溢れ防止インターバル (15ms)
+      await new Promise(r => setTimeout(r, 15));
+    }
   }
 
   /**

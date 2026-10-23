@@ -617,10 +617,28 @@
        - `App.tsx`: `handleSendDirect` 内で `await ensureLexiconLoaded()` を保証し、電カル送信時は100%確実に32万語フル辞書で決定論的打鍵ストリームを生成。
        - `tests/keyStrokeCompiler.test.ts`: `beforeAll` で `await ensureLexiconLoaded()` を実行し、全9テストスイート・90テスト（100%）PASSを維持。
 
+- [x] **ステップ56**: 2重BLEマネージャーの完全統合・GATT衝突根絶・IndexedDB自動再接続・仮想プリンタストリーム送信の一元化 (v2.22.0) - 【完了】
+  - **背景と課題**:
+    - `src/utils/webBluetooth.ts`（`BleDongleManager`, シングルトン `bleManager`）と `src/services/BleManager.ts`（`BleManager`, シングルトン `bleManager`）が同一のGATT UUID（UARTサービス `4fafc201-...`、RX/TXキャラクタリスティック `beb5483e-...`）を対象としながら、2つの独立したクラスおよびシングルトンインスタンスとして二重定義されていた。
+    - `App.tsx`（メイン画面・自動吸い上げ・定期ステータス）は `webBluetooth.ts` を使用し、`MedPilotHotSyncModal.tsx`（MedPilot即時打鍵モーダル）や `NativePwaEdgeLayout.tsx` は `BleManager.ts` を参照していたため、モーダル側で「未接続」と誤認され、再接続時に多重GATT接続による衝突・タイムアウトやリスナー切断事故が発生する構造的脆弱性があった。
+  - **実装内容**:
+    1. **`src/utils/webBluetooth.ts` への機能集約・単一情報源 (Single Source of Truth) 化**:
+       - `BleConnectionState = 'disconnected' | 'connecting' | 'connected'` 型およびイベントマップ `BleEventMap` (`stateChange`, `printerTextReceived`, `ackReceived`, `error`) を定義。
+       - イベントリスナー登録・解除メソッド（`on`, `off`, `emit`）および状態取得 `getState()` を実装。
+       - IndexedDB (`donguri_ble_db` / `paired_devices`) によるペアリング済みBLEデバイスIDの永続化と、Web Bluetooth API `navigator.bluetooth.getDevices()` を用いたサイレント自動再接続（`tryAutoReconnect()`）を実装。
+       - `MedPilotHotSyncModal` 等が利用する `requestAndConnect()` メソッド（エイリアス）、および 240バイト分割・15msスロットリング・進捗通知付きの `sendStream(streamText, onProgress)` を実装（タイムアウトロック・リトライ機構を持つ `writeData` を内部利用）。
+       - `handleIncomingAck` を刷新し、`ACK:<sessionId>:<ackType>` 形式と `ACK:<ackType>` / `ACK:HVC_SCORE:<score>` 形式の双方を完全サポート。仮想プリンタ吸い上げ完了（`PRN_END`）時に `printerTextReceived` イベントを発火。
+    2. **`src/services/BleManager.ts` の二重実装完全撤廃と透過的再エクスポート**:
+       - 重複していたGATT接続コード・リスナー管理・パケット送出ロジック（約294行）を全廃。
+       - `src/utils/webBluetooth.ts` から `bleManager`, `BleDongleManager`, `BleManager` (型・クラスエイリアス), UUID定数をクリーンに再エクスポートすることで、アプリケーション全域で完全に同一の単一GATTインスタンスがメモリ上で共有されることを保証。
+    3. **起動時自動サイレント再接続の組み込み (`src/App.tsx`)**:
+       - `useEffect` にて `ble.on('stateChange', handleState)` をリスニングするとともに、マウント時に `ble.tryAutoReconnect()` を呼び出し、過去に接続されたどんぐりドングルが存在すればユーザーダイアログなしでバックグラウンド接続を確立。
+    4. **回帰検証とビルド確認**:
+       - `vitest`: 全9テストスイート・90テスト（100% PASS）。
+       - TypeScript 型検査 (`npm run lint` / `tsc --noEmit`): 0エラー。
+       - Vite 本番ビルド (`npm run build`): エラーなしで正常ビルド完了。
+
 ---
-
-
-
 
 ## 5. 運用ルール & 安全指針
 - **完全日本語対応**: コメント、ドキュメント、システムメッセージはすべて日本語で記述する。

@@ -214,9 +214,23 @@ export default function App() {
       showToast('warning', 'T-Dongle-S3 とのBluetooth接続が切断されました。');
     });
 
+    const handleState = (state: string) => {
+      setIsBleConnected(state === 'connected');
+    };
+    ble.on('stateChange', handleState);
+
+    // 以前ペアリング済みのドングルがあればサイレント自動再接続
+    ble.tryAutoReconnect().then((ok) => {
+      if (ok) {
+        setIsBleConnected(true);
+        showToast('success', `T-Dongle-S3 (Dr.Dongly v${APP_VERSION}) と自動再接続しました！`);
+      }
+    });
+
     return () => {
       removeAckListener();
       removePrinterComplete();
+      ble.off('stateChange', handleState);
     };
   }, [showToast]);
 
