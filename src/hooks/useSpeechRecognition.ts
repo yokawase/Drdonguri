@@ -51,7 +51,6 @@ export function useSpeechRecognition({
   const interimFlushTimerRef = useRef<number | null>(null);
 
   const [speechSuccessNotice, setSpeechSuccessNotice] = useState<string | null>(null);
-  const [showSpeechChips, setShowSpeechChips] = useState(false);
 
   // 音声入力中の波形アニメーションループ (約20fps・再レンダー0回)
   const startWaveformLoop = useCallback(() => {
@@ -302,8 +301,6 @@ export function useSpeechRecognition({
     liveSpeechDecode,
     speechSuccessNotice,
     setSpeechSuccessNotice,
-    showSpeechChips,
-    setShowSpeechChips,
     wavePath1Ref,
     wavePath2Ref,
     toggleSpeechRecognition,

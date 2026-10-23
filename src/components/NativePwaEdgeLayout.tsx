@@ -9,9 +9,7 @@ import React, {
 import { Search } from 'lucide-react';
 import { isAudioMuted, toggleAudioMuted, addAudioMuteListener, playMacBeep } from '../utils/macAudio';
 import { cleanExtractedMedicalText } from '../utils/chartTextCleaner';
-import { decodeMedicalSpeech } from '../services/medicalSpeechDecoder';
 import { sdCardStreamingService } from '../services/sdCardStreamingService';
-import { useDongleHardware } from '../hooks/useDongleHardware';
 import { useClinicalCopilot } from '../hooks/useClinicalCopilot';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { triggerHaptic } from './nativePwa/types';
@@ -21,10 +19,7 @@ import { ClinicalEditorCard } from './nativePwa/ClinicalEditorCard';
 import { ClinicalRightPane } from './nativePwa/ClinicalRightPane';
 import { NavigationDrawer } from './nativePwa/NavigationDrawer';
 import { HiddenAirGapModal } from './nativePwa/HiddenAirGapModal';
-import { KanjiInspectorModal } from './nativePwa/KanjiInspectorModal';
 import { ClinicalCopilotModal } from './nativePwa/ClinicalCopilotModal';
-import { SpeechChipsModal } from './nativePwa/SpeechChipsModal';
-import { DongleCockpitModal } from './nativePwa/DongleCockpitModal';
 
 export interface NativePwaEdgeLayoutProps {
   inputText: string;
@@ -138,15 +133,12 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
 
   // 右ペイン表示モード
   const [, setShowInlineChat] = useState(false);
-  const [rightPaneTab, setRightPaneTab] = useState<'clinical' | 'chat' | 'dongle'>('clinical');
+  const [rightPaneTab, setRightPaneTab] = useState<'clinical' | 'chat'>('clinical');
 
-  // カスタムフック①: T-Dongle-S3 ハードウェア制御 (LED/LCD/画面切替)
-  const dongleHardware = useDongleHardware();
-
-  // カスタムフック②: 臨床意思決定支援 ＆ 100%確定ストリーム解析 ＆ HUD同期
+  // カスタムフック①: 臨床意思決定支援 ＆ 100%確定ストリーム解析 ＆ HUD同期
   const clinicalCopilot = useClinicalCopilot({ inputText, isBleConnected });
 
-  // カスタムフック③: 音声認識ライフサイクル ＆ 波形アニメーション制御
+  // カスタムフック②: 音声認識ライフサイクル ＆ 波形アニメーション制御
   const speechRecognition = useSpeechRecognition({
     setInputText,
     onAhoCorasickReplace,
@@ -175,15 +167,6 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
     [localDraft, setInputText, speechRecognition]
   );
 
-  // 発話例文選択ハンドラ
-  const handleSelectSpeechChip = useCallback(
-    (speech: string, label: string) => {
-      const decoded = decodeMedicalSpeech(speech);
-      handleAppendSnippet(decoded.decodedText, `✨ 発話例文「${label}」を挿入しました`);
-    },
-    [handleAppendSnippet]
-  );
-
   return (
     <div className="relative w-full h-[100dvh] max-h-[100dvh] bg-[#0F172A] text-slate-100 flex flex-col justify-between overflow-hidden select-none font-sans overscroll-none touch-manipulation">
       {/* 1. ヘッダー部 */}
@@ -195,12 +178,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         onOpenWebLlm={onOpenWebLlm}
         onSelectRightPaneTab={setRightPaneTab}
         onToggleInlineChat={() => setShowInlineChat((prev) => !prev)}
-        showDongleCockpit={dongleHardware.showDongleCockpit}
-        onToggleDongleCockpit={() => {
-          dongleHardware.toggleDongleCockpit();
-          setRightPaneTab('dongle');
-        }}
-        ledBrightness={dongleHardware.ledBrightness}
+        onOpenCameraOcr={onOpenCameraOcr}
         isMuted={isMuted}
         handleToggleMute={handleToggleMute}
         isBleConnected={isBleConnected}
@@ -242,6 +220,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
             setLocalDraft={setLocalDraft}
             setInputText={setInputText}
             onAbortTransfer={onAbortTransfer}
+            onOpenCameraOcr={onOpenCameraOcr}
             speechSuccessNotice={speechRecognition.speechSuccessNotice}
             setSpeechSuccessNotice={speechRecognition.setSpeechSuccessNotice}
             handleEditorChange={handleEditorChange}
@@ -271,12 +250,6 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
           chartContext={clinicalCopilot.chartContext}
           copilotData={clinicalCopilot.copilotData}
           compiledStreamPreview={clinicalCopilot.compiledStreamPreview}
-          lcdPage={dongleHardware.lcdPage}
-          lcdBrightness={dongleHardware.lcdBrightness}
-          ledBrightness={dongleHardware.ledBrightness}
-          handleSelectLcdPage={dongleHardware.handleSelectLcdPage}
-          handleLedBrightnessChange={dongleHardware.handleLedBrightnessChange}
-          handleLcdBrightnessChange={dongleHardware.handleLcdBrightnessChange}
         />
       </main>
 
@@ -311,21 +284,13 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         onOpenLearnedDict={onOpenLearnedDict}
         learnedDictCount={learnedDictCount}
         setSpeechSuccessNotice={speechRecognition.setSpeechSuccessNotice}
-        setShowSpeechChips={speechRecognition.setShowSpeechChips}
         setShowCopilotPanel={clinicalCopilot.setShowCopilotPanel}
-        setShowKanjiInspector={clinicalCopilot.setShowKanjiInspector}
         handleSecretAirGapTap={handleSecretAirGapTap}
         isMuted={isMuted}
         handleToggleMute={handleToggleMute}
         chartContext={clinicalCopilot.chartContext}
         copilotData={clinicalCopilot.copilotData}
         compiledStreamPreview={clinicalCopilot.compiledStreamPreview}
-        lcdPage={dongleHardware.lcdPage}
-        lcdBrightness={dongleHardware.lcdBrightness}
-        ledBrightness={dongleHardware.ledBrightness}
-        handleSelectLcdPage={dongleHardware.handleSelectLcdPage}
-        handleLedBrightnessChange={dongleHardware.handleLedBrightnessChange}
-        handleLcdBrightnessChange={dongleHardware.handleLcdBrightnessChange}
       />
 
       {/* 5. 隠し機能 エアギャップ遮断モーダル */}
@@ -334,14 +299,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         onClose={() => setShowHiddenAirGapModal(false)}
       />
 
-      {/* 6. 100% 漢字変換確定インスペクタ モーダル */}
-      <KanjiInspectorModal
-        isOpen={clinicalCopilot.showKanjiInspector}
-        onClose={() => clinicalCopilot.setShowKanjiInspector(false)}
-        compiledStreamPreview={clinicalCopilot.compiledStreamPreview}
-      />
-
-      {/* 7. 臨床コパイロット モーダル */}
+      {/* 6. 臨床コパイロット モーダル */}
       <ClinicalCopilotModal
         isOpen={clinicalCopilot.showCopilotPanel}
         onClose={() => clinicalCopilot.setShowCopilotPanel(false)}
@@ -352,30 +310,6 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         onChangePatientWeight={clinicalCopilot.setPatientWeightKg}
         onAppendText={handleAppendSnippet}
         onOpenWebLlm={onOpenWebLlm}
-      />
-
-      {/* 8. 発話例文クイックチップス モーダル */}
-      <SpeechChipsModal
-        isOpen={speechRecognition.showSpeechChips}
-        onClose={() => speechRecognition.setShowSpeechChips(false)}
-        onSelectChip={handleSelectSpeechChip}
-      />
-
-      {/* 9. T-Dongle-S3 液晶 ＆ LED輝度調節 モーダル */}
-      <DongleCockpitModal
-        isOpen={dongleHardware.showDongleCockpit}
-        onClose={() => dongleHardware.setShowDongleCockpit(false)}
-        isSending={isSending}
-        isBleConnected={isBleConnected}
-        lcdPage={dongleHardware.lcdPage}
-        lcdBrightness={dongleHardware.lcdBrightness}
-        ledBrightness={dongleHardware.ledBrightness}
-        handleSelectLcdPage={dongleHardware.handleSelectLcdPage}
-        handleLedBrightnessChange={dongleHardware.handleLedBrightnessChange}
-        handleLcdBrightnessChange={dongleHardware.handleLcdBrightnessChange}
-        compiledStreamPreview={clinicalCopilot.compiledStreamPreview}
-        copilotData={clinicalCopilot.copilotData}
-        chartContext={clinicalCopilot.chartContext}
       />
     </div>
   );

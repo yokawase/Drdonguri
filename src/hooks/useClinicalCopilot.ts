@@ -27,7 +27,6 @@ export function useClinicalCopilot({ inputText, isBleConnected }: UseClinicalCop
   const [showCopilotPanel, setShowCopilotPanel] = useState(false);
   const [copilotTab, setCopilotTab] = useState<'redflag' | 'renal' | 'emergency' | 'evidence'>('redflag');
   const [patientWeightKg, setPatientWeightKg] = useState<number>(60);
-  const [showKanjiInspector, setShowKanjiInspector] = useState(false);
 
   const deferredInputText = useDeferredValue(inputText);
 
@@ -133,8 +132,6 @@ export function useClinicalCopilot({ inputText, isBleConnected }: UseClinicalCop
     setCopilotTab,
     patientWeightKg,
     setPatientWeightKg,
-    showKanjiInspector,
-    setShowKanjiInspector,
     chartContext,
     copilotData,
     compiledStreamPreview,

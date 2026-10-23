@@ -1,5 +1,5 @@
 import React, { startTransition } from 'react';
-import { RefreshCw, Trash2, Sparkles } from 'lucide-react';
+import { RefreshCw, Trash2, Sparkles, Camera } from 'lucide-react';
 import {
   cleanExtractedMedicalText,
   normalizeMedicalSpeechTerms,
@@ -17,6 +17,7 @@ interface ClinicalEditorCardProps {
   setLocalDraft: React.Dispatch<React.SetStateAction<string>>;
   setInputText: React.Dispatch<React.SetStateAction<string>>;
   onAbortTransfer?: () => void;
+  onOpenCameraOcr?: () => void;
   speechSuccessNotice: string | null;
   setSpeechSuccessNotice: React.Dispatch<React.SetStateAction<string | null>>;
   handleEditorChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
@@ -36,6 +37,7 @@ export const ClinicalEditorCard: React.FC<ClinicalEditorCardProps> = ({
   setLocalDraft,
   setInputText,
   onAbortTransfer,
+  onOpenCameraOcr,
   speechSuccessNotice,
   setSpeechSuccessNotice,
   handleEditorChange,
@@ -55,6 +57,22 @@ export const ClinicalEditorCard: React.FC<ClinicalEditorCardProps> = ({
           </h2>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* 📷 カメラOCR取込ボタン (目立つ位置) */}
+          {onOpenCameraOcr && !isSending && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                triggerHaptic(15);
+                onOpenCameraOcr();
+              }}
+              className="px-2 py-0.5 rounded-lg bg-sky-950/70 hover:bg-sky-900/80 border border-sky-500/50 text-sky-200 hover:text-white text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95"
+              title="スマホカメラで処方箋・カルテ・検査結果を撮影して文字取込"
+            >
+              <Camera className="w-3 h-3 text-sky-400 shrink-0" />
+              <span>カメラ取込</span>
+            </button>
+          )}
           {isSending ? (
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-rose-950/70 border border-rose-500/50 text-rose-300 text-[10px] font-bold animate-pulse">
               <RefreshCw className="w-2.5 h-2.5 animate-spin text-rose-400" />

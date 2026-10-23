@@ -6,7 +6,7 @@ import {
   BookTemplate,
   Cpu,
   MessageSquare,
-  Sun,
+  Camera,
   Volume2,
   VolumeX,
 } from 'lucide-react';
@@ -18,11 +18,9 @@ interface PwaHeaderProps {
   onOpenSearch: (tab?: any) => void;
   onOpenTemplates: () => void;
   onOpenWebLlm: (style?: any) => void;
-  onSelectRightPaneTab: (tab: 'clinical' | 'chat' | 'dongle') => void;
+  onSelectRightPaneTab: (tab: 'clinical' | 'chat') => void;
   onToggleInlineChat: () => void;
-  showDongleCockpit: boolean;
-  onToggleDongleCockpit: () => void;
-  ledBrightness: number;
+  onOpenCameraOcr?: () => void;
   isMuted: boolean;
   handleToggleMute: () => void;
   isBleConnected: boolean;
@@ -37,9 +35,7 @@ export const PwaHeader: React.FC<PwaHeaderProps> = ({
   onOpenWebLlm,
   onSelectRightPaneTab,
   onToggleInlineChat,
-  showDongleCockpit,
-  onToggleDongleCockpit,
-  ledBrightness,
+  onOpenCameraOcr,
   isMuted,
   handleToggleMute,
   isBleConnected,
@@ -149,22 +145,23 @@ export const PwaHeader: React.FC<PwaHeaderProps> = ({
           </button>
         </nav>
 
-        {/* 右側: LED輝度クイックボタン ＆ タップ音ミュート ＆ 【t-dongle-S3とBLE接続】 */}
+        {/* 右側: カメラOCR ＆ タップ音ミュート ＆ 【t-dongle-S3とBLE接続】 */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* T-Dongle-S3 液晶＆LED輝度クイックボタン */}
-          <button
-            type="button"
-            onClick={onToggleDongleCockpit}
-            className={`px-2 py-1.5 rounded-xl border flex items-center gap-1 text-xs font-bold transition-all cursor-pointer shrink-0 active:scale-95 ${
-              showDongleCockpit
-                ? 'bg-sky-500 text-slate-950 border-sky-300'
-                : 'bg-slate-800/90 text-sky-300 border-slate-700 hover:bg-slate-700'
-            }`}
-            title="T-Dongle-S3 液晶画面切替 ＆ LED輝度調節スライダー"
-          >
-            <Sun className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="text-[10px] font-mono hidden sm:inline">LED:{ledBrightness}%</span>
-          </button>
+          {/* 📷 カメラOCRクイック取込ボタン (目立つ位置) */}
+          {onOpenCameraOcr && (
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(15);
+                onOpenCameraOcr();
+              }}
+              className="px-2.5 py-1.5 rounded-xl border border-sky-500/50 bg-sky-950/70 hover:bg-sky-900/80 text-sky-200 hover:text-white flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer shrink-0 active:scale-95 shadow-sm group"
+              title="処方箋・カルテ・検査結果をスマホカメラでOCR撮影取込"
+            >
+              <Camera className="w-3.5 h-3.5 text-sky-400 group-hover:scale-110 transition-transform shrink-0" />
+              <span className="font-semibold text-xs">カメラOCR</span>
+            </button>
+          )}
 
           {/* ボタンタップ音・ビープ音 ミュート切替ボタン */}
           <button

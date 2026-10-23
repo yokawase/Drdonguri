@@ -11,12 +11,11 @@ import {
 } from 'lucide-react';
 import { cleanExtractedMedicalText } from '../../utils/chartTextCleaner';
 import { Gemma2MedicalChatPanel } from '../Gemma2MedicalChatPanel';
-import { DongleHardwareCockpit } from './DongleHardwareCockpit';
 import { CompiledStreamPreview, CopilotData, ChartContext, triggerHaptic } from './types';
 
 interface ClinicalRightPaneProps {
-  rightPaneTab: 'clinical' | 'chat' | 'dongle';
-  setRightPaneTab: React.Dispatch<React.SetStateAction<'clinical' | 'chat' | 'dongle'>>;
+  rightPaneTab: 'clinical' | 'chat';
+  setRightPaneTab: React.Dispatch<React.SetStateAction<'clinical' | 'chat'>>;
   localDraft: string;
   inputText: string;
   setLocalDraft: React.Dispatch<React.SetStateAction<string>>;
@@ -32,12 +31,6 @@ interface ClinicalRightPaneProps {
   chartContext: ChartContext;
   copilotData: CopilotData;
   compiledStreamPreview: CompiledStreamPreview;
-  lcdPage: 0 | 1 | 2 | 3;
-  lcdBrightness: number;
-  ledBrightness: number;
-  handleSelectLcdPage: (page: 0 | 1 | 2 | 3) => void;
-  handleLedBrightnessChange: (pct: number) => void;
-  handleLcdBrightnessChange: (pct: number) => void;
 }
 
 export const ClinicalRightPane: React.FC<ClinicalRightPaneProps> = ({
@@ -58,17 +51,11 @@ export const ClinicalRightPane: React.FC<ClinicalRightPaneProps> = ({
   chartContext,
   copilotData,
   compiledStreamPreview,
-  lcdPage,
-  lcdBrightness,
-  ledBrightness,
-  handleSelectLcdPage,
-  handleLedBrightnessChange,
-  handleLcdBrightnessChange,
 }) => {
   return (
     <aside className="hidden lg:flex lg:col-span-4 flex-col gap-3 h-full overflow-y-auto pr-1">
-      {/* 右ペイン 3モード切替タブ */}
-      <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-slate-900/90 border border-slate-800 shrink-0">
+      {/* 右ペイン 2モード切替タブ */}
+      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-slate-900/90 border border-slate-800 shrink-0">
         <button
           type="button"
           onClick={() => {
@@ -97,20 +84,6 @@ export const ClinicalRightPane: React.FC<ClinicalRightPaneProps> = ({
         >
           💬 秘書チャット
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic(10);
-            setRightPaneTab('dongle');
-          }}
-          className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer truncate ${
-            rightPaneTab === 'dongle'
-              ? 'bg-sky-500 text-slate-950 shadow-sm'
-              : 'text-sky-300 hover:bg-slate-800'
-          }`}
-        >
-          🖥️ 液晶/LED
-        </button>
       </div>
 
       {rightPaneTab === 'chat' ? (
@@ -138,52 +111,8 @@ export const ClinicalRightPane: React.FC<ClinicalRightPaneProps> = ({
           }}
           className="flex-1"
         />
-      ) : rightPaneTab === 'dongle' ? (
-        <>
-          <DongleHardwareCockpit
-            compact={false}
-            isSending={isSending}
-            isBleConnected={isBleConnected}
-            lcdPage={lcdPage}
-            lcdBrightness={lcdBrightness}
-            ledBrightness={ledBrightness}
-            handleSelectLcdPage={handleSelectLcdPage}
-            handleLedBrightnessChange={handleLedBrightnessChange}
-            handleLcdBrightnessChange={handleLcdBrightnessChange}
-            compiledStreamPreview={compiledStreamPreview}
-            copilotData={copilotData}
-            chartContext={chartContext}
-          />
-          {/* 100%漢字変換確定ステータスカード */}
-          <div className="bg-[#1E293B]/60 border border-emerald-500/40 rounded-2xl p-3 space-y-2 text-xs">
-            <div className="flex items-center justify-between font-bold text-emerald-300">
-              <span>🎯 全電カル100%漢字確定エンジン</span>
-              <span className="text-[10px] font-mono bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500/40">
-                ALTコード: 0
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-300 leading-relaxed">
-              Sudachi Mode C 長単位結合 ＋ v20.1 HYBRID (`[Z][K][H][A]`) ＋ 単漢字アンカーBS確定により、富士通HOPE・NEC MegaOak・ラボ・ORCA等すべての電子カルテで100%の漢字変換精度を保証します。
-            </p>
-          </div>
-        </>
       ) : (
         <>
-          {/* 常時表示コンパクト T-Dongle-S3 液晶 ＆ LED輝度バー */}
-          <DongleHardwareCockpit
-            compact={true}
-            isSending={isSending}
-            isBleConnected={isBleConnected}
-            lcdPage={lcdPage}
-            lcdBrightness={lcdBrightness}
-            ledBrightness={ledBrightness}
-            handleSelectLcdPage={handleSelectLcdPage}
-            handleLedBrightnessChange={handleLedBrightnessChange}
-            handleLcdBrightnessChange={handleLcdBrightnessChange}
-            compiledStreamPreview={compiledStreamPreview}
-            copilotData={copilotData}
-            chartContext={chartContext}
-          />
 
           {/* カルテ100%動的連動: 臨床意思決定支援 ＆ 32GBデータパネル */}
           <div className="bg-[#1E293B]/70 border-2 border-amber-500/40 rounded-2xl p-3.5 flex flex-col gap-2.5 shadow-xl backdrop-blur-md">

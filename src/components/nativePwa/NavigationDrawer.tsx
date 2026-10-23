@@ -7,10 +7,10 @@ import {
   Zap,
   ChevronRight,
   ShieldCheck,
-  CheckCircle2,
   Trash2,
   Cpu,
   BookTemplate,
+  Camera,
   Volume2,
   VolumeX,
   Lock,
@@ -21,7 +21,6 @@ import {
   normalizeMedicalSpeechTerms,
 } from '../../utils/chartTextCleaner';
 import { expandMedicalAbbreviations } from '../../services/clinicalCopilotEngine';
-import { DongleHardwareCockpit } from './DongleHardwareCockpit';
 import { CompiledStreamPreview, CopilotData, ChartContext, triggerHaptic } from './types';
 
 interface NavigationDrawerProps {
@@ -41,21 +40,13 @@ interface NavigationDrawerProps {
   onOpenLearnedDict?: () => void;
   learnedDictCount?: number;
   setSpeechSuccessNotice: (msg: string | null) => void;
-  setShowSpeechChips: (show: boolean) => void;
   setShowCopilotPanel: (show: boolean) => void;
-  setShowKanjiInspector: (show: boolean) => void;
   handleSecretAirGapTap: () => void;
   isMuted: boolean;
   handleToggleMute: () => void;
   chartContext: ChartContext;
   copilotData: CopilotData;
   compiledStreamPreview: CompiledStreamPreview;
-  lcdPage: 0 | 1 | 2 | 3;
-  lcdBrightness: number;
-  ledBrightness: number;
-  handleSelectLcdPage: (page: 0 | 1 | 2 | 3) => void;
-  handleLedBrightnessChange: (pct: number) => void;
-  handleLcdBrightnessChange: (pct: number) => void;
 }
 
 export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
@@ -75,21 +66,13 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   onOpenLearnedDict,
   learnedDictCount,
   setSpeechSuccessNotice,
-  setShowSpeechChips,
   setShowCopilotPanel,
-  setShowKanjiInspector,
   handleSecretAirGapTap,
   isMuted,
   handleToggleMute,
   chartContext,
   copilotData,
   compiledStreamPreview,
-  lcdPage,
-  lcdBrightness,
-  ledBrightness,
-  handleSelectLcdPage,
-  handleLedBrightnessChange,
-  handleLcdBrightnessChange,
 }) => {
   if (!isOpen) return null;
 
@@ -231,22 +214,27 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 <ChevronRight className="w-4 h-4 text-amber-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
               </button>
 
-              {/* 🎙️ 音声推奨発話例文 */}
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic(10);
-                  onClose();
-                  setShowSpeechChips(true);
-                }}
-                className="p-2 rounded-xl bg-amber-950/40 hover:bg-amber-900/50 border border-amber-600/40 text-left transition-colors flex items-center gap-2 cursor-pointer"
-              >
-                <span className="text-base">🎙️</span>
-                <div>
-                  <div className="text-xs font-semibold text-amber-200">推奨発話例文</div>
-                  <div className="text-[9px] text-amber-400">ワンタップ挿入</div>
-                </div>
-              </button>
+              {/* 📷 処方箋・カルテ カメラOCR取込 (目立つ位置) */}
+              {onOpenCameraOcr && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(15);
+                    onClose();
+                    onOpenCameraOcr();
+                  }}
+                  className="col-span-2 p-2.5 rounded-xl bg-sky-950/60 hover:bg-sky-900/70 border border-sky-500/50 text-left transition-colors flex items-center justify-between group cursor-pointer shadow-sm"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Camera className="w-4 h-4 text-sky-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-semibold text-sky-200">処方箋・カルテ カメラOCR取込</div>
+                      <div className="text-[10px] text-sky-400 font-mono">スマホカメラ撮影で書類・薬剤名を即座に文字化</div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-sky-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
+                </button>
+              )}
 
               {/* 🛡️ 臨床コパイロット */}
               <button
@@ -262,23 +250,6 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 <div>
                   <div className="text-xs font-semibold text-emerald-200">臨床コパイロット</div>
                   <div className="text-[9px] text-emerald-400">RedFlags/eGFR/電卓</div>
-                </div>
-              </button>
-
-              {/* 🎯 漢字100%保証インスペクタ */}
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic(10);
-                  onClose();
-                  setShowKanjiInspector(true);
-                }}
-                className="p-2 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-600/40 text-left transition-colors flex items-center gap-2 cursor-pointer"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <div>
-                  <div className="text-xs font-semibold text-emerald-200">漢字100%保証</div>
-                  <div className="text-[9px] text-emerald-400">{compiledStreamPreview.zCount}熟語 分解確認</div>
                 </div>
               </button>
 
@@ -338,86 +309,18 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
             </div>
           </div>
 
-          {/* グループ1: 臨床データ ＆ 意思決定支援 (カルテ100%連動) */}
+          {/* グループ1: 臨床データ検索 (16MBオンメモリ / 32GB SD連動) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-slate-300 tracking-wider uppercase">
-                臨床データ ＆ 意思決定支援
+                臨床データ検索 ＆ 意思決定支援
               </span>
               <span className="text-[10px] font-bold text-amber-300 bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded-full">
-                🎯 カルテ全体連動
+                16MBオンメモリ即時検索
               </span>
             </div>
-            <div className="space-y-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic(15);
-                  onClose();
-                  onOpenSearch('pill');
-                }}
-                className="w-full p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-colors group cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-base">💊</span>
-                  <div>
-                    <div className="text-xs font-semibold text-slate-200">
-                      医薬品添付文書 ＆ 錠剤鑑別
-                    </div>
-                    <div className="text-[10px] text-teal-400 font-mono">
-                      カルテ内処方薬・適応薬を100%自動抽出表示
-                    </div>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
-              </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic(15);
-                  onClose();
-                  onOpenSearch('atlas');
-                }}
-                className="w-full p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-colors group cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-base">📈</span>
-                  <div>
-                    <div className="text-xs font-semibold text-slate-200">
-                      12誘導心電図 ＆ 臨床波形解析
-                    </div>
-                    <div className="text-[10px] text-rose-400 font-mono">
-                      カルテ所見・ST変化に一致する波形を自動選定
-                    </div>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic(15);
-                  onClose();
-                  onOpenSearch('minds');
-                }}
-                className="w-full p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-colors group cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-base">📚</span>
-                  <div>
-                    <div className="text-xs font-semibold text-slate-200">
-                      Minds ガイドライン ＆ 救急プロトコル
-                    </div>
-                    <div className="text-[10px] text-emerald-400 font-mono">
-                      カルテ病態・主訴に直結するガイドラインCQ表示
-                    </div>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
-              </button>
-
+            <div className="p-3 rounded-xl bg-slate-800/70 border border-slate-700/60 space-y-2.5">
               <button
                 type="button"
                 onClick={() => {
@@ -425,21 +328,45 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                   onClose();
                   onOpenSearch('all');
                 }}
-                className="w-full p-3 rounded-xl bg-sky-950/50 hover:bg-sky-900/60 border border-sky-500/40 flex items-center justify-between text-left transition-colors group cursor-pointer"
+                className="w-full p-2.5 rounded-xl bg-sky-950/60 hover:bg-sky-900/70 border border-sky-500/40 flex items-center justify-between text-left transition-colors group cursor-pointer"
               >
-                <div className="flex items-center gap-3">
-                  <span className="text-base">🔍</span>
-                  <div>
-                    <div className="text-xs font-semibold text-sky-200">
-                      臨床データ総合検索 (カルテ100%連動)
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="text-xl shrink-0">📚</span>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-sky-200 truncate">
+                      臨床データ総合検索 (10大マスター)
                     </div>
-                    <div className="text-[10px] text-sky-400 font-mono">
-                      32GB SD 全10大マスター横断・医療知識均てん化
+                    <div className="text-[10px] text-sky-400 font-mono truncate">
+                      錠剤鑑別・心電図・救急・処方・スコア・Minds等
                     </div>
                   </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-sky-400 group-hover:text-white transition-colors" />
+                <ChevronRight className="w-4 h-4 text-sky-400 group-hover:text-white transition-colors shrink-0" />
               </button>
+
+              {/* 16MBオンメモリ vs 32GB SDカード(Wi-Fi接続) 仕様明記案内 */}
+              <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-700/60 text-[10px] text-slate-300 leading-relaxed space-y-1.5">
+                <div className="flex items-center justify-between text-amber-300 font-semibold">
+                  <span className="flex items-center gap-1.5">
+                    <span>📡</span>
+                    <span>32GB MicroSD 詳細データ</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onClose();
+                      handleSecretAirGapTap();
+                    }}
+                    className="text-[9px] text-sky-400 underline hover:text-sky-300 cursor-pointer"
+                  >
+                    Wi-Fi接続ガイド
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400 leading-normal">
+                  要約・判定インデックスはT-Dongle-S3の16MBメモリから0.1ms即時検索。医薬品添付文書原本PDFや高解像度12誘導心電図等の詳細データは、T-Dongle-S3の閉域Wi-Fi SoftAP (192.168.4.1) 接続時にストリーミング閲覧可能です。
+                </p>
+              </div>
             </div>
           </div>
 
@@ -554,53 +481,15 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
               </button>
 
-              {onOpenCameraOcr && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic(15);
-                    onClose();
-                    onOpenCameraOcr();
-                  }}
-                  className="w-full p-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-colors group cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-base">📷</span>
-                    <div>
-                      <div className="text-xs font-semibold text-slate-200">
-                        処方箋・カルテ カメラOCR取込
-                      </div>
-                      <div className="text-[10px] text-sky-400 font-mono">
-                        書類・薬剤名抽出 (無駄なスペース・改行自動削除)
-                      </div>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
-                </button>
-              )}
             </div>
           </div>
 
-          {/* グループ3: T-Dongle-S3 液晶画面 ＆ LED輝度調節スライダー ＆ システム設定 */}
+          {/* グループ3: 操作音・静音設定 */}
           <div className="space-y-2">
             <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase flex items-center justify-between">
-              <span>T-Dongle-S3 液晶・LED輝度 ＆ 静音設定</span>
+              <span>操作音 ＆ 静音設定</span>
               <span className="text-[10px] text-amber-400 font-mono">当直・外来対応</span>
             </span>
-            <DongleHardwareCockpit
-              compact={false}
-              isSending={isSending}
-              isBleConnected={isBleConnected}
-              lcdPage={lcdPage}
-              lcdBrightness={lcdBrightness}
-              ledBrightness={ledBrightness}
-              handleSelectLcdPage={handleSelectLcdPage}
-              handleLedBrightnessChange={handleLedBrightnessChange}
-              handleLcdBrightnessChange={handleLcdBrightnessChange}
-              compiledStreamPreview={compiledStreamPreview}
-              copilotData={copilotData}
-              chartContext={chartContext}
-            />
             <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 space-y-2 text-xs">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0">
