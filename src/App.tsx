@@ -97,6 +97,27 @@ export default function App() {
   const autoLearnPullResetTimerRef = useRef<number | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
+  // 電カル照合＆自己学習クローズドループのステータスバッジ
+  const [ehrSyncStatus, setEhrSyncStatus] = useState<{
+    status: 'idle' | 'syncing' | 'verified' | 'learning';
+    text: string;
+  }>({ status: 'idle', text: '' });
+  const ehrSyncTimerRef = useRef<number | null>(null);
+
+  const updateEhrSyncStatus = useCallback((status: 'idle' | 'syncing' | 'verified' | 'learning', text: string, autoClearMs = 0) => {
+    if (ehrSyncTimerRef.current !== null) {
+      window.clearTimeout(ehrSyncTimerRef.current);
+      ehrSyncTimerRef.current = null;
+    }
+    setEhrSyncStatus({ status, text });
+    if (autoClearMs > 0) {
+      ehrSyncTimerRef.current = window.setTimeout(() => {
+        setEhrSyncStatus({ status: 'idle', text: '' });
+        ehrSyncTimerRef.current = null;
+      }, autoClearMs);
+    }
+  }, []);
+
   // 臨床通知トースト (自動消退)
   const [toastNotice, setToastNotice] = useState<{
     type: 'info' | 'success' | 'warning' | 'error';
@@ -153,18 +174,22 @@ export default function App() {
           try {
             if (ble.isConnected()) {
               isAutoLearnPullRef.current = true;
+              updateEhrSyncStatus('syncing', '🔄 電カル照合中…', 3500);
+
               if (autoLearnPullResetTimerRef.current !== null) {
                 window.clearTimeout(autoLearnPullResetTimerRef.current);
               }
               autoLearnPullResetTimerRef.current = window.setTimeout(() => {
                 isAutoLearnPullRef.current = false;
                 autoLearnPullResetTimerRef.current = null;
+                updateEhrSyncStatus('idle', '');
               }, 3500);
               ble.clearPrinterBuffer();
               await ble.triggerAutoPull();
             }
           } catch (e) {
             isAutoLearnPullRef.current = false;
+            updateEhrSyncStatus('idle', '');
             console.debug('[AutoPull] 自動吸い上げトリガー待機:', e);
           }
         }, 350);
@@ -190,11 +215,26 @@ export default function App() {
           .then((pairs) => {
             if (pairs.length > 0) {
               console.log('[AutoLearn IME] 学習候補ペア抽出完了:', pairs);
+              if (wasBackgroundAutoLearnPull) {
+                updateEhrSyncStatus('learning', `⚡ 誤字検知: ${pairs.length}件を自動学習中…`, 1800);
+                showToast('info', `⚡ 誤字検知: ${pairs.length}件の学習候補を照合中…`, 1800);
+              }
+            } else {
+              if (wasBackgroundAutoLearnPull) {
+                updateEhrSyncStatus('verified', '✓ 電カル照合完了（差分なし）', 1500);
+                showToast('success', '✓ 電カル照合完了（差分なし）', 1500);
+              }
             }
           })
           .catch((err) => {
             console.warn('[AutoLearn IME] 学習処理エラー:', err);
+            if (wasBackgroundAutoLearnPull) {
+              updateEhrSyncStatus('idle', '');
+            }
           });
+      } else if (wasBackgroundAutoLearnPull) {
+        updateEhrSyncStatus('verified', '✓ 電カル照合完了（差分なし）', 1500);
+        showToast('success', '✓ 電カル照合完了（差分なし）', 1500);
       }
 
       // 送信直後のバックグラウンド自動学習吸い上げ時は、電カル側のIME誤変換テキストで
@@ -232,7 +272,7 @@ export default function App() {
       removePrinterComplete();
       ble.off('stateChange', handleState);
     };
-  }, [showToast]);
+  }, [showToast, updateEhrSyncStatus]);
 
   // 実機BLE接続ハンドラ
   const handleConnectBle = async () => {
@@ -383,6 +423,42 @@ export default function App() {
             <span className="flex-1 leading-snug">{toastNotice.message}</span>
           </div>
         </div>
+      )}
+
+      {/* 画面隅の電カル照合・自己学習ステータスバッジ (軽量フローティング) */}
+      {ehrSyncStatus.status !== 'idle' && (
+        <aside
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-20 right-4 z-50 pointer-events-auto animate-in fade-in slide-in-from-bottom-2 duration-300"
+        >
+          <button
+            type="button"
+            onClick={() => setIsLearnedDictOpen(true)}
+            className={`px-3.5 py-1.5 rounded-full border shadow-xl backdrop-blur-md text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+              ehrSyncStatus.status === 'syncing'
+                ? 'bg-cyan-950/90 text-cyan-200 border-cyan-500/60 shadow-[0_4px_16px_rgba(6,182,212,0.35)]'
+                : ehrSyncStatus.status === 'verified'
+                ? 'bg-emerald-950/90 text-emerald-200 border-emerald-500/60 shadow-[0_4px_16px_rgba(16,185,129,0.35)]'
+                : 'bg-amber-950/90 text-amber-200 border-amber-500/60 shadow-[0_4px_16px_rgba(245,158,11,0.35)]'
+            }`}
+            title="クリックで自己学習辞書を開く"
+          >
+            <span
+              className={`text-sm ${
+                ehrSyncStatus.status === 'syncing' ? 'inline-block animate-spin' : ''
+              }`}
+            >
+              {ehrSyncStatus.status === 'syncing' && '🔄'}
+              {ehrSyncStatus.status === 'verified' && '✓'}
+              {ehrSyncStatus.status === 'learning' && '⚡'}
+            </span>
+            <span className="tracking-wide">{ehrSyncStatus.text}</span>
+            <span className="text-[10px] text-slate-400 border-l border-slate-700 pl-1.5 ml-0.5">
+              辞書
+            </span>
+          </button>
+        </aside>
       )}
 
       {/* ネイティブ風PWA仕様 メインレイアウト */}

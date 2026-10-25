@@ -122,7 +122,8 @@ private:
         // 3. 右領域 (X: 57〜159): 形態素・進捗・CDS・HVCスコア
         uint16_t badgeColor = 0x07E0; // 緑
         if (strstr(curStatus, "TYPING")) badgeColor = 0xF800; // 赤
-        else if (strstr(curStatus, "RECV") || strstr(curStatus, "PULL")) badgeColor = 0xFFE0; // 黄
+        else if (strstr(curStatus, "PULL") || strstr(curStatus, "COMPLETE")) badgeColor = 0x07FF; // シアン色 (電カル吸い上げ・完了)
+        else if (strstr(curStatus, "RECV")) badgeColor = 0xFFE0; // 黄
         else if (strstr(curStatus, "DONE") || strstr(curStatus, "READY")) badgeColor = 0x07FF; // シアン
 
         canvas.setTextColor(badgeColor, 0x0863);

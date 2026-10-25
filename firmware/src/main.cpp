@@ -307,10 +307,11 @@ void onPrinterDataReceived(const uint8_t* data, uint16_t len) {
   s_last_printer_rx_ms = millis();
   s_printer_job_active = true;
   s_printer_total_bytes += len;
-  setLedColor(0, 64, 64); // シアン点灯 (電カル吸い上げ中)
+  setLedColor(0, 96, 96); // シアン点灯 (電カル吸い上げ中)
 #if defined(T_DONGLE_S3)
   char prnBuf[24];
   snprintf(prnBuf, sizeof(prnBuf), "PULL %uB", (unsigned int)s_printer_total_bytes);
+  g_display.showFace(FACE_RECEIVING);
   g_display.updateStatus(prnBuf, 0, 0, 0, 0, 50, 0, "Pulling EHR");
 #endif
 
@@ -2642,11 +2643,16 @@ void loop() {
       snprintf(endMsg, sizeof(endMsg), "PRN_END:%u", s_printer_total_bytes);
       pTxRxCharacteristic->setValue((uint8_t*)endMsg, strlen(endMsg));
       pTxRxCharacteristic->notify();
-      setLedColor(0, 64, 0); // 吸い上げ完了・緑復帰
+      setLedColor(0, 128, 64); // 吸い上げ完了・エメラルドグリーン
     } else {
       setLedColor(0, 0, 64);
     }
 #if defined(T_DONGLE_S3)
+    g_display.showFace(FACE_DONE);
+    char prnDoneBuf[24];
+    snprintf(prnDoneBuf, sizeof(prnDoneBuf), "PULL OK %uB", (unsigned int)s_printer_total_bytes);
+    g_display.updateStatus(prnDoneBuf, 0, 0, 0, 0, 100, 0, "Pull Complete");
+    delay(1000);
     g_display.showFace(FACE_IDLE);
     g_display.updateStatus(isBleConnected ? "BLE READY" : "WAITING BLE", 0, 0, 0, 0, 0, 0, "Pull Complete");
 #endif

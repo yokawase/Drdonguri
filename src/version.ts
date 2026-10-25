@@ -10,15 +10,15 @@ export const APP_NAME = 'Dr.Dongly';
 export const APP_NAME_JA = 'DrVoice どんぐり君！';
 
 // アプリケーションバージョン (package.json と同期)
-export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.27.0';
+export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.28.0';
 
 // ビルドタイムスタンプ (Vite ビルド時に自動更新)
 export const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : new Date().toISOString();
 
 // 最新ファームウェアバージョン (Direct Auto-Dispatch & Remote Trigger 安定化 FW)
-export const LATEST_FIRMWARE_VERSION = 'v23.0';
-export const FIRMWARE_RELEASE_DATE = '2026-10-23';
-export const FIRMWARE_RELEASE_TITLE = 'v23.0（0ms爆速エディタ・Gemma2 FP16医療秘書チャット・T-Dongle 4画面液晶&LED輝度スライダー・全電カル100%漢字確定版）';
+export const LATEST_FIRMWARE_VERSION = 'v23.1';
+export const FIRMWARE_RELEASE_DATE = '2026-10-25';
+export const FIRMWARE_RELEASE_TITLE = 'v23.1（電カル吸い上げシアンPULL液晶＆クローズドループ照合ステータスバッジ同期版）';
 
 // ローカルAI & 臨床セマンティック検索エンジン構成
 export const AI_ENGINE_INFO = 'Aho-Corasick自己進化 ＆ EmbeddingGemma 2 (740M MRL 128d) ＆ WebLLM (Gemma 2 2B Q4F16/F32)';
