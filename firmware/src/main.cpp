@@ -2103,9 +2103,11 @@ void setup() {
 
   // SPIFFS初期化 (フォーマットフラグ: true)
   spiffsMounted = SPIFFS.begin(true);
+#if defined(T_DONGLE_S3)
   if (spiffsMounted) {
     g_mindsEngine.beginFlash("/minds_cds.bin");
   }
+#endif
 #if defined(T_DONGLE_S3)
   if (g_sdMounted) {
     g_mindsEngine.beginSdCard("/minds_fulltext.dat");
