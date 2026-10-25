@@ -245,11 +245,12 @@ export default function App() {
       }
 
       // 送信直後のバックグラウンド自動学習吸い上げ時は、電カル側のIME誤変換テキストで
-      // 医師のクリーンな入力エディタを上書きしない（手動吸い上げ時のみエディタへ同期 ＆ 正しい原文との差分を検証・学習）
+      // 医師のクリーンな入力エディタを上書きしない（手動吸い上げ時もエディタ原文を完全保護 ＆ 差分を検証・学習）
       if (!wasBackgroundAutoLearnPull) {
         const cleaned = cleanExtractedMedicalText(fullText);
         // 手動吸い上げ直前エディタ原文、または直前送信テキストを正解ターゲットとして取得
         const correctOriginal = prePullOriginalTextRef.current?.trim() || inputTextRef.current?.trim() || lastSentTextRef.current?.trim();
+        const hasExistingEditorText = Boolean(inputTextRef.current?.trim());
 
         if (correctOriginal && cleaned && correctOriginal !== cleaned) {
           // 手動吸い上げテキスト（誤字側）と正しい原文（正解側）の差分を検証し、手動即時昇格（forcePromote: true）で学習辞書に追加！
@@ -258,20 +259,22 @@ export default function App() {
               if (pairs.length > 0) {
                 const pairStr = pairs.map((p) => `「${p.source}」➔「${p.target}」`).join('、');
                 updateEhrSyncStatus('learning', `⚡ 誤字検知: ${pairs.length}件を学習辞書に追加`, 2500);
-                showToast('success', `⚡ 手動吸い上げから誤変換を検知: ${pairStr} を学習辞書に追加しました！`, 4500);
+                showToast('success', `⚡ 手動吸い上げから誤変換を検知: ${pairStr} を学習辞書に追加しました！（エディタ原文は保持）`, 4500);
               } else {
-                showToast('success', '【電カル抽出完了】無駄なスペース・改行を削除し、カルテ内容を100%同期しました！');
+                showToast('success', hasExistingEditorText ? '✓ 電カル照合完了: 誤字差分なし（エディタ原文は保持）' : '【電カル抽出完了】カルテ内容を読み込みました！');
               }
             })
             .catch((err) => {
               console.warn('[AutoLearn IME] 手動吸い上げ差分検証エラー:', err);
-              showToast('success', '【電カル抽出完了】無駄なスペース・改行を削除し、カルテ内容を100%同期しました！');
+              showToast('info', '【電カル抽出完了】カルテデータを受信しました');
             });
         } else {
-          showToast('success', '【電カル抽出完了】無駄なスペース・改行を削除し、カルテ内容を100%同期しました！');
+          showToast('success', hasExistingEditorText ? '✓ 電カル照合完了（エディタ原文は保持）' : '【電カル抽出完了】カルテ内容を読み込みました！');
         }
 
-        if (cleaned) {
+        // メイン画面のエディタが完全に空の時のみ、吸い上げテキストを初期セット
+        // （既存の入力がある場合は絶対に上書きせず医師の原文を完全保護！）
+        if (!hasExistingEditorText && cleaned) {
           setInputText(cleaned);
         }
       }
