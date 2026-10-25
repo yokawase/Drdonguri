@@ -1244,6 +1244,77 @@ const FULLWIDTH_ASCII_REPLACE: Record<string, string> = {
   '！': '!', '？': '?',
   '　': ' ',
 };
+
+type KanjiRomajiSegment = {
+  text: string;
+  romaji: string | null;
+};
+
+function isSafeRomajiPayload(romaji: string | undefined): romaji is string {
+  return !!romaji && /^[A-Za-z0-9-]+$/.test(romaji);
+}
+
+function resolveSingleKanjiRomaji(kanji: string): string | undefined {
+  const anchors = SINGLE_KANJI_DETERMINISTIC_ANCHORS[kanji];
+  if (
+    anchors &&
+    anchors.length > 0 &&
+    anchors.every(chunk => chunk.tag === 'Z' && isSafeRomajiPayload(chunk.romaji))
+  ) {
+    return anchors.map(chunk => chunk.romaji).join('');
+  }
+
+  const candidates: Array<string | undefined> = [
+    COMPOUND_LEXICON[kanji],
+    _morphRomaji[kanji],
+    _jisKanjiRomaji[kanji],
+    ONYOMI_KANJI_FALLBACK[kanji],
+  ];
+  if (MEDICAL_SUFFIXES.includes(kanji)) {
+    candidates.push(SUFFIX_READING[kanji]);
+  }
+  return candidates.find(isSafeRomajiPayload);
+}
+
+function segmentKanjiText(kanjiText: string): KanjiRomajiSegment[] {
+  const segments: KanjiRomajiSegment[] = [];
+  let offset = 0;
+
+  while (offset < kanjiText.length) {
+    let matchedSegment = false;
+
+    // 既存の H-1 / H-1.5 と同じ優先順位で、熟語辞書を最長一致で探索する
+    for (let length = Math.min(24, kanjiText.length - offset); length >= 2; length--) {
+      const sub = kanjiText.substring(offset, offset + length);
+      const compoundRomaji = COMPOUND_LEXICON[sub];
+      const morphRomaji = _morphRomaji[sub];
+      const romaji = isSafeRomajiPayload(compoundRomaji)
+        ? compoundRomaji
+        : isSafeRomajiPayload(morphRomaji)
+          ? morphRomaji
+          : undefined;
+
+      if (romaji) {
+        segments.push({ text: sub, romaji });
+        offset += length;
+        matchedSegment = true;
+        break;
+      }
+    }
+    if (matchedSegment) continue;
+
+    const currentKanji = kanjiText[offset];
+    const singleRomaji = resolveSingleKanjiRomaji(currentKanji);
+    segments.push({
+      text: currentKanji,
+      romaji: singleRomaji || null,
+    });
+    offset += 1;
+  }
+
+  return segments;
+}
+
 export class KeyStrokeCompiler {
   /**
    * テキストを「長単位結合オートマトン」で解析し、v20.1 HYBRID打鍵ストリームへコンパイル
@@ -1517,15 +1588,87 @@ export class KeyStrokeCompiler {
         totalKeystrokes += kataRomaji.length + 2;
 
         const combinedKanji = '性' + kanjiPart;
-        const combinedRomaji = COMPOUND_LEXICON[combinedKanji] || ('sei' + (COMPOUND_LEXICON[kanjiPart] || kanjiPart));
-        blocks.push({
-          type: 'z_kanji',
-          tag: 'Z',
-          rawText: combinedKanji,
-          compiledPayload: `[Z]${combinedRomaji}[/Z]`,
-        });
-        zCount++;
-        totalKeystrokes += combinedRomaji.length + 2;
+        const compoundCombinedRomaji = COMPOUND_LEXICON[combinedKanji];
+        const morphCombinedRomaji = _morphRomaji[combinedKanji];
+        const compoundKanjiRomaji = COMPOUND_LEXICON[kanjiPart];
+        const morphKanjiRomaji = _morphRomaji[kanjiPart];
+
+        let combinedRomaji: string | undefined;
+        if (isSafeRomajiPayload(compoundCombinedRomaji)) {
+          combinedRomaji = compoundCombinedRomaji;
+        } else if (isSafeRomajiPayload(morphCombinedRomaji)) {
+          combinedRomaji = morphCombinedRomaji;
+        } else if (isSafeRomajiPayload(compoundKanjiRomaji)) {
+          combinedRomaji = `sei${compoundKanjiRomaji}`;
+        } else if (isSafeRomajiPayload(morphKanjiRomaji)) {
+          combinedRomaji = `sei${morphKanjiRomaji}`;
+        }
+
+        if (combinedRomaji) {
+          blocks.push({
+            type: 'z_kanji',
+            tag: 'Z',
+            rawText: combinedKanji,
+            compiledPayload: `[Z]${combinedRomaji}[/Z]`,
+          });
+          zCount++;
+          totalKeystrokes += combinedRomaji.length + 2;
+        } else {
+          const kanjiSegments = segmentKanjiText(kanjiPart);
+
+          if (kanjiSegments.every(segment => segment.romaji)) {
+            const segmentedRomaji = `sei${kanjiSegments.map(segment => segment.romaji).join('')}`;
+            blocks.push({
+              type: 'z_kanji',
+              tag: 'Z',
+              rawText: combinedKanji,
+              compiledPayload: `[Z]${segmentedRomaji}[/Z]`,
+            });
+            zCount++;
+            totalKeystrokes += segmentedRomaji.length + 2;
+          } else {
+            // 読みを確定できない漢字を [Z] のローマ字ペイロードへ混入させない。
+            // 解決できた部分は [Z]、未解決部分は未知文字と同じ raw ブロックで送る。
+            blocks.push({
+              type: 'z_kanji',
+              tag: 'Z',
+              rawText: '性',
+              compiledPayload: '[Z]sei[/Z]',
+            });
+            zCount++;
+            totalKeystrokes += 'sei'.length + 2;
+
+            let unresolvedText = '';
+            const appendUnresolvedText = () => {
+              if (!unresolvedText) return;
+              blocks.push({
+                type: 'raw',
+                tag: 'raw',
+                rawText: unresolvedText,
+                compiledPayload: unresolvedText,
+              });
+              totalKeystrokes += unresolvedText.length;
+              unresolvedText = '';
+            };
+
+            for (const segment of kanjiSegments) {
+              if (segment.romaji) {
+                appendUnresolvedText();
+                blocks.push({
+                  type: 'z_kanji',
+                  tag: 'Z',
+                  rawText: segment.text,
+                  compiledPayload: `[Z]${segment.romaji}[/Z]`,
+                });
+                zCount++;
+                totalKeystrokes += segment.romaji.length + 2;
+              } else {
+                unresolvedText += segment.text;
+              }
+            }
+            appendUnresolvedText();
+          }
+        }
 
         i += kataPart.length + 1 + kanjiPart.length;
         continue;

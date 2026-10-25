@@ -303,10 +303,14 @@ export default function App() {
       );
 
       // BLEチャンク送出 & 自動打鍵トリガー & 完了待機
-      await bleManager.transmitSession(session, (pct, stage) => {
+      const sent = await bleManager.transmitSession(session, (pct, stage) => {
         setTransmissionProgress(pct);
         setTransmissionStage(stage);
       });
+
+      if (!sent) {
+        throw new Error('ドングルからの完了応答がタイムアウトしました。打鍵が完了していない可能性があります。カルテ画面を確認してください。');
+      }
 
       showToast('success', '電子カルテへの自動打鍵が完了しました！');
     } catch (err: any) {
@@ -436,7 +440,10 @@ export default function App() {
               lastSentTextRef.current = cleaned;
               const session = buildTransmissionSession(cleaned, DispatchMode.MODE_HYBRID_UNICODE);
               if (isBleConnected) {
-                await bleManager.transmitSession(session);
+                const sent = await bleManager.transmitSession(session);
+                if (!sent) {
+                  showToast('error', 'ドングルからの完了応答がタイムアウトしました。カルテ画面を確認してください。');
+                }
               }
             }}
           />
@@ -469,8 +476,12 @@ export default function App() {
               lastSentTextRef.current = cleaned;
               if (isBleConnected) {
                 const session = buildTransmissionSession(cleaned, DispatchMode.MODE_HYBRID_UNICODE);
-                await bleManager.transmitSession(session);
-                showToast('success', '生成ドキュメントを電子カルテへUSB-HID直接打鍵しました！');
+                const sent = await bleManager.transmitSession(session);
+                if (sent) {
+                  showToast('success', '生成ドキュメントを電子カルテへUSB-HID直接打鍵しました！');
+                } else {
+                  showToast('error', 'ドングルからの完了応答がタイムアウトしました。カルテ画面を確認してください。');
+                }
               } else {
                 showToast('info', 'カルテに反映しました（BLE接続後に「電カル送信」で打鍵できます）。');
               }

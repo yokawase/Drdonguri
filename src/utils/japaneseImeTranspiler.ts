@@ -1373,11 +1373,60 @@ export const KANA_ROMAJI_MAP: Record<string, string> = {
   '、': ', ', '。': '. ', '・': '/', 'ー': '-', '〜': '~',
 };
 
-// 全角英数を半角英数に正規化
-export function normalizeFullwidthChars(text: string): string {
-  let res = '';
+const HALFWIDTH_KATAKANA = 'ヲァィゥェォャュョッーアイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン';
+
+const DAKUTEN_KATAKANA_MAP: Record<string, string> = {
+  'ウ': 'ヴ', 'カ': 'ガ', 'キ': 'ギ', 'ク': 'グ', 'ケ': 'ゲ', 'コ': 'ゴ',
+  'サ': 'ザ', 'シ': 'ジ', 'ス': 'ズ', 'セ': 'ゼ', 'ソ': 'ゾ',
+  'タ': 'ダ', 'チ': 'ヂ', 'ツ': 'ヅ', 'テ': 'デ', 'ト': 'ド',
+  'ハ': 'バ', 'ヒ': 'ビ', 'フ': 'ブ', 'ヘ': 'ベ', 'ホ': 'ボ',
+  'ワ': 'ヷ', 'ヰ': 'ヸ', 'ヱ': 'ヹ', 'ヲ': 'ヺ',
+};
+
+const HANDAKUTEN_KATAKANA_MAP: Record<string, string> = {
+  'ハ': 'パ', 'ヒ': 'ピ', 'フ': 'プ', 'ヘ': 'ペ', 'ホ': 'ポ',
+};
+
+/**
+ * 半角カタカナ (U+FF66-U+FF9D) を全角カタカナへ変換する。
+ * 濁点 (U+FF9E)・半濁点 (U+FF9F) は独立文字として残さず、
+ * 直前のカタカナと合成できる場合は合成済みの1文字にする。
+ */
+export function normalizeHalfwidthKatakana(text: string): string {
+  let result = '';
+
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
+    const code = char.charCodeAt(0);
+
+    if (code === 0xFF9E || code === 0xFF9F) {
+      const previous = result.charAt(result.length - 1);
+      const combined = (code === 0xFF9E ? DAKUTEN_KATAKANA_MAP : HANDAKUTEN_KATAKANA_MAP)[previous];
+      if (combined) {
+        result = result.slice(0, -1) + combined;
+      } else {
+        result += code === 0xFF9E ? '\u309B' : '\u309C';
+      }
+      continue;
+    }
+
+    if (code >= 0xFF66 && code <= 0xFF9D) {
+      result += HALFWIDTH_KATAKANA.charAt(code - 0xFF66);
+      continue;
+    }
+
+    result += char;
+  }
+
+  return result;
+}
+
+// 全角英数を半角英数に正規化し、半角カタカナを全角カタカナに正規化
+export function normalizeFullwidthChars(text: string): string {
+  const source = normalizeHalfwidthKatakana(text);
+  let res = '';
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i];
     const code = char.charCodeAt(0);
 
     // 全角英数字 (0xFF01-0xFF5E) ➔ 半角ASCII (0x0021-0x007E)
@@ -1502,7 +1551,10 @@ function convertSingleLineToRomaji(line: string): string {
 
     // 1文字チェック
     const oneChar = text[i];
-    if (KANA_ROMAJI_MAP[oneChar]) {
+    if (oneChar === '\u0008') {
+      // 辞書値に埋め込まれたBackspaceは、ファームウェアが解釈できる[BS]トークンとして保持する
+      result += '[BS]';
+    } else if (KANA_ROMAJI_MAP[oneChar]) {
       result += KANA_ROMAJI_MAP[oneChar];
     } else if (FULLWIDTH_ASCII_MAP[oneChar]) {
       result += FULLWIDTH_ASCII_MAP[oneChar];
