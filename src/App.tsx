@@ -92,6 +92,13 @@ export default function App() {
 
   // 送信直前テキストのバッファ (【系統A：電カルIME誤変換自動学習】の正解ターゲット)
   const lastSentTextRef = useRef<string>('');
+  // エディタテキストのRef保持 (イベントリスナー内から最新値を参照)
+  const inputTextRef = useRef<string>(inputText);
+  useEffect(() => {
+    inputTextRef.current = inputText;
+  }, [inputText]);
+  // 手動吸い上げ直前の原文バッファ (手動吸い上げテキストとの差分検証用)
+  const prePullOriginalTextRef = useRef<string>('');
   // 送信直後のバックグラウンド自動学習用吸い上げかどうかのフラグ（エディタ内容を誤変換テキストで上書きしないため）
   const isAutoLearnPullRef = useRef<boolean>(false);
   const autoLearnPullResetTimerRef = useRef<number | null>(null);
@@ -238,12 +245,34 @@ export default function App() {
       }
 
       // 送信直後のバックグラウンド自動学習吸い上げ時は、電カル側のIME誤変換テキストで
-      // 医師のクリーンな入力エディタを上書きしない（手動吸い上げ時のみエディタへ同期）
+      // 医師のクリーンな入力エディタを上書きしない（手動吸い上げ時のみエディタへ同期 ＆ 正しい原文との差分を検証・学習）
       if (!wasBackgroundAutoLearnPull) {
         const cleaned = cleanExtractedMedicalText(fullText);
+        // 手動吸い上げ直前エディタ原文、または直前送信テキストを正解ターゲットとして取得
+        const correctOriginal = prePullOriginalTextRef.current?.trim() || inputTextRef.current?.trim() || lastSentTextRef.current?.trim();
+
+        if (correctOriginal && cleaned && correctOriginal !== cleaned) {
+          // 手動吸い上げテキスト（誤字側）と正しい原文（正解側）の差分を検証し、手動即時昇格（forcePromote: true）で学習辞書に追加！
+          learnFromImeDiffRef.current(cleaned, correctOriginal, true)
+            .then((pairs) => {
+              if (pairs.length > 0) {
+                const pairStr = pairs.map((p) => `「${p.source}」➔「${p.target}」`).join('、');
+                updateEhrSyncStatus('learning', `⚡ 誤字検知: ${pairs.length}件を学習辞書に追加`, 2500);
+                showToast('success', `⚡ 手動吸い上げから誤変換を検知: ${pairStr} を学習辞書に追加しました！`, 4500);
+              } else {
+                showToast('success', '【電カル抽出完了】無駄なスペース・改行を削除し、カルテ内容を100%同期しました！');
+              }
+            })
+            .catch((err) => {
+              console.warn('[AutoLearn IME] 手動吸い上げ差分検証エラー:', err);
+              showToast('success', '【電カル抽出完了】無駄なスペース・改行を削除し、カルテ内容を100%同期しました！');
+            });
+        } else {
+          showToast('success', '【電カル抽出完了】無駄なスペース・改行を削除し、カルテ内容を100%同期しました！');
+        }
+
         if (cleaned) {
           setInputText(cleaned);
-          showToast('success', '【電カル抽出完了】無駄なスペース・改行を削除し、カルテ内容を100%同期しました！');
         }
       }
     });
@@ -471,7 +500,10 @@ export default function App() {
         onSendSession={handleSendDirect}
         onAbortTransfer={handleAbortTransfer}
         onOpenSearch={handleOpenSearch}
-        onOpenCoprocessor={() => setIsCoprocessorModalOpen(true)}
+        onOpenCoprocessor={() => {
+          prePullOriginalTextRef.current = inputText;
+          setIsCoprocessorModalOpen(true);
+        }}
         onOpenWebLlm={(style?: any) => {
           setAiModalInitialStyle(style || 'soap');
           setIsAiModalOpen(true);
@@ -510,6 +542,9 @@ export default function App() {
               resetViewportScroll();
             }}
             isBleConnected={isBleConnected}
+            originalText={inputText || lastSentTextRef.current}
+            onLearnDiff={learnFromImeDiff}
+            onOpenLearnedDict={() => setIsLearnedDictOpen(true)}
             onWriteBackToChart={async (text: string) => {
               const cleaned = cleanExtractedMedicalText(text);
               setInputText(cleaned);

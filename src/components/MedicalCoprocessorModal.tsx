@@ -9,6 +9,7 @@ import {
   Copy,
   Check,
   ArrowLeft,
+  ArrowRight,
   Eraser,
   Zap,
   FileText
@@ -20,26 +21,42 @@ import {
   generateFourPointChartDigest,
   expandMedicalAbbreviations,
 } from '../services/clinicalCopilotEngine';
+import type { LearnedPair } from '../workers/diffWorker';
 
 interface MedicalCoprocessorModalProps {
   isOpen: boolean;
   onClose: () => void;
   isBleConnected: boolean;
   onWriteBackToChart: (text: string) => Promise<void>;
+  originalText?: string;
+  onLearnDiff?: (pulledText: string, originalText: string, forcePromote?: boolean) => Promise<LearnedPair[]>;
+  onOpenLearnedDict?: () => void;
 }
 
+// 誤変換を含む電カル吸い上げテキスト (誤字側: きょう新将、心金梗塞、新田図)
 const SAMPLE_INGESTED_PAST_CHART = `2026/09/15 内科外来
 Hx: HTN, T2DM, CKD G3b, pAf (ペニシリンアレルギーあり)
 Rp) アムロジピン 5mg 1T 1x 朝食後、メトグルコ 500mg 2T 2x 朝夕食後、エリキュース 5mg 2T 2x 朝夕食後
 BP 148/88 mmHg, HR 78/min, SpO2 98%, Cre 1.45 mg/dL, eGFR 36.2 mL/min, HbA1c 7.4%
-c/o 階段昇降時の軽い息切れ。s/o 労作性狭心症、r/o 心不全増悪。
-次回心エコー・BNP再検予定。腎機能低下につきメトホルミン・DOAC減量基準要確認。`;
+c/o 階段昇降時の軽い息切れ。s/o 労作性きょう新将、r/o 心金梗塞増悪。
+次回新田図・BNP再検予定。腎機能低下につきメトホルミン・DOAC減量基準要確認。`;
+
+// 医師が意図した正しい原文 (正解側: 狭心症、心筋梗塞、心電図)
+const SAMPLE_CORRECT_ORIGINAL_CHART = `2026/09/15 内科外来
+Hx: HTN, T2DM, CKD G3b, pAf (ペニシリンアレルギーあり)
+Rp) アムロジピン 5mg 1T 1x 朝食後、メトグルコ 500mg 2T 2x 朝夕食後、エリキュース 5mg 2T 2x 朝夕食後
+BP 148/88 mmHg, HR 78/min, SpO2 98%, Cre 1.45 mg/dL, eGFR 36.2 mL/min, HbA1c 7.4%
+c/o 階段昇降時の軽い息切れ。s/o 労作性狭心症、r/o 心筋梗塞増悪。
+次回心電図・BNP再検予定。腎機能低下につきメトホルミン・DOAC減量基準要確認。`;
 
 export const MedicalCoprocessorModal: React.FC<MedicalCoprocessorModalProps> = ({
   isOpen,
   onClose,
   isBleConnected,
   onWriteBackToChart,
+  originalText = '',
+  onLearnDiff,
+  onOpenLearnedDict,
 }) => {
   // 受信ステート
   const [ingestedRawText, setIngestedRawText] = useState<string>('');
@@ -52,6 +69,41 @@ export const MedicalCoprocessorModal: React.FC<MedicalCoprocessorModalProps> = (
   const [copied, setCopied] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>('電カル待機中：USBプリンター吸い上げ準備完了');
   const [isWritingBack, setIsWritingBack] = useState<boolean>(false);
+
+  // 差分検証ステート
+  const [customOriginalText, setCustomOriginalText] = useState<string>(originalText || '');
+  const [detectedPairs, setDetectedPairs] = useState<LearnedPair[]>([]);
+  const [isVerifyingDiff, setIsVerifyingDiff] = useState<boolean>(false);
+  const [diffNotice, setDiffNotice] = useState<string>('');
+
+  useEffect(() => {
+    if (originalText && !customOriginalText) {
+      setCustomOriginalText(originalText);
+    }
+  }, [originalText]);
+
+  // 吸い上げテキストと正しい原文の差分を検証して学習辞書へ追加
+  const handleVerifyAndLearn = async (pulled: string, original: string) => {
+    if (!pulled.trim() || !original.trim() || !onLearnDiff) return;
+    setIsVerifyingDiff(true);
+    setDiffNotice('');
+    try {
+      const pairs = await onLearnDiff(pulled, original, true);
+      setDetectedPairs(pairs);
+      if (pairs.length > 0) {
+        const pairSummary = pairs.map((p) => `「${p.source}」➔「${p.target}」`).join('、');
+        setDiffNotice(`⚡ 誤変換検知: ${pairSummary} を学習辞書に追加しました！`);
+        playMacBeep();
+      } else {
+        setDiffNotice('✓ 差分検証完了: 誤字・誤変換は検出されませんでした（原文と完全一致）');
+      }
+    } catch (err: any) {
+      console.warn('[Coprocessor] 差分検証エラー:', err);
+      setDiffNotice('⚠️ 差分検証中にエラーが発生しました');
+    } finally {
+      setIsVerifyingDiff(false);
+    }
+  };
 
   // BLE 仮想プリンタリスナー登録
   useEffect(() => {
@@ -77,13 +129,18 @@ export const MedicalCoprocessorModal: React.FC<MedicalCoprocessorModalProps> = (
       
       // 自動構造化をトリガー
       structureIntoSoap(cleaned, outputMode);
+
+      // 正しい原文があれば、即座に差分を検証して学習辞書に追加！
+      if (customOriginalText.trim() && onLearnDiff) {
+        handleVerifyAndLearn(cleaned, customOriginalText);
+      }
     });
 
     return () => {
       unregData();
       unregComplete();
     };
-  }, [isOpen, outputMode]);
+  }, [isOpen, outputMode, customOriginalText, onLearnDiff]);
 
   // フットペダル (Space / Enter キー) での書き戻しショートカット待機
   useEffect(() => {
@@ -336,13 +393,19 @@ ${pPart}`;
                 onClick={() => {
                   playMacBeep();
                   setIngestedBytes(412);
-                  structureIntoSoap(SAMPLE_INGESTED_PAST_CHART, 'digest');
+                  const demoPulled = SAMPLE_INGESTED_PAST_CHART;
+                  const demoOriginal = SAMPLE_CORRECT_ORIGINAL_CHART;
+                  setCustomOriginalText(demoOriginal);
+                  structureIntoSoap(demoPulled, 'digest');
+                  if (onLearnDiff) {
+                    handleVerifyAndLearn(demoPulled, demoOriginal);
+                  }
                 }}
                 className="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-sky-500/40 text-sky-300 text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0 transition-colors"
-                title="略語を含む過去カルテの吸い上げ＆4点ダイジェストを即座にシミュレートします"
+                title="誤変換を含む過去カルテの吸い上げ＆差分検証・自己学習を即座にシミュレートします"
               >
                 <FileText className="w-3.5 h-3.5 text-sky-400" />
-                <span>過去カルテ試用</span>
+                <span>過去カルテ試用 (差分学習体験)</span>
               </button>
             </div>
 
@@ -351,7 +414,7 @@ ${pPart}`;
             </div>
 
             {/* 吸い上げ生テキストモニター */}
-            <div className="flex-1 flex flex-col min-h-[160px]">
+            <div className="flex-1 flex flex-col min-h-[140px]">
               <div className="text-[10px] font-bold text-slate-400 mb-1 flex items-center justify-between">
                 <span>着弾テキスト (略語正規化 ＆ 空白・改行削除済):</span>
                 {ingestedRawText && (
@@ -385,8 +448,106 @@ ${pPart}`;
                   }
                 }}
                 placeholder="電カルから吸い上げた過去カルテや紹介状テキストがここに自動着弾します... (直接ペースト時も自動で略語正規化・空白削除)"
-                className="flex-1 w-full p-2.5 text-xs font-mono border border-slate-700/80 rounded-xl resize-none bg-[#0F172A] text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 leading-relaxed"
+                className="flex-1 w-full p-2.5 text-xs font-mono border border-slate-700/80 rounded-xl resize-none bg-[#0F172A] text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 leading-relaxed min-h-[100px]"
               />
+            </div>
+
+            {/* 誤変換差分検証 ＆ 自己学習辞書への追加パネル */}
+            <div className="mt-2.5 p-2.5 bg-slate-900/80 border border-slate-700/80 rounded-xl flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>正しい原文との差分検証 ＆ 学習辞書追加</span>
+                </div>
+                {onOpenLearnedDict && (
+                  <button
+                    type="button"
+                    onClick={onOpenLearnedDict}
+                    className="text-[10px] text-sky-400 hover:text-sky-300 underline cursor-pointer"
+                  >
+                    学習辞書を確認
+                  </button>
+                )}
+              </div>
+
+              {/* 正しい原文入力欄 */}
+              <div className="flex flex-col gap-1">
+                <div className="text-[10px] text-slate-400 flex justify-between">
+                  <span>比較対象の正しい原文 (正解ターゲット):</span>
+                  {originalText && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomOriginalText(originalText)}
+                      className="text-[10px] text-sky-400 hover:underline cursor-pointer"
+                    >
+                      メインエディタ原文を引用
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  value={customOriginalText}
+                  onChange={(e) => setCustomOriginalText(e.target.value)}
+                  placeholder="スマホで作成した正しい原文テキスト（メインエディタ下書き）..."
+                  rows={2}
+                  className="w-full p-2 text-[11px] font-mono border border-slate-700/80 rounded-lg bg-[#0F172A] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-amber-400 resize-none leading-relaxed"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleVerifyAndLearn(ingestedRawText, customOriginalText)}
+                  disabled={isVerifyingDiff || !ingestedRawText.trim() || !customOriginalText.trim()}
+                  className="flex-1 py-1.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-md transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isVerifyingDiff ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>差分検証中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3.5 h-3.5 text-slate-950" />
+                      <span>誤変換差分を検証して学習辞書に追加</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* 検証結果表示 */}
+              {diffNotice && (
+                <div
+                  className={`text-[11px] p-2 rounded-lg border leading-snug flex items-start gap-1.5 ${
+                    detectedPairs.length > 0
+                      ? 'bg-amber-950/70 text-amber-200 border-amber-500/50'
+                      : 'bg-emerald-950/70 text-emerald-200 border-emerald-500/50'
+                  }`}
+                >
+                  <span className="text-sm shrink-0">
+                    {detectedPairs.length > 0 ? '⚡' : '✓'}
+                  </span>
+                  <div className="flex-1 flex flex-col gap-1">
+                    <span>{diffNotice}</span>
+                    {detectedPairs.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {detectedPairs.map((p, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-900/60 border border-amber-500/40 rounded text-[10px] font-mono text-amber-100"
+                          >
+                            <span className="line-through opacity-75">{p.source}</span>
+                            <ArrowRight className="w-2.5 h-2.5 text-amber-400" />
+                            <strong className="text-white">{p.target}</strong>
+                            <span className="text-[9px] bg-amber-500 text-slate-950 rounded px-1 font-bold">
+                              即昇格済
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

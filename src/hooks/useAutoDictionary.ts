@@ -233,7 +233,12 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
   // （1回のDiffで複数ペア / 手動登録の2連続呼び出し）で直前の更新が見えず count が 1 のまま昇格しなかった。
   // 現在は同期的に更新される entriesRef を正とする。
   const recordPair = useCallback(
-    async (source: string, target: string, type: 'ime' | 'asr'): Promise<{ isNewPromotion: boolean; record: LearnedDictRecord }> => {
+    async (
+      source: string,
+      target: string,
+      type: 'ime' | 'asr',
+      forcePromote: boolean = false
+    ): Promise<{ isNewPromotion: boolean; record: LearnedDictRecord }> => {
       const s = source.trim();
       const t = target.trim();
       if (!s || !t || s === t) {
@@ -247,22 +252,24 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
       let isNewPromotion = false;
 
       if (!targetRecord) {
-        // 初回観測 (count = 1)
+        // 初回観測 (手動即時昇格なら count = 2)
+        const willPromote = forcePromote && s.length >= MIN_PROMOTABLE_SOURCE_LENGTH;
+        isNewPromotion = willPromote;
         targetRecord = {
           id,
           source: s,
           target: t,
           type,
-          count: 1,
-          promoted: false,
+          count: willPromote ? 2 : 1,
+          promoted: willPromote,
           firstSeen: now,
           lastSeen: now,
         };
       } else {
         // 2回目以降の観測
-        const nextCount = targetRecord.count + 1;
+        const nextCount = forcePromote ? Math.max(targetRecord.count + 1, 2) : targetRecord.count + 1;
         // 1文字パターン（例: 「日」➔「非」）は全文中の同字を無差別置換する危険があるため昇格させない
-        const willPromote = nextCount >= 2 && s.length >= MIN_PROMOTABLE_SOURCE_LENGTH;
+        const willPromote = (nextCount >= 2 || forcePromote) && s.length >= MIN_PROMOTABLE_SOURCE_LENGTH;
         isNewPromotion = !targetRecord.promoted && willPromote;
 
         targetRecord = {
@@ -301,7 +308,7 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
 
   // 4. 【系統A：電カルIME誤変換】の自動抽出・学習
   const learnFromImeDiff = useCallback(
-    async (emrPulledText: string, sentText: string): Promise<LearnedPair[]> => {
+    async (emrPulledText: string, sentText: string, forcePromote = false): Promise<LearnedPair[]> => {
       if (!emrPulledText.trim() || !sentText.trim() || !workerRef.current) {
         return [];
       }
@@ -311,7 +318,7 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
 
         pendingRequestsRef.current.set(requestId, async (pairs: LearnedPair[]) => {
           for (const pair of pairs) {
-            await recordPair(pair.source, pair.target, 'ime');
+            await recordPair(pair.source, pair.target, 'ime', forcePromote);
           }
           resolve(pairs);
         });
