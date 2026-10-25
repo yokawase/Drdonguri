@@ -5,9 +5,13 @@
 // ============================================================================
 
 // FNV-1a 32-bit Hash
+// 生成側 Python (compile_pipeline.py / build_full_dictionary.py の fnv1a_32) と
+// 仕様を統一し、NFKC正規化＋前後空白除去をしてからハッシュを計算する。
+// これにより「２型糖尿病」のような全角英数字を含む用語でも、
+// Python生成の med_terms.bin と同一のハッシュ値になる。
 export function fnv1a32(str: string): number {
   let hash = 0x811c9dc5;
-  const bytes = new TextEncoder().encode(str);
+  const bytes = new TextEncoder().encode(str.normalize('NFKC').trim());
   for (let i = 0; i < bytes.length; i++) {
     hash ^= bytes[i];
     hash = Math.imul(hash, 0x01000193) >>> 0;

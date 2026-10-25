@@ -51,6 +51,7 @@ struct MindsLruEntry {
     MindsGuidelineRecord512 record;
     uint32_t lastAccessTick;
     bool isValid;
+    bool groupSingleDisease;  // 登録時点のハッシュ群が単一疾患グループだったか (ヒット判定の緩和用)
 };
 
 struct MindsEngineStats {
@@ -92,13 +93,14 @@ private:
         return hash;
     }
 
-    void insertLru(uint32_t hash, const MindsGuidelineRecord512& rec) {
+    void insertLru(uint32_t hash, const MindsGuidelineRecord512& rec, bool groupSingleDisease) {
         lruClock++;
         // 既存スロットの更新
         for (size_t i = 0; i < MINDS_LRU_CAPACITY; i++) {
             if (lruCache[i].isValid && lruCache[i].hash == hash) {
                 lruCache[i].record = rec;
                 lruCache[i].lastAccessTick = lruClock;
+                lruCache[i].groupSingleDisease = groupSingleDisease;
                 return;
             }
         }
@@ -109,6 +111,7 @@ private:
                 lruCache[i].hash = hash;
                 lruCache[i].record = rec;
                 lruCache[i].lastAccessTick = lruClock;
+                lruCache[i].groupSingleDisease = groupSingleDisease;
                 return;
             }
         }
@@ -125,6 +128,168 @@ private:
         lruCache[lruVictim].hash = hash;
         lruCache[lruVictim].record = rec;
         lruCache[lruVictim].lastAccessTick = lruClock;
+        lruCache[lruVictim].groupSingleDisease = groupSingleDisease;
+    }
+
+    // disease_name フィールド (44B) を安全に C 文字列として取り出す
+    // (null 終端されていない場合に後続フィールドへ読み進めてしまうのを防ぐ)
+    static void copyDiseaseName(const MindsGuidelineRecord512& rec, char* out, size_t outSize) {
+        size_t len = 0;
+        while (len < sizeof(rec.disease_name) && rec.disease_name[len] != '\0') {
+            len++;
+        }
+        if (len >= outSize) len = outSize - 1;
+        memcpy(out, rec.disease_name, len);
+        out[len] = '\0';
+    }
+
+    // キーワードとレコードの疾患名が完全一致するか
+    static bool diseaseNameEquals(const char* keyword, const MindsGuidelineRecord512& rec) {
+        if (!keyword || keyword[0] == '\0') return false;
+        char disease[sizeof(rec.disease_name) + 1];
+        copyDiseaseName(rec, disease, sizeof(disease));
+        return disease[0] != '\0' && strcmp(keyword, disease) == 0;
+    }
+
+    // キーワードとレコードの疾患名が同一対象を指すか
+    // (完全一致、またはキーワードが疾患名を含む / 疾患名がキーワードを含む)。
+    // ハッシュ衝突で混在した無関係な疾患レコードを弾くための照合ゲート。
+    // 空のキーワード・空の疾患名は一致とみなさない (strstr の空文字列一致を回避)。
+    static bool diseaseNameMatches(const char* keyword, const MindsGuidelineRecord512& rec) {
+        if (!keyword || keyword[0] == '\0') return false;
+        char disease[sizeof(rec.disease_name) + 1];
+        copyDiseaseName(rec, disease, sizeof(disease));
+        if (disease[0] == '\0') return false;
+        if (strcmp(keyword, disease) == 0) return true;
+        if (strstr(keyword, disease) != nullptr) return true;
+        if (strstr(disease, keyword) != nullptr) return true;
+        return false;
+    }
+
+    // icd10 フィールド (6B) を安全に C 文字列として取り出す
+    // (null 終端されていない場合に後続フィールドへ読み進めてしまうのを防ぐ)
+    static void copyIcd10(const MindsGuidelineRecord512& rec, char* out, size_t outSize) {
+        size_t len = 0;
+        while (len < sizeof(rec.icd10) && rec.icd10[len] != '\0') {
+            len++;
+        }
+        if (len >= outSize) len = outSize - 1;
+        memcpy(out, rec.icd10, len);
+        out[len] = '\0';
+    }
+
+    // キーワードが ICD-10 コード形式か
+    // (英字1文字 + 数字2桁、任意で "." + 数字列。例: "A41", "J18", "J18.9")。
+    // 通常の略語 ("AF", "HT", "COPD" 等) は数字2桁を伴わないため対象外になる。
+    static bool isIcd10Keyword(const char* keyword) {
+        if (!keyword) return false;
+        if (!((keyword[0] >= 'A' && keyword[0] <= 'Z') ||
+              (keyword[0] >= 'a' && keyword[0] <= 'z'))) return false;
+        if (keyword[1] < '0' || keyword[1] > '9') return false;
+        if (keyword[2] < '0' || keyword[2] > '9') return false;
+        if (keyword[3] == '\0') return true;
+        if (keyword[3] != '.') return false;
+        if (keyword[4] < '0' || keyword[4] > '9') return false;
+        for (size_t i = 5; keyword[i] != '\0'; i++) {
+            if (keyword[i] < '0' || keyword[i] > '9') return false;
+        }
+        return true;
+    }
+
+    // ICD-10 ゲート: キーワードが ICD-10 コード形式の場合に、レコードの icd10 と
+    // 完全一致、またはドット前方一致 (キーワード "J18" × レコード "J18.9"、
+    // およびその逆) を照合通過として扱う。
+    // トリガー語には生成系が ICD コード自体とそのドット前方形 (例: "J18") を
+    // 含めているため、疾患名照合では拾えない ICD 検索をここで救済する。
+    // キーワードが ICD-10 形式でない場合は常に false (疾患名照合に影響しない)。
+    static bool icd10Matches(const char* keyword, const MindsGuidelineRecord512& rec) {
+        if (!isIcd10Keyword(keyword)) return false;
+        char icd[sizeof(rec.icd10) + 1];
+        copyIcd10(rec, icd, sizeof(icd));
+        if (icd[0] == '\0') return false;
+        if (strcmp(keyword, icd) == 0) return true;
+        size_t kwLen = strlen(keyword);
+        size_t icdLen = strlen(icd);
+        // ドット前方一致: 短い方がドット境界で長い方の接頭辞になっている
+        if (kwLen < icdLen && icd[kwLen] == '.' && strncmp(icd, keyword, kwLen) == 0) return true;
+        if (icdLen < kwLen && keyword[icdLen] == '.' && strncmp(keyword, icd, icdLen) == 0) return true;
+        return false;
+    }
+
+    // 同一 trigger_hash のレコード群 [groupBegin, groupEnd) の中から、
+    // 返却可能なレコードを探す。照合の優先順位:
+    //   第1パス: disease_name 完全一致
+    //   第2パス: disease_name 包含一致 (キーワードが疾患名を含む / 疾患名がキーワードを含む)
+    //   第3パス: ICD-10 ゲート (キーワードが ICD-10 形式で icd10 と完全一致 / ドット前方一致)
+    //   第4パス: 群内の disease_name が全て同一 (単一疾患グループ) なら先頭レコード
+    // 群内に異なる disease_name が混在し上記のいずれにも一致しなければ false を返す
+    // (無関係な疾患は返さないフェイルセーフ)。
+    // useIndexTable=true の場合、pos は SRAM インデックス上の位置であり
+    // record_idx へ変換してから読み出す。false の場合は pos がそのままレコード番号。
+    // outSingleDiseaseGroup には、群が単一疾患グループだったかを返す (LRU ヒット判定用)。
+    bool findInHashGroup(int groupBegin, int groupEnd, bool useIndexTable,
+                         const char* keyword, MindsGuidelineRecord512* outRecord,
+                         bool* outSingleDiseaseGroup) {
+        if (outSingleDiseaseGroup) *outSingleDiseaseGroup = false;
+
+        // まず群を1回走査し、単一疾患グループかどうかと先頭レコードを把握する。
+        // 読み取りに失敗したレコードがある群は「同一」とみなさない (フェイルセーフ側に倒す)。
+        // 先頭レコードの疾患名が空の群も同一とはみなさない。
+        MindsGuidelineRecord512 firstRecord;
+        bool hasFirst = false;
+        bool singleDisease = false;
+        {
+            MindsGuidelineRecord512 rec;
+            char firstDisease[sizeof(rec.disease_name) + 1];
+            firstDisease[0] = '\0';
+            bool uniform = true;
+            for (int pos = groupBegin; pos < groupEnd; pos++) {
+                size_t recIdx = useIndexTable ? (size_t)sramIndexTable[pos].record_idx
+                                              : (size_t)pos;
+                if (!getRecordByIndex(recIdx, &rec)) { uniform = false; break; }
+                char disease[sizeof(rec.disease_name) + 1];
+                copyDiseaseName(rec, disease, sizeof(disease));
+                if (!hasFirst) {
+                    memcpy(&firstRecord, &rec, MINDS_RECORD_SIZE);
+                    memcpy(firstDisease, disease, sizeof(firstDisease));
+                    hasFirst = true;
+                    if (disease[0] == '\0') uniform = false;
+                } else if (strcmp(disease, firstDisease) != 0) {
+                    uniform = false;
+                }
+            }
+            singleDisease = hasFirst && uniform;
+        }
+        if (outSingleDiseaseGroup) *outSingleDiseaseGroup = singleDisease;
+
+        MindsGuidelineRecord512 candidate;
+        for (int pass = 0; pass < 3; pass++) {
+            for (int pos = groupBegin; pos < groupEnd; pos++) {
+                size_t recIdx = useIndexTable ? (size_t)sramIndexTable[pos].record_idx
+                                              : (size_t)pos;
+                if (!getRecordByIndex(recIdx, &candidate)) continue;
+                bool ok;
+                if (pass == 0) {
+                    ok = diseaseNameEquals(keyword, candidate);
+                } else if (pass == 1) {
+                    ok = diseaseNameMatches(keyword, candidate);
+                } else {
+                    ok = icd10Matches(keyword, candidate);
+                }
+                if (ok) {
+                    memcpy(outRecord, &candidate, MINDS_RECORD_SIZE);
+                    return true;
+                }
+            }
+        }
+        // 第4パス: 単一疾患グループは、同一疾患の複数CQが共通トリガーを共有している
+        // だけであり実質無衝突とみなす。トリガー語と疾患名の表記ゆれ
+        // (シノニム/略語) で照合ゲートに落ちた場合でも先頭レコードを返してよい。
+        if (singleDisease) {
+            memcpy(outRecord, &firstRecord, MINDS_RECORD_SIZE);
+            return true;
+        }
+        return false;
     }
 
 public:
@@ -132,6 +297,7 @@ public:
         for (size_t i = 0; i < MINDS_LRU_CAPACITY; i++) {
             lruCache[i].isValid = false;
             lruCache[i].lastAccessTick = 0;
+            lruCache[i].groupSingleDisease = false;
         }
     }
 
@@ -212,84 +378,136 @@ public:
 
     /**
      * 【SRAM 加速型 Minds ガイドライン照合】
-     * 1. SRAM LRU キャッシュ検索 (0ms)
-     * 2. SRAM FastIndex 二分探索 (0.005ms)
-     * 3. ヒット時のみ Flash から 1回だけシーク＆リード
+     * 1. SRAM LRU キャッシュ検索 (0ms) ※ 下記いずれかの照合を通過した場合のみヒット扱い
+     * 2. SRAM FastIndex 二分探索で同一 trigger_hash のレコード群を特定 (0.005ms)
+     * 3. 群内を照合し、通過したレコードのみを返す
+     *
+     * 【フェイルセーフ】 trigger_hash はシソーラス展開により複数疾患で共有される
+     * (出荷データ: 3,295件 / ユニーク 2,084種、最大8件が同一ハッシュ)。
+     * ハッシュが一致した先頭レコードを無条件に返すと、無関係な疾患の推奨文を
+     * 「found」として返してしまうため、群内にキーワードと一致する
+     * レコードが無ければ「見つからない (false)」を返す。
+     * LRU への登録も照合を通過したレコードのみに限定する。
+     *
+     * 【照合ゲート (findInHashGroup)】
+     *   第1パス: disease_name 完全一致
+     *   第2パス: disease_name 包含一致
+     *   第3パス: ICD-10 ゲート (キーワードが ICD-10 形式で icd10 と完全一致 / ドット前方一致)
+     *   第4パス: 群内の disease_name が全て同一 (単一疾患グループ) なら先頭レコード
+     * 第4パスは、同一疾患の複数CQが共通トリガーを共有しているだけの群を
+     * 実質無衝突とみなす緩和策。異なる disease_name が1件でも混在する群には
+     * 適用されず、従来どおり照合ゲート + フェイルセーフが働く。
+     * LRU ヒット判定も同じ規則に合わせる: 疾患名照合 / ICD-10 ゲートを通過するか、
+     * 登録時点の群が単一疾患グループだったエントリはヒットとして扱う
+     * (バイナリは beginFlash() 以降不変のため、群の単一疾患性は登録後も変わらない)。
      */
     bool lookupGuideline(const char* keyword, MindsGuidelineRecord512* outRecord) {
         if (!isFlashLoaded || totalRecords == 0 || !keyword || !outRecord) return false;
+        if (keyword[0] == '\0') return false;
 
         stats.totalLookups++;
         uint32_t targetHash = calculateHash(keyword);
 
         // 1. SRAM LRU キャッシュ検索 (完全 0ms)
+        //    ハッシュが一致しても照合を通過しないキャッシュは返さない。
+        //    単一疾患グループ由来のエントリは、群が実質無衝突のためヒット扱いにする
         for (size_t i = 0; i < MINDS_LRU_CAPACITY; i++) {
             if (lruCache[i].isValid && lruCache[i].hash == targetHash) {
-                lruClock++;
-                lruCache[i].lastAccessTick = lruClock;
-                memcpy(outRecord, &lruCache[i].record, MINDS_RECORD_SIZE);
-                stats.lruHits++;
-                return true;
+                if (diseaseNameMatches(keyword, lruCache[i].record) ||
+                    icd10Matches(keyword, lruCache[i].record) ||
+                    lruCache[i].groupSingleDisease) {
+                    lruClock++;
+                    lruCache[i].lastAccessTick = lruClock;
+                    memcpy(outRecord, &lruCache[i].record, MINDS_RECORD_SIZE);
+                    stats.lruHits++;
+                    return true;
+                }
+                // 同一ハッシュのキャッシュは insertLru により1件に集約される。
+                // 照合に失敗した場合はキャッシュを返さず、インデックス探索へ進む
+                break;
             }
         }
 
-        // 2. SRAM インデックスによる高速二分探索
+        // 2. SRAM インデックスによる高速二分探索 → 同一ハッシュ群の範囲を特定
         if (sramIndexTable) {
+            int foundPos = -1;
             int low = 0;
             int high = (int)totalRecords - 1;
             while (low <= high) {
                 int mid = low + (high - low) / 2;
                 uint32_t midHash = sramIndexTable[mid].hash;
                 if (midHash == targetHash) {
-                    uint16_t recIdx = sramIndexTable[mid].record_idx;
-                    // Flash から 1回のみ読み出し
-                    if (flashFile.seek(recIdx * MINDS_RECORD_SIZE, SeekSet)) {
-                        if (flashFile.read((uint8_t*)outRecord, MINDS_RECORD_SIZE) == MINDS_RECORD_SIZE) {
-                            stats.flashReads++;
-                            insertLru(targetHash, *outRecord);
-                            return true;
-                        }
-                    }
-                    stats.lookupMisses++;
-                    return false;
+                    foundPos = mid;
+                    break;
                 } else if (midHash < targetHash) {
                     low = mid + 1;
                 } else {
                     high = mid - 1;
                 }
             }
+            if (foundPos >= 0) {
+                int groupBegin = foundPos;
+                while (groupBegin > 0 && sramIndexTable[groupBegin - 1].hash == targetHash) {
+                    groupBegin--;
+                }
+                int groupEnd = foundPos + 1;
+                while (groupEnd < (int)totalRecords && sramIndexTable[groupEnd].hash == targetHash) {
+                    groupEnd++;
+                }
+                // 3. 群内を照合。通過したレコードのみ LRU へ登録する
+                bool singleDiseaseGroup = false;
+                if (findInHashGroup(groupBegin, groupEnd, true, keyword, outRecord, &singleDiseaseGroup)) {
+                    insertLru(targetHash, *outRecord, singleDiseaseGroup);
+                    return true;
+                }
+            }
+            stats.lookupMisses++;
+            return false;
         } else {
-            // フォールバック: Flash 直接二分探索
+            // フォールバック: Flash 直接二分探索 → 同一ハッシュ群の範囲を特定
+            int foundPos = -1;
             int low = 0;
             int high = (int)totalRecords - 1;
+            MindsGuidelineRecord512 midRecord;
             while (low <= high) {
                 int mid = low + (high - low) / 2;
-                if (!flashFile.seek(mid * MINDS_RECORD_SIZE, SeekSet)) {
+                if (!getRecordByIndex((size_t)mid, &midRecord)) {
                     stats.lookupMisses++;
                     return false;
                 }
-                MindsGuidelineRecord512 current;
-                size_t bytesRead = flashFile.read((uint8_t*)&current, MINDS_RECORD_SIZE);
-                stats.flashReads++;
-                if (bytesRead != MINDS_RECORD_SIZE) {
-                    stats.lookupMisses++;
-                    return false;
-                }
-
-                if (current.trigger_hash == targetHash) {
-                    memcpy(outRecord, &current, MINDS_RECORD_SIZE);
-                    insertLru(targetHash, current);
-                    return true;
-                } else if (current.trigger_hash < targetHash) {
+                if (midRecord.trigger_hash == targetHash) {
+                    foundPos = mid;
+                    break;
+                } else if (midRecord.trigger_hash < targetHash) {
                     low = mid + 1;
                 } else {
                     high = mid - 1;
                 }
             }
+            if (foundPos >= 0) {
+                int groupBegin = foundPos;
+                MindsGuidelineRecord512 neighbor;
+                while (groupBegin > 0 &&
+                       getRecordByIndex((size_t)(groupBegin - 1), &neighbor) &&
+                       neighbor.trigger_hash == targetHash) {
+                    groupBegin--;
+                }
+                int groupEnd = foundPos + 1;
+                while (groupEnd < (int)totalRecords &&
+                       getRecordByIndex((size_t)groupEnd, &neighbor) &&
+                       neighbor.trigger_hash == targetHash) {
+                    groupEnd++;
+                }
+                // 3. 群内を照合。通過したレコードのみ LRU へ登録する
+                bool singleDiseaseGroup = false;
+                if (findInHashGroup(groupBegin, groupEnd, false, keyword, outRecord, &singleDiseaseGroup)) {
+                    insertLru(targetHash, *outRecord, singleDiseaseGroup);
+                    return true;
+                }
+            }
+            stats.lookupMisses++;
+            return false;
         }
-
-        stats.lookupMisses++;
-        return false;
     }
 
     /**

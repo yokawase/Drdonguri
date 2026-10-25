@@ -382,6 +382,60 @@ uint32_t calculateFnv1a32(const char* data, size_t len) {
   return hash;
 }
 
+// ============================================================================
+// FNV-1a 32-bit ハッシュ計算 (med_terms.bin ルックアップ専用・正規化付き)
+// ----------------------------------------------------------------------------
+// 辞書生成側 (compile_pipeline.py / build_full_dictionary.py の fnv1a_32) は
+// 用語を NFKC 正規化してから FNV-1a を計算するため、全角英数字を含む傷病名
+// (例: 「２型糖尿病」「Ｃ型慢性肝炎」) は正規化後のハッシュでしか辞書に
+// 登録されていない。受信した生バイト列をそのままハッシュする
+// calculateFnv1a32 ではこれらの用語が永遠にヒットしないため、本関数は
+// UTF-8 バイト列を走査しながら以下の変換を行ってから FNV-1a を計算し、
+// 生成側の NFKC 正規化仕様 (対象範囲分) と一致させる:
+//   全角英数字 (U+FF01〜U+FF5E) → 対応する半角 ASCII ('!'〜'~')
+//     UTF-8: U+FF01〜U+FF3F = EF BC 81〜BF / U+FF40〜U+FF5E = EF BD 80〜9E
+//   全角スペース (U+3000: E3 80 80) → 半角スペース (' ')
+// それ以外のバイト列は変換せずそのままハッシュに投入する。
+// ※ med_terms.bin のルックアップ専用。他の用途では calculateFnv1a32 を使うこと。
+// ============================================================================
+uint32_t calculateFnv1a32Normalized(const char* data, size_t len) {
+  uint32_t hash = 0x811C9DC5;
+  size_t i = 0;
+  while (i < len) {
+    uint8_t c = (uint8_t)data[i];
+    // 全角英数字 (U+FF01〜U+FF5E) → 半角 ASCII
+    if (c == 0xEF && i + 2 < len) {
+      uint8_t b2 = (uint8_t)data[i + 1];
+      uint8_t b3 = (uint8_t)data[i + 2];
+      int codePoint = -1;
+      if (b2 == 0xBC && b3 >= 0x81 && b3 <= 0xBF) {
+        codePoint = 0xFF01 + (b3 - 0x81);   // U+FF01〜U+FF3F
+      } else if (b2 == 0xBD && b3 >= 0x80 && b3 <= 0x9E) {
+        codePoint = 0xFF40 + (b3 - 0x80);   // U+FF40〜U+FF5E
+      }
+      if (codePoint >= 0) {
+        uint8_t ascii = (uint8_t)(codePoint - 0xFEE0);  // U+FF01→'!' 〜 U+FF5E→'~'
+        hash ^= ascii;
+        hash = hash * 0x01000193;
+        i += 3;
+        continue;
+      }
+    }
+    // 全角スペース (U+3000) → 半角スペース
+    if (c == 0xE3 && i + 2 < len &&
+        (uint8_t)data[i + 1] == 0x80 && (uint8_t)data[i + 2] == 0x80) {
+      hash ^= (uint8_t)' ';
+      hash = hash * 0x01000193;
+      i += 3;
+      continue;
+    }
+    hash ^= c;
+    hash = hash * 0x01000193;
+    i += 1;
+  }
+  return hash;
+}
+
 // UTF-8文字長判定
 static inline size_t getUtf8CharLen(uint8_t c) {
   if ((c & 0x80) == 0) return 1;
@@ -876,7 +930,9 @@ bool lookupKanjiYomi(const char* utf8Char, char* outRomaji, size_t maxLen) {
 bool lookupMedicalTerm(File& f, uint32_t count, const char* word, size_t len, MedTermRecord* outRec) {
   if (word == nullptr || len == 0 || count == 0 || !f) return false;
 
-  uint32_t targetHash = calculateFnv1a32(word, len);
+  // 辞書は生成側で NFKC 正規化後のハッシュで登録されているため、
+  // 全角英数字を含む用語にヒットさせるには正規化付きハッシュで検索する
+  uint32_t targetHash = calculateFnv1a32Normalized(word, len);
 
   int32_t low = 0;
   int32_t high = (int32_t)count - 1;

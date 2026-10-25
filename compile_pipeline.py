@@ -37,11 +37,29 @@ except ImportError:
         return ""
 
 def fnv1a_32(text: str) -> int:
+    # NFKC正規化後のハッシュ (新ファームウェアの正規化付きルックアップと一致)
     norm = unicodedata.normalize('NFKC', text).strip()
     h = 0x811C9DC5
     for b in norm.encode('utf-8'):
         h = ((h ^ b) * 0x01000193) & 0xFFFFFFFF
     return h
+
+def fnv1a_32_raw(text: str) -> int:
+    # 正規化なし・生バイト列のハッシュ (旧ファームウェア calculateFnv1a32 と一致)
+    h = 0x811C9DC5
+    for b in text.encode('utf-8'):
+        h = ((h ^ b) * 0x01000193) & 0xFFFFFFFF
+    return h
+
+def register_term(term_dict: dict, name: str, romaji: str, mode: int) -> None:
+    """
+    用語を「生の用語のハッシュ」と「NFKC正規化後のハッシュ」の両方で登録する。
+    旧ファームウェア (生バイトでハッシュ計算) でも新ファームウェア
+    (正規化付きハッシュで検索) でもヒットさせるため。
+    両ハッシュが一致する場合は1件のみ登録される。
+    """
+    for h in {fnv1a_32_raw(name), fnv1a_32(name)}:
+        term_dict[h] = (name, romaji, mode)
 
 def compile_terms():
     print(" -> [A] 医薬品 & 傷病名マスターをコンパイル中 (med_terms.bin)...")
@@ -65,7 +83,7 @@ def compile_terms():
                     kana = row[5].strip() if len(row) > 5 else name
                     if name:
                         romaji = kana_to_romaji(kana)[:25]
-                        term_dict[fnv1a_32(name)] = (name, romaji, 2)
+                        register_term(term_dict, name, romaji, 2)
         print(f"     医薬品エントリ登録数: {len(term_dict):,} 件")
 
     if disease_files:
@@ -80,7 +98,7 @@ def compile_terms():
                     kana = row[3].strip() if len(row) > 3 else name
                     if name:
                         romaji = kana_to_romaji(kana)[:25]
-                        term_dict[fnv1a_32(name)] = (name, romaji, 1)
+                        register_term(term_dict, name, romaji, 1)
                         count_d += 1
         print(f"     傷病名エントリ登録数: {count_d:,} 件")
 
@@ -103,7 +121,7 @@ def compile_terms():
             ("因果推論", "inngasuironn", 1), ("縦断研究", "jyuudannkennkyuu", 1)
         ]
         for t, r, m in seeds:
-            term_dict[fnv1a_32(t)] = (t, r, m)
+            register_term(term_dict, t, r, m)
 
     sorted_records = sorted(term_dict.items(), key=lambda x: x[0])
     out_path = os.path.join(DATA_DIR, "med_terms.bin")

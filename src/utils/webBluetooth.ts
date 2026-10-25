@@ -74,6 +74,8 @@ export class BleDongleManager {
   private printerDataListeners: PrinterDataCallback[] = [];
   private printerCompleteListeners: PrinterJobCompleteCallback[] = [];
   private isTransmissionAborted: boolean = false;
+  // ユーザーが明示的に切断したかどうか (true の間は gattserverdisconnected でも自動再接続しない)
+  private manualDisconnect: boolean = false;
 
   public getState(): BleConnectionState {
     return this.state;
@@ -330,26 +332,76 @@ export class BleDongleManager {
   }
 
   /**
+   * GATT切断イベントハンドラ
+   * 名前付き(アロープロパティ)にして、再接続時の付け直し・重複登録防止を可能にする。
+   * ユーザーが明示的に切断した場合 (manualDisconnect) は自動再接続を予約しない。
+   */
+  private handleGattDisconnected = (): void => {
+    this.log('sys', 'BLE', 'AtomS3U とのBLE接続が切断されました（メモリゼロクリア実行）');
+    this.server = null;
+    this.characteristic = null;
+    this.isNotifyActive = false;
+    this.isWriting = false;
+    this.setState('disconnected');
+    if (this.onDisconnectListener) {
+      this.onDisconnectListener();
+    }
+    if (this.manualDisconnect) {
+      this.log('sys', 'BLE', 'ユーザーによる明示的な切断のため、自動再接続は行いません。');
+      return;
+    }
+    // 3秒後に自動サイレント再接続を試行
+    setTimeout(() => this.tryAutoReconnect(), 3000);
+  };
+
+  /**
+   * Notify値変化イベントハンドラ (名前付き: 同一 characteristic への重複登録は自動で抑止される)
+   */
+  private handleCharacteristicValueChanged = (event: Event): void => {
+    const char = event.target as BluetoothRemoteGATTCharacteristic;
+    if (!char.value) return;
+    const decoder = new TextDecoder();
+    const ackStr = decoder.decode(char.value);
+    this.handleIncomingAck(ackStr, new Uint8Array(char.value.buffer));
+  };
+
+  /**
+   * 現在の characteristic に対する Notify (ACK通知) 購読のセットアップ
+   * connectToDevice / ensureConnected の双方から使用する共通処理。
+   * isNotifyActive には実際の購読状態を反映させる。
+   * @returns 購読に成功したら true、失敗したら false (片方向送信モードとして継続可能)
+   */
+  private async subscribeNotifications(): Promise<boolean> {
+    if (!this.characteristic) {
+      this.isNotifyActive = false;
+      return false;
+    }
+    try {
+      await this.characteristic.startNotifications();
+      this.characteristic.addEventListener('characteristicvaluechanged', this.handleCharacteristicValueChanged);
+      this.isNotifyActive = true;
+      this.log('sys', 'GATT', 'ACK通知 (Notify) の購読を有効化しました (双方向通信確立)');
+      return true;
+    } catch (notifyErr: any) {
+      this.isNotifyActive = false;
+      this.log('sys', 'WARN', `ACK通知購読をスキップ（片方向高速送信モードで安全に接続維持）: ${notifyErr?.message || notifyErr}`);
+      return false;
+    }
+  }
+
+  /**
    * 指定されたBluetoothDeviceへの接続確立処理（スマートリトライ＆キャラクタリスティック購読）
    */
   public async connectToDevice(targetDevice: BluetoothDevice): Promise<boolean> {
+    // 新規接続の開始により、明示的切断フラグを解除する
+    this.manualDisconnect = false;
     this.device = targetDevice;
     this.setState('connecting');
 
     try {
-      this.device.addEventListener('gattserverdisconnected', () => {
-        this.log('sys', 'BLE', 'AtomS3U とのBLE接続が切断されました（メモリゼロクリア実行）');
-        this.server = null;
-        this.characteristic = null;
-        this.isNotifyActive = false;
-        this.isWriting = false;
-        this.setState('disconnected');
-        if (this.onDisconnectListener) {
-          this.onDisconnectListener();
-        }
-        // 3秒後に自動サイレント再接続を試行
-        setTimeout(() => this.tryAutoReconnect(), 3000);
-      });
+      // 名前付きハンドラを付け直す (同一デバイスへの再接続でリスナーが累積しないようにする)
+      this.device.removeEventListener('gattserverdisconnected', this.handleGattDisconnected);
+      this.device.addEventListener('gattserverdisconnected', this.handleGattDisconnected);
 
       this.log('sys', 'GATT', `デバイス「${this.device.name || 'EHR-AI-Dongle'}」に接続中...`);
       this.server = await this.device.gatt!.connect();
@@ -386,21 +438,7 @@ export class BleDongleManager {
       await new Promise((r) => setTimeout(r, 200));
 
       // Notify（ACK通知）の購読
-      try {
-        await this.characteristic.startNotifications();
-        this.characteristic.addEventListener('characteristicvaluechanged', (event: Event) => {
-          const char = event.target as BluetoothRemoteGATTCharacteristic;
-          if (!char.value) return;
-          const decoder = new TextDecoder();
-          const ackStr = decoder.decode(char.value);
-          this.handleIncomingAck(ackStr, new Uint8Array(char.value.buffer));
-        });
-        this.isNotifyActive = true;
-        this.log('sys', 'GATT', 'ACK通知 (Notify) の購読を有効化しました (双方向通信確立)');
-      } catch (notifyErr: any) {
-        this.isNotifyActive = false;
-        this.log('sys', 'WARN', `ACK通知購読をスキップ（片方向高速送信モードで安全に接続維持）: ${notifyErr?.message || notifyErr}`);
-      }
+      await this.subscribeNotifications();
 
       if (this.device.id) {
         await this.savePairedDeviceId(this.device.id);
@@ -434,13 +472,10 @@ export class BleDongleManager {
     const service = await this.server.getPrimaryService(SERVICE_UUID.toLowerCase());
     this.characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID.toLowerCase());
 
-    if (this.isNotifyActive) {
-      try {
-        await this.characteristic.startNotifications();
-      } catch {
-        this.isNotifyActive = false;
-      }
-    }
+    // 再接続で得た新しい characteristic に対して Notify 購読を必ず再セットアップする。
+    // 切断時に isNotifyActive は false へ落ちるため、旧状態に依存した条件分岐では
+    // startNotifications() が二度と実行されず、ACKが届かない片方向接続になる。
+    await this.subscribeNotifications();
 
     return this.isConnected();
   }
@@ -541,6 +576,8 @@ export class BleDongleManager {
    * 接続切断
    */
   public disconnect(): void {
+    // 明示的な切断であることを記録し、gattserverdisconnected 側の自動再接続を抑止する
+    this.manualDisconnect = true;
     if (this.device && this.device.gatt?.connected) {
       this.device.gatt.disconnect();
     }
@@ -936,7 +973,8 @@ export class BleDongleManager {
 
         if (onProgress) onProgress(95, '全パケット送信完了。マイコン照合待機中...');
 
-        // マイコンからの ALL_PACKETS_READY / USB_REPORTS_SENT 受信待機フェイルセーフタイムアウト (6.0秒)
+        // マイコンからの ALL_PACKETS_READY / USB_REPORTS_SENT 受信待機タイムアウト (6.0秒)
+        // 完了ACKが届かなかった場合は未達の可能性があるため、成功 (true) としては扱わない
         const checkInterval = setInterval(() => {
           if (this.isTransmissionAborted) {
             clearInterval(checkInterval);
@@ -950,7 +988,8 @@ export class BleDongleManager {
           if (!isCompleted && !this.isTransmissionAborted) {
             isCompleted = true;
             removeAck();
-            resolve(true);
+            this.log('sys', 'ERR', '完了ACK (ALL_PACKETS_READY / USB_REPORTS_SENT) の受信がタイムアウトしました。ドングル側で打鍵が完了していない可能性があるため、未達として扱います。');
+            resolve(false);
           }
         }, 6000);
 

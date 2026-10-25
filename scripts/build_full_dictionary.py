@@ -32,11 +32,49 @@ os.makedirs(FIRMWARE_DATA_DIR, exist_ok=True)
 kks = pykakasi.kakasi()
 
 def fnv1a_32(text: str) -> int:
+    # NFKC正規化後のハッシュ (新ファームウェアの正規化付きルックアップと一致)
     norm = unicodedata.normalize('NFKC', text).strip()
     h = 0x811C9DC5
     for b in norm.encode('utf-8'):
         h = ((h ^ b) * 0x01000193) & 0xFFFFFFFF
     return h
+
+def fnv1a_32_raw(text: str) -> int:
+    # 正規化なし・生バイト列のハッシュ (旧ファームウェア calculateFnv1a32 と一致)
+    h = 0x811C9DC5
+    for b in text.encode('utf-8'):
+        h = ((h ^ b) * 0x01000193) & 0xFFFFFFFF
+    return h
+
+def term_hashes(text: str) -> list:
+    """
+    辞書登録用ハッシュ一覧。
+    「生の用語のハッシュ (旧ファームウェア向け)」と
+    「NFKC正規化後のハッシュ (新ファームウェア向け)」の両方を返し、
+    両者が一致する場合は1件のみ返す。
+    """
+    hashes = []
+    for h in (fnv1a_32_raw(text), fnv1a_32(text)):
+        if h not in hashes:
+            hashes.append(h)
+    return hashes
+
+def register_term(word: str, romaji: str, mode: int, cost: int,
+                  overwrite: bool = False, hash_word: str = None) -> bool:
+    """
+    用語を生ハッシュと正規化ハッシュの両方でグローバル term_dict に登録する。
+    - overwrite=False の場合は既存エントリのあるハッシュには登録しない。
+    - hash_word はハッシュ計算に使う文字列 (省略時は word)。
+      マスター読込時に NFKC 正規化済みの word しか残っていない場合に
+      正規化前の生の用語を渡すことで、生ハッシュも正しく登録できる。
+    1件以上登録した場合は True を返す。
+    """
+    registered = False
+    for h in term_hashes(hash_word if hash_word is not None else word):
+        if overwrite or h not in term_dict:
+            term_dict[h] = (word, romaji, mode, cost)
+            registered = True
+    return registered
 
 def kana_to_romaji(kana_text: str) -> str:
     # 半角カナを全角に正規化
@@ -93,10 +131,10 @@ if os.path.exists(ts_path):
         for word, rom in pairs:
             w_norm = unicodedata.normalize('NFKC', word).strip()
             if len(w_norm) < 2: continue
-            h = fnv1a_32(w_norm)
             is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in w_norm)
             mode = 2 if is_katakana else 1
-            term_dict[h] = (w_norm, rom[:25], mode, 0)
+            # 生の用語 (word) のハッシュでも登録し、旧ファームウェアでもヒットさせる
+            register_term(w_norm, rom[:25], mode, 0, overwrite=True, hash_word=word.strip())
         print(f" -> CLINICAL_COMPOUND_MAP 登録: {len(pairs)} 件")
 
     # INFLECTED_WORD_MAP
@@ -106,8 +144,8 @@ if os.path.exists(ts_path):
         for word, rom in pairs:
             w_norm = unicodedata.normalize('NFKC', word).strip()
             if len(w_norm) < 2: continue
-            h = fnv1a_32(w_norm)
-            term_dict[h] = (w_norm, rom[:25], 1, 0)
+            # 生の用語 (word) のハッシュでも登録し、旧ファームウェアでもヒットさせる
+            register_term(w_norm, rom[:25], 1, 0, overwrite=True, hash_word=word.strip())
         print(f" -> INFLECTED_WORD_MAP 登録: {len(pairs)} 件")
 
 print(f" -> 臨床推論辞書合計: {len(term_dict)} 件")
@@ -125,24 +163,25 @@ if proc_files:
         reader = csv.reader(f)
         for row in reader:
             if len(row) > 6:
-                name = unicodedata.normalize('NFKC', row[4].strip())
+                raw_name = row[4].strip()
+                name = unicodedata.normalize('NFKC', raw_name)
                 kana = unicodedata.normalize('NFKC', row[6].strip())
                 if not name or len(name) < 2 or name.startswith('＊＊'):
                     continue
 
-                candidates = [(name, kana)]
+                # (用語, 読み, ハッシュ計算に使う文字列)
+                # 主名称は正規化前の生名称でハッシュを計算し、生ハッシュ (旧FW向け) も登録する
+                candidates = [(name, kana, raw_name)]
                 base = clean_procedure_base_name(name)
                 if len(base) >= 2 and base != name:
-                    candidates.append((base, base))
+                    candidates.append((base, base, base))
 
-                for w, k in candidates:
+                for w, k, hw in candidates:
                     romaji = kana_to_romaji(k)[:25]
                     if romaji:
-                        h = fnv1a_32(w)
-                        if h not in term_dict:
-                            is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in w)
-                            mode = 2 if is_katakana else 1
-                            term_dict[h] = (w, romaji, mode, 50)
+                        is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in w)
+                        mode = 2 if is_katakana else 1
+                        if register_term(w, romaji, mode, 50, hash_word=hw):
                             count_s += 1
     print(f"    診療行為エントリ登録: {count_s:,} 件 (累計: {len(term_dict):,} 件)")
 
@@ -159,8 +198,9 @@ if dmime_files:
         for line in f:
             parts = line.strip().split(',')
             if len(parts) >= 2:
+                raw_word = parts[1].strip()
                 yomi = unicodedata.normalize('NFKC', parts[0].strip())
-                word = unicodedata.normalize('NFKC', parts[1].strip())
+                word = unicodedata.normalize('NFKC', raw_word)
                 if len(word) < 2 or word.startswith('＊＊'):
                     continue
                 # 日本語文字を含むか
@@ -168,11 +208,10 @@ if dmime_files:
                     continue
                 romaji = kana_to_romaji(yomi)[:25]
                 if romaji:
-                    h = fnv1a_32(word)
-                    if h not in term_dict:
-                        is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in word)
-                        mode = 2 if is_katakana else 1
-                        term_dict[h] = (word, romaji, mode, 60)
+                    is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in word)
+                    mode = 2 if is_katakana else 1
+                    # 正規化前の生の用語 (raw_word) でハッシュを計算し、生ハッシュ (旧FW向け) も登録する
+                    if register_term(word, romaji, mode, 60, hash_word=raw_word):
                         count_dm += 1
     print(f"    DMiME エントリ登録: {count_dm:,} 件 (累計: {len(term_dict):,} 件)")
 
@@ -189,17 +228,17 @@ if disease_files:
         reader = csv.reader(f)
         for row in reader:
             if len(row) > 9:
-                name = unicodedata.normalize('NFKC', row[5].strip())
+                raw_name = row[5].strip()
+                name = unicodedata.normalize('NFKC', raw_name)
                 kana = unicodedata.normalize('NFKC', row[9].strip())
                 if not name or len(name) < 2 or '未コード化' in name or name.startswith('＊＊'):
                     continue
                 romaji = kana_to_romaji(kana)[:25]
                 if romaji:
-                    h = fnv1a_32(name)
-                    if h not in term_dict:
-                        is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in name)
-                        mode = 2 if is_katakana else 1
-                        term_dict[h] = (name, romaji, mode, 80)
+                    is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in name)
+                    mode = 2 if is_katakana else 1
+                    # 正規化前の生名称 (raw_name) でハッシュを計算し、生ハッシュ (旧FW向け) も登録する
+                    if register_term(name, romaji, mode, 80, hash_word=raw_name):
                         count_d += 1
     print(f"    傷病名エントリ登録: {count_d:,} 件 (累計: {len(term_dict):,} 件)")
 
@@ -216,31 +255,32 @@ if drug_files:
         reader = csv.reader(f)
         for row in reader:
             if len(row) > 6:
-                name = unicodedata.normalize('NFKC', row[4].strip())
+                raw_name = row[4].strip()
+                name = unicodedata.normalize('NFKC', raw_name)
                 kana = unicodedata.normalize('NFKC', row[6].strip())
                 gen_name = unicodedata.normalize('NFKC', row[37].strip()) if len(row) > 37 else ""
-                
+
+                # (用語, 読み, ハッシュ計算に使う文字列)
+                # 主名称は正規化前の生名称でハッシュを計算し、生ハッシュ (旧FW向け) も登録する
                 candidates = []
                 if name and len(name) >= 2:
-                    candidates.append((name, kana))
-                
+                    candidates.append((name, kana, raw_name))
+
                 base1 = clean_drug_base_name(name)
                 if len(base1) >= 2 and base1 != name:
-                    candidates.append((base1, base1))
-                
+                    candidates.append((base1, base1, base1))
+
                 if gen_name:
                     base2 = clean_drug_base_name(gen_name)
                     if len(base2) >= 2:
-                        candidates.append((base2, base2))
+                        candidates.append((base2, base2, base2))
 
-                for w, k in candidates:
+                for w, k, hw in candidates:
                     romaji = kana_to_romaji(k)[:25]
                     if romaji:
-                        h = fnv1a_32(w)
-                        if h not in term_dict:
-                            is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in w)
-                            mode = 2 if is_katakana else 1
-                            term_dict[h] = (w, romaji, mode, 80)
+                        is_katakana = all(0x30A0 <= ord(c) <= 0x30FF or c in 'ー・' for c in w)
+                        mode = 2 if is_katakana else 1
+                        if register_term(w, romaji, mode, 80, hash_word=hw):
                             count_y += 1
     print(f"    医薬品エントリ登録: {count_y:,} 件 (累計: {len(term_dict):,} 件)")
 
@@ -399,13 +439,14 @@ print(f" -> 目標総語彙数: {target_total_words:,} 語 (Mozc から追加予
 sorted_mozc = sorted(mozc_candidates.items(), key=lambda x: x[1][0])
 added_mozc = 0
 for word, (cost, yomi, mode) in sorted_mozc:
-    h = fnv1a_32(word)
-    if h in term_dict:
+    # 生ハッシュ・正規化ハッシュの両方が登録済みならスキップ
+    if all(h in term_dict for h in term_hashes(word)):
         continue
     romaji = kana_to_romaji(yomi)[:25]
     if romaji:
-        term_dict[h] = (word, romaji, mode, cost)
-        added_mozc += 1
+        # word は Mozc 原文 (正規化前) のため、生ハッシュ (旧FW向け) も登録される
+        if register_term(word, romaji, mode, cost):
+            added_mozc += 1
         if len(term_dict) >= target_total_words:
             break
 
