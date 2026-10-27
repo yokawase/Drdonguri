@@ -282,9 +282,10 @@ export class BleDongleManager {
       this.log('sys', 'BLE', 'Bluetoothデバイスをスキャン中（「EHR-AI-Dongle」を検索中）...');
       chosenDevice = await navigator.bluetooth!.requestDevice({
         filters: [
+          { services: [SERVICE_UUID.toLowerCase()] },
           { name: 'EHR-AI-Dongle' },
           { namePrefix: 'EHR' },
-          { services: [SERVICE_UUID.toLowerCase()] },
+          { namePrefix: 'Dong' },
         ],
         optionalServices: [SERVICE_UUID.toLowerCase()],
       });

@@ -5,6 +5,7 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+#include "esp_bt.h"
 #include "FS.h"
 #include "SPIFFS.h"
 #include "freertos/queue.h"
@@ -2046,6 +2047,8 @@ class MyServerCallbacks : public BLEServerCallbacks {
     g_display.showFace(FACE_IDLE);
     g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, "Minds 3.3K (RAM)");
 #endif
+    // 切断直後に即時再アドバタイズを開始（再接続待ち時間をゼロ化）
+    pServer->startAdvertising();
   }
 };
 
@@ -2135,6 +2138,9 @@ void setup() {
 
   BLEDevice::init("EHR-AI-Dongle");
   BLEDevice::setMTU(517);
+  // BLE送信パワーを最大出力 (+9dBm) に設定し、電波強度・パケット到達率を最大化
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, ESP_PWR_LVL_P9);
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_P9);
 
   pBleServer = BLEDevice::createServer();
   pBleServer->setCallbacks(new MyServerCallbacks());
@@ -2155,19 +2161,29 @@ void setup() {
 
   pService->start();
 
+  // 主アドバタイズパケット（ADV_IND: 31バイト以内）
+  // Flags(3バイト) + 128-bit SERVICE_UUID(18バイト) + ShortName "EHR"(5バイト) = 26バイト (≦31バイト)
+  // 主パケットにサービスUUIDを直接格納することで、OSのスキャンレスポンス取得遅延をゼロ化し、初弾(0.05秒)で即座に検出させる
   BLEAdvertisementData oAdvertisementData;
   oAdvertisementData.setFlags(0x06);
-  oAdvertisementData.setName("EHR-AI-Dongle");
+  oAdvertisementData.setCompleteServices(BLEUUID(SERVICE_UUID));
+  oAdvertisementData.setShortName("EHR");
 
+  // スキャンレスポンス（SCAN_RSP: 15バイト ≦ 31バイト）に完全デバイス名を格納
   BLEAdvertisementData oScanResponseData;
-  oScanResponseData.setCompleteServices(BLEUUID(SERVICE_UUID));
+  oScanResponseData.setName("EHR-AI-Dongle");
 
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->setAdvertisementData(oAdvertisementData);
   pAdvertising->setScanResponseData(oScanResponseData);
   pAdvertising->setScanResponse(true);
-  pAdvertising->setMinPreferred(0x0C);
-  pAdvertising->setMaxPreferred(0x18);
+
+  // 高速スキャン応答インターバル: 20ms〜30ms (単位: 0.625ms ➔ 0x20〜0x30)
+  // デフォルトの遅延(100〜1000ms)を排し、スマホ・PCのスキャンウィンドウへ超高頻度にヒットさせる
+  pAdvertising->setMinInterval(0x20); // 20ms
+  pAdvertising->setMaxInterval(0x30); // 30ms
+  pAdvertising->setMinPreferred(0x06); // 7.5ms (最速コネクションインターバル)
+  pAdvertising->setMaxPreferred(0x12); // 22.5ms
   pAdvertising->start();
 
   secureWipeMessageContext();

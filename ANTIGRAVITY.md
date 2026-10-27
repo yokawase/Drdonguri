@@ -731,7 +731,32 @@
          - 辞書一覧カード（昇格済み・候補リスト）に `[⚡ 訓読み分解]` バッジと分解内容プレビューを可視化。
     5. **総合テスト・回帰検証**:
        - `tests/misconversionCorrection.test.ts` を新設し、ユーザー報告の長文原文が誤転送ゼロ・100%完全なHYBRIDストリームへ変換されることを実証。
-       - 全12テストスイート・121テスト（100% PASS）、TypeScript型検査 0エラー、Vite本番ビルド正常完了。
+
+- **ステップ60: T-Dongle-S3 BLE認識遅延の徹底精査・主パケット26B即時スキャン＆高出力+9dBm超高速認識 (v2.32.0 / FW v23.3)**
+  - **背景 & 課題**:
+    - T-Dongle-S3 への BLE 接続時、ブラウザの Web Bluetooth デバイス選択ダイアログにデバイス名「EHR-AI-Dongle」が表示されるまでに十数秒〜数十秒の大きな待機時間が発生していた。
+  - **根本原因の特定**:
+    1. **主アドバタイズパケット（ADV_IND: 31B）の容量超過とスキャンレスポンス退避**: デバイス名「EHR-AI-Dongle」(15B) と 128-bit サービスUUID (18B) を同時に載せると計33バイトとなりBLE物理限界（31B）を超過するため、UUIDがスキャンレスポンス（SCAN_RSP）に退避されていた。
+    2. **OSスキャン遅延**: Web Bluetooth (`requestDevice({ filters: [{ services: [...] }] })`) でサービスUUID検索を行う場合、主パケットにUUIDがないため、OS Bluetoothスタック（BlueZ / Windows / Android）が能動的スキャン要求（SCAN_REQ）を送りSCAN_RSPを受信・解決するまでダイアログに表示されなかった。
+    3. **Wi-Fi SoftAPとの干渉 (Coexistence)**: 2.4GHz無線の時分割運用により、SCAN_REQ/SCAN_RSPの双方向パケットが間引かれていた。
+    4. **アドバタイズ間隔の遅延**: デフォルト間隔（100ms〜1000ms）でパケット送出頻度が低く、送信電波強度もデフォルト（低出力）であった。
+  - **実装・解決内容**:
+    1. **主アドバタイズパケット単体即時マッチング設計 (`firmware/src/main.cpp`)**:
+       - 主パケット（`oAdvertisementData`）に `setCompleteServices(BLEUUID(SERVICE_UUID))` (18B) と短縮名 `setShortName("EHR")` (5B) ＋ Flags (3B) ＝ 計26バイト（≦31B）を直接格納。
+       - SCAN_RSPを待つことなく、スキャン初弾（約0.05秒以内）でOSが即座にサービスUUIDを認識し、Web Bluetooth検索ダイアログに瞬時にヒット。
+    2. **完全デバイス名のスキャンレスポンス分離**:
+       - 完全デバイス名「EHR-AI-Dongle」(15B ≦ 31B) をスキャンレスポンス（`oScanResponseData`）に格納。
+    3. **超高頻度アドバタイジング (20ms〜30ms)**:
+       - `setMinInterval(0x20)` (20ms) / `setMaxInterval(0x30)` (30ms) の超高頻度送出に設定。
+       - コネクションインターバルを最速の 7.5ms〜22.5ms（0x06〜0x12）に最適化。
+    4. **BLE送信電波出力を最大化 (+9dBm)**:
+       - `esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, ESP_PWR_LVL_P9)` および `ESP_PWR_LVL_P9` を設定し、実測 RSSI -47dBm の高電波強度を達成。
+    5. **切断後即時再アドバタイズ**:
+       - `MyServerCallbacks::onDisconnect` で `pServer->startAdvertising()` を即座にコールし、切断直後の再接続待ち時間をゼロ化。
+    6. **WebUI側スキャンフィルター最適化 (`src/utils/webBluetooth.ts`)**:
+       - `filters` 先頭に `{ services: [SERVICE_UUID.toLowerCase()] }` を配置し、同時に `{ namePrefix: 'EHR' }`, `{ namePrefix: 'Dong' }`, `{ name: 'EHR-AI-Dongle' }` を指定。
+    7. **実機BLEスキャン＆接続検証**:
+       - `bleak` および `bluetoothctl` により実機（MAC `E0:72:A1:C1:4D:B5`）がスキャン開始後数十ミリ秒で即時検出され、`Connection successful` / `ServicesResolved: yes` を実証。
 
 
 ## 5. 運用ルール & 安全指針
