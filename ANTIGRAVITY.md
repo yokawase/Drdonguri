@@ -693,8 +693,46 @@
        - `tests/dangerousKanjiSafe.test.ts`（新規23テスト）および `tests/keyStrokeCompiler.test.ts`（18テスト）を含む全11テストスイート・118テスト（100% PASS）。
        - TypeScript 型検査 (`npm run lint` / `tsc --noEmit`): 0エラー。
        - Vite 本番ビルド (`npm run build`): エラーなしで正常ビルド完了。
+- [x] **ステップ59**: 臨床誤転送の徹底解明・修正（Markdown・鉤括弧・癌保護・撥音な行正規化） ＆ 自己学習（Aho-Corasick）二文字誤変換訓読み安全分解登録機能 (v2.31.0) - 【完了】
+  - **背景と課題**:
+    - 臨床実機テストにおいて、長文サマリー（「早期膵がんの検出や切除において、**「60%」という数字は…」）の転送時に複数の文字化け・誤変換が発生した：
+      1. `###` や `**` や `[1]` / `[6]` が全角（`＃＃＃`, `＊＊`, `」`）に化ける事故（IME ON時のASCII直接打鍵による未確定バッファ混入）。
+      2. 「膵がん」が「水がん」に誤変換される（「膵」が単漢字でスペース変換され第1候補「水」に化けた）。
+      3. 「がんの」が「がんお」に大誤爆する（癌の平仮名「がん」が助詞「が」に誤認分割され、残った「んの」が `nno` ➔ `nn`[ん] + `o`[お] とIMEに解釈された）。
+      4. 「根治」➔「こんち」、「強力」➔「協力」、「盾」➔「縦」、「家系」➔「家計」などの二文字熟語分断・同音異義語誤変換。
+      5. 鉤括弧「 」が [ ] に化け、絵文字 🔍 が無駄な空白や文字化けを起こす。
+    - また、医師が電カルや音声認識で遭遇した二文字誤変換単語について、Aho-Corasick の置換だけでなく、初弾から「漢字単体 ➔ 安全訓読み＋BS削除」の動的キルスイッチとして学習辞書に登録できる仕組みが求められた。
+  - **実装内容**:
+    1. **Markdown記号・括弧・記号・絵文字パイプラインの全面改修 (`src/services/KeyStrokeCompiler.ts`)**:
+       - `### ` 等の見出しハッシュ記号、`**` 太字、`[1]` や `[6]` の角括弧、`?` や `!` をすべて `[A]` ブロックで安全にラップし、IMEバイパス/F10確定で確実に半角直接送出。
+       - 全角鉤括弧 `「` と `」`、二重鉤括弧 `『` と `』` を `[H]「[/H]`、`[H]」[/H]` として出力（ファームウェアがJISの `[` / `]` を打鍵し、IME ON のカルテ端末上で 100% 確実に `「` `」` として確定）。
+       - サロゲートペア絵文字（🔍、💡、⚠️ 等）をカルテ安全に半角スペース化。
+    2. **撥音「ん」＋「な行」ローマ字正規化バグの根絶 (`kanaToNormalizedRomaji`)**:
+       - 「ん」の直後に「な行（なにぬねの）」が続く場合、従来の `n` 単独から `nn` 出力へ正規化（`nnno` となり、MS-IMEで確実に `nn`[ん] + `no`[の] と解釈され、「んお」への大誤爆を完全に根絶）。
+       - 助詞判定ループにおいて、「が」の直後が「ん」の場合は病名「がん」（癌）の先頭であるため助詞分割をスキップするガードを実装。
+    3. **臨床頻出漢字・危険二文字単語マスターの拡充 (`src/constants/safeKanjiMaster.ts`)**:
+       - `SAFE_KANJI_SINGLE_CHAR_MAP` に重要漢字を追加：
+         - `膵`: `{ reading: 'suizou', bsCount: 1 }`（膵臓 ➔ BSで臓消去 ➔ 膵）
+         - `根`: `{ reading: 'ne', bsCount: 0 }`（根 ➔ 根）
+         - `治`: `{ reading: 'naosu', bsCount: 2 }`（治す ➔ BS2回 ➔ 治）
+         - `強`: `{ reading: 'tsuyoi', bsCount: 1 }`（強い ➔ BS ➔ 強）
+         - `力`: `{ reading: 'chikara', bsCount: 0 }`（力 ➔ 力）
+         - `盾`: `{ reading: 'mujun', leftCount: 1, delCount: 1, rightCount: 1 }`（矛盾 ➔ 矛削除 ➔ 盾）
+         - `家`: `{ reading: 'ie', bsCount: 0 }`, `系`: `{ reading: 'keitou', bsCount: 1 }`
+         - `切`: `{ reading: 'kiru', bsCount: 1 }`, `除`: `{ reading: 'nozoku', bsCount: 2 }`
+         - `出`: `{ reading: 'deru', bsCount: 1 }`, `論`: `{ reading: 'ronbun', bsCount: 1 }`
+       - `DANGEROUS_KANJI_LIST` に `膵癌`, `根治`, `強力`, `家系`, `切除`, `検出` を追加。
+       - `MULTI_CHUNK_LEXICON` に `早期膵がん`, `膵がん`, `家族性膵がん`, `膵サーベイランス`, `画像サーベイランス`, `サーベイランス`, `盾` を登録。
+    4. **自己学習（Aho-Corasick）登録機能への「二文字誤変換単語は訓読み分解登録」機能新設 (`src/hooks/useAutoDictionary.ts`, `src/components/LearnedDictionaryModal.tsx`)**:
+       - `LearnedDictRecord` に `isDecomposed?: boolean`, `decompositionRule?: string` を新設。
+       - `useAutoDictionary.recordPair` に `enableDecomposition` 引数を追加し、正解用語が2文字漢字の場合に `registerDynamicDangerousKanji(target)` を呼んで `KeyStrokeCompiler` の動的キルスイッチ辞書（`DYNAMIC_DANGEROUS_KANJI_DICT`）へ即時登録。
+       - `LearnedDictionaryModal.tsx`:
+         - 手動登録フォームで正解用語が2文字漢字の場合、リアルタイムに「⚡ 訓読み安全分解: 強[強い-1BS] + 力[力]」プレビューと「二文字誤変換単語は訓読み分解登録（変換率100%保証）」チェックボックスを表示。
+         - 辞書一覧カード（昇格済み・候補リスト）に `[⚡ 訓読み分解]` バッジと分解内容プレビューを可視化。
+    5. **総合テスト・回帰検証**:
+       - `tests/misconversionCorrection.test.ts` を新設し、ユーザー報告の長文原文が誤転送ゼロ・100%完全なHYBRIDストリームへ変換されることを実証。
+       - 全12テストスイート・121テスト（100% PASS）、TypeScript型検査 0エラー、Vite本番ビルド正常完了。
 
----
 
 ## 5. 運用ルール & 安全指針
 - **完全日本語対応**: コメント、ドキュメント、システムメッセージはすべて日本語で記述する。

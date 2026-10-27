@@ -611,7 +611,9 @@ export default function App() {
               resetViewportScroll();
             }}
             entries={learnedEntries}
-            onAddPair={recordPair}
+            onAddPair={(source, target, type, enableDecomposition) =>
+              recordPair(source, target, type, true, enableDecomposition)
+            }
             onDeleteEntry={deleteEntry}
             whisperPrompt={getWhisperInitialPrompt()}
           />

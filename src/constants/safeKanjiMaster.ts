@@ -128,6 +128,21 @@ export const SAFE_KANJI_SINGLE_CHAR_MAP: Record<string, SafeKanjiSingleChar> = {
   '去': { reading: 'saru', convert: true, bsCount: 1, representative: '去る -> 去' },
   '挿': { reading: 'sasu', convert: true, bsCount: 1, representative: '挿す -> 挿' },
   '入': { reading: 'hairu', convert: true, bsCount: 1, representative: '入る -> 入' },
+
+  // ─── 臨床重要・誤変換頻出漢字 (膵・根・治・強・力・盾・家・系・切・除・出・論 等) ───
+  '膵': { reading: 'suizou', convert: true, bsCount: 1, representative: '膵臓 -> 膵' },
+  '根': { reading: 'ne', convert: true, bsCount: 0, representative: '根 -> 根' },
+  '治': { reading: 'naosu', convert: true, bsCount: 2, representative: '治す -> 治' },
+  '強': { reading: 'tsuyoi', convert: true, bsCount: 1, representative: '強い -> 強' },
+  '力': { reading: 'chikara', convert: true, bsCount: 0, representative: '力 -> 力' },
+  '盾': { reading: 'mujun', convert: true, leftCount: 1, delCount: 1, rightCount: 1, representative: '矛盾 -> 盾' },
+  '家': { reading: 'ie', convert: true, bsCount: 0, representative: '家 -> 家' },
+  '系': { reading: 'keitou', convert: true, bsCount: 1, representative: '系統 -> 系' },
+  '切': { reading: 'kiru', convert: true, bsCount: 1, representative: '切る -> 切' },
+  '除': { reading: 'nozoku', convert: true, bsCount: 2, representative: '除く -> 除' },
+  '出': { reading: 'deru', convert: true, bsCount: 1, representative: '出る -> 出' },
+  '論': { reading: 'ronbun', convert: true, bsCount: 1, representative: '論文 -> 論' },
+  '探': { reading: 'sagasu', convert: true, bsCount: 2, representative: '探す -> 探' },
 };
 
 /**
@@ -293,6 +308,14 @@ export const DANGEROUS_KANJI_LIST: DangerousKanjiDefinition[] = [
   makeSafeDecompositionEntry('狭帯', 'ENDOSCOPY_ANATOMY', 'KYOU-TAI'),
   makeSafeDecompositionEntry('抜去', 'ENDOSCOPY_ANATOMY', 'BAK-KYO'),
   makeSafeDecompositionEntry('挿入', 'ENDOSCOPY_ANATOMY', 'SOU-NYUU'),
+
+  // ─── 区分Ⅶ: 臨床重要・二文字誤変換頻出語 (6語) ───
+  makeSafeDecompositionEntry('膵癌', 'PATHOLOGY', 'SUI-GAN'),
+  makeSafeDecompositionEntry('根治', 'PATHOLOGY', 'KON-CHI'),
+  makeSafeDecompositionEntry('強力', 'FINDINGS', 'KYOU-RYOKU'),
+  makeSafeDecompositionEntry('家系', 'PATHOLOGY', 'KA-KEI'),
+  makeSafeDecompositionEntry('切除', 'ENDOSCOPY_ANATOMY', 'SETSU-JO'),
+  makeSafeDecompositionEntry('検出', 'FINDINGS', 'KEN-SHUTSU'),
 ];
 
 /**
@@ -301,6 +324,51 @@ export const DANGEROUS_KANJI_LIST: DangerousKanjiDefinition[] = [
 export const DANGEROUS_KANJI_DICT: Record<string, MultiChunkItem[]> = {};
 for (const item of DANGEROUS_KANJI_LIST) {
   DANGEROUS_KANJI_DICT[item.word] = item.chunks;
+}
+
+/**
+ * 動的に学習・登録された危険二文字単語辞書
+ */
+export const DYNAMIC_DANGEROUS_KANJI_DICT: Record<string, MultiChunkItem[]> = {};
+
+/**
+ * 二文字単語が「漢字単体 ➔ 安全訓読み」で分解可能かどうかを判定
+ */
+export function isTwoKanjiDecomposable(word: string): boolean {
+  if (word.length !== 2) return false;
+  return Boolean(SAFE_KANJI_SINGLE_CHAR_MAP[word[0]] && SAFE_KANJI_SINGLE_CHAR_MAP[word[1]]);
+}
+
+/**
+ * 二文字単語の分解プレビュー文字列を取得 (例: "強[強い-い] + 力[力]")
+ */
+export function getDecompositionPreview(word: string): string | null {
+  if (word.length !== 2) return null;
+  const def1 = SAFE_KANJI_SINGLE_CHAR_MAP[word[0]];
+  const def2 = SAFE_KANJI_SINGLE_CHAR_MAP[word[1]];
+  if (!def1 || !def2) return null;
+
+  const rep1 = def1.representative ? def1.representative.split(' -> ')[0] : def1.reading;
+  const rep2 = def2.representative ? def2.representative.split(' -> ')[0] : def2.reading;
+  return `${word[0]}[${rep1}${def1.bsCount ? `-${def1.bsCount}BS` : ''}] + ${word[1]}[${rep2}${def2.bsCount ? `-${def2.bsCount}BS` : ''}]`;
+}
+
+/**
+ * 動的学習用: 二文字誤変換単語を訓読み安全分解辞書へ登録
+ */
+export function registerDynamicDangerousKanji(word: string, chunks?: MultiChunkItem[]): boolean {
+  if (chunks) {
+    DYNAMIC_DANGEROUS_KANJI_DICT[word] = chunks;
+    DANGEROUS_KANJI_DICT[word] = chunks;
+    return true;
+  }
+  const synthesized = synthesizeSafeDecomposition(word);
+  if (synthesized) {
+    DYNAMIC_DANGEROUS_KANJI_DICT[word] = synthesized;
+    DANGEROUS_KANJI_DICT[word] = synthesized;
+    return true;
+  }
+  return false;
 }
 
 /**

@@ -22,6 +22,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { AhoCorasickEngine } from '../utils/ahoCorasick';
 import type { LearnedPair, DiffWorkerRequest, DiffWorkerResponse } from '../workers/diffWorker';
+import {
+  registerDynamicDangerousKanji,
+  isTwoKanjiDecomposable,
+  getDecompositionPreview,
+} from '../constants/safeKanjiMaster';
 
 export interface LearnedDictRecord {
   id: string; // `${type}:::${source}:::${target}`
@@ -32,6 +37,8 @@ export interface LearnedDictRecord {
   promoted: boolean; // n >= 2
   firstSeen: number;
   lastSeen: number;
+  isDecomposed?: boolean; // 二文字誤変換単語の訓読み安全分解登録フラグ
+  decompositionRule?: string; // 訓読み分解プレビュー (例: "強[強い-1BS] + 力[力]")
 }
 
 const DB_NAME = 'drdonguri_knowledge_db';
@@ -51,6 +58,12 @@ const INITIAL_PRESET_ENTRIES: Omit<LearnedDictRecord, 'firstSeen' | 'lastSeen'>[
   { id: 'ime:::心金梗塞:::心筋梗塞', source: '心金梗塞', target: '心筋梗塞', type: 'ime', count: 2, promoted: true },
   { id: 'ime:::はい水腫:::肺水腫', source: 'はい水腫', target: '肺水腫', type: 'ime', count: 2, promoted: true },
   { id: 'ime:::頸動脈えコー:::頸動脈エコー', source: '頸動脈えコー', target: '頸動脈エコー', type: 'ime', count: 2, promoted: true },
+  { id: 'ime:::協力:::強力', source: '協力', target: '強力', type: 'ime', count: 2, promoted: true, isDecomposed: true, decompositionRule: '強[強い-1BS] + 力[力]' },
+  { id: 'ime:::こんち:::根治', source: 'こんち', target: '根治', type: 'ime', count: 2, promoted: true, isDecomposed: true, decompositionRule: '根[根] + 治[治す-2BS]' },
+  { id: 'ime:::家計:::家系', source: '家計', target: '家系', type: 'ime', count: 2, promoted: true, isDecomposed: true, decompositionRule: '家[家] + 系[系統-1BS]' },
+  { id: 'ime:::水がん:::膵がん', source: '水がん', target: '膵がん', type: 'ime', count: 2, promoted: true, isDecomposed: true, decompositionRule: '膵[膵臓-1BS] + がん' },
+  { id: 'ime:::水癌:::膵癌', source: '水癌', target: '膵癌', type: 'ime', count: 2, promoted: true, isDecomposed: true, decompositionRule: '膵[膵臓-1BS] + 癌[胃癌-1Left-1Del-1Right]' },
+  { id: 'ime:::縦:::盾', source: '縦', target: '盾', type: 'ime', count: 2, promoted: true, isDecomposed: true, decompositionRule: '盾[矛盾-1Left-1Del-1Right]' },
 
   // 系統B: ASR音声誤認識
   { id: 'asr:::ひろゆき:::ピロリ菌', source: 'ひろゆき', target: 'ピロリ菌', type: 'asr', count: 2, promoted: true },
@@ -220,6 +233,14 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
         dictMap.set(r.source, r.target);
       }
       ahoEngineRef.current.loadDictionary(dictMap);
+
+      // 二文字誤変換単語（訓読み安全分解対象）を KeyStrokeCompiler 動的辞書へ即座に一括登録
+      for (const r of records) {
+        if (r.isDecomposed || isTwoKanjiDecomposable(r.target)) {
+          registerDynamicDangerousKanji(r.target);
+        }
+      }
+
       setIsReady(true);
     });
 
@@ -228,16 +249,14 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
     };
   }, []);
 
-  // 3. ペアの記録 ＆ n >= 2 昇格ロジック
-  // 【バグ修正】以前は state の entries をクロージャで参照していたため、連続呼び出し
-  // （1回のDiffで複数ペア / 手動登録の2連続呼び出し）で直前の更新が見えず count が 1 のまま昇格しなかった。
-  // 現在は同期的に更新される entriesRef を正とする。
+  // 3. ペアの記録 ＆ n >= 2 昇格ロジック ＆ 二文字誤変換訓読み安全分解登録
   const recordPair = useCallback(
     async (
       source: string,
       target: string,
       type: 'ime' | 'asr',
-      forcePromote: boolean = false
+      forcePromote: boolean = false,
+      enableDecomposition?: boolean
     ): Promise<{ isNewPromotion: boolean; record: LearnedDictRecord }> => {
       const s = source.trim();
       const t = target.trim();
@@ -247,6 +266,16 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
 
       const id = `${type}:::${s}:::${t}`;
       const now = Date.now();
+
+      // 二文字単語の訓読み安全分解の判定とプレビュー取得
+      const shouldDecompose = enableDecomposition !== undefined
+        ? enableDecomposition
+        : isTwoKanjiDecomposable(t);
+      const decompositionRule = shouldDecompose ? (getDecompositionPreview(t) || undefined) : undefined;
+
+      if (shouldDecompose) {
+        registerDynamicDangerousKanji(t);
+      }
 
       let targetRecord: LearnedDictRecord | undefined = entriesRef.current.find((e) => e.id === id);
       let isNewPromotion = false;
@@ -264,6 +293,8 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
           promoted: willPromote,
           firstSeen: now,
           lastSeen: now,
+          isDecomposed: shouldDecompose,
+          decompositionRule,
         };
       } else {
         // 2回目以降の観測
@@ -277,6 +308,8 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
           count: nextCount,
           promoted: willPromote,
           lastSeen: now,
+          isDecomposed: targetRecord.isDecomposed || shouldDecompose,
+          decompositionRule: targetRecord.decompositionRule || decompositionRule,
         };
       }
 
@@ -298,7 +331,8 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
       // 通知コールバック
       if (isNewPromotion) {
         optionsRef.current?.onPromoted?.(finalRecord);
-        optionsRef.current?.onNotice?.(`⚡ 辞書を自動更新: 「${finalRecord.source}」➔「${finalRecord.target}」`);
+        const decompNote = finalRecord.isDecomposed ? ` [⚡ 訓読み分解登録: ${finalRecord.decompositionRule || finalRecord.target}]` : '';
+        optionsRef.current?.onNotice?.(`⚡ 辞書を自動更新: 「${finalRecord.source}」➔「${finalRecord.target}」${decompNote}`);
       }
 
       return { isNewPromotion, record: finalRecord };

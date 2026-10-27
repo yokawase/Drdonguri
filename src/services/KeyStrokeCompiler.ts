@@ -11,8 +11,12 @@ import {
   SAFE_KANJI_SINGLE_CHAR_MAP,
   DANGEROUS_KANJI_DICT,
   DANGEROUS_KANJI_LIST,
+  DYNAMIC_DANGEROUS_KANJI_DICT,
   F10_MEDICAL_SYMBOLS,
   synthesizeSafeDecomposition,
+  isTwoKanjiDecomposable,
+  getDecompositionPreview,
+  registerDynamicDangerousKanji,
   type SafeKanjiSingleChar,
   type DangerousKanjiDefinition,
 } from '../constants/safeKanjiMaster';
@@ -21,8 +25,12 @@ export {
   SAFE_KANJI_SINGLE_CHAR_MAP,
   DANGEROUS_KANJI_DICT,
   DANGEROUS_KANJI_LIST,
+  DYNAMIC_DANGEROUS_KANJI_DICT,
   F10_MEDICAL_SYMBOLS,
   synthesizeSafeDecomposition,
+  isTwoKanjiDecomposable,
+  getDecompositionPreview,
+  registerDynamicDangerousKanji,
   type SafeKanjiSingleChar,
   type DangerousKanjiDefinition,
 };
@@ -197,8 +205,9 @@ export function kanaToNormalizedRomaji(text: string): string {
     if (text[i] === 'ん' || text[i] === 'ン') {
       if (i + 1 < text.length) {
         const next = text[i + 1];
-        // 次が母音やヤ行の場合は 'nn'
-        if ('あいうえおアイウエオやゆよヤユヨ'.includes(next)) {
+        // 次が母音やヤ行、またはな行（なにぬねの）の場合は 'nn'
+        // （'n' 1つ + 'no' だと IME で 'nn'+'o' = 'んお' に大誤爆するため）
+        if ('あいうえおアイウエオやゆよヤユヨなにぬねのナニヌネノ'.includes(next)) {
           result += 'nn';
         } else {
           result += 'n';
@@ -1095,6 +1104,43 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
   '歳': [
     { tag: 'Z', text: '歳', romaji: 'sai' },
   ],
+
+  // ─── 臨床重要・頻出誤爆防止（膵がん・サーベイランス・盾・根治） ───
+  '早期膵がん': [
+    { tag: 'Z', text: '早期', romaji: 'souki' },
+    { tag: 'Z', text: '膵', romaji: 'suizou' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'H', text: 'がん', romaji: 'gann' },
+  ],
+  '家族性膵がん': [
+    { tag: 'Z', text: '家族性', romaji: 'kazokusei' },
+    { tag: 'Z', text: '膵', romaji: 'suizou' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'H', text: 'がん', romaji: 'gann' },
+  ],
+  '膵がん': [
+    { tag: 'Z', text: '膵', romaji: 'suizou' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'H', text: 'がん', romaji: 'gann' },
+  ],
+  '膵サーベイランス': [
+    { tag: 'Z', text: '膵', romaji: 'suizou' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'K', text: 'サーベイランス', romaji: 'sa-beirannsu' },
+  ],
+  '画像サーベイランス': [
+    { tag: 'Z', text: '画像', romaji: 'gazou' },
+    { tag: 'K', text: 'サーベイランス', romaji: 'sa-beirannsu' },
+  ],
+  'サーベイランス': [
+    { tag: 'K', text: 'サーベイランス', romaji: 'sa-beirannsu' },
+  ],
+  '盾': [
+    { tag: 'Z', text: '盾', romaji: 'mujun' },
+    { tag: 'control' as any, text: '', romaji: '[LEFT]' },
+    { tag: 'control' as any, text: '', romaji: '[DEL]' },
+    { tag: 'control' as any, text: '', romaji: '[RIGHT]' },
+  ],
 };
 
 // F10バイパス対象 医療英数シンボルマスター（木村・竹本分類、TNM分類、深達度、Stage病期分類、ピロリ判定記号等）を統合
@@ -1105,9 +1151,19 @@ for (const [sym, chunks] of Object.entries(F10_MEDICAL_SYMBOLS)) {
 }
 
 // 最長一致を保証するため MULTI_CHUNK_LEXICON をキー文字数降順で事前ソート
-const SORTED_MULTI_CHUNK_ENTRIES = Object.entries(MULTI_CHUNK_LEXICON).sort(
+let SORTED_MULTI_CHUNK_ENTRIES = Object.entries(MULTI_CHUNK_LEXICON).sort(
   (a, b) => b[0].length - a[0].length
 );
+
+export function refreshMultiChunkLexicon(): void {
+  // 動的二文字単語辞書を MULTI_CHUNK_LEXICON にもマージ
+  for (const [w, c] of Object.entries(DYNAMIC_DANGEROUS_KANJI_DICT)) {
+    MULTI_CHUNK_LEXICON[w] = c;
+  }
+  SORTED_MULTI_CHUNK_ENTRIES = Object.entries(MULTI_CHUNK_LEXICON).sort(
+    (a, b) => b[0].length - a[0].length
+  );
+}
 
 // -----------------------------------------------------------------------------
 // 単独出現した1文字漢字（所見・単位・臓器名等）の同音異義語誤爆を100%防ぐ
@@ -1381,6 +1437,18 @@ function segmentKanjiText(kanjiText: string): KanjiRomajiSegment[] {
 
 export class KeyStrokeCompiler {
   /**
+   * 自己学習された二文字誤変換単語を訓読み安全分解辞書へ動的登録
+   */
+  public static registerDynamicDangerousKanji(word: string, chunks?: MultiChunkItem[]): boolean {
+    const success = registerDynamicDangerousKanji(word, chunks);
+    if (success) {
+      refreshMultiChunkLexicon();
+      _compileCache.clear();
+    }
+    return success;
+  }
+
+  /**
    * テキストを「長単位結合オートマトン」で解析し、v20.1 HYBRID打鍵ストリームへコンパイル
    */
   public compileText(text: string, options: CompileOptions = {}): CompileResult {
@@ -1608,6 +1676,105 @@ export class KeyStrokeCompiler {
         aCount++;
         totalKeystrokes += 1;
         i += 1;
+        continue;
+      }
+
+      // C-3. 鉤括弧 「 」 『 』 ➔ [H]「[/H] / [H]」[/H] (ファームウェアで [ / ] 送出 ➔ IME ON で「 / 」として即時Enter確定)
+      if (remaining.startsWith('「') || remaining.startsWith('『')) {
+        const ch = remaining[0];
+        blocks.push({
+          type: 'h_hiragana',
+          tag: 'H',
+          rawText: ch,
+          compiledPayload: `[H]${ch}[/H]`,
+        });
+        hCount++;
+        totalKeystrokes += 2;
+        i += 1;
+        continue;
+      }
+      if (remaining.startsWith('」') || remaining.startsWith('』')) {
+        const ch = remaining[0];
+        blocks.push({
+          type: 'h_hiragana',
+          tag: 'H',
+          rawText: ch,
+          compiledPayload: `[H]${ch}[/H]`,
+        });
+        hCount++;
+        totalKeystrokes += 2;
+        i += 1;
+        continue;
+      }
+
+      // C-4. Markdown記号 (###, **, [1] 等の文献引用角括弧, ?) ➔ [A] 送出 (IMEバイパス/F10確定)
+      const mdHashMatch = remaining.match(/^#+/);
+      if (mdHashMatch) {
+        const hashes = mdHashMatch[0];
+        blocks.push({
+          type: 'a_ascii',
+          tag: 'A',
+          rawText: hashes,
+          compiledPayload: `[A]${hashes}[/A]`,
+        });
+        aCount++;
+        totalKeystrokes += hashes.length;
+        i += hashes.length;
+        continue;
+      }
+
+      if (remaining.startsWith('**')) {
+        blocks.push({
+          type: 'a_ascii',
+          tag: 'A',
+          rawText: '**',
+          compiledPayload: '[A]**[/A]',
+        });
+        aCount++;
+        totalKeystrokes += 2;
+        i += 2;
+        continue;
+      }
+
+      if (remaining.startsWith('[') || remaining.startsWith(']')) {
+        const brk = remaining[0];
+        blocks.push({
+          type: 'a_ascii',
+          tag: 'A',
+          rawText: brk,
+          compiledPayload: `[A]${brk}[/A]`,
+        });
+        aCount++;
+        totalKeystrokes += 1;
+        i += 1;
+        continue;
+      }
+
+      if (remaining.startsWith('?') || remaining.startsWith('!')) {
+        const mark = remaining[0];
+        blocks.push({
+          type: 'a_ascii',
+          tag: 'A',
+          rawText: mark,
+          compiledPayload: `[A]${mark}[/A]`,
+        });
+        aCount++;
+        totalKeystrokes += 1;
+        i += 1;
+        continue;
+      }
+
+      // C-5. 絵文字（🔍、💡、⚠️ 等のサロゲートペアや特殊記号）をカルテ安全に半角スペース化
+      const emojiMatch = remaining.match(/^[\uD800-\uDBFF][\uDC00-\uDFFF]|^[\u2600-\u27BF]|^[\u2300-\u23FF]/);
+      if (emojiMatch) {
+        blocks.push({
+          type: 'space',
+          tag: 'space',
+          rawText: emojiMatch[0],
+          compiledPayload: ' ',
+        });
+        totalKeystrokes += 1;
+        i += emojiMatch[0].length;
         continue;
       }
 
@@ -1856,12 +2023,12 @@ export class KeyStrokeCompiler {
       }
       if (matchedLongCompound) continue;
 
-      // H-2. 【レイヤー1: 静的キルスイッチ辞書 DANGEROUS_KANJI_DICT】
-      // 単独出現した誤変換危険二文字単語（休薬、減量、生検、萎縮、低値、禁忌 等）を
+      // H-2. 【レイヤー1: 静的キルスイッチ辞書 DANGEROUS_KANJI_DICT & 動的自己学習辞書 DYNAMIC_DANGEROUS_KANJI_DICT】
+      // 単独出現した誤変換危険二文字単語（休薬、減量、生検、萎縮、低値、禁忌、強力、家系、根治、切除、検出 等）を
       // 「漢字単体 ➔ 安全訓読み＋BS削除」で安全分解し、変換率100%を保証
       if (dangerousKanjiDecomposition && remaining.length >= 2) {
         const twoChars = remaining.substring(0, 2);
-        const safeChunks = DANGEROUS_KANJI_DICT[twoChars];
+        const safeChunks = DANGEROUS_KANJI_DICT[twoChars] || DYNAMIC_DANGEROUS_KANJI_DICT[twoChars];
         if (safeChunks) {
           appendChunkItems(safeChunks);
           i += 2;
@@ -1954,6 +2121,10 @@ export class KeyStrokeCompiler {
       let matchedParticle = false;
       for (const p of SORTED_PARTICLES) {
         if (remaining.startsWith(p)) {
+          // 「が」の直後が「ん」の場合は助詞「が」ではなく病名「がん」（癌）の可能性が高いためスキップ
+          if (p === 'が' && remaining.length >= 2 && remaining[1] === 'ん') {
+            continue;
+          }
           const romaji = kanaToNormalizedRomaji(p);
           blocks.push({
             type: 'h_hiragana',

@@ -25,14 +25,17 @@ import {
   Clock,
   RefreshCw,
   Search,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import type { LearnedDictRecord } from '../hooks/useAutoDictionary';
+import { isTwoKanjiDecomposable, getDecompositionPreview } from '../constants/safeKanjiMaster';
 
 interface LearnedDictionaryModalProps {
   isOpen: boolean;
   onClose: () => void;
   entries: LearnedDictRecord[];
-  onAddPair: (source: string, target: string, type: 'ime' | 'asr') => Promise<any>;
+  onAddPair: (source: string, target: string, type: 'ime' | 'asr', enableDecomposition?: boolean) => Promise<any>;
   onDeleteEntry?: (id: string) => void;
   whisperPrompt: string;
 }
@@ -49,10 +52,14 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
   const [filterQuery, setFilterQuery] = useState('');
   const [newSource, setNewSource] = useState('');
   const [newTarget, setNewTarget] = useState('');
-  const [newType, setNewType] = useState<'ime' | 'asr'>('asr');
+  const [newType, setNewType] = useState<'ime' | 'asr'>('ime');
+  const [enableDecomposition, setEnableDecomposition] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
+
+  const isDecomposable = isTwoKanjiDecomposable(newTarget.trim());
+  const decompositionPreview = isDecomposable ? getDecompositionPreview(newTarget.trim()) : null;
 
   const filteredEntries = entries.filter((item) => {
     if (activeTab !== 'all' && item.type !== activeTab) return false;
@@ -74,8 +81,9 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
     try {
       setIsSubmitting(true);
       // 手動追加は臨床確度100%として即座に2回観測扱い（即昇格）にするため2回呼び出し
-      await onAddPair(newSource.trim(), newTarget.trim(), newType);
-      await onAddPair(newSource.trim(), newTarget.trim(), newType);
+      const useDecomp = isDecomposable ? enableDecomposition : false;
+      await onAddPair(newSource.trim(), newTarget.trim(), newType, useDecomp);
+      await onAddPair(newSource.trim(), newTarget.trim(), newType, useDecomp);
       setNewSource('');
       setNewTarget('');
     } catch (err) {
@@ -176,42 +184,63 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
         {/* 手動登録フォーム */}
         <form
           onSubmit={handleManualAdd}
-          className="px-4 py-2.5 bg-slate-950/60 border-b border-slate-800/80 flex flex-wrap items-center gap-2 text-xs"
+          className="px-4 py-2.5 bg-slate-950/60 border-b border-slate-800/80 flex flex-col gap-2 text-xs"
         >
-          <span className="font-semibold text-slate-300 flex items-center gap-1">
-            <Plus className="w-3.5 h-3.5 text-amber-400" />
-            即時学習:
-          </span>
-          <select
-            value={newType}
-            onChange={(e) => setNewType(e.target.value as any)}
-            className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none"
-          >
-            <option value="asr">ASR誤認識</option>
-            <option value="ime">電カルIME</option>
-          </select>
-          <input
-            type="text"
-            value={newSource}
-            onChange={(e) => setNewSource(e.target.value)}
-            placeholder="誤認識語 (例: ひろゆき)"
-            className="flex-1 min-w-[120px] px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-500"
-          />
-          <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-          <input
-            type="text"
-            value={newTarget}
-            onChange={(e) => setNewTarget(e.target.value)}
-            placeholder="正解用語 (例: ピロリ菌)"
-            className="flex-1 min-w-[120px] px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-500"
-          />
-          <button
-            type="submit"
-            disabled={isSubmitting || !newSource.trim() || !newTarget.trim()}
-            className="px-3 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 disabled:opacity-50 transition"
-          >
-            登録
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-slate-300 flex items-center gap-1">
+              <Plus className="w-3.5 h-3.5 text-amber-400" />
+              即時学習:
+            </span>
+            <select
+              value={newType}
+              onChange={(e) => setNewType(e.target.value as any)}
+              className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none"
+            >
+              <option value="ime">電カルIME</option>
+              <option value="asr">ASR誤認識</option>
+            </select>
+            <input
+              type="text"
+              value={newSource}
+              onChange={(e) => setNewSource(e.target.value)}
+              placeholder="誤認識語 (例: 協力, こんち)"
+              className="flex-1 min-w-[120px] px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-500"
+            />
+            <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <input
+              type="text"
+              value={newTarget}
+              onChange={(e) => setNewTarget(e.target.value)}
+              placeholder="正解用語 (例: 強力, 根治)"
+              className="flex-1 min-w-[120px] px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-amber-500"
+            />
+            <button
+              type="submit"
+              disabled={isSubmitting || !newSource.trim() || !newTarget.trim()}
+              className="px-3 py-1 rounded-lg bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 disabled:opacity-50 transition"
+            >
+              登録
+            </button>
+          </div>
+
+          {/* 二文字誤変換単語は訓読み分解登録トグル ＆ プレビュー */}
+          {isDecomposable && (
+            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-amber-950/30 border border-amber-500/40 text-[11px] animate-in fade-in duration-150">
+              <label className="flex items-center gap-1.5 cursor-pointer text-amber-300 font-semibold select-none">
+                <input
+                  type="checkbox"
+                  checked={enableDecomposition}
+                  onChange={(e) => setEnableDecomposition(e.target.checked)}
+                  className="rounded border-amber-600 text-amber-500 focus:ring-0 w-3.5 h-3.5 accent-amber-500"
+                />
+                <span>二文字誤変換単語は訓読み分解登録（変換率100%保証）</span>
+              </label>
+              <div className="text-slate-300 font-mono text-[10px] truncate max-w-[50%]">
+                <span className="text-amber-400 font-bold">分解: </span>
+                {decompositionPreview}
+              </div>
+            </div>
+          )}
         </form>
 
         {/* 辞書一覧 */}
@@ -249,7 +278,7 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
                           {item.target}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400">
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] text-slate-400">
                         <span
                           className={`px-1.5 py-0.2 rounded font-semibold ${
                             item.type === 'ime'
@@ -260,6 +289,14 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
                           {item.type === 'ime' ? '電カルIME' : 'ASR誤認識'}
                         </span>
                         <span className="text-slate-400">観測: {item.count}回</span>
+                        {item.isDecomposed && (
+                          <span
+                            className="px-1.5 py-0.2 rounded font-semibold bg-amber-950/70 text-amber-300 border border-amber-500/50 flex items-center gap-0.5 truncate max-w-[170px]"
+                            title={item.decompositionRule || '訓読み安全分解'}
+                          >
+                            ⚡ 訓読み分解
+                          </span>
+                        )}
                       </div>
                     </div>
                     {onDeleteEntry && (
@@ -306,9 +343,17 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
                           {item.target}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-500">
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] text-slate-500">
                         <span>{item.type === 'ime' ? '電カルIME' : 'ASR誤認識'}</span>
                         <span>観測: {item.count}回 (保留中)</span>
+                        {item.isDecomposed && (
+                          <span
+                            className="px-1.5 py-0.2 rounded font-semibold bg-amber-950/50 text-amber-300 border border-amber-500/40 truncate max-w-[150px]"
+                            title={item.decompositionRule || '訓読み安全分解'}
+                          >
+                            ⚡ 訓読み分解
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
