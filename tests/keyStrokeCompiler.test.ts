@@ -22,10 +22,11 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
   });
 
   describe('1. 臨床テキストにおけるタグ生成実例（100%完全一致検証）', () => {
-    it('ユーザー提示の臨床文章が指定のペイロードと1文字の狂いもなく完全一致すること', () => {
+    it('ユーザー提示の臨床文章が指定のペイロードと1文字の狂いもなく完全一致すること（危険二文字漢字は安全分解100%変換）', () => {
       const input = '先週から背中が疼痛あり、体を動かすと体動時疼痛増悪。アルコール性肝機能障害の疑い。γ-GTPが200台。';
+      // カルテの90%以上は最短ストローク長文節、危険二文字漢字「増悪」は安全訓読み [Z]fueru[/Z][BS][Z]warui[/Z][BS]
       const expected =
-        '[Z]sensyuu[/Z][H]kara[/H][Z]senaka[/Z][H]ga[/H][Z]toutuuari[/Z][H]、[/H][Z]karada[/Z][H]wo[/H][Z]ugoka[/Z][H]suto[/H][Z]taidou[/Z][Z]ji[/Z][Z]toutuu[/Z][Z]zouaku[/Z][H]。[/H] [K]aruko-ru[/K][Z]seikankinousyougai[/Z][Z]noutagai[/Z][H]。[/H] [A]γ-GTP[/A][H]ga[/H][Z]200dai[/Z][H]。[/H]';
+        '[Z]sensyuu[/Z][H]kara[/H][Z]senaka[/Z][H]ga[/H][Z]toutuuari[/Z][H]、[/H][Z]karada[/Z][H]wo[/H][Z]ugoka[/Z][H]suto[/H][Z]taidou[/Z][Z]ji[/Z][Z]toutuu[/Z][Z]fueru[/Z][BS][Z]warui[/Z][BS][H]。[/H] [K]aruko-ru[/K][Z]seikankinousyougai[/Z][Z]noutagai[/Z][H]。[/H] [A]γ-GTP[/A][H]ga[/H][Z]200dai[/Z][H]。[/H]';
 
       const res = compiler.compileText(input, { includeImeReset: false });
 
@@ -34,9 +35,18 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       expect(res.altCount).toBe(0);
       expect(res.streamText.includes('[ALT]')).toBe(false);
     });
+
+    it('最短ストロークモード (dangerousKanjiDecomposition: false) では長単位熟語 [Z]zouaku[/Z] として軽快に出力されること', () => {
+      const input = '先週から背中が疼痛あり、体を動かすと体動時疼痛増悪。アルコール性肝機能障害の疑い。γ-GTPが200台。';
+      const expected =
+        '[Z]sensyuu[/Z][H]kara[/H][Z]senaka[/Z][H]ga[/H][Z]toutuuari[/Z][H]、[/H][Z]karada[/Z][H]wo[/H][Z]ugoka[/Z][H]suto[/H][Z]taidou[/Z][Z]ji[/Z][Z]toutuu[/Z][Z]zouaku[/Z][H]。[/H] [K]aruko-ru[/K][Z]seikankinousyougai[/Z][Z]noutagai[/Z][H]。[/H] [A]γ-GTP[/A][H]ga[/H][Z]200dai[/Z][H]。[/H]';
+
+      const res = compiler.compileText(input, { includeImeReset: false, dangerousKanjiDecomposition: false });
+      expect(res.streamText).toBe(expected);
+    });
   });
 
-  describe('2. 誤変換根絶メカニズム（単漢字分割の防止・接尾辞融合・語幹分離）', () => {
+  describe('2. 誤変換根絶メカニズム（単漢字分割の防止・接尾辞融合・語幹分離・危険二文字安全分解）', () => {
     it('「背中」が「肺中」にならず、長単位熟語として [Z]senaka[/Z] と出力されること', () => {
       const res = compiler.compileText('背中', { includeImeReset: false });
       expect(res.streamText).toBe('[Z]senaka[/Z]');
@@ -44,10 +54,15 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       expect(res.streamText).not.toContain('chuu');
     });
 
-    it('「増悪」が「笛悪」にならず、長単位熟語として [Z]zouaku[/Z] と出力されること', () => {
+    it('「増悪」が「笛悪」「造悪」にならず、DANGEROUS_KANJI_DICT安全分解 [Z]fueru[/Z][BS][Z]warui[/Z][BS] で変換率100%出力されること', () => {
       const res = compiler.compileText('増悪', { includeImeReset: false });
+      expect(res.streamText).toBe('[Z]fueru[/Z][BS][Z]warui[/Z][BS]');
+      expect(res.streamText).not.toContain('fueaku');
+    });
+
+    it('最短ストロークモードでは「増悪」が [Z]zouaku[/Z] と出力されること', () => {
+      const res = compiler.compileText('増悪', { includeImeReset: false, dangerousKanjiDecomposition: false });
       expect(res.streamText).toBe('[Z]zouaku[/Z]');
-      expect(res.streamText).not.toContain('fue');
     });
 
     it('「体動時」が「大導寺」にならず、自立語単位で [Z]taidou[/Z][Z]ji[/Z] と分離出力されること', () => {

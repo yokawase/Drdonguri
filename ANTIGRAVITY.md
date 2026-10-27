@@ -667,9 +667,37 @@
        - TypeScript 型検査 (`npm run lint` / `tsc --noEmit`): 0エラー。
        - Vite 本番ビルド (`npm run build`): 5.73秒で正常ビルド完了。
 
+- [x] **ステップ58**: 誤変換危険二文字漢字「漢字単体 ➔ 安全訓読み」DANGEROUS_KANJI_DICT ハードコード ＆ F10バイパス癌病期分類マスター統合 (v2.30.0 / FW v23.2) - 【完了】
+  - **背景と課題**:
+    - 医療現場の電子カルテ（Windows MS-IME）において、「休薬」「減量」「禁忌」「生検」「低値」「狭心」などの致命的な処方・所見に関わる二文字熟語は、「旧約」「原材料」「近畿」「政権」「定置」「今日新」など日常語や同音異義語に高頻度で誤変換され、医療過誤リスクを孕んでいた。
+    - また、胃癌・大腸癌の内視鏡スクリーニング（ESD/EMR）や病理診断で必須となる深達度分類（T1a, T1b, T2等）、TNM分類（cT1aN0M0等）、Stage病期分類（Stage IA, IIB等）、木村・竹本分類（C-1, C-2等）、ピロリ菌判定記号（HP(+), HP(-)等）は、大文字・小文字・空白・記号の混在によりMS-IMEの変換トリガーが誤認され、壊滅的な誤爆を引き起こしていた。
+    - すべての単語を手当たり次第に分解すると物理打鍵数（ストローク数）が肥大化しタイピング効率が低下するため、「普段のカルテ入力の90%以上は通常の高速な長文節入力（最短ストローク）で軽快に動作しつつ、誤変換危険二文字漢字は初弾から安全訓読み分解で100%誤爆ゼロにする」二層式PGO（Profile-Guided Optimization）ハイブリッド・アーキテクチャが求められた。
+  - **実装内容**:
+    1. **「漢字単体 ➔ 安全訓読み」マスターテーブルの定義 (`src/constants/safeKanjiMaster.ts`)**:
+       - 各漢字について、MS-IMEで一意に確定できる訓読み・代表語読み（`reading`）、確定後Backspace消去回数（`bsCount`）、および接頭削り回数（`leftCount`, `delCount`, `rightCount`）を網羅する `SAFE_KANJI_SINGLE_CHAR_MAP` を整備。
+       - 例: `休: { reading: "yasumu", bsCount: 1 }`, `薬: { reading: "kusuri", bsCount: 0 }`, `減: { reading: "herasu", bsCount: 1 }`, `生: { reading: "nama", bsCount: 0 }`, `検: { reading: "kensa", bsCount: 1 }`, `値: { reading: "atai", bsCount: 0 }` など計75字規模。
+       - 任意の二文字熟語をマスターから自律合成するヘルパー関数 `synthesizeSafeDecomposition(word)` を実装（レイヤー2 PGO動的学習用）。
+    2. **静的キルスイッチ辞書 `DANGEROUS_KANJI_DICT` のハードコード**:
+       - 処方・用法（休薬、減量、増量、禁忌、頓用、漸減、漸増、中止、処方、連日）、病態・症候（虚血、狭心、梗塞、穿孔、狭窄、閉塞、壊死、下血、吐血、浮腫）、検査値・推移（低値、高値、陰性、陽性、異常、著明、軽度、消失、増悪、寛解）、内視鏡特化（生検、粘膜、萎縮、潰瘍、隆起、陥凹、発赤、褪色、結節、腺腫、腺癌、異型、鋸歯、腸化、浸潤、幽門、噴門、前庭、胃角、憩室、穿通、止血、狭帯、抜去、挿入）の計55語規模を初期キルスイッチとしてハードコード。
+    3. **F10バイパス医療英数記号マスター `F10_MEDICAL_SYMBOLS` の定義**:
+       - 木村・竹本分類（C-1〜C-3, O-1〜O-3, C-I〜C-III, O-I〜O-III）、ピロリ判定記号（HP(+), HP(-), UBT(+), UBT(-), (+), (-), H.pylori(+), HP(±)）、癌深達度（T1a, T1b, T1b1, T1b2, T2, T3, T4a, Tis, T1a-M, T1b-SM, SM1, SM2, MP, SS, SE, SI, UL0, 0-IIc）、TNM複合（cT1aN0M0, pT1bN0M0, cT2N1M0, pT3N2M0）、Stage病期分類（Stage 0, Stage IA〜IVB）を完全網羅。
+       - `Stage IA` などスペースを挟む病期は「Stage F10確定 ➔ 半角スペース直接挿入 ➔ IA F10確定」のアトミック分割打鍵シーケンスを実装。
+    4. **長単位最長一致 ＆ 多層トリアージパイプライン (`src/services/KeyStrokeCompiler.ts`)**:
+       - 3文字以上の長単位複合語（`労作性狭心症`, `慢性萎縮性胃炎`, `早期胃癌`, `胃潰瘍`, `胃角部小弯` 等）を最優先照合し、最短ストロークで超高速入力（カルテ入力の90%以上）。
+       - 3文字以上に該当しない単独出現の危険二文字語彙に対して `DANGEROUS_KANJI_DICT` が発動し、安全訓読み＋BS削除で100%誤爆ゼロ確定。
+       - 一般の2文字熟語（背中、普通、今日、受診 等）は通常の最短ストロークで入力。
+       - `CANCER_STAGE_REGEX`, `compileCancerSymbols`, `compileMedicalSymbols` 静的メソッドを追加。
+    5. **ファームウェア（ESP32-S3 / T-Dongle-S3）のキーコード拡張 (`firmware/src/typing_engine.cpp`, `typing_engine.h`)**:
+       - カーソル移動・接頭削り用として `KEY_DELETE (0xD4)`, `KEY_LEFT_ARROW (0xD8)`, `KEY_RIGHT_ARROW (0xD7)` およびストリームタグ `[DEL]`, `[LEFT]`, `[RIGHT]` を追加。全3環境（`m5stack-atoms3u`, `lilygo-t-dongle-s3`, `sd-flasher`）のPlatformIOビルドが `SUCCESS` を確認。
+    6. **総合テスト・回帰検証**:
+       - `tests/dangerousKanjiSafe.test.ts`（新規23テスト）および `tests/keyStrokeCompiler.test.ts`（18テスト）を含む全11テストスイート・118テスト（100% PASS）。
+       - TypeScript 型検査 (`npm run lint` / `tsc --noEmit`): 0エラー。
+       - Vite 本番ビルド (`npm run build`): エラーなしで正常ビルド完了。
+
 ---
 
 ## 5. 運用ルール & 安全指針
 - **完全日本語対応**: コメント、ドキュメント、システムメッセージはすべて日本語で記述する。
 - **ファームウェア更新時の実機自動書き込み（絶対遵守）**: `firmware/src/` 配下のソースコードや設定ファイルを更新・修正した際は、必ず PlatformIO で接続中の T-Dongle-S3 実機（`/dev/ttyACM0` 等）へ即時 Flash Upload を行い、正常起動を確認すること。
 - **チャット分割の推奨**: 1つのチャットは15〜25ターン程度、または機能リリース（マイルストーン完了）ごとに新チャットに切り替えること。
+

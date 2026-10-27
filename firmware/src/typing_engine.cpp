@@ -677,6 +677,15 @@ void DonguriTypingEngine::dispatchStream(const char* stream, size_t length, Typi
       if (strncmp(&stream[i], "<BS>", 4) == 0 || strncmp(&stream[i], "[BS]", 4) == 0) {
         safeWrite(KEY_BACKSPACE); i += 4; continue;
       }
+      if (strncmp(&stream[i], "<DEL>", 5) == 0 || strncmp(&stream[i], "[DEL]", 5) == 0) {
+        safeWrite(KEY_DELETE); i += 5; continue;
+      }
+      if (strncmp(&stream[i], "<LEFT>", 6) == 0 || strncmp(&stream[i], "[LEFT]", 6) == 0) {
+        safeWrite(KEY_LEFT_ARROW); i += 6; continue;
+      }
+      if (strncmp(&stream[i], "<RIGHT>", 7) == 0 || strncmp(&stream[i], "[RIGHT]", 7) == 0) {
+        safeWrite(KEY_RIGHT_ARROW); i += 7; continue;
+      }
       if (strncmp(&stream[i], "<ESC>", 5) == 0 || strncmp(&stream[i], "[ESC]", 5) == 0) {
         safeWrite(KEY_ESC); i += 5; continue;
       }

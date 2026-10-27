@@ -10,15 +10,15 @@ export const APP_NAME = 'Dr.Dongly';
 export const APP_NAME_JA = 'DrVoice どんぐり君！';
 
 // アプリケーションバージョン (package.json と同期)
-export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.29.1';
+export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.30.0';
 
 // ビルドタイムスタンプ (Vite ビルド時に自動更新)
 export const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : new Date().toISOString();
 
 // 最新ファームウェアバージョン (Direct Auto-Dispatch & Remote Trigger 安定化 FW)
-export const LATEST_FIRMWARE_VERSION = 'v23.1';
-export const FIRMWARE_RELEASE_DATE = '2026-10-25';
-export const FIRMWARE_RELEASE_TITLE = 'v23.1（手動カルテ吸い上げ時の医師原文100%保護＆差分自己学習版）';
+export const LATEST_FIRMWARE_VERSION = 'v23.2';
+export const FIRMWARE_RELEASE_DATE = '2026-10-27';
+export const FIRMWARE_RELEASE_TITLE = 'v23.2（誤変換危険二文字漢字100%安全分解＆F10バイパス癌病期記号マスター版）';
 
 // ローカルAI & 臨床セマンティック検索エンジン構成
 export const AI_ENGINE_INFO = 'Aho-Corasick自己進化 ＆ EmbeddingGemma 2 (740M MRL 128d) ＆ WebLLM (Gemma 2 2B Q4F16/F32)';

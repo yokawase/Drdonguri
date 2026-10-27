@@ -42,6 +42,15 @@
 #ifndef KEY_F10
 #define KEY_F10 0xCB
 #endif
+#ifndef KEY_DELETE
+#define KEY_DELETE 0xD4
+#endif
+#ifndef KEY_RIGHT_ARROW
+#define KEY_RIGHT_ARROW 0xD7
+#endif
+#ifndef KEY_LEFT_ARROW
+#define KEY_LEFT_ARROW 0xD8
+#endif
 
 // 日本語キーボード (106/109) 固有キー
 #define KEY_JIS_NONCONVERT   0x8B  // 無変換キー (USB HID Usage 0x8B: Keyboard International5 / Non-Convert)

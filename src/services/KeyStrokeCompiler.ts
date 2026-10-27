@@ -7,6 +7,62 @@
 
 import { KANA_ROMAJI_MAP, MEDICAL_KANJI_ROMAJI_MAP } from '../utils/japaneseImeTranspiler';
 import type { MorphToken } from '../workers/vibrato.worker';
+import {
+  SAFE_KANJI_SINGLE_CHAR_MAP,
+  DANGEROUS_KANJI_DICT,
+  DANGEROUS_KANJI_LIST,
+  F10_MEDICAL_SYMBOLS,
+  synthesizeSafeDecomposition,
+  type SafeKanjiSingleChar,
+  type DangerousKanjiDefinition,
+} from '../constants/safeKanjiMaster';
+
+export {
+  SAFE_KANJI_SINGLE_CHAR_MAP,
+  DANGEROUS_KANJI_DICT,
+  DANGEROUS_KANJI_LIST,
+  F10_MEDICAL_SYMBOLS,
+  synthesizeSafeDecomposition,
+  type SafeKanjiSingleChar,
+  type DangerousKanjiDefinition,
+};
+
+export type KeyActionType = 'KEY_DOWN' | 'KEY_UP' | 'DELAY';
+export interface KeyStrokeAction {
+  type: KeyActionType;
+  keyCode?: number;     // HID Usage ID
+  modifiers?: number;   // 0x02: Shift, 0x00: None
+  delayMs?: number;
+}
+
+export const MOD_NONE = 0x00;
+export const MOD_SHIFT = 0x02;
+
+// HID Keyboard Usage IDs (JIS/Windows標準)
+export const HID_USAGE = {
+  ENTER: 0x28,
+  ESCAPE: 0x29,
+  BACKSPACE: 0x2a,
+  TAB: 0x2b,
+  SPACE: 0x2c,
+  MINUS: 0x2d,
+  F7: 0x40,
+  F10: 0x43,
+  // アルファベット
+  A: 0x04, B: 0x05, C: 0x06, D: 0x07, E: 0x08, F: 0x09, G: 0x0a, H: 0x0b, I: 0x0c,
+  J: 0x0d, K: 0x0e, L: 0x0f, M: 0x10, N: 0x11, O: 0x12, P: 0x13, Q: 0x14, R: 0x15,
+  S: 0x16, T: 0x17, U: 0x18, V: 0x19, W: 0x1a, X: 0x1b, Y: 0x1c, Z: 0x1d,
+  // 数字
+  NUM_0: 0x27, NUM_1: 0x1e, NUM_2: 0x1f, NUM_3: 0x20, NUM_4: 0x21,
+  NUM_5: 0x22, NUM_6: 0x23, NUM_7: 0x24, NUM_8: 0x25, NUM_9: 0x26,
+  // 記号 (JIS)
+  PERIOD: 0x37,
+  COMMA: 0x36,
+  COLON: 0x34,
+  SEMICOLON: 0x33,
+  KEY_8: 0x25,  // Shift+8 = (
+  KEY_9: 0x26,  // Shift+9 = )
+};
 
 const _compileCache = new Map<string, CompileResult>();
 const MAX_COMPILE_CACHE = 150;
@@ -72,6 +128,7 @@ export interface CompileOptions {
   mode?: KeyStrokeMode;
   includeImeReset?: boolean;
   newlineMode?: 'enter' | 'ctrl_enter' | 'alt_enter';
+  dangerousKanjiDecomposition?: boolean; // 誤変換危険二文字漢字を安全訓読み＋BS削除で100%変換 (デフォルト true)
 }
 
 export interface KeyStrokeBlock {
@@ -543,7 +600,7 @@ for (const [term, romaji] of Object.entries(MEDICAL_KANJI_ROMAJI_MAP)) {
 }
 
 export type MultiChunkItem = {
-  tag: 'Z' | 'K' | 'H' | 'A' | 'G' | 'BS';
+  tag: 'Z' | 'K' | 'H' | 'A' | 'G' | 'BS' | 'space' | 'control';
   text: string;
   romaji: string;
 };
@@ -1040,6 +1097,13 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
   ],
 };
 
+// F10バイパス対象 医療英数シンボルマスター（木村・竹本分類、TNM分類、深達度、Stage病期分類、ピロリ判定記号等）を統合
+for (const [sym, chunks] of Object.entries(F10_MEDICAL_SYMBOLS)) {
+  if (!MULTI_CHUNK_LEXICON[sym]) {
+    MULTI_CHUNK_LEXICON[sym] = chunks;
+  }
+}
+
 // 最長一致を保証するため MULTI_CHUNK_LEXICON をキー文字数降順で事前ソート
 const SORTED_MULTI_CHUNK_ENTRIES = Object.entries(MULTI_CHUNK_LEXICON).sort(
   (a, b) => b[0].length - a[0].length
@@ -1322,7 +1386,8 @@ export class KeyStrokeCompiler {
   public compileText(text: string, options: CompileOptions = {}): CompileResult {
     const includeImeReset = options.includeImeReset !== false;
     const newlineMode = options.newlineMode || 'enter';
-    const cacheKey = `${includeImeReset ? '1' : '0'}:${newlineMode}:${text}`;
+    const dangerousKanjiDecomposition = options.dangerousKanjiDecomposition !== false;
+    const cacheKey = `${includeImeReset ? '1' : '0'}:${newlineMode}:${dangerousKanjiDecomposition ? '1' : '0'}:${text}`;
     const cached = _compileCache.get(cacheKey);
     if (cached) return cached;
 
@@ -1386,6 +1451,22 @@ export class KeyStrokeCompiler {
             tag: 'BS',
             rawText: chunk.text,
             compiledPayload: '[BS]',
+          });
+          totalKeystrokes += 1;
+        } else if ((chunk.tag as string) === 'space') {
+          blocks.push({
+            type: 'space',
+            tag: 'space',
+            rawText: chunk.text || ' ',
+            compiledPayload: ' ',
+          });
+          totalKeystrokes += 1;
+        } else if ((chunk.tag as string) === 'control') {
+          blocks.push({
+            type: 'control',
+            tag: 'control',
+            rawText: chunk.text,
+            compiledPayload: chunk.romaji,
           });
           totalKeystrokes += 1;
         }
@@ -1732,12 +1813,12 @@ export class KeyStrokeCompiler {
         continue;
       }
 
-      // H. 熟語・複合名詞・接尾辞結合オートマトン (Mode C)
+      // H. 熟語・複合名詞・接尾辞結合オートマトン (Mode C) ＆ 静的キルスイッチ辞書
 
-      // H-1. 既存の臨床・検証済み辞書 (COMPOUND_LEXICON) 最長一致探索 (最長24文字〜2文字)
-      // ※サ変語尾（する/した/され/して）や「な」は [Z] に混ぜず [H] で無変換確定させることでIME誤爆を根絶
-      let matchedCompound = false;
-      for (let l = Math.min(24, remaining.length); l >= 2; l--) {
+      // H-1. 3文字以上の臨床・検証済み長単位辞書 (COMPOUND_LEXICON >= 3文字) を最優先探索
+      // （「労作性狭心症」「慢性萎縮性胃炎」「早期胃癌」「胃潰瘍」等の長単位複合語は最短ストロークで軽快に入力）
+      let matchedLongCompound = false;
+      for (let l = Math.min(24, remaining.length); l >= 3; l--) {
         const sub = remaining.substring(0, l);
         if (COMPOUND_LEXICON[sub]) {
           let compound = sub;
@@ -1769,11 +1850,62 @@ export class KeyStrokeCompiler {
           zCount++;
           totalKeystrokes += romaji.length + 2;
           i += offset;
-          matchedCompound = true;
+          matchedLongCompound = true;
           break;
         }
       }
-      if (matchedCompound) continue;
+      if (matchedLongCompound) continue;
+
+      // H-2. 【レイヤー1: 静的キルスイッチ辞書 DANGEROUS_KANJI_DICT】
+      // 単独出現した誤変換危険二文字単語（休薬、減量、生検、萎縮、低値、禁忌 等）を
+      // 「漢字単体 ➔ 安全訓読み＋BS削除」で安全分解し、変換率100%を保証
+      if (dangerousKanjiDecomposition && remaining.length >= 2) {
+        const twoChars = remaining.substring(0, 2);
+        const safeChunks = DANGEROUS_KANJI_DICT[twoChars];
+        if (safeChunks) {
+          appendChunkItems(safeChunks);
+          i += 2;
+          continue;
+        }
+      }
+
+      // H-3. 既存の2文字臨床熟語 (COMPOUND_LEXICON == 2文字) 探索
+      // （背中、普通、今日、受診 等の通常語彙を最短ストロークで高速打鍵）
+      if (remaining.length >= 2) {
+        const sub2 = remaining.substring(0, 2);
+        if (COMPOUND_LEXICON[sub2]) {
+          let compound = sub2;
+          let romaji = COMPOUND_LEXICON[sub2];
+          let offset = 2;
+
+          if (offset < remaining.length) {
+            const nextChar = remaining[offset];
+            if (MEDICAL_SUFFIXES.includes(nextChar)) {
+              const combined = compound + nextChar;
+              if (COMPOUND_LEXICON[combined]) {
+                compound = combined;
+                romaji = COMPOUND_LEXICON[combined];
+                offset += 1;
+              } else if (SUFFIX_READING[nextChar]) {
+                compound = combined;
+                romaji = romaji + SUFFIX_READING[nextChar];
+                offset += 1;
+              }
+            }
+          }
+
+          blocks.push({
+            type: 'z_kanji',
+            tag: 'Z',
+            rawText: compound,
+            compiledPayload: `[Z]${romaji}[/Z]`,
+          });
+          zCount++;
+          totalKeystrokes += romaji.length + 2;
+          i += offset;
+          continue;
+        }
+      }
 
       // H-1.5. 12.6万語大規模形態素辞書 (2文字以上の複合語・活用語を優先マッチング)
       let matchedMorphLexicon = false;
@@ -1978,6 +2110,154 @@ export class KeyStrokeCompiler {
     }
 
     return chunks;
+  }
+
+  /**
+   * 医療英数シンボル群を一括抽出する正規表現
+   * 1. Stage病期: Stage (?:0|I{1,3}[A-C]?|IV[A-B]?)
+   * 2. TNM複合: (?:c|p|yp)?T(?:is|[0-4][a-b]?(?:-[A-Z]+)?(?:[1-2])?)N[0-3][a-b]?M[0-1]
+   * 3. 単独深達度・壁深達度: T(?:is|[0-4][a-b]?(?:-[A-Z]+)?(?:[1-2])?)|SM[1-2]|MP|SS|SE|SI|UL[0-1]
+   */
+  public static readonly CANCER_STAGE_REGEX =
+    /\b(?:Stage\s+(?:0|I{1,3}[A-C]?|IV[A-B]?)|(?:c|p|yp)?T(?:is|[0-4][a-b]?(?:-[A-Z]+)?(?:[1-2])?)N[0-3][a-b]?M[0-1]|T(?:is|[0-4][a-b]?(?:-[A-Z]+)?(?:[1-2])?)|SM[1-2]|MP|SS|SE|SI|UL[0-1])\b/g;
+
+  /**
+   * 木村・竹本分類およびピロリ菌記号にマッチする正規表現パターン
+   * 例: C-1, C-2, C-3, O-1, O-2, O-3, C-I, C-II, C-III, O-I, O-II, O-III
+   * 例: HP(+), HP(-), HP(±), UBT(+), UBT(-), (+), (-), H.pylori(+), H.pylori(-)
+   */
+  public static readonly MEDICAL_SYMBOL_REGEX =
+    /(\b(?:C|O)-(?:[1-3]|I{1,3})\b|\b(?:HP|UBT)\([+\-±]\)|\([+\-±]\)|\bH\.pylori\([+\-]\))/g;
+
+  /**
+   * マッチしたシンボル文字列をF10バイパスキーストローク列へ変換
+   */
+  public static compileCancerSymbols(symbolText: string): KeyStrokeAction[] {
+    const actions: KeyStrokeAction[] = [];
+
+    // パターンA: "Stage IA" などの空白を含む病期表記 (アトミック分割打鍵)
+    if (symbolText.startsWith('Stage ')) {
+      const parts = symbolText.split(' ');
+      // 1. "Stage" をF10確定打鍵
+      actions.push(...this.compileRawString(parts[0]));
+      actions.push(...this.emitF10Enter());
+      // 2. 半角スペースを直接挿入 (Shift+Space で全角スペース化を防止)
+      actions.push({ type: 'KEY_DOWN', keyCode: HID_USAGE.SPACE, modifiers: MOD_SHIFT });
+      actions.push({ type: 'DELAY', delayMs: 15 });
+      actions.push({ type: 'KEY_UP', keyCode: HID_USAGE.SPACE, modifiers: MOD_NONE });
+      actions.push({ type: 'DELAY', delayMs: 15 });
+      // 3. 病期記号（"IA" 等）をF10確定打鍵
+      actions.push(...this.compileRawString(parts[1]));
+      actions.push(...this.emitF10Enter());
+      return actions;
+    }
+
+    // パターンB: "T1a", "cT1bN0M0", "SM1" などの連続英数文字列
+    actions.push(...this.compileRawString(symbolText));
+    actions.push(...this.emitF10Enter());
+    return actions;
+  }
+
+  /**
+   * テキストを解析し、木村・竹本分類やピロリ菌シンボル箇所をF10バイパス打鍵アクションへ変換
+   */
+  public static compileMedicalSymbols(symbolText: string): KeyStrokeAction[] {
+    const actions: KeyStrokeAction[] = [];
+
+    // ± を含む場合の特殊分解
+    if (symbolText.includes('±')) {
+      const prefix = symbolText.substring(0, symbolText.indexOf('±'));
+      const suffix = symbolText.substring(symbolText.indexOf('±') + 1);
+      if (prefix) {
+        actions.push(...this.compileMedicalSymbols(prefix));
+      }
+      // 「puramai」打鍵 -> Space -> Enter
+      const puramaiKeys = [
+        HID_USAGE.P, HID_USAGE.U, HID_USAGE.R, HID_USAGE.A, HID_USAGE.M, HID_USAGE.A, HID_USAGE.I
+      ];
+      for (const k of puramaiKeys) {
+        actions.push({ type: 'KEY_DOWN', keyCode: k, modifiers: MOD_NONE });
+        actions.push({ type: 'DELAY', delayMs: 12 });
+        actions.push({ type: 'KEY_UP', keyCode: k, modifiers: MOD_NONE });
+        actions.push({ type: 'DELAY', delayMs: 8 });
+      }
+      actions.push({ type: 'KEY_DOWN', keyCode: HID_USAGE.SPACE, modifiers: MOD_NONE });
+      actions.push({ type: 'DELAY', delayMs: 20 });
+      actions.push({ type: 'KEY_UP', keyCode: HID_USAGE.SPACE, modifiers: MOD_NONE });
+      actions.push({ type: 'DELAY', delayMs: 25 });
+      actions.push({ type: 'KEY_DOWN', keyCode: HID_USAGE.ENTER, modifiers: MOD_NONE });
+      actions.push({ type: 'DELAY', delayMs: 20 });
+      actions.push({ type: 'KEY_UP', keyCode: HID_USAGE.ENTER, modifiers: MOD_NONE });
+      actions.push({ type: 'DELAY', delayMs: 25 });
+
+      if (suffix) {
+        actions.push(...this.compileMedicalSymbols(suffix));
+      }
+      return actions;
+    }
+
+    actions.push(...this.compileRawString(symbolText));
+    actions.push(...this.emitF10Enter());
+    return actions;
+  }
+
+  /**
+   * 文字列の各文字をShiftあり/なしで正確に打鍵する内部関数
+   */
+  private static compileRawString(text: string): KeyStrokeAction[] {
+    const actions: KeyStrokeAction[] = [];
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const stroke = this.getCharStroke(char);
+      if (stroke) {
+        actions.push({ type: 'KEY_DOWN', keyCode: stroke.code, modifiers: stroke.mod });
+        actions.push({ type: 'DELAY', delayMs: 12 });
+        actions.push({ type: 'KEY_UP', keyCode: stroke.code, modifiers: MOD_NONE });
+        actions.push({ type: 'DELAY', delayMs: 8 });
+      }
+    }
+    return actions;
+  }
+
+  /**
+   * F10変換 ➔ Enter確定の固定シーケンス
+   */
+  private static emitF10Enter(): KeyStrokeAction[] {
+    return [
+      { type: 'KEY_DOWN', keyCode: HID_USAGE.F10, modifiers: MOD_NONE },
+      { type: 'DELAY', delayMs: 20 },
+      { type: 'KEY_UP', keyCode: HID_USAGE.F10, modifiers: MOD_NONE },
+      { type: 'DELAY', delayMs: 20 },
+      { type: 'KEY_DOWN', keyCode: HID_USAGE.ENTER, modifiers: MOD_NONE },
+      { type: 'DELAY', delayMs: 20 },
+      { type: 'KEY_UP', keyCode: HID_USAGE.ENTER, modifiers: MOD_NONE },
+      { type: 'DELAY', delayMs: 25 },
+    ];
+  }
+
+  /**
+   * 大文字・小文字・数字・記号のHID Usage IDとModifierのマッピング
+   */
+  private static getCharStroke(char: string): { code: number; mod: number } | null {
+    if (char >= 'a' && char <= 'z') {
+      const code = (HID_USAGE as any)[char.toUpperCase()];
+      return code ? { code, mod: MOD_NONE } : null;
+    }
+    if (char >= 'A' && char <= 'Z') {
+      const code = (HID_USAGE as any)[char];
+      return code ? { code, mod: MOD_SHIFT } : null;
+    }
+    if (char >= '0' && char <= '9') {
+      const numCode = (HID_USAGE as any)[`NUM_${char}`];
+      return numCode ? { code: numCode, mod: MOD_NONE } : null;
+    }
+    if (char === '-') return { code: HID_USAGE.MINUS, mod: MOD_NONE };
+    if (char === '.') return { code: HID_USAGE.PERIOD, mod: MOD_NONE };
+    if (char === ',') return { code: HID_USAGE.COMMA, mod: MOD_NONE };
+    if (char === '(') return { code: HID_USAGE.KEY_8, mod: MOD_SHIFT };
+    if (char === ')') return { code: HID_USAGE.KEY_9, mod: MOD_SHIFT };
+    if (char === '+') return { code: HID_USAGE.COLON, mod: MOD_SHIFT };
+    return null;
   }
 }
 
