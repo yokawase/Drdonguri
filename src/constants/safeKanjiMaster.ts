@@ -74,7 +74,7 @@ export const SAFE_KANJI_SINGLE_CHAR_MAP: Record<string, SafeKanjiSingleChar> = {
   '著': { reading: 'ichijirushii', convert: true, bsCount: 3, representative: '著しい -> 著' },
   '明': { reading: 'akarui', convert: true, bsCount: 2, representative: '明るい -> 明' },
   '軽': { reading: 'karui', convert: true, bsCount: 1, representative: '軽い -> 軽' },
-  '度': { reading: 'kondo', convert: true, bsCount: 1, representative: '今度 -> 度' },
+  '度': { reading: 'tabi', convert: true, bsCount: 0, representative: '度 -> 度' },
   '消': { reading: 'kieru', convert: true, bsCount: 2, representative: '消える -> 消' },
   '失': { reading: 'ushinau', convert: true, bsCount: 2, representative: '失う -> 失' },
   '悪': { reading: 'warui', convert: true, bsCount: 1, representative: '悪い -> 悪' },
@@ -86,8 +86,8 @@ export const SAFE_KANJI_SINGLE_CHAR_MAP: Record<string, SafeKanjiSingleChar> = {
   '検': { reading: 'kensa', convert: true, bsCount: 1, representative: '検査 -> 検' },
   '粘': { reading: 'nebaru', convert: true, bsCount: 1, representative: '粘る -> 粘' },
   '膜': { reading: 'makujou', convert: true, bsCount: 1, representative: '膜状 -> 膜' },
-  '萎': { reading: 'shibomu', convert: true, bsCount: 2, representative: '萎む -> 萎' },
-  '縮': { reading: 'chidimu', convert: true, bsCount: 2, representative: '縮む -> 縮' },
+  '萎': { reading: 'shibomu', convert: true, bsCount: 1, representative: '萎む -> 萎' },
+  '縮': { reading: 'chijimu', convert: true, bsCount: 1, representative: '縮む -> 縮' },
   '潰': { reading: 'tsubusu', convert: true, bsCount: 2, representative: '潰す -> 潰' },
   '瘍': { reading: 'shuyou', convert: true, leftCount: 2, delCount: 1, rightCount: 1, representative: '腫瘍 -> 瘍' },
   '隆': { reading: 'ryuusei', convert: true, bsCount: 1, representative: '隆盛 -> 隆' },
@@ -143,6 +143,15 @@ export const SAFE_KANJI_SINGLE_CHAR_MAP: Record<string, SafeKanjiSingleChar> = {
   '出': { reading: 'deru', convert: true, bsCount: 1, representative: '出る -> 出' },
   '論': { reading: 'ronbun', convert: true, bsCount: 1, representative: '論文 -> 論' },
   '探': { reading: 'sagasu', convert: true, bsCount: 2, representative: '探す -> 探' },
+  '群': { reading: 'mure', convert: true, bsCount: 1, representative: '群れ -> 群' },
+  '総': { reading: 'sougaku', convert: true, bsCount: 1, representative: '総額 -> 総' },
+  '計': { reading: 'keisan', convert: true, bsCount: 1, representative: '計算 -> 計' },
+  '体': { reading: 'karada', convert: true, bsCount: 0, representative: '体 -> 体' },
+  '部': { reading: 'heya', convert: true, leftCount: 1, delCount: 1, rightCount: 1, representative: '部屋 -> 部' },
+  '小': { reading: 'chiisai', convert: true, bsCount: 2, representative: '小さい -> 小' },
+  '大': { reading: 'ookii', convert: true, bsCount: 2, representative: '大きい -> 大' },
+  '菌': { reading: 'saikin', convert: true, leftCount: 1, delCount: 1, rightCount: 1, representative: '細菌 -> 菌' },
+  '彎': { reading: 'wan', convert: true, bsCount: 0, representative: '彎 -> 彎' },
 };
 
 /**
@@ -309,13 +318,19 @@ export const DANGEROUS_KANJI_LIST: DangerousKanjiDefinition[] = [
   makeSafeDecompositionEntry('抜去', 'ENDOSCOPY_ANATOMY', 'BAK-KYO'),
   makeSafeDecompositionEntry('挿入', 'ENDOSCOPY_ANATOMY', 'SOU-NYUU'),
 
-  // ─── 区分Ⅶ: 臨床重要・二文字誤変換頻出語 (6語) ───
+  // ─── 区分Ⅶ: 臨床重要・二文字誤変換頻出語 (13語) ───
   makeSafeDecompositionEntry('膵癌', 'PATHOLOGY', 'SUI-GAN'),
   makeSafeDecompositionEntry('根治', 'PATHOLOGY', 'KON-CHI'),
   makeSafeDecompositionEntry('強力', 'FINDINGS', 'KYOU-RYOKU'),
   makeSafeDecompositionEntry('家系', 'PATHOLOGY', 'KA-KEI'),
   makeSafeDecompositionEntry('切除', 'ENDOSCOPY_ANATOMY', 'SETSU-JO'),
   makeSafeDecompositionEntry('検出', 'FINDINGS', 'KEN-SHUTSU'),
+  makeSafeDecompositionEntry('総計', 'FINDINGS', 'SOU-KEI'),
+  makeSafeDecompositionEntry('除菌', 'PRESCRIPTION', 'JO-KIN'),
+  makeSafeDecompositionEntry('軽度', 'FINDINGS', 'KEI-DO'),
+  makeSafeDecompositionEntry('胃体', 'ENDOSCOPY_ANATOMY', 'I-TAI'),
+  makeSafeDecompositionEntry('小彎', 'ENDOSCOPY_ANATOMY', 'SHOU-WAN'),
+  makeSafeDecompositionEntry('大彎', 'ENDOSCOPY_ANATOMY', 'DAI-WAN'),
 ];
 
 /**

@@ -271,6 +271,7 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '陰転化': 'intenka',
   '典型所見': 'tenkeishoken',
   '労作時': 'rousakuji',
+  '疼痛時': 'toutuuji',
   '胸部圧迫感': 'kyoubuappakukan',
   '胸部絞扼感': 'kyoubukouyakukan',
   '胸部誘導': 'kyoubuyuudou',
@@ -1141,6 +1142,211 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
     { tag: 'control' as any, text: '', romaji: '[DEL]' },
     { tag: 'control' as any, text: '', romaji: '[RIGHT]' },
   ],
+
+  // ─── 臨床試験・統計・解析構文（行った・群・値・中央値 等） ───
+  '行った': [
+    { tag: 'Z', text: '行った', romaji: 'okonatta' },
+  ],
+  '行なった': [
+    { tag: 'Z', text: '行なった', romaji: 'okonatta' },
+  ],
+  '行われる': [
+    { tag: 'Z', text: '行われ', romaji: 'okonaware' },
+    { tag: 'H', text: 'る', romaji: 'ru' },
+  ],
+  '行われた': [
+    { tag: 'Z', text: '行われ', romaji: 'okonaware' },
+    { tag: 'H', text: 'た', romaji: 'ta' },
+  ],
+  '行われず': [
+    { tag: 'Z', text: '行われ', romaji: 'okonaware' },
+    { tag: 'H', text: 'ず', romaji: 'zu' },
+  ],
+  '行っている': [
+    { tag: 'Z', text: '行っ', romaji: 'okonatte' },
+    { tag: 'H', text: 'いる', romaji: 'iru' },
+  ],
+  '行っていた': [
+    { tag: 'Z', text: '行っ', romaji: 'okonatte' },
+    { tag: 'H', text: 'いた', romaji: 'ita' },
+  ],
+  '行って': [
+    { tag: 'Z', text: '行って', romaji: 'okonatte' },
+  ],
+  '除菌群': [
+    { tag: 'Z', text: '除菌群', romaji: 'jokingunn' },
+  ],
+  'プラセボ群': [
+    { tag: 'K', text: 'プラセボ', romaji: 'purasebo' },
+    { tag: 'Z', text: '群', romaji: 'mure' },
+    { tag: 'BS', text: '', romaji: '' },
+  ],
+  '治療群': [
+    { tag: 'Z', text: '治療群', romaji: 'chiryougunn' },
+  ],
+  '対照群': [
+    { tag: 'Z', text: '対照群', romaji: 'taishougunn' },
+  ],
+  'コントロール群': [
+    { tag: 'K', text: 'コントロール', romaji: 'kontoro-ru' },
+    { tag: 'Z', text: '群', romaji: 'mure' },
+    { tag: 'BS', text: '', romaji: '' },
+  ],
+  '観察群': [
+    { tag: 'Z', text: '観察群', romaji: 'kansatsugunn' },
+  ],
+  '投与群': [
+    { tag: 'Z', text: '投与群', romaji: 'touyogunn' },
+  ],
+  '介入群': [
+    { tag: 'Z', text: '介入群', romaji: 'kainyuugunn' },
+  ],
+  '非除菌群': [
+    { tag: 'Z', text: '非除菌群', romaji: 'hijokingunn' },
+  ],
+  '中央値': [
+    { tag: 'Z', text: '中央', romaji: 'chuuou' },
+    { tag: 'Z', text: '値', romaji: 'atai' },
+  ],
+  '平均値': [
+    { tag: 'Z', text: '平均', romaji: 'heikin' },
+    { tag: 'Z', text: '値', romaji: 'atai' },
+  ],
+  '最頻値': [
+    { tag: 'Z', text: '最頻', romaji: 'saihin' },
+    { tag: 'Z', text: '値', romaji: 'atai' },
+  ],
+  '測定値': [
+    { tag: 'Z', text: '測定', romaji: 'sokutei' },
+    { tag: 'Z', text: '値', romaji: 'atai' },
+  ],
+  '基準値': [
+    { tag: 'Z', text: '基準', romaji: 'kijun' },
+    { tag: 'Z', text: '値', romaji: 'atai' },
+  ],
+  '検査値': [
+    { tag: 'Z', text: '検査', romaji: 'kensa' },
+    { tag: 'Z', text: '値', romaji: 'atai' },
+  ],
+  '期待値': [
+    { tag: 'Z', text: '期待', romaji: 'kitai' },
+    { tag: 'Z', text: '値', romaji: 'atai' },
+  ],
+  '閾値': [
+    { tag: 'Z', text: '閾値', romaji: 'ikichi' },
+  ],
+  '総計で': [
+    { tag: 'Z', text: '総', romaji: 'sougaku' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '計', romaji: 'keisan' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'H', text: 'で', romaji: 'de' },
+  ],
+  '総計': [
+    { tag: 'Z', text: '総', romaji: 'sougaku' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '計', romaji: 'keisan' },
+    { tag: 'BS', text: '', romaji: '' },
+  ],
+  'サブグループ解析': [
+    { tag: 'K', text: 'サブグループ', romaji: 'sabuguru-pu' },
+    { tag: 'Z', text: '解析', romaji: 'kaiseki' },
+  ],
+  'サブグループ': [
+    { tag: 'K', text: 'サブグループ', romaji: 'sabuguru-pu' },
+  ],
+  'ベースライン': [
+    { tag: 'K', text: 'ベースライン', romaji: 'be-surainn' },
+  ],
+  '有害事象': [
+    { tag: 'Z', text: '有害事象', romaji: 'yuugaijishou' },
+  ],
+
+  // ─── 消化器解剖・内視鏡病理用語（異時性・胃体部・小彎・腺萎縮 等） ───
+  '異時性胃癌': [
+    { tag: 'Z', text: '異', romaji: 'kotonaru' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '時性', romaji: 'jisei' },
+    { tag: 'Z', text: '胃癌', romaji: 'igan' },
+  ],
+  '異時性胃がん': [
+    { tag: 'Z', text: '異', romaji: 'kotonaru' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '時性', romaji: 'jisei' },
+    { tag: 'Z', text: '胃', romaji: 'i' },
+    { tag: 'H', text: 'がん', romaji: 'gann' },
+  ],
+  '異時性': [
+    { tag: 'Z', text: '異', romaji: 'kotonaru' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '時性', romaji: 'jisei' },
+  ],
+  '同時性胃癌': [
+    { tag: 'Z', text: '同時性', romaji: 'doujisei' },
+    { tag: 'Z', text: '胃癌', romaji: 'igan' },
+  ],
+  '胃体部小彎': [
+    { tag: 'Z', text: '胃', romaji: 'i' },
+    { tag: 'Z', text: '体部', romaji: 'taibu' },
+    { tag: 'Z', text: '小', romaji: 'chiisai' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '彎', romaji: 'wan' },
+  ],
+  '胃体部大彎': [
+    { tag: 'Z', text: '胃', romaji: 'i' },
+    { tag: 'Z', text: '体部', romaji: 'taibu' },
+    { tag: 'Z', text: '大', romaji: 'ookii' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '彎', romaji: 'wan' },
+  ],
+  '前庭部小彎': [
+    { tag: 'Z', text: '前庭部', romaji: 'zenteibu' },
+    { tag: 'Z', text: '小', romaji: 'chiisai' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '彎', romaji: 'wan' },
+  ],
+  '前庭部大彎': [
+    { tag: 'Z', text: '前庭部', romaji: 'zenteibu' },
+    { tag: 'Z', text: '大', romaji: 'ookii' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '彎', romaji: 'wan' },
+  ],
+  '胃体部': [
+    { tag: 'Z', text: '胃', romaji: 'i' },
+    { tag: 'Z', text: '体部', romaji: 'taibu' },
+  ],
+  '胃底部': [
+    { tag: 'Z', text: '胃', romaji: 'i' },
+    { tag: 'Z', text: '底部', romaji: 'teibu' },
+  ],
+  '小彎': [
+    { tag: 'Z', text: '小', romaji: 'chiisai' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '彎', romaji: 'wan' },
+  ],
+  '大彎': [
+    { tag: 'Z', text: '大', romaji: 'ookii' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '彎', romaji: 'wan' },
+  ],
+  '腺萎縮': [
+    { tag: 'Z', text: '腺', romaji: 'sensaibou' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '萎', romaji: 'shibomu' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '縮', romaji: 'chijimu' },
+    { tag: 'BS', text: '', romaji: '' },
+  ],
 };
 
 // F10バイパス対象 医療英数シンボルマスター（木村・竹本分類、TNM分類、深達度、Stage病期分類、ピロリ判定記号等）を統合
@@ -1216,6 +1422,8 @@ export const SINGLE_KANJI_DETERMINISTIC_ANCHORS: Record<string, Array<MultiChunk
   '喉': [{ tag: 'Z', text: '喉', romaji: 'nodo' }],
   '波': [{ tag: 'Z', text: '波', romaji: 'ha' }],
   '非': [{ tag: 'Z', text: '非', romaji: 'hi' }],
+  '群': [{ tag: 'Z', text: '群', romaji: 'mure' }, { tag: 'BS', text: '', romaji: '' }],
+  '値': [{ tag: 'Z', text: '値', romaji: 'atai' }],
 };
 
 // 熟語フォールバック用 医療音読み優先テーブル（訓読み誤爆・キメラ連結を完全根絶）
@@ -1363,6 +1571,12 @@ const FULLWIDTH_ASCII_REPLACE: Record<string, string> = {
   '％': '%', '＃': '#', '＠': '@', '｜': '|',
   '！': '!', '？': '?',
   '　': ' ',
+  // ─── 医療論文・統計・カルテ頻出記号 ───
+  '，': ',', '．': '.',
+  '＜': '<', '＞': '>',
+  '≦': '<=', '≧': '>=', '≤': '<=', '≥': '>=',
+  '≠': '!=', '±': '+-',
+  '×': '*', '÷': '/',
 };
 
 type KanjiRomajiSegment = {
@@ -2001,9 +2215,12 @@ export class KeyStrokeCompiler {
                 romaji = COMPOUND_LEXICON[combined];
                 offset += 1;
               } else if (SUFFIX_READING[nextChar]) {
-                compound = combined;
-                romaji = romaji + SUFFIX_READING[nextChar];
-                offset += 1;
+                const hasFollowKanji = offset + 1 < remaining.length && /[\u4E00-\u9FFF]/.test(remaining[offset + 1]);
+                if (!hasFollowKanji) {
+                  compound = combined;
+                  romaji = romaji + SUFFIX_READING[nextChar];
+                  offset += 1;
+                }
               }
             }
           }
@@ -2054,9 +2271,12 @@ export class KeyStrokeCompiler {
                 romaji = COMPOUND_LEXICON[combined];
                 offset += 1;
               } else if (SUFFIX_READING[nextChar]) {
-                compound = combined;
-                romaji = romaji + SUFFIX_READING[nextChar];
-                offset += 1;
+                const hasFollowKanji = offset + 1 < remaining.length && /[\u4E00-\u9FFF]/.test(remaining[offset + 1]);
+                if (!hasFollowKanji) {
+                  compound = combined;
+                  romaji = romaji + SUFFIX_READING[nextChar];
+                  offset += 1;
+                }
               }
             }
           }
@@ -2101,14 +2321,44 @@ export class KeyStrokeCompiler {
             hCount++;
             totalKeystrokes += romaji.length + 1;
           } else {
+            let compound = sub;
+            let compRomaji = romaji;
+            let offset = l;
+
+            if (offset < remaining.length) {
+              const nextChar = remaining[offset];
+              if (MEDICAL_SUFFIXES.includes(nextChar)) {
+                const combined = compound + nextChar;
+                if (COMPOUND_LEXICON[combined]) {
+                  compound = combined;
+                  compRomaji = COMPOUND_LEXICON[combined];
+                  offset += 1;
+                } else if (_morphRomaji[combined]) {
+                  compound = combined;
+                  compRomaji = _morphRomaji[combined];
+                  offset += 1;
+                } else if (SUFFIX_READING[nextChar]) {
+                  const hasFollowKanji = offset + 1 < remaining.length && /[\u4E00-\u9FFF]/.test(remaining[offset + 1]);
+                  if (!hasFollowKanji) {
+                    compound = combined;
+                    compRomaji = compRomaji + SUFFIX_READING[nextChar];
+                    offset += 1;
+                  }
+                }
+              }
+            }
+
             blocks.push({
               type: 'z_kanji',
               tag: 'Z',
-              rawText: sub,
-              compiledPayload: `[Z]${romaji}[/Z]`,
+              rawText: compound,
+              compiledPayload: `[Z]${compRomaji}[/Z]`,
             });
             zCount++;
-            totalKeystrokes += romaji.length + 2;
+            totalKeystrokes += compRomaji.length + 2;
+            i += offset;
+            matchedMorphLexicon = true;
+            break;
           }
           i += l;
           matchedMorphLexicon = true;

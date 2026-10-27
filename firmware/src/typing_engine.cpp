@@ -237,6 +237,24 @@ void DonguriTypingEngine::sendHiraganaH(const char* romaji) {
       }
     }
 
+    // UTF-8 全角カンマ「，」(0xEF 0xBC 0x8C) / 全角ピリオド「．」(0xEF 0xBC 0x8E)
+    if (c0 == 0xEF && romaji[i + 1] != '\0' && romaji[i + 2] != '\0') {
+      uint8_t c1 = (uint8_t)romaji[i + 1];
+      uint8_t c2 = (uint8_t)romaji[i + 2];
+      if (c1 == 0xBC && c2 == 0x8C) { // 「，」
+        sendSafeChar(',');
+        sentAny = true;
+        i += 3;
+        continue;
+      }
+      if (c1 == 0xBC && c2 == 0x8E) { // 「．」
+        sendSafeChar('.');
+        sentAny = true;
+        i += 3;
+        continue;
+      }
+    }
+
     if (c0 < 0x80 && romaji[i] != ' ') {
       sendSafeChar(romaji[i]);
       sentAny = true;
@@ -689,6 +707,17 @@ void DonguriTypingEngine::dispatchStream(const char* stream, size_t length, Typi
       if (strncmp(&stream[i], "<ESC>", 5) == 0 || strncmp(&stream[i], "[ESC]", 5) == 0) {
         safeWrite(KEY_ESC); i += 5; continue;
       }
+    }
+
+    // 6.5. 万が一の裸UTF-8記号フォールバック（全角カンマ・ピリオド・不等号等）
+    if ((uint8_t)stream[i] == 0xEF && i + 2 < length) {
+      uint8_t b1 = (uint8_t)stream[i + 1];
+      uint8_t b2 = (uint8_t)stream[i + 2];
+      if (b1 == 0xBC && b2 == 0x8C) { sendSafeChar(','); i += 3; continue; } // 「，」
+      if (b1 == 0xBC && b2 == 0x8E) { sendSafeChar('.'); i += 3; continue; } // 「．」
+      if (b1 == 0xBC && b2 == 0x9C) { sendSafeChar('<'); i += 3; continue; } // 「＜」
+      if (b1 == 0xBC && b2 == 0x9E) { sendSafeChar('>'); i += 3; continue; } // 「＞」
+      if (b1 == 0xBD && b2 == 0x9E) { sendSafeChar('~'); i += 3; continue; } // 「～」
     }
 
     // 7. 通常ASCII文字
