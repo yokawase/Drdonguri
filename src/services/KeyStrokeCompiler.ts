@@ -272,6 +272,18 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '典型所見': 'tenkeishoken',
   '労作時': 'rousakuji',
   '疼痛時': 'toutuuji',
+  '軽度': 'keido',
+  '指示通り': 'shijidoori',
+  '指示どおり': 'shijidoori',
+  '用法用量': 'youhouyouryou',
+  '胃体部小彎': 'itaibushouwan',
+  '胃体部大彎': 'itaibudaiwan',
+  '前庭部小彎': 'zenteibushouwan',
+  '前庭部大彎': 'zenteibudaiwan',
+  '小彎': 'shouwan',
+  '大彎': 'daiwan',
+  '待たずに': 'matazuni',
+  '待たず': 'matazu',
   '胸部圧迫感': 'kyoubuappakukan',
   '胸部絞扼感': 'kyoubukouyakukan',
   '胸部誘導': 'kyoubuyuudou',
@@ -1289,63 +1301,87 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
     { tag: 'Z', text: '胃癌', romaji: 'igan' },
   ],
   '胃体部小彎': [
-    { tag: 'Z', text: '胃', romaji: 'i' },
-    { tag: 'Z', text: '体部', romaji: 'taibu' },
-    { tag: 'Z', text: '小', romaji: 'chiisai' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '彎', romaji: 'wan' },
+    { tag: 'Z', text: '胃体部', romaji: 'itaibu' },
+    { tag: 'Z', text: '小彎', romaji: 'shouwan' },
   ],
   '胃体部大彎': [
-    { tag: 'Z', text: '胃', romaji: 'i' },
-    { tag: 'Z', text: '体部', romaji: 'taibu' },
-    { tag: 'Z', text: '大', romaji: 'ookii' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '彎', romaji: 'wan' },
+    { tag: 'Z', text: '胃体部', romaji: 'itaibu' },
+    { tag: 'Z', text: '大彎', romaji: 'daiwan' },
   ],
   '前庭部小彎': [
     { tag: 'Z', text: '前庭部', romaji: 'zenteibu' },
-    { tag: 'Z', text: '小', romaji: 'chiisai' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '彎', romaji: 'wan' },
+    { tag: 'Z', text: '小彎', romaji: 'shouwan' },
   ],
   '前庭部大彎': [
     { tag: 'Z', text: '前庭部', romaji: 'zenteibu' },
-    { tag: 'Z', text: '大', romaji: 'ookii' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '彎', romaji: 'wan' },
+    { tag: 'Z', text: '大彎', romaji: 'daiwan' },
   ],
   '胃体部': [
-    { tag: 'Z', text: '胃', romaji: 'i' },
-    { tag: 'Z', text: '体部', romaji: 'taibu' },
+    { tag: 'Z', text: '胃体部', romaji: 'itaibu' },
   ],
   '胃底部': [
-    { tag: 'Z', text: '胃', romaji: 'i' },
-    { tag: 'Z', text: '底部', romaji: 'teibu' },
+    { tag: 'Z', text: '胃底部', romaji: 'iteibu' },
   ],
   '小彎': [
-    { tag: 'Z', text: '小', romaji: 'chiisai' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '彎', romaji: 'wan' },
+    { tag: 'Z', text: '小彎', romaji: 'shouwan' },
   ],
   '大彎': [
-    { tag: 'Z', text: '大', romaji: 'ookii' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '彎', romaji: 'wan' },
+    { tag: 'Z', text: '大彎', romaji: 'daiwan' },
   ],
   '腺萎縮': [
     { tag: 'Z', text: '腺', romaji: 'sensaibou' },
     { tag: 'BS', text: '', romaji: '' },
     { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '萎', romaji: 'shibomu' },
+    { tag: 'Z', text: '萎縮', romaji: 'isyuku' },
+  ],
+  '用法・用量': [
+    { tag: 'Z', text: '用法', romaji: 'youhou' },
+    { tag: 'H', text: '・', romaji: '・' },
+    { tag: 'Z', text: '用', romaji: 'mochiiru' },
     { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '縮', romaji: 'chijimu' },
     { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '量', romaji: 'bunryou' },
+    { tag: 'control' as any, text: '', romaji: '[LEFT]' },
+    { tag: 'control' as any, text: '', romaji: '[DEL]' },
+    { tag: 'control' as any, text: '', romaji: '[RIGHT]' },
+  ],
+  '用量': [
+    { tag: 'Z', text: '用', romaji: 'mochiiru' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '量', romaji: 'bunryou' },
+    { tag: 'control' as any, text: '', romaji: '[LEFT]' },
+    { tag: 'control' as any, text: '', romaji: '[DEL]' },
+    { tag: 'control' as any, text: '', romaji: '[RIGHT]' },
+  ],
+  '指示通り': [
+    { tag: 'Z', text: '指示通り', romaji: 'shijidoori' },
+  ],
+  '治まらない': [
+    { tag: 'Z', text: '治', romaji: 'naosu' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'H', text: 'まらない', romaji: 'maranai' },
+  ],
+  '治まる': [
+    { tag: 'Z', text: '治', romaji: 'naosu' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'H', text: 'まる', romaji: 'maru' },
+  ],
+  '治まった': [
+    { tag: 'Z', text: '治', romaji: 'naosu' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'H', text: 'まった', romaji: 'matta' },
+  ],
+  '治まらず': [
+    { tag: 'Z', text: '治', romaji: 'naosu' },
+    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'H', text: 'まらず', romaji: 'marazu' },
+  ],
+  '待たずに': [
+    { tag: 'Z', text: '待たずに', romaji: 'matazuni' },
+  ],
+  '待たず': [
+    { tag: 'Z', text: '待たず', romaji: 'matazu' },
   ],
 };
 
@@ -1577,6 +1613,25 @@ const FULLWIDTH_ASCII_REPLACE: Record<string, string> = {
   '≦': '<=', '≧': '>=', '≤': '<=', '≥': '>=',
   '≠': '!=', '±': '+-',
   '×': '*', '÷': '/',
+};
+
+/**
+ * 決定論的図形・学術記号マップ
+ * 日本語IMEにおいて読みが1対1で対応し、同音異義語が皆無で100%一発変換される記号群
+ */
+export const DETERMINISTIC_SYMBOL_MAP: Record<string, string> = {
+  '※': 'komejirushi',
+  '■': 'kuroshikaku',
+  '□': 'shiroshikaku',
+  '●': 'kuromaru',
+  '○': 'shiromaru',
+  '▲': 'kurosankaku',
+  '△': 'shirosankaku',
+  '★': 'kuroboshi',
+  '☆': 'shiroboshi',
+  '◆': 'kurohishi',
+  '◇': 'shirohishi',
+  '◎': 'nijuumaru',
 };
 
 type KanjiRomajiSegment = {
@@ -1867,28 +1922,57 @@ export class KeyStrokeCompiler {
         continue;
       }
 
-      // C-2. カルテ見出し括弧 【 】 ➔ [A]【[/A] / [A]】[/A] (ファームウェア側で [ / ] + F10 確定)
+      // C-1.5. 決定論的図形・学術記号 (※, ■, □, ●, ○, ▲, △, ★, ☆, ◆, ◇, ◎) ➔ [Z]読み打鍵 + Space変換 + Enter確定
+      const symbolChar = remaining[0];
+      if (DETERMINISTIC_SYMBOL_MAP[symbolChar]) {
+        const reading = DETERMINISTIC_SYMBOL_MAP[symbolChar];
+        blocks.push({
+          type: 'z_kanji',
+          tag: 'Z',
+          rawText: symbolChar,
+          compiledPayload: `[Z]${reading}[/Z]`,
+        });
+        zCount++;
+        totalKeystrokes += reading.length + 2;
+        i += 1;
+        continue;
+      }
+
+      // C-2. 隅付き括弧 【 】 ➔ sumitsukikakko (削り出しで 100% 確実に全角 【 / 】 出力)
       if (remaining.startsWith('【')) {
         blocks.push({
-          type: 'a_ascii',
-          tag: 'A',
+          type: 'z_kanji',
+          tag: 'Z',
           rawText: '【',
-          compiledPayload: '[A]【[/A]',
+          compiledPayload: '[Z]sumitsukikakko[/Z]',
         });
-        aCount++;
+        zCount++;
+        totalKeystrokes += 16;
+        // 末尾の 】 を消去して 【 を残す
+        blocks.push({
+          type: 'control',
+          tag: 'BS',
+          rawText: '',
+          compiledPayload: '[BS]',
+        });
         totalKeystrokes += 1;
         i += 1;
         continue;
       }
       if (remaining.startsWith('】')) {
         blocks.push({
-          type: 'a_ascii',
-          tag: 'A',
+          type: 'z_kanji',
+          tag: 'Z',
           rawText: '】',
-          compiledPayload: '[A]】[/A]',
+          compiledPayload: '[Z]sumitsukikakko[/Z]',
         });
-        aCount++;
-        totalKeystrokes += 1;
+        zCount++;
+        totalKeystrokes += 16;
+        // 先頭の 【 を消去して 】 を残す: [LEFT] -> [BS] -> [RIGHT]
+        blocks.push({ type: 'control', tag: 'control', rawText: '', compiledPayload: '[LEFT]' });
+        blocks.push({ type: 'control', tag: 'control', rawText: '', compiledPayload: '[BS]' });
+        blocks.push({ type: 'control', tag: 'control', rawText: '', compiledPayload: '[RIGHT]' });
+        totalKeystrokes += 3;
         i += 1;
         continue;
       }

@@ -47,10 +47,10 @@ describe('誤転送修正 & 二文字誤変換単語の訓読み分解登録テ�
     expect(stream).toContain('[Z]kensa[/Z][BS][Z]deru[/Z][BS]');
 
     // 8. 「切除」が安全訓読み分解されること (切る-る + 除く-く)
-    expect(stream).toContain('[Z]kiru[/Z][BS][Z]nozoku[/Z][BS][BS]');
+    expect(stream).toContain('[Z]kiru[/Z][BS][Z]nozoku[/Z][BS]');
 
     // 9. 「根治」が平仮名「こんち」にならず安全訓読み分解されること (根 + 治す-す)
-    expect(stream).toContain('[Z]ne[/Z][Z]naosu[/Z][BS][BS]');
+    expect(stream).toContain('[Z]ne[/Z][Z]naosu[/Z][BS]');
 
     // 10. 「強力」が「協力」にならず安全訓読み分解されること (強い-い + 力)
     expect(stream).toContain('[Z]tsuyoi[/Z][BS][Z]chikara[/Z]');

@@ -114,20 +114,6 @@ void DonguriTypingEngine::sendAsciiF10(const char* ascii) {
       }
     }
 
-    // UTF-8 隅付き括弧 【 (0xE3 0x80 0x90) / 】 (0xE3 0x80 0x91) を半角 [ / ] としてF10確定
-    if (c0 == 0xE3 && ascii[i + 1] != '\0' && ascii[i + 2] != '\0') {
-      uint8_t c1 = (uint8_t)ascii[i + 1];
-      uint8_t c2 = (uint8_t)ascii[i + 2];
-      if (c1 == 0x80 && (c2 == 0x90 || c2 == 0x91)) {
-        flushAsciiF10Segment(this, hasNonSpace);
-        sendSafeChar(c2 == 0x90 ? '[' : ']');
-        hasNonSpace = true;
-        flushAsciiF10Segment(this, hasNonSpace);
-        prevAsciiChar = 0;
-        i += 3;
-        continue;
-      }
-    }
 
     if (c0 < 0x80) {
       char ch = ascii[i];
