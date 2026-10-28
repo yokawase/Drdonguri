@@ -136,5 +136,26 @@ describe('臨床試験・論文抄録の誤転送防止・一般化検証テス�
 
     // 10. 待たずに ➔ 「またずに」にならず、一体打鍵 [Z]matazuni[/Z] で打鍵されること
     expect(stream).toContain('[Z]matazuni[/Z]');
+
+    // 11. ご相談内容 ➔ 「ご相談愛用」（gosoudanaiyou）にならず一括打鍵 [Z]gosoudannaiyou[/Z]
+    expect(stream).toContain('[Z]gosoudannaiyou[/Z]');
+    expect(stream).not.toContain('gosoudanaiyou');
+    expect(stream).not.toContain('[Z]aiyou[/Z]');
+  });
+
+  it('「ご相談内容」が「ご相談愛用」（gosoudanaiyou）に誤爆せず [Z]gosoudannaiyou[/Z] として100%安全打鍵されること', () => {
+    const res1 = compileToKeyStrokeStream('ご相談内容');
+    expect(res1.streamText).toBe('[IME_RESET][Z]gosoudannaiyou[/Z]');
+    expect(res1.streamText).not.toContain('gosoudanaiyou');
+    expect(res1.streamText).not.toContain('[Z]aiyou[/Z]');
+
+    const res2 = compileToKeyStrokeStream('御相談内容');
+    expect(res2.streamText).toBe('[IME_RESET][Z]gosoudannaiyou[/Z]');
+
+    const res3 = compileToKeyStrokeStream('相談内容');
+    expect(res3.streamText).toBe('[IME_RESET][Z]soudannaiyou[/Z]');
+
+    const res4 = compileToKeyStrokeStream('ご相談');
+    expect(res4.streamText).toBe('[IME_RESET][Z]gosoudann[/Z]');
   });
 });

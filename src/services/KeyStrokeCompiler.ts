@@ -289,7 +289,11 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   'ご説明書': 'gosetsumeisyo',
   'ご説明': 'gosetsumei',
   'ご相談内容': 'gosoudannaiyou',
-  'ご相談': 'gosoudan',
+  '御相談内容': 'gosoudannaiyou',
+  '相談内容': 'soudannaiyou',
+  'ご相談': 'gosoudann',
+  '御相談': 'gosoudann',
+  '相談': 'soudann',
   '治まらない': 'osamaranai',
   '治まる': 'osamaru',
   '治まった': 'osamatta',
@@ -1380,6 +1384,30 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
   ],
   '待たず': [
     { tag: 'Z', text: '待たず', romaji: 'matazu' },
+  ],
+  'ご相談内容': [
+    { tag: 'Z', text: 'ご相談内容', romaji: 'gosoudannaiyou' },
+  ],
+  '御相談内容': [
+    { tag: 'Z', text: '御相談内容', romaji: 'gosoudannaiyou' },
+  ],
+  '相談内容': [
+    { tag: 'Z', text: '相談内容', romaji: 'soudannaiyou' },
+  ],
+  'ご説明書': [
+    { tag: 'Z', text: 'ご説明書', romaji: 'gosetsumeisyo' },
+  ],
+  '御説明書': [
+    { tag: 'Z', text: '御説明書', romaji: 'gosetsumeisyo' },
+  ],
+  'ご相談': [
+    { tag: 'Z', text: 'ご相談', romaji: 'gosoudann' },
+  ],
+  '御相談': [
+    { tag: 'Z', text: '御相談', romaji: 'gosoudann' },
+  ],
+  '相談': [
+    { tag: 'Z', text: '相談', romaji: 'soudann' },
   ],
 };
 
