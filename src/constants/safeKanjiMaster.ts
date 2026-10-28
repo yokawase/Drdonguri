@@ -15,9 +15,6 @@ export interface SafeKanjiSingleChar {
   reading: string;       // ローマ字入力文字列 (例: 'yasumu', 'herasu', 'kusuri')
   convert: boolean;      // Spaceキーを押して漢字変換を行うか (基本 true)
   bsCount?: number;      // Enter確定後に末尾の送り仮名を消去するBackspace回数
-  leftCount?: number;    // 接頭削り用: Leftキー押下回数
-  delCount?: number;     // 接頭削り用: Deleteキー押下回数
-  rightCount?: number;   // 接頭削り用: Rightキー押下回数
   representative?: string; // 代表語・訓読みの由来 (例: '休む -> 休', '減らす -> 減')
 }
 
@@ -30,7 +27,7 @@ export const SAFE_KANJI_SINGLE_CHAR_MAP: Record<string, SafeKanjiSingleChar> = {
   '休': { reading: 'yasumu', convert: true, bsCount: 1, representative: '休む -> 休' },
   '薬': { reading: 'kusuri', convert: true, bsCount: 0, representative: '薬 -> 薬' },
   '減': { reading: 'herasu', convert: true, bsCount: 1, representative: '減らす -> 減' },
-  '量': { reading: 'bunryou', convert: true, leftCount: 1, delCount: 1, rightCount: 1, representative: '分量 -> 量' },
+  '量': { reading: 'ryou', convert: true, bsCount: 0, representative: '量 -> 量' },
   '増': { reading: 'fueru', convert: true, bsCount: 1, representative: '増える -> 増' },
   '禁': { reading: 'kinshi', convert: true, bsCount: 1, representative: '禁止 -> 禁' },
   '忌': { reading: 'imu', convert: true, bsCount: 1, representative: '忌む -> 忌' },
@@ -74,7 +71,7 @@ export const SAFE_KANJI_SINGLE_CHAR_MAP: Record<string, SafeKanjiSingleChar> = {
   '著': { reading: 'ichijirushii', convert: true, bsCount: 3, representative: '著しい -> 著' },
   '明': { reading: 'akarui', convert: true, bsCount: 2, representative: '明るい -> 明' },
   '軽': { reading: 'karui', convert: true, bsCount: 1, representative: '軽い -> 軽' },
-  '度': { reading: 'ondo', convert: true, leftCount: 1, delCount: 1, rightCount: 1, representative: '温度 -> 度' },
+  '度': { reading: 'do', convert: true, bsCount: 0, representative: '度 -> 度' },
   '消': { reading: 'kieru', convert: true, bsCount: 2, representative: '消える -> 消' },
   '失': { reading: 'ushinau', convert: true, bsCount: 2, representative: '失う -> 失' },
   '悪': { reading: 'warui', convert: true, bsCount: 1, representative: '悪い -> 悪' },
@@ -89,7 +86,7 @@ export const SAFE_KANJI_SINGLE_CHAR_MAP: Record<string, SafeKanjiSingleChar> = {
   '萎': { reading: 'isyuku', convert: true, bsCount: 1, representative: '萎縮 -> 萎' },
   '縮': { reading: 'chijimu', convert: true, bsCount: 1, representative: '縮む -> 縮' },
   '潰': { reading: 'tsubusu', convert: true, bsCount: 2, representative: '潰す -> 潰' },
-  '瘍': { reading: 'shuyou', convert: true, leftCount: 2, delCount: 1, rightCount: 1, representative: '腫瘍 -> 瘍' },
+  '瘍': { reading: 'shuyou', convert: true, bsCount: 0, representative: '腫瘍 -> 瘍' },
   '隆': { reading: 'ryuusei', convert: true, bsCount: 1, representative: '隆盛 -> 隆' },
   '起': { reading: 'okiru', convert: true, bsCount: 2, representative: '起きる -> 起' },
   '陥': { reading: 'ochiru', convert: true, bsCount: 2, representative: '陥る -> 陥' },
@@ -103,7 +100,7 @@ export const SAFE_KANJI_SINGLE_CHAR_MAP: Record<string, SafeKanjiSingleChar> = {
 
   // ─── 内視鏡病理・組織 ───
   '腺': { reading: 'sensaibou', convert: true, bsCount: 2, representative: '腺細胞 -> 腺' },
-  '癌': { reading: 'igan', convert: true, leftCount: 2, delCount: 1, rightCount: 1, representative: '胃癌 -> 癌' },
+  '癌': { reading: 'gan', convert: true, bsCount: 0, representative: '癌 -> 癌' },
   '型': { reading: 'kata', convert: true, bsCount: 0, representative: '型 -> 型' },
   '鋸': { reading: 'nokogiri', convert: true, bsCount: 0, representative: '鋸 -> 鋸' },
   '歯': { reading: 'ha', convert: true, bsCount: 0, representative: '歯 -> 歯' },
@@ -135,7 +132,7 @@ export const SAFE_KANJI_SINGLE_CHAR_MAP: Record<string, SafeKanjiSingleChar> = {
   '治': { reading: 'naosu', convert: true, bsCount: 1, representative: '治す -> 治' },
   '強': { reading: 'tsuyoi', convert: true, bsCount: 1, representative: '強い -> 強' },
   '力': { reading: 'chikara', convert: true, bsCount: 0, representative: '力 -> 力' },
-  '盾': { reading: 'mujun', convert: true, leftCount: 1, delCount: 1, rightCount: 1, representative: '矛盾 -> 盾' },
+  '盾': { reading: 'tate', convert: true, bsCount: 0, representative: '盾 -> 盾' },
   '家': { reading: 'ie', convert: true, bsCount: 0, representative: '家 -> 家' },
   '系': { reading: 'keitou', convert: true, bsCount: 1, representative: '系統 -> 系' },
   '切': { reading: 'kiru', convert: true, bsCount: 1, representative: '切る -> 切' },
@@ -147,10 +144,10 @@ export const SAFE_KANJI_SINGLE_CHAR_MAP: Record<string, SafeKanjiSingleChar> = {
   '総': { reading: 'sougaku', convert: true, bsCount: 1, representative: '総額 -> 総' },
   '計': { reading: 'keisan', convert: true, bsCount: 1, representative: '計算 -> 計' },
   '体': { reading: 'karada', convert: true, bsCount: 0, representative: '体 -> 体' },
-  '部': { reading: 'heya', convert: true, leftCount: 1, delCount: 1, rightCount: 1, representative: '部屋 -> 部' },
+  '部': { reading: 'bu', convert: true, bsCount: 0, representative: '部 -> 部' },
   '小': { reading: 'chiisai', convert: true, bsCount: 2, representative: '小さい -> 小' },
   '大': { reading: 'ookii', convert: true, bsCount: 2, representative: '大きい -> 大' },
-  '菌': { reading: 'saikin', convert: true, leftCount: 1, delCount: 1, rightCount: 1, representative: '細菌 -> 菌' },
+  '菌': { reading: 'kin', convert: true, bsCount: 0, representative: '菌 -> 菌' },
   '待': { reading: 'matsu', convert: true, bsCount: 1, representative: '待つ -> 待' },
 };
 
@@ -167,20 +164,7 @@ export function buildChunksFromSafeChar(charDef: SafeKanjiSingleChar, surfaceCha
     romaji: charDef.reading,
   });
 
-  // 2. 接頭削りがある場合 (Left -> Del -> Right)
-  if (charDef.leftCount && charDef.leftCount > 0) {
-    for (let i = 0; i < charDef.leftCount; i++) {
-      chunks.push({ tag: 'control' as any, text: '', romaji: '[LEFT]' });
-    }
-    for (let i = 0; i < (charDef.delCount || 1); i++) {
-      chunks.push({ tag: 'control' as any, text: '', romaji: '[DEL]' });
-    }
-    for (let i = 0; i < (charDef.rightCount || 1); i++) {
-      chunks.push({ tag: 'control' as any, text: '', romaji: '[RIGHT]' });
-    }
-  }
-
-  // 3. 末尾削り (Backspace連打)
+  // 2. 末尾削り (Backspace連打)
   const bs = charDef.bsCount || 0;
   for (let i = 0; i < bs; i++) {
     chunks.push({

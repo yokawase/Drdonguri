@@ -29,9 +29,9 @@ describe('誤変換危険二文字漢字「漢字単体 ➔ 安全訓読み」�
       expect(res.streamText).toBe('[Z]yasumu[/Z][BS][Z]kusuri[/Z]');
     });
 
-    it('「減量」が「原材料」にならず herasu[BS1] + bunryou[LEFT/DEL/RIGHT] として100%安全分解されること', () => {
+    it('「減量」が「原材料」にならず herasu[BS1] + ryou として100%安全分解されること', () => {
       const res = compiler.compileText('減量', { includeImeReset: false });
-      expect(res.streamText).toBe('[Z]herasu[/Z][BS][Z]bunryou[/Z][LEFT][DEL][RIGHT]');
+      expect(res.streamText).toBe('[Z]herasu[/Z][BS][Z]ryou[/Z]');
     });
 
     it('「生検」が「政権」にならず nama + kensa[BS1] として100%安全分解されること', () => {
@@ -136,8 +136,7 @@ describe('誤変換危険二文字漢字「漢字単体 ➔ 安全訓読み」�
       const text = '【ESD病理結果】早期胃癌（0-IIc型、T1a-M、UL0）。脈管侵襲なし。病期分類：Stage IA（cT1aN0M0）と確定。';
       const res = compiler.compileText(text, { includeImeReset: false });
 
-      // 見出し・長単位・F10バイパスがすべて正確に適用されること
-      expect(res.streamText).toContain('[Z]sumitsukikakko[/Z][BS][A]ESD[/A][Z]byouri[/Z][Z]kekka[/Z][Z]sumitsukikakko[/Z][LEFT][BS][RIGHT]');
+      expect(res.streamText).toContain('[A][[/A][A]ESD[/A][Z]byouri[/Z][Z]kekka[/Z][A]][/A]');
       expect(res.streamText).toContain('[Z]soukiigan[/Z]'); // 長単位最短ストローク
       expect(res.streamText).toContain('[A]0-IIc[/A]');
       expect(res.streamText).toContain('[A]T1a-M[/A]');

@@ -273,9 +273,27 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '労作時': 'rousakuji',
   '疼痛時': 'toutuuji',
   '軽度': 'keido',
+  'お薬': 'okusuri',
+  '医師': 'ishi',
+  '医師の指示通り': 'ishinoshijidoori',
   '指示通り': 'shijidoori',
   '指示どおり': 'shijidoori',
   '用法用量': 'youhouyouryou',
+  '用量': 'youryou',
+  '守って': 'mamotte',
+  '守る': 'mamoru',
+  '組織学的解析': 'soshikigakutekikaiseki',
+  '組織学的': 'soshikigakuteki',
+  '組織学': 'soshikigaku',
+  '有害事象': 'yuugaijisyou',
+  'ご説明書': 'gosetsumeisyo',
+  'ご説明': 'gosetsumei',
+  'ご相談内容': 'gosoudannaiyou',
+  'ご相談': 'gosoudan',
+  '治まらない': 'osamaranai',
+  '治まる': 'osamaru',
+  '治まった': 'osamatta',
+  '治まらず': 'osamarazu',
   '胃体部小彎': 'itaibushouwan',
   '胃体部大彎': 'itaibudaiwan',
   '前庭部小彎': 'zenteibushouwan',
@@ -1149,10 +1167,7 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
     { tag: 'K', text: 'サーベイランス', romaji: 'sa-beirannsu' },
   ],
   '盾': [
-    { tag: 'Z', text: '盾', romaji: 'mujun' },
-    { tag: 'control' as any, text: '', romaji: '[LEFT]' },
-    { tag: 'control' as any, text: '', romaji: '[DEL]' },
-    { tag: 'control' as any, text: '', romaji: '[RIGHT]' },
+    { tag: 'Z', text: '盾', romaji: 'tate' },
   ],
 
   // ─── 臨床試験・統計・解析構文（行った・群・値・中央値 等） ───
@@ -1271,7 +1286,7 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
     { tag: 'K', text: 'ベースライン', romaji: 'be-surainn' },
   ],
   '有害事象': [
-    { tag: 'Z', text: '有害事象', romaji: 'yuugaijishou' },
+    { tag: 'Z', text: '有害事象', romaji: 'yuugaijisyou' },
   ],
 
   // ─── 消化器解剖・内視鏡病理用語（異時性・胃体部・小彎・腺萎縮 等） ───
@@ -1337,45 +1352,28 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
   '用法・用量': [
     { tag: 'Z', text: '用法', romaji: 'youhou' },
     { tag: 'H', text: '・', romaji: '・' },
-    { tag: 'Z', text: '用', romaji: 'mochiiru' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '量', romaji: 'bunryou' },
-    { tag: 'control' as any, text: '', romaji: '[LEFT]' },
-    { tag: 'control' as any, text: '', romaji: '[DEL]' },
-    { tag: 'control' as any, text: '', romaji: '[RIGHT]' },
+    { tag: 'Z', text: '用量', romaji: 'youryou' },
   ],
   '用量': [
-    { tag: 'Z', text: '用', romaji: 'mochiiru' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '量', romaji: 'bunryou' },
-    { tag: 'control' as any, text: '', romaji: '[LEFT]' },
-    { tag: 'control' as any, text: '', romaji: '[DEL]' },
-    { tag: 'control' as any, text: '', romaji: '[RIGHT]' },
+    { tag: 'Z', text: '用量', romaji: 'youryou' },
+  ],
+  '守って': [
+    { tag: 'Z', text: '守って', romaji: 'mamotte' },
   ],
   '指示通り': [
     { tag: 'Z', text: '指示通り', romaji: 'shijidoori' },
   ],
   '治まらない': [
-    { tag: 'Z', text: '治', romaji: 'naosu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'H', text: 'まらない', romaji: 'maranai' },
+    { tag: 'Z', text: '治まらない', romaji: 'osamaranai' },
   ],
   '治まる': [
-    { tag: 'Z', text: '治', romaji: 'naosu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'H', text: 'まる', romaji: 'maru' },
+    { tag: 'Z', text: '治まる', romaji: 'osamaru' },
   ],
   '治まった': [
-    { tag: 'Z', text: '治', romaji: 'naosu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'H', text: 'まった', romaji: 'matta' },
+    { tag: 'Z', text: '治まった', romaji: 'osamatta' },
   ],
   '治まらず': [
-    { tag: 'Z', text: '治', romaji: 'naosu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'H', text: 'まらず', romaji: 'marazu' },
+    { tag: 'Z', text: '治まらず', romaji: 'osamarazu' },
   ],
   '待たずに': [
     { tag: 'Z', text: '待たずに', romaji: 'matazuni' },
@@ -1616,23 +1614,9 @@ const FULLWIDTH_ASCII_REPLACE: Record<string, string> = {
 };
 
 /**
- * 決定論的図形・学術記号マップ
- * 日本語IMEにおいて読みが1対1で対応し、同音異義語が皆無で100%一発変換される記号群
+ * 決定論的図形・学術記号マップ（非推奨・安全バイパスへ移行）
  */
-export const DETERMINISTIC_SYMBOL_MAP: Record<string, string> = {
-  '※': 'komejirushi',
-  '■': 'kuroshikaku',
-  '□': 'shiroshikaku',
-  '●': 'kuromaru',
-  '○': 'shiromaru',
-  '▲': 'kurosankaku',
-  '△': 'shirosankaku',
-  '★': 'kuroboshi',
-  '☆': 'shiroboshi',
-  '◆': 'kurohishi',
-  '◇': 'shirohishi',
-  '◎': 'nijuumaru',
-};
+export const DETERMINISTIC_SYMBOL_MAP: Record<string, string> = {};
 
 type KanjiRomajiSegment = {
   text: string;
@@ -1922,57 +1906,56 @@ export class KeyStrokeCompiler {
         continue;
       }
 
-      // C-1.5. 決定論的図形・学術記号 (※, ■, □, ●, ○, ▲, △, ★, ☆, ◆, ◇, ◎) ➔ [Z]読み打鍵 + Space変換 + Enter確定
-      const symbolChar = remaining[0];
-      if (DETERMINISTIC_SYMBOL_MAP[symbolChar]) {
-        const reading = DETERMINISTIC_SYMBOL_MAP[symbolChar];
+      // C-1.5. カルテ見出し・記号の安全打鍵（IME誤爆・黒資格・米印等のメタ変換根絶）
+      // ■ ➔ カルテ標準中黒 [H]・[/H] (JIS / キーで即時Enter確定)
+      if (remaining.startsWith('■')) {
         blocks.push({
-          type: 'z_kanji',
-          tag: 'Z',
-          rawText: symbolChar,
-          compiledPayload: `[Z]${reading}[/Z]`,
+          type: 'h_hiragana',
+          tag: 'H',
+          rawText: '・',
+          compiledPayload: '[H]・[/H]',
         });
-        zCount++;
-        totalKeystrokes += reading.length + 2;
+        hCount++;
+        totalKeystrokes += 2;
+        i += 1;
+        continue;
+      }
+      // ※ ➔ F10半角直接送出 [A]*[/A]
+      if (remaining.startsWith('※')) {
+        blocks.push({
+          type: 'a_ascii',
+          tag: 'A',
+          rawText: '*',
+          compiledPayload: '[A]*[/A]',
+        });
+        aCount++;
+        totalKeystrokes += 1;
         i += 1;
         continue;
       }
 
-      // C-2. 隅付き括弧 【 】 ➔ sumitsukikakko (削り出しで 100% 確実に全角 【 / 】 出力)
+      // C-2. 隅付き括弧 【 】 ➔ [A][[/A] / [A]][/A] (F10直接送出により「住み着き括」「墨付き括弧」および削り出しタグを完全撲滅)
       if (remaining.startsWith('【')) {
         blocks.push({
-          type: 'z_kanji',
-          tag: 'Z',
-          rawText: '【',
-          compiledPayload: '[Z]sumitsukikakko[/Z]',
+          type: 'a_ascii',
+          tag: 'A',
+          rawText: '[',
+          compiledPayload: '[A][[/A]',
         });
-        zCount++;
-        totalKeystrokes += 16;
-        // 末尾の 】 を消去して 【 を残す
-        blocks.push({
-          type: 'control',
-          tag: 'BS',
-          rawText: '',
-          compiledPayload: '[BS]',
-        });
+        aCount++;
         totalKeystrokes += 1;
         i += 1;
         continue;
       }
       if (remaining.startsWith('】')) {
         blocks.push({
-          type: 'z_kanji',
-          tag: 'Z',
-          rawText: '】',
-          compiledPayload: '[Z]sumitsukikakko[/Z]',
+          type: 'a_ascii',
+          tag: 'A',
+          rawText: ']',
+          compiledPayload: '[A]][/A]',
         });
-        zCount++;
-        totalKeystrokes += 16;
-        // 先頭の 【 を消去して 】 を残す: [LEFT] -> [BS] -> [RIGHT]
-        blocks.push({ type: 'control', tag: 'control', rawText: '', compiledPayload: '[LEFT]' });
-        blocks.push({ type: 'control', tag: 'control', rawText: '', compiledPayload: '[BS]' });
-        blocks.push({ type: 'control', tag: 'control', rawText: '', compiledPayload: '[RIGHT]' });
-        totalKeystrokes += 3;
+        aCount++;
+        totalKeystrokes += 1;
         i += 1;
         continue;
       }

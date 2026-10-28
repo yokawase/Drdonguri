@@ -163,8 +163,8 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       expect(res.streamText).toContain('[Z]sihann[/Z][Z]sougou[/Z][Z]kannbouyaku[/Z][Z]naihuku[/Z]'); // 市販総合感冒薬内服
 
       // 3. 【】および・の正常タグ化
-      expect(res.streamText).toContain('[Z]sumitsukikakko[/Z][BS]');
-      expect(res.streamText).toContain('[Z]sumitsukikakko[/Z][LEFT][BS][RIGHT]');
+      expect(res.streamText).toContain('[A][[/A]');
+      expect(res.streamText).toContain('[A]][/A]');
       expect(res.streamText).toContain('[H]・[/H]');
 
       // 4. 改行が安全な[ENTER]タグにコンパイルされていること

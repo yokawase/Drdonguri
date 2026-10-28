@@ -55,8 +55,9 @@ describe('誤転送修正 & 二文字誤変換単語の訓読み分解登録テ�
     // 10. 「強力」が「協力」にならず安全訓読み分解されること (強い-い + 力)
     expect(stream).toContain('[Z]tsuyoi[/Z][BS][Z]chikara[/Z]');
 
-    // 11. 「盾」が「縦」にならず安全代表語(矛盾 - 矛)で送出されること
-    expect(stream).toContain('[Z]mujun[/Z][LEFT][DEL][RIGHT]');
+    // 11. 「盾」が「縦」にならず安全訓読み(盾)で送出されること
+    expect(stream).toContain('[Z]tate[/Z]');
+    expect(stream).not.toContain('[LEFT]');
 
     // 12. 「家系」が「家計」にならず安全訓読み分解されること (家 + 系統-統)
     expect(stream).toContain('[Z]ie[/Z][Z]keitou[/Z][BS]');

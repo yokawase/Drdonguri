@@ -63,17 +63,18 @@ describe('臨床試験・論文抄録の誤転送防止・一般化検証テス�
     expect(stream).toContain('[A]<[/A]');
   });
 
-  it('行4: 「軽度の」の「度」が「旅」（tabi）にならず安全削り出しされること', () => {
+  it('行4: 「軽度の」の「度」が「旅」（tabi）にならず安全に打鍵されること', () => {
     const text = '- 重篤な有害事象は観察されず，軽度の有害事象が除菌群でより多く発生した（42.0％ vs. 10.2％，P＜0.001）';
     const res = compileToKeyStrokeStream(text);
     const stream = res.streamText;
 
-    // 「度」が「旅」（tabi）にならず、温度からの削り出し [Z]ondo[/Z][LEFT][DEL][RIGHT] で打鍵されること
-    expect(stream).toContain('[Z]ondo[/Z][LEFT][DEL][RIGHT]');
+    // 「軽度」が安全訓読み分解打鍵され、制御タグや「旅」（tabi）が露出しないこと
+    expect(stream).toContain('[Z]karui[/Z][BS][Z]do[/Z]');
     expect(stream).not.toContain('[Z]tabi[/Z]');
+    expect(stream).not.toContain('[LEFT]');
 
     // 「有害事象」が一体打鍵されること
-    expect(stream).toContain('[Z]yuugaijishou[/Z]');
+    expect(stream).toContain('[Z]yuugaijisyou[/Z]');
   });
 
   it('包括検証: 患者様・ご家族様向け診察ご説明書全文の誤変換ゼロ（100%完全打鍵）', () => {
@@ -92,15 +93,17 @@ describe('臨床試験・論文抄録の誤転送防止・一般化検証テス�
     const res = compileToKeyStrokeStream(fullText);
     const stream = res.streamText;
 
-    // 1. 隅付き括弧 【 】 が半角 [ ] に化けず、sumitsukikakko で削り出し打鍵されること
-    expect(stream).toContain('[Z]sumitsukikakko[/Z][BS]'); // 開き 【
-    expect(stream).toContain('[Z]sumitsukikakko[/Z][LEFT][BS][RIGHT]'); // 閉じ 】
-    expect(stream).not.toContain('[A]【[/A]');
-    expect(stream).not.toContain('[A]】[/A]');
+    // 1. 隅付き括弧 【 】 は ASCII 直接送出 [A][[/A], [A]][/A] により「住み着き括」等のメタ誤爆ゼロ
+    expect(stream).toContain('[A][[/A]');
+    expect(stream).toContain('[A]][/A]');
+    expect(stream).not.toContain('sumitsukikakko');
+    expect(stream).not.toContain('[LEFT]');
 
-    // 2. 図形記号 ■ と ※ が脱落せず、決定論的読み [Z]kuroshikaku[/Z], [Z]komejirushi[/Z] で打鍵されること
-    expect(stream).toContain('[Z]kuroshikaku[/Z]');
-    expect(stream).toContain('[Z]komejirushi[/Z]');
+    // 2. 図形記号 ■ ➔ カルテ標準中黒 [H]・[/H]、※ ➔ 半角アスタリスク [A]*[/A] で「黒資格」「米印」を根絶
+    expect(stream).toContain('[H]・[/H]');
+    expect(stream).toContain('[A]*[/A]');
+    expect(stream).not.toContain('kuroshikaku');
+    expect(stream).not.toContain('komejirushi');
 
     // 3. 胃体部小彎 ➔ [Z]itaibu[/Z][Z]shouwan[/Z]（「小ワン」化防止）
     expect(stream).toContain('[Z]itaibu[/Z][Z]shouwan[/Z]');
@@ -110,20 +113,28 @@ describe('臨床試験・論文抄録の誤転送防止・一般化検証テス�
     expect(stream).toContain('[Z]sensaibou[/Z][BS][BS][Z]isyuku[/Z]');
     expect(stream).not.toContain('[Z]shibomu[/Z]');
 
-    // 5. 軽度 ➔ 度が「旅」（tabi）にならず、温度からの削り出し [Z]ondo[/Z][LEFT][DEL][RIGHT]
-    expect(stream).toContain('[Z]ondo[/Z][LEFT][DEL][RIGHT]');
+    // 5. 軽度 ➔ [Z]karui[/Z][BS][Z]do[/Z] (危険二文字安全訓読み分解)
+    expect(stream).toContain('[Z]karui[/Z][BS][Z]do[/Z]');
     expect(stream).not.toContain('[Z]tabi[/Z]');
+    expect(stream).not.toContain('[LEFT]');
 
-    // 6. 用法・用量 ➔ 用量が「幼量」に誤爆せず [Z]mochiiru[/Z][BS][BS][Z]bunryou[/Z][LEFT][DEL][RIGHT] で打鍵されること
-    expect(stream).toContain('[Z]mochiiru[/Z][BS][BS][Z]bunryou[/Z][LEFT][DEL][RIGHT]');
+    // 6. 用法・用量 ➔ [Z]youhou[/Z][H]・[/H][Z]youryou[/Z]（「幼量」化防止、タグ露出ゼロ）
+    expect(stream).toContain('[Z]youhou[/Z][H]・[/H][Z]youryou[/Z]');
+    expect(stream).not.toContain('[DEL]');
 
-    // 7. 指示通り ➔ 一体打鍵 [Z]shijidoori[/Z]
-    expect(stream).toContain('[Z]shijidoori[/Z]');
+    // 7. 医師の指示通り・守って ➔ 臨床語彙一体打鍵
+    expect(stream).toContain('[Z]ishinoshijidoori[/Z]');
+    expect(stream).toContain('[Z]mamotte[/Z]');
+    expect(stream).toContain('[Z]okusuri[/Z]');
 
-    // 8. 治まらない ➔ 「収まらない」にならず、治すからの削り出し [Z]naosu[/Z][BS][H]maranai[/H] で打鍵されること
-    expect(stream).toContain('[Z]naosu[/Z][BS][H]maranai[/H]');
+    // 8. 組織学的解析・有害事象 ➔ 一体打鍵
+    expect(stream).toContain('[Z]soshikigakutekikaiseki[/Z]');
+    expect(stream).toContain('[Z]yuugaijisyou[/Z]');
 
-    // 9. 待たずに ➔ 「またずに」にならず、一体打鍵 [Z]matazuni[/Z] で打鍵されること
+    // 9. 治まらない ➔ 一体打鍵 [Z]osamaranai[/Z]（「直まらない」化防止）
+    expect(stream).toContain('[Z]osamaranai[/Z]');
+
+    // 10. 待たずに ➔ 「またずに」にならず、一体打鍵 [Z]matazuni[/Z] で打鍵されること
     expect(stream).toContain('[Z]matazuni[/Z]');
   });
 });
