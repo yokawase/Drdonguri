@@ -1963,7 +1963,17 @@ void dispatchDirectTextStream(const char* buf, size_t total) {
 void dispatchOutput() {
   if (currentMsg.actualTotalBytes == 0) return;
 
-  if (!tud_mounted()) {
+  // TinyUSB マウント状態の安定化待機 (最大250ms)
+  bool usbReady = false;
+  for (int retry = 0; retry < 5; retry++) {
+    if (tud_mounted()) {
+      usbReady = true;
+      break;
+    }
+    delay(50);
+  }
+
+  if (!usbReady) {
     currentState = STATE_USB_NOT_READY;
     setLedColor(64, 0, 64); // 紫色点灯（USB未接続警告）
     sendBleAck("ERR_USB_NOT_READY", currentMsg.sessionId);
@@ -2090,9 +2100,27 @@ void setup() {
   setLedColor(0, 0, 64); // 青色（起動中）
 
   // ============================================================================
-  // ★【最優先ブート】USB給電直後に0.05秒以内でBLEを最速起動＆アドバタイジング開始
-  // SDカード・Wi-Fi・Minds初期化の前にBLEを即時起動することで、
-  // PCのUSBに接続した瞬間にスマホPWAの画面に「EHR-AI-Dongle」が即座に表示・接続可能となる
+  // 1. USB-HID ＆ 仮想プリンター (Class 07h) 最速列挙
+  // ホストPC（電カル端末）へのUSB挿入直後の列挙タイムアウト（GET_DESCRIPTOR）をゼロ化
+  // ============================================================================
+  initPrinterInterface();
+
+  Keyboard.begin();
+  USB.VID(0x303A);
+  USB.PID(0x8025);
+  // USB Composite デバイス (Class 00h) として明示設定:
+  // IADを用いないHID+Printer独立インターフェース複合機としてWindows (usbccgp.sys) に各インターフェースを確実に個別列挙させる
+  USB.usbClass(0x00);
+  USB.usbSubClass(0x00);
+  USB.usbProtocol(0x00);
+  USB.firmwareVersion(0x0200); // Windows PnPキャッシュの再列挙を強制
+  USB.productName("Donguri Medical Coprocessor");
+  USB.manufacturerName("MedArt");
+  USB.begin();
+
+  // ============================================================================
+  // 2. BLE最速起動＆アドバタイジング開始 (USB初期化直後 0.05秒以内)
+  // 主パケット完全デバイス名格納により、スマホスキャン初弾でPWAに即座に表示・接続可能
   // ============================================================================
   bleQueue = xQueueCreate(BLE_QUEUE_SIZE, sizeof(BleQueueItem));
 
@@ -2145,24 +2173,6 @@ void setup() {
   pAdvertising->setMinPreferred(0x06); // 7.5ms (最速コネクションインターバル)
   pAdvertising->setMaxPreferred(0x12); // 22.5ms
   pAdvertising->start();
-
-  // ============================================================================
-  // 2. USB-HID ＆ 仮想プリンター (Class 07h) インターフェースの有効化
-  // ============================================================================
-  initPrinterInterface();
-
-  Keyboard.begin();
-  USB.VID(0x303A);
-  USB.PID(0x8025);
-  // USB Composite デバイス (Class 00h) として明示設定:
-  // IADを用いないHID+Printer独立インターフェース複合機としてWindows (usbccgp.sys) に各インターフェースを確実に個別列挙させる
-  USB.usbClass(0x00);
-  USB.usbSubClass(0x00);
-  USB.usbProtocol(0x00);
-  USB.firmwareVersion(0x0200); // Windows PnPキャッシュの再列挙を強制
-  USB.productName("Donguri Medical Coprocessor");
-  USB.manufacturerName("MedArt");
-  USB.begin();
 
   // ============================================================================
   // 3. ディスプレイ初期化 (T-Dongle-S3)
@@ -2557,11 +2567,9 @@ void loop() {
         sendBleAck("ALL_PACKETS_READY", currentMsg.sessionId);
 
         // ★【電カル直接自動打鍵 (Direct Auto-Dispatch)】
-        // PCへUSB接続されている場合は、スマホ操作から直ちにカルテ端末への自動打鍵を開始
-        if (tud_mounted()) {
-          delay(80); // BLE ACK送出完了安定ウェイト
-          dispatchOutput();
-        }
+        // スマホ操作から直ちにカルテ端末への自動打鍵を開始 (USBマウント確認・リトライはdispatchOutput内で実施)
+        delay(80); // BLE ACK送出完了安定ウェイト
+        dispatchOutput();
       }
     }
   }

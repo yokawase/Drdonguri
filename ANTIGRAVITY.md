@@ -979,6 +979,33 @@
        - 全13テストスイート・127件のテストが 100% PASS を達成。
        - 本番ビルド（`npm run build`）の正常完了を確認。
 
+- **ステップ68: 「電カル送信」LED不点灯＆タイムアウト障害の完全解明と根絶 ＆ esptool watchdog-reset ＆ USB最速初期化 ＆ 自動マウントリトライ・直接ディスパッチ (v2.39.0 / FW v23.7)**
+  - **背景 & 課題（ユーザーからの提起）**:
+    - 「今度は「電カル送信」を押しても、T-dongle-S3のLEDが赤にならず、タイムアウトになり送信不能になりました 原因を精査して修正してください」
+  - **根本原因の徹底解剖**:
+    1. **直接のトリガー: esptool書き込み後のESP32-S3 ROMダウンロードモードスタック**:
+       - 直前のPlatformIO Flash Upload完了時、esptoolのデフォルトハードウェアリセット（RTSピン操作）により、ESP32-S3内蔵USB-Serial/JTAGのDTR/RTSタイミング特性によってGPIO 0がLOWのままリセットされ、`rst:0x15 (USB_UART_CHIP_RESET), boot:0x0 (DOWNLOAD(USB/UART0)) waiting for download`（ROMブートローダー待機状態）でマイコンが停止していた。
+       - そのためユーザーコード（ファームウェア）が起動しておらず、BLEも未接続・送信データが未処理となりタイムアウトが発生していた。
+    2. **ファームウェア側の潜在的構造問題①: USB-OTGとBLEのブート順序競合**:
+       - `setup()` において、`BLEDevice::init` の後に `USB.begin()` が呼ばれていたため、PCへのUSB挿入直後（100〜500ms以内）にホストPCが要求するUSB Enumeration（ディスクリプタ取得）に遅延が生じ、`tud_mounted()` が正常に確立されないリスクがあった。
+    3. **ファームウェア側の潜在的構造問題②: 全パケット受信後の厳密すぎる `tud_mounted()` 条件分岐による沈黙**:
+       - 全パケット受信・CRC照合完了時（`ALL_PACKETS_READY` 送出後）に、`if (tud_mounted()) { delay(80); dispatchOutput(); }` となっており、一時的なUSB状態のジッター等で `tud_mounted()` が false だった場合に `dispatchOutput()` が一切呼ばれず、LEDが黄色のまま沈黙し、PWA側で6秒タイムアウト（`ERR_TIMEOUT`）が発生していた。
+  - **実装・解決内容**:
+    1. **esptool書き込み後の自動ウォッチドッグリセット (`firmware/platformio.ini`)**:
+       - `upload_flags = --after, watchdog-reset` を `lilygo-t-dongle-s3` および `m5stack-atoms3u` に追加。
+       - PlatformIOでの書き込み完了後、確実にウォッチドッグリセットによって通常ファームウェアが起動し、`waiting for download` でスタックする事故を恒久根絶。
+    2. **USB-HID＆仮想プリンタ最速列挙 ➔ BLE最速起動の理想パイプライン確立 (`firmware/src/main.cpp`)**:
+       - `setup()` の最先頭で `initPrinterInterface()`, `Keyboard.begin()`, `USB.begin()` を最速実行（所要時間約2ms）。
+       - ホストPCのUSB Enumerationに即座に応答し、直後にBLEアドバタイズ（0.05秒以内）を開始することで、USB安定性とBLE超高速認識を完全両立。
+    3. **USBマウント待機リトライループ ＆ 直接ディスパッチ遷移 (`firmware/src/main.cpp`)**:
+       - `dispatchOutput()` 内に最大250ms（50ms × 5回）の `tud_mounted()` 安定化リトライループを新設。
+       - 全パケット受信完了時は直接 `dispatchOutput()` を呼び出し、USBがマウントされていれば直ちに赤色LED点灯で自動打鍵を開始。
+       - 万が一PCのUSBが未接続の場合は、即座に明示的な `ERR_USB_NOT_READY` ACKをPWAに返信し、LEDを紫色点灯にして沈黙タイムアウトを完全防止。
+  - **検証と成果**:
+    - PlatformIO ビルド正常完了（Flash 51.1% 使用、RAM 33.6% 使用）。
+    - BleakによるBLEスキャン（`EHR-AI-Dongle`, RSSI -58dBm）および `CMD:DFU` 疎通を確認。
+    - 全13テストスイート・127件のテストが 100% PASS。
+
 ## 5. 運用ルール & 安全指針
 - **完全日本語対応**: コメント、ドキュメント、システムメッセージはすべて日本語で記述する。
 - **ファームウェア更新時の実機自動書き込み（絶対遵守）**: `firmware/src/` 配下のソースコードや設定ファイルを更新・修正した際は、必ず PlatformIO で接続中の T-Dongle-S3 実機（`/dev/ttyACM0` 等）へ即時 Flash Upload を行い、正常起動を確認すること。
