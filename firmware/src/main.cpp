@@ -2089,51 +2089,11 @@ void setup() {
 
   setLedColor(0, 0, 64); // 青色（起動中）
 
-#if defined(T_DONGLE_S3)
-  SD_MMC.setPins(SD_CLK_PIN, SD_CMD_PIN, SD_D0_PIN);
-  g_sdMounted = SD_MMC.begin("/sdcard", true);
-  if (!g_sdMounted) {
-    SD_MMC.setPins(SD_CLK_PIN, SD_CMD_PIN, SD_D0_PIN, 17, 21, 18);
-    g_sdMounted = SD_MMC.begin("/sdcard", false);
-  }
-
-  // Wi-Fi SoftAP & MicroSD 直接ストリーミングHTTPサーバー起動
-  initWifiSoftAp();
-
-  g_display.init();
-  g_display.showFace(FACE_IDLE);
-  g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, g_sdMounted ? "Minds (SD:OK)" : "Minds 3.3K (RAM)");
-#endif
-
-  // SPIFFS初期化 (フォーマットフラグ: true)
-  spiffsMounted = SPIFFS.begin(true);
-#if defined(T_DONGLE_S3)
-  if (spiffsMounted) {
-    g_mindsEngine.beginFlash("/minds_cds.bin");
-  }
-#endif
-#if defined(T_DONGLE_S3)
-  if (g_sdMounted) {
-    g_mindsEngine.beginSdCard("/minds_fulltext.dat");
-  }
-#endif
-
-  // 仮想プリンター (Class 07h) インターフェースの有効化 (TinyUSB Composite)
-  initPrinterInterface();
-
-  Keyboard.begin();
-  USB.VID(0x303A);
-  USB.PID(0x8025);
-  // USB Composite デバイス (Class 00h) として明示設定:
-  // IADを用いないHID+Printer独立インターフェース複合機としてWindows (usbccgp.sys) に各インターフェースを確実に個別列挙させる
-  USB.usbClass(0x00);
-  USB.usbSubClass(0x00);
-  USB.usbProtocol(0x00);
-  USB.firmwareVersion(0x0200); // Windows PnPキャッシュの再列挙を強制
-  USB.productName("Donguri Medical Coprocessor");
-  USB.manufacturerName("MedArt");
-  USB.begin();
-
+  // ============================================================================
+  // ★【最優先ブート】USB給電直後に0.05秒以内でBLEを最速起動＆アドバタイジング開始
+  // SDカード・Wi-Fi・Minds初期化の前にBLEを即時起動することで、
+  // PCのUSBに接続した瞬間にスマホPWAの画面に「EHR-AI-Dongle」が即座に表示・接続可能となる
+  // ============================================================================
   bleQueue = xQueueCreate(BLE_QUEUE_SIZE, sizeof(BleQueueItem));
 
   BLEDevice::init("EHR-AI-Dongle");
@@ -2161,17 +2121,17 @@ void setup() {
 
   pService->start();
 
-  // 主アドバタイズパケット（ADV_IND: 31バイト以内）
-  // Flags(3バイト) + 128-bit SERVICE_UUID(18バイト) + ShortName "EHR"(5バイト) = 26バイト (≦31バイト)
-  // 主パケットにサービスUUIDを直接格納することで、OSのスキャンレスポンス取得遅延をゼロ化し、初弾(0.05秒)で即座に検出させる
+  // 主アドバタイズパケット（ADV_IND: 18バイト ≦ 31バイト）
+  // Flags(3バイト) + Complete Local Name "EHR-AI-Dongle"(15バイト) = 18バイト
+  // 主パケットに完全デバイス名を直接格納することで、SCAN_RSP待ち遅延をゼロ化し、
+  // スマホスキャン初弾(0.02〜0.03秒)でPWAダイアログに「EHR-AI-Dongle」を即時表示させる
   BLEAdvertisementData oAdvertisementData;
   oAdvertisementData.setFlags(0x06);
-  oAdvertisementData.setCompleteServices(BLEUUID(SERVICE_UUID));
-  oAdvertisementData.setShortName("EHR");
+  oAdvertisementData.setName("EHR-AI-Dongle");
 
-  // スキャンレスポンス（SCAN_RSP: 15バイト ≦ 31バイト）に完全デバイス名を格納
+  // スキャンレスポンス（SCAN_RSP: 18バイト ≦ 31バイト）に 128-bit サービスUUID を格納
   BLEAdvertisementData oScanResponseData;
-  oScanResponseData.setName("EHR-AI-Dongle");
+  oScanResponseData.setCompleteServices(BLEUUID(SERVICE_UUID));
 
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->setAdvertisementData(oAdvertisementData);
@@ -2185,6 +2145,63 @@ void setup() {
   pAdvertising->setMinPreferred(0x06); // 7.5ms (最速コネクションインターバル)
   pAdvertising->setMaxPreferred(0x12); // 22.5ms
   pAdvertising->start();
+
+  // ============================================================================
+  // 2. USB-HID ＆ 仮想プリンター (Class 07h) インターフェースの有効化
+  // ============================================================================
+  initPrinterInterface();
+
+  Keyboard.begin();
+  USB.VID(0x303A);
+  USB.PID(0x8025);
+  // USB Composite デバイス (Class 00h) として明示設定:
+  // IADを用いないHID+Printer独立インターフェース複合機としてWindows (usbccgp.sys) に各インターフェースを確実に個別列挙させる
+  USB.usbClass(0x00);
+  USB.usbSubClass(0x00);
+  USB.usbProtocol(0x00);
+  USB.firmwareVersion(0x0200); // Windows PnPキャッシュの再列挙を強制
+  USB.productName("Donguri Medical Coprocessor");
+  USB.manufacturerName("MedArt");
+  USB.begin();
+
+  // ============================================================================
+  // 3. ディスプレイ初期化 (T-Dongle-S3)
+  // ============================================================================
+#if defined(T_DONGLE_S3)
+  g_display.init();
+  g_display.showFace(FACE_IDLE);
+  g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, "Booting...");
+#endif
+
+  // ============================================================================
+  // 4. SPIFFS & Minds CDS ガイドラインエンジン初期化
+  // ============================================================================
+  spiffsMounted = SPIFFS.begin(true);
+#if defined(T_DONGLE_S3)
+  if (spiffsMounted) {
+    g_mindsEngine.beginFlash("/minds_cds.bin");
+  }
+#endif
+
+  // ============================================================================
+  // 5. MicroSD & Wi-Fi SoftAP 初期化 (バックグラウンド処理)
+  // ============================================================================
+#if defined(T_DONGLE_S3)
+  SD_MMC.setPins(SD_CLK_PIN, SD_CMD_PIN, SD_D0_PIN);
+  g_sdMounted = SD_MMC.begin("/sdcard", true);
+  if (!g_sdMounted) {
+    SD_MMC.setPins(SD_CLK_PIN, SD_CMD_PIN, SD_D0_PIN, 17, 21, 18);
+    g_sdMounted = SD_MMC.begin("/sdcard", false);
+  }
+  if (g_sdMounted) {
+    g_mindsEngine.beginSdCard("/minds_fulltext.dat");
+  }
+
+  // Wi-Fi SoftAP & MicroSD 直接ストリーミングHTTPサーバー起動
+  initWifiSoftAp();
+
+  g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, g_sdMounted ? "Minds (SD:OK)" : "Minds 3.3K (RAM)");
+#endif
 
   secureWipeMessageContext();
   resetButtonState();
