@@ -115,7 +115,7 @@ export const SAFE_KANJI_SINGLE_CHAR_MAP: Record<string, SafeKanjiSingleChar> = {
   '噴': { reading: 'funsui', convert: true, bsCount: 1, representative: '噴水 -> 噴' },
   '前': { reading: 'mae', convert: true, bsCount: 0, representative: '前 -> 前' },
   '庭': { reading: 'niwa', convert: true, bsCount: 0, representative: '庭 -> 庭' },
-  '胃': { reading: 'i', convert: true, bsCount: 0, representative: '胃 -> 胃' },
+  '胃': { reading: 'inou', convert: true, bsCount: 1, representative: '胃嚢 -> 胃' },
   '角': { reading: 'tsuno', convert: true, bsCount: 0, representative: '角 -> 角' },
   '憩': { reading: 'ikou', convert: true, bsCount: 1, representative: '憩う -> 憩' },
   '室': { reading: 'muro', convert: true, bsCount: 0, representative: '室 -> 室' },
@@ -149,6 +149,14 @@ export const SAFE_KANJI_SINGLE_CHAR_MAP: Record<string, SafeKanjiSingleChar> = {
   '大': { reading: 'ookii', convert: true, bsCount: 2, representative: '大きい -> 大' },
   '菌': { reading: 'kin', convert: true, bsCount: 0, representative: '菌 -> 菌' },
   '待': { reading: 'matsu', convert: true, bsCount: 1, representative: '待つ -> 待' },
+  '清': { reading: 'kiyomeru', convert: true, bsCount: 2, representative: '清める -> 清' },
+  '層': { reading: 'kaisou', convert: true, bsCount: 1, representative: '階層 -> 層' },
+  '併': { reading: 'awaseru', convert: true, bsCount: 2, representative: '併せる -> 併' },
+  '施': { reading: 'hodokosu', convert: true, bsCount: 2, representative: '施す -> 施' },
+  '知': { reading: 'shiru', convert: true, bsCount: 1, representative: '知る -> 知' },
+  '見': { reading: 'miru', convert: true, bsCount: 1, representative: '見る -> 見' },
+  '受': { reading: 'ukeru', convert: true, bsCount: 1, representative: '受ける -> 受' },
+  '診': { reading: 'shinsatsu', convert: true, bsCount: 2, representative: '診察 -> 診' },
 };
 
 /**
@@ -313,6 +321,12 @@ export const DANGEROUS_KANJI_LIST: DangerousKanjiDefinition[] = [
   makeSafeDecompositionEntry('除菌', 'PRESCRIPTION', 'JO-KIN'),
   makeSafeDecompositionEntry('用量', 'PRESCRIPTION', 'YOU-RYOU'),
   makeSafeDecompositionEntry('胃体', 'ENDOSCOPY_ANATOMY', 'I-TAI'),
+
+  // ─── 区分Ⅷ: 日常語同音異義語・医療キラー二文字熟語 (4語) ───
+  makeSafeDecompositionEntry('血清', 'PATHOLOGY', 'KES-SEI'),   // 結成キラー
+  makeSafeDecompositionEntry('受診', 'FINDINGS', 'JU-SHIN'),     // 受信キラー
+  makeSafeDecompositionEntry('検診', 'FINDINGS', 'KEN-SHIN'),   // 健診キラー
+  makeSafeDecompositionEntry('併施', 'FINDINGS', 'HEI-SHI'),     // 兵士・兵氏キラー
 ];
 
 /**

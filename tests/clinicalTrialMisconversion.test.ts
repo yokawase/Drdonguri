@@ -158,4 +158,55 @@ describe('臨床試験・論文抄録の誤転送防止・一般化検証テス�
     const res4 = compileToKeyStrokeStream('ご相談');
     expect(res4.streamText).toBe('[IME_RESET][Z]gosoudann[/Z]');
   });
+
+  it('Step 65: スクリーニング・臨床研究論文抄録の誤変換根絶（血清、層別化、受診者、胃前がん病変、併施検出、内視鏡検診、優れた、検診適正化モデル）', () => {
+    const text = '主な示唆・要点: ピロリ菌除菌（Screen-and-Treat戦略）と血清ペプシノゲン法（PG法）によるリスク層別化スクリーニング、大腸がん検診受診者を対象とした胃前がん病変の併施検出、および費用対効果シミュレーションの最新知見を統合。一律の内視鏡検診が困難な中低罹患地域において、受容性・実行可能性・費用対効果に優れた検診適正化モデルの確立に向けた実装エビデンスが提示された。';
+
+    const res = compileToKeyStrokeStream(text);
+    const stream = res.streamText;
+
+    // 1. ピロリ菌除菌 ➔ [K]pirorikinn[/K][Z]jokinn[/Z]
+    expect(stream).toContain('[K]pirorikinn[/K][Z]jokinn[/Z]');
+
+    // 2. 血清ペプシノゲン法 ➔ 「結成」化防止 ([Z]chi[/Z][Z]kiyomeru[/Z][BS][BS])
+    expect(stream).toContain('[Z]chi[/Z][Z]kiyomeru[/Z][BS][BS][K]pepushinogenn[/K][Z]hou[/Z]');
+    expect(stream).not.toContain('kessei');
+
+    // 3. リスク層別化スクリーニング ➔ 「送別化」化防止 ([Z]kaisou[/Z][BS][Z]betuka[/Z])
+    expect(stream).toContain('[K]risuku[/K][Z]kaisou[/Z][BS][Z]betuka[/Z][K]sukuri-ningu[/K]');
+    expect(stream).not.toContain('soubetuka');
+
+    // 4. 大腸がん検診受診者 ➔ 「受信者」「健診」化防止
+    expect(stream).toContain('[Z]daityou[/Z][H]gann[/H][Z]kensa[/Z][BS][Z]shinsatsu[/Z][BS][BS][Z]ukeru[/Z][BS][Z]shinsatsu[/Z][BS][BS][Z]sha[/Z]');
+    expect(stream).not.toContain('jushin');
+
+    // 5. 胃前がん病変 ➔ 「イ前がん病変」化防止 ([Z]inou[/Z][BS])
+    expect(stream).toContain('[Z]inou[/Z][BS][Z]mae[/Z][H]gann[/H][Z]byouhenn[/Z]');
+    expect(stream).not.toContain('[Z]i[/Z]');
+
+    // 6. 併施検出 ➔ 「兵氏検出」「兵士」化防止 ([Z]awaseru[/Z][BS][BS][Z]hodokosu[/Z][BS][BS][Z]kenshutsu[/Z])
+    expect(stream).toContain('[Z]awaseru[/Z][BS][BS][Z]hodokosu[/Z][BS][BS][Z]kenshutsu[/Z]');
+    expect(stream).not.toContain('heishi');
+
+    // 7. 費用対効果・最新知見 ➔ 一括長単位打鍵
+    expect(stream).toContain('[Z]hiyoutaikouka[/Z]');
+    expect(stream).toContain('[Z]saishinchikenn[/Z]');
+
+    // 8. 内視鏡検診 ➔ 「内視鏡健診」化防止
+    expect(stream).toContain('[Z]naishikyou[/Z][Z]kensa[/Z][BS][Z]shinsatsu[/Z][BS][BS]');
+
+    // 9. 中低罹患地域・実行可能性・実装エビデンス
+    expect(stream).toContain('[Z]chuutei[/Z][Z]rikanchiiki[/Z]');
+    expect(stream).toContain('[Z]jikkoukanousei[/Z]');
+    expect(stream).toContain('[Z]jissou[/Z][K]ebidensu[/K]');
+
+    // 10. 優れた ➔ 「勝れた」化防止 ([Z]sugureta[/Z])
+    expect(stream).toContain('[Z]sugureta[/Z]');
+    expect(stream).not.toContain('masare');
+
+    // 11. 検診適正化モデル ➔ 「健診的成果モデル」化防止
+    expect(stream).toContain('[Z]kensa[/Z][BS][Z]shinsatsu[/Z][BS][BS][Z]tekiseika[/Z][K]moderu[/K]');
+    expect(stream).not.toContain('[Z]teki[/Z]');
+    expect(stream).not.toContain('[Z]seika[/Z]');
+  });
 });

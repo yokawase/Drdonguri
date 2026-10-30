@@ -252775,7 +252775,7 @@ export const MORPH_ROMAJI: Record<string, string> = {
   '須玖': 'sugu',
   '直江': 'naoe',
   '直世': 'naoyo',
-  '優れ': 'masare',
+  '優れ': 'sugure',
   '勝れ': 'masare',
   '助け': 'tasuke',
   '好け': 'suke',
