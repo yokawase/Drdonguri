@@ -391,6 +391,48 @@ export class BleDongleManager {
   }
 
   /**
+   * Android/WebBLEのGATTハング（最大120秒フリーズ）を完全防止するタイムアウト付きGATT接続ヘルパー
+   */
+  private async connectGattWithTimeout(
+    device: BluetoothDevice,
+    timeoutMs: number = 4500
+  ): Promise<BluetoothRemoteGATTServer> {
+    if (!device.gatt) throw new Error('BluetoothDevice に gatt が存在しません。');
+    let timer: any = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        try {
+          if (device.gatt?.connected) device.gatt.disconnect();
+        } catch {}
+        reject(
+          new Error(
+            `GATT接続タイムアウト (${timeoutMs}ms): Androidスタックの2分間ハングを防止し即時安全切断しました。`
+          )
+        );
+      }, timeoutMs);
+    });
+
+    try {
+      return await Promise.race([device.gatt.connect(), timeoutPromise]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  /**
+   * 単一プロミスに対する安全タイムアウト保護ヘルパー
+   */
+  private async runWithTimeout<T>(p: Promise<T>, ms: number, opName: string): Promise<T> {
+    let t: any = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      t = setTimeout(() => reject(new Error(`TIMEOUT_${opName}_${ms}ms`)), ms);
+    });
+    return Promise.race([p, timeoutPromise]).finally(() => {
+      if (t) clearTimeout(t);
+    });
+  }
+
+  /**
    * 指定されたBluetoothDeviceへの接続確立処理（スマートリトライ＆キャラクタリスティック購読）
    */
   public async connectToDevice(targetDevice: BluetoothDevice): Promise<boolean> {
@@ -405,7 +447,7 @@ export class BleDongleManager {
       this.device.addEventListener('gattserverdisconnected', this.handleGattDisconnected);
 
       this.log('sys', 'GATT', `デバイス「${this.device.name || 'EHR-AI-Dongle'}」に接続中...`);
-      this.server = await this.device.gatt!.connect();
+      this.server = await this.connectGattWithTimeout(this.device, 5000);
 
       // スタック安定化待機
       await new Promise((r) => setTimeout(r, 400));
@@ -416,7 +458,7 @@ export class BleDongleManager {
         try {
           if (!this.server || !this.server.connected) {
             this.log('sys', 'GATT', `GATT再接続試行 (${attempt}/3)...`);
-            this.server = await this.device.gatt!.connect();
+            this.server = await this.connectGattWithTimeout(this.device, 3500);
             await new Promise((r) => setTimeout(r, 300));
           }
           this.log('sys', 'GATT', `Primary Service (${SERVICE_UUID}) を取得中... (試行 ${attempt}/3)`);
@@ -467,7 +509,7 @@ export class BleDongleManager {
     }
 
     this.log('sys', 'BLE', 'GATTサーバーへ自動再接続中...');
-    this.server = await this.device.gatt.connect();
+    this.server = await this.connectGattWithTimeout(this.device, 4000);
     await new Promise((r) => setTimeout(r, 350));
 
     const service = await this.server.getPrimaryService(SERVICE_UUID.toLowerCase());
@@ -650,17 +692,25 @@ export class BleDongleManager {
           // 1. Android/WebBLEで最もストールせず高速な writeValueWithoutResponse を最優先
           if ('writeValueWithoutResponse' in this.characteristic) {
             try {
-              await (this.characteristic as any).writeValueWithoutResponse(bufferToSend);
+              await this.runWithTimeout(
+                (this.characteristic as any).writeValueWithoutResponse(bufferToSend),
+                1200,
+                'WRITE_NR'
+              );
               return;
             } catch (wNrErr: any) {
               // fall through to withResponse
             }
           }
 
-          // 2. writeValueWithResponse
+          // 2. writeValueWithResponse (最大1500msタイムアウト保護でAndroid 120秒ハングを物理遮断)
           if ('writeValueWithResponse' in this.characteristic) {
             try {
-              await (this.characteristic as any).writeValueWithResponse(bufferToSend);
+              await this.runWithTimeout(
+                (this.characteristic as any).writeValueWithResponse(bufferToSend),
+                1500,
+                'WRITE_RESP'
+              );
               return;
             } catch (wRespErr: any) {
               // fall through to writeValue
@@ -669,7 +719,11 @@ export class BleDongleManager {
 
           // 3. 標準 writeValue
           if ('writeValue' in this.characteristic) {
-            await this.characteristic.writeValue(bufferToSend);
+            await this.runWithTimeout(
+              this.characteristic.writeValue(bufferToSend),
+              1500,
+              'WRITE_STD'
+            );
             return;
           }
         } catch (writeErr: any) {
@@ -974,8 +1028,11 @@ export class BleDongleManager {
 
         if (onProgress) onProgress(95, '全パケット送信完了。マイコン照合待機中...');
 
-        // マイコンからの ALL_PACKETS_READY / USB_REPORTS_SENT 受信待機タイムアウト (6.0秒)
-        // 完了ACKが届かなかった場合は未達の可能性があるため、成功 (true) としては扱わない
+        // マイコンからの ALL_PACKETS_READY / USB_REPORTS_SENT 受信待機タイムアウト
+        // 打鍵時間は 11ms 遅延 × キーストローク数 (600Bで約15秒) となるため、
+        // ペイロード長に応じた動的セーフティタイムアウト（最低25秒）を設定し、誤タイムアウトを完全防止
+        const dynamicTimeoutMs = Math.max(25000, session.totalBytes * 50);
+
         const checkInterval = setInterval(() => {
           if (this.isTransmissionAborted) {
             clearInterval(checkInterval);
@@ -992,7 +1049,7 @@ export class BleDongleManager {
             this.log('sys', 'ERR', '完了ACK (ALL_PACKETS_READY / USB_REPORTS_SENT) の受信がタイムアウトしました。ドングル側で打鍵が完了していない可能性があるため、未達として扱います。');
             resolve(false);
           }
-        }, 6000);
+        }, dynamicTimeoutMs);
 
       } catch (err: any) {
         removeAck();

@@ -41,6 +41,7 @@ static MindsGuidelineEngine g_mindsEngine;
 void initWifiSoftAp() {
   WiFi.mode(WIFI_AP);
   WiFi.softAP("Drdonguri-Atlas-Direct", "drdonguri");
+  WiFi.setSleep(true); // BLEパケット優先・省電力共存モード
   
   g_httpServer.on("/api/status", HTTP_GET, []() {
     g_httpServer.sendHeader("Access-Control-Allow-Origin", "*");
@@ -2046,6 +2047,20 @@ class MyServerCallbacks : public BLEServerCallbacks {
 #endif
   }
 
+  void onConnect(BLEServer* pServer, esp_ble_gatts_cb_param_t *param) override {
+    isBleConnected = true;
+    currentState = STATE_BLE_CONNECTED;
+    setLedColor(0, 64, 0); // 接続完了: 緑点灯
+#if defined(T_DONGLE_S3)
+    g_display.showFace(FACE_IDLE);
+    g_display.updateStatus("BLE READY", 0, 0, 0, 0, 0, 0, "Minds 3.3K (RAM)");
+#endif
+    if (param != nullptr) {
+      // Android / iOS 完全準拠 高速安定コネクションパラメータ (15ms〜30ms, latency 0, timeout 4000ms)
+      pServer->updateConnParams(param->connect.remote_bda, 0x000C, 0x0018, 0, 400);
+    }
+  }
+
   void onDisconnect(BLEServer* pServer) override {
     isBleConnected = false;
     currentState = STATE_WAITING_BLE;
@@ -2170,8 +2185,8 @@ void setup() {
   // デフォルトの遅延(100〜1000ms)を排し、スマホ・PCのスキャンウィンドウへ超高頻度にヒットさせる
   pAdvertising->setMinInterval(0x20); // 20ms
   pAdvertising->setMaxInterval(0x30); // 30ms
-  pAdvertising->setMinPreferred(0x06); // 7.5ms (最速コネクションインターバル)
-  pAdvertising->setMaxPreferred(0x12); // 22.5ms
+  pAdvertising->setMinPreferred(0x0C); // 15ms (Android/iOS標準互換)
+  pAdvertising->setMaxPreferred(0x18); // 30ms (Android/iOS標準互換)
   pAdvertising->start();
 
   // ============================================================================

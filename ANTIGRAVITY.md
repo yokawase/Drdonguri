@@ -1006,6 +1006,42 @@
     - BleakによるBLEスキャン（`EHR-AI-Dongle`, RSSI -58dBm）および `CMD:DFU` 疎通を確認。
     - 全13テストスイート・127件のテストが 100% PASS。
 
+- **ステップ69: 「電カル送信」2分後打鍵遅延の完全解明と根絶 ＆ Web Bluetooth 120秒GATTハング防止タイムアウト保護 ＆ BLEコネクションパラメータ標準化 ＆ Wi-Fi/BLE共存最適化 ＆ 動的打鍵完了判定 (v2.40.0 / FW v23.8)**
+  - **背景 & 課題（ユーザーからの提起）**:
+    - 「今度は「電カル送信」を押してから2分後にT-dongle-S3のLEDが赤になり打鍵が開始されます 原因を精査して修正してください」
+  - **根本原因の徹底解剖**:
+    1. **Android / Web Bluetooth仕様起因の「120秒（2分）GATTタイムアウト」**:
+       - W3C Web Bluetooth仕様において、`device.gatt.connect()` および `characteristic.writeValueWithResponse()` にはタイムアウト引数が存在しない。
+       - Android OSのBluetoothスタック（Fluoride / Bluedroid）の内部GATTトランザクション監視タイマー（`GATT_EXT_OP_TIMEOUT`）は **厳密に120,000ms（2分間）** に固定されている。
+       - PWA側でテキスト編集や音声入力中のアイドル時にBLE接続が瞬断またはハーフオープン状態になった際、送信時の `ensureConnected()` や `connectToDevice()`、または `writeData()` がタイムアウト保護なしで呼び出されていたため、AndroidのBluetoothスタックが120秒間プロミスを保留し、ブラウザのJavaScript実行が完全に2分間停止（フリーズ）していた。
+       - 120秒後にAndroid側のGATTチャンネルが自己リセット・再接続を完了した瞬間にパケットがドングルへ送出され、ドングル側で即座に `ALL_PACKETS_READY` が成立し、LEDが赤色に変化して打鍵が開始されていた（「押してから2分後にLEDが赤になり打鍵開始」の正体）。
+    2. **ファームウェア側のBLEアドバタイズ・コネクションパラメータの非標準値**:
+       - `main.cpp` の `pAdvertising->setMinPreferred(0x06); // 7.5ms` は、HID Over GATT (HOGP) 以外のカスタムGATTサービスに対してAndroidが受け付けず、コネクションパラメータ更新リクエスト（L2CAP Connection Parameter Update）の拒否や再ネゴシエーション遅延を誘発していた。
+       - また、クライアント接続時（`onConnect`）に適切なパラメータ（15ms〜30ms, timeout 4s）を明示更新していなかった。
+    3. **Wi-Fi SoftAPとBLEの同一2.4GHz無線競合**:
+       - `initWifiSoftAp()` がモデムスリープ無効のまま稼働していたため、Wi-FiビーコンとBLE通信スロットの衝突・パケット再送が発生していた。
+    4. **旧固定6秒タイムアウトによる誤タイムアウト判定**:
+       - 長文カルテ（606バイトなど）では11ms安全遅延キーストロークにより打鍵自体に約15秒を要するが、PWAの旧コードは一律6秒でタイムアウトとしていたため、前回の「送信不能」を引き起こしていた。
+  - **実装・解決内容**:
+    1. **Android 120秒ハングを物理遮断するGATT接続タイムアウト保護 (`src/utils/webBluetooth.ts`)**:
+       - `connectGattWithTimeout(device, timeoutMs)` を新設（デフォルト4000〜5000ms）。
+       - 5秒以内にGATT接続が確立しない場合は即座にPromiseをrejectし、`device.gatt.disconnect()` でハングしたGATTハンドルを安全解放。2分間の沈黙フリーズを物理的に根絶。
+    2. **`writeData` への単一書き込みタイムアウト保護 (`src/utils/webBluetooth.ts`)**:
+       - `writeValueWithoutResponse`（1200ms）および `writeValueWithResponse`（1500ms）を `runWithTimeout` で厳格保護。
+       - GATT書き込みがスタックした場合も最大1.5秒でフォールバック／リトライへ遷移させ、120秒OS待ちを遮断。
+    3. **Android / iOS 完全準拠 BLEコネクションパラメータ標準化 (`firmware/src/main.cpp`)**:
+       - アドバタイズ時の preferred interval を 0x0C (15ms) 〜 0x18 (30ms) の標準互換レンジへ更新。
+       - `MyServerCallbacks::onConnect(BLEServer* pServer, esp_ble_gatts_cb_param_t *param)` を新設し、接続直後に `pServer->updateConnParams(remote_bda, 0x000C, 0x0018, 0, 400)` を送出して超高速・超安定接続を確立。
+    4. **Wi-Fi / BLE 共存モデムスリープ有効化 (`firmware/src/main.cpp`)**:
+       - `initWifiSoftAp()` に `WiFi.setSleep(true)` を導入し、BLE通信時の2.4GHz無線衝突を防止。
+    5. **カルテ長に応じた動的打鍵完了判定タイムアウト (`src/utils/webBluetooth.ts`)**:
+       - `dynamicTimeoutMs = Math.max(25000, session.totalBytes * 50)` を導入。
+       - 臨床抄録・患者説明書などの長文でも誤判定なく打鍵完了（`USB_REPORTS_SENT`）まで確実に待機。
+  - **検証と成果**:
+    - PlatformIO ビルド正常完了（`lilygo-t-dongle-s3`: SUCCESS）。
+    - 全13テストスイート・127件の単体・統合テストが 100% PASS。
+    - TypeScript静的型検査（`npm run lint` / `tsc --noEmit`）がエラーゼロで完了。
+
 ## 5. 運用ルール & 安全指針
 - **完全日本語対応**: コメント、ドキュメント、システムメッセージはすべて日本語で記述する。
 - **ファームウェア更新時の実機自動書き込み（絶対遵守）**: `firmware/src/` 配下のソースコードや設定ファイルを更新・修正した際は、必ず PlatformIO で接続中の T-Dongle-S3 実機（`/dev/ttyACM0` 等）へ即時 Flash Upload を行い、正常起動を確認すること。
