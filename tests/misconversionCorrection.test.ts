@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { KeyStrokeCompiler } from '../src/services/KeyStrokeCompiler';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { KeyStrokeCompiler, ensureLexiconLoaded } from '../src/services/KeyStrokeCompiler';
 import {
   isTwoKanjiDecomposable,
   getDecompositionPreview,
@@ -10,6 +10,10 @@ import {
 
 describe('誤転送修正 & 二文字誤変換単語の訓読み分解登録テスト', () => {
   const compiler = new KeyStrokeCompiler();
+
+  beforeAll(async () => {
+    await ensureLexiconLoaded();
+  });
 
   it('ユーザー報告の臨床原文が誤転送を起こさず安全なキーストローク列へコンパイルされること', () => {
     const rawText = `### 結論
@@ -25,11 +29,12 @@ describe('誤転送修正 & 二文字誤変換単語の訓読み分解登録テ�
     // 1. Markdown記号 ### が全角＃＃＃にならず [A]###[/A] で半角直接送出されること
     expect(stream).toContain('[A]###[/A]');
 
-    // 2. 早期膵がんが「水がん」にならず、安全訓読み(膵臓-臓) + がん で出力されること
-    expect(stream).toContain('[Z]suizou[/Z][BS][H]gann[/H]');
+    // 2. 早期膵がんが素直な長単位 [Z]soukisuigann[/Z] で出力されること（BS完全廃止）
+    expect(stream).toContain('[Z]soukisuigann[/Z]');
+    expect(stream).not.toContain('[BS]');
 
     // 3. 「がんの」が「がんお」(nno) にならず、正しい助詞「の」として出力されること
-    expect(stream).toContain('[H]gann[/H][H]no[/H]');
+    expect(stream).toContain('[Z]soukisuigann[/Z][H]no[/H]');
     expect(stream).not.toContain('nno');
 
     // 4. 太字 ** が全角＊＊にならず [A]**[/A] で送出されること
@@ -43,29 +48,25 @@ describe('誤転送修正 & 二文字誤変換単語の訓読み分解登録テ�
     expect(stream).toContain('[A][[/A][A]1[/A][A]][/A]');
     expect(stream).toContain('[A][[/A][A]6[/A][A]][/A]');
 
-    // 7. 「検出」が安全訓読み分解されること (検査-査 + 出る-る)
-    expect(stream).toContain('[Z]kensa[/Z][BS][Z]deru[/Z][BS]');
+    // 7. 「検出」「切除」が素直な音読みで打鍵されること (BS完全廃止)
+    expect(stream).toContain('[Z]kennsyutu[/Z]');
+    expect(stream).toContain('[Z]setsujo[/Z]');
 
-    // 8. 「切除」が安全訓読み分解されること (切る-る + 除く-く)
-    expect(stream).toContain('[Z]kiru[/Z][BS][Z]nozoku[/Z][BS]');
+    // 8. 「根治」「強力」が素直な音読みで打鍵されること (BS完全廃止)
+    expect(stream).toContain('[Z]konchi[/Z]');
+    expect(stream).toContain('[Z]kyouryoku[/Z]');
 
-    // 9. 「根治」が平仮名「こんち」にならず安全訓読み分解されること (根 + 治す-す)
-    expect(stream).toContain('[Z]ne[/Z][Z]naosu[/Z][BS]');
-
-    // 10. 「強力」が「協力」にならず安全訓読み分解されること (強い-い + 力)
-    expect(stream).toContain('[Z]tsuyoi[/Z][BS][Z]chikara[/Z]');
-
-    // 11. 「盾」が「縦」にならず安全訓読み(盾)で送出されること
+    // 9. 「盾」が「縦」にならず安全訓読み(盾)で送出されること
     expect(stream).toContain('[Z]tate[/Z]');
     expect(stream).not.toContain('[LEFT]');
 
-    // 12. 「家系」が「家計」にならず安全訓読み分解されること (家 + 系統-統)
-    expect(stream).toContain('[Z]ie[/Z][Z]keitou[/Z][BS]');
+    // 10. 「家系」が素直な音読みで送出されること (BS完全廃止)
+    expect(stream).toContain('[Z]kakei[/Z]');
 
-    // 13. 疑問符 ? が [A]?[/A] で半角送出されること
+    // 11. 疑問符 ? が [A]?[/A] で半角送出されること
     expect(stream).toContain('[A]?[/A]');
 
-    // 14. 絵文字 🔍 がカルテを壊さず空白化されること
+    // 12. 絵文字 🔍 がカルテを壊さず空白化されること
     expect(stream).not.toContain('🔍');
   });
 
@@ -91,8 +92,8 @@ describe('誤転送修正 & 二文字誤変換単語の訓読み分解登録テ�
     expect(registered).toBe(true);
     expect(DANGEROUS_KANJI_DICT['悪化']).toBeDefined();
 
-    // コンパイル結果を検証
-    const res = compiler.compileText('病状が悪化した');
+    // コンパイル結果を検証 (dangerousKanjiDecomposition 有効時)
+    const res = compiler.compileText('病状が悪化した', { dangerousKanjiDecomposition: true });
     expect(res.streamText).toContain('[Z]warui[/Z][BS][Z]bakeru[/Z][BS][BS]');
   });
 });

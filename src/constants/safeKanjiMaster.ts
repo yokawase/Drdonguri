@@ -331,11 +331,11 @@ export const DANGEROUS_KANJI_LIST: DangerousKanjiDefinition[] = [
 
 /**
  * 危険二文字単語辞書 (単語 ➔ MultiChunkItem[])
+ * ※二文字漢字単語の訓読み分割およびBS削り出し法は、電カルIMEとの競合により
+ *   不要文字の脱落・残存を招くため完全廃止されました。素直な音読み・長単位結合で送出されます。
  */
 export const DANGEROUS_KANJI_DICT: Record<string, MultiChunkItem[]> = {};
-for (const item of DANGEROUS_KANJI_LIST) {
-  DANGEROUS_KANJI_DICT[item.word] = item.chunks;
-}
+// 訓読み分割辞書登録は完全廃止 (空のまま維持)
 
 /**
  * 動的に学習・登録された危険二文字単語辞書

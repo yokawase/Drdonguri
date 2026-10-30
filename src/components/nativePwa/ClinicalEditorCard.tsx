@@ -360,6 +360,14 @@ export const ClinicalEditorCard: React.FC<ClinicalEditorCardProps> = ({
           </span>
         </div>
       )}
+
+      {/* 臨床運用ディスクレーマー（同音異義語ガイダンス） */}
+      <div className="pt-2 px-2 pb-1 flex items-center gap-1.5 text-[10px] text-slate-400 border-t border-slate-800/60 mt-1 shrink-0 bg-slate-900/40 rounded-lg">
+        <span className="text-amber-400 font-bold shrink-0">※</span>
+        <span className="leading-tight">
+          同音異義語（血清/結成、検診/健診等）は、電子カルテ端末のIME側で一度正しく変換・学習させてください。
+        </span>
+      </div>
     </div>
   );
 };

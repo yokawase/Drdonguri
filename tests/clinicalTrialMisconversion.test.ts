@@ -11,14 +11,15 @@ describe('臨床試験・論文抄録の誤転送防止・一般化検証テス�
     const res = compileToKeyStrokeStream(text);
     const stream = res.streamText;
 
-    // 「総計」が早慶に化けず、安全分解 [Z]sougaku[/Z][BS][Z]keisan[/Z][BS] で打鍵されること
-    expect(stream).toContain('[Z]sougaku[/Z][BS][Z]keisan[/Z][BS]');
+    // 「総計」が素直な音読み [Z]soukei[/Z] で打鍵されること（BS完全廃止）
+    expect(stream).toContain('[Z]soukei[/Z]');
+    expect(stream).not.toContain('[BS]');
 
     // 「除菌群」が「除菌軍」にならず [Z]jokingunn[/Z] で一体打鍵されること
     expect(stream).toContain('[Z]jokingunn[/Z]');
 
-    // 「プラセボ群」が「プラセボ軍」にならず、群が [Z]mure[/Z][BS] で安全確定されること
-    expect(stream).toContain('[K]purasebo[/K][Z]mure[/Z][BS]');
+    // 「プラセボ群」が [K]purasebo[/K][Z]gunn[/Z] で打鍵されること
+    expect(stream).toContain('[K]purasebo[/K][Z]gunn[/Z]');
 
     // 全角カンマ「，」が脱落せず [A],[/A] として送出されること
     expect(stream).toContain('[A],[/A]');
@@ -33,11 +34,12 @@ describe('臨床試験・論文抄録の誤転送防止・一般化検証テス�
     const res = compileToKeyStrokeStream(text);
     const stream = res.streamText;
 
-    // 「中央値」が「中央地」にならず、[Z]chuuou[/Z][Z]atai[/Z] で安全確定されること
+    // 「中央値」が [Z]chuuou[/Z][Z]atai[/Z] で安全確定されること
     expect(stream).toContain('[Z]chuuou[/Z][Z]atai[/Z]');
 
-    // 「異時性胃癌」が「胃時性胃がん」[Z]i[/Z][Z]toki[/Z] にならず、[Z]kotonaru[/Z][BS][BS][Z]jisei[/Z][Z]igan[/Z] で打鍵されること
-    expect(stream).toContain('[Z]kotonaru[/Z][BS][BS][Z]jisei[/Z][Z]igan[/Z]');
+    // 「異時性胃癌」が [Z]ijisei[/Z][Z]igan[/Z] で素直に打鍵されること（BS完全廃止）
+    expect(stream).toContain('[Z]ijisei[/Z][Z]igan[/Z]');
+    expect(stream).not.toContain('[BS]');
 
     // 「治療群」が「治療軍」にならず [Z]chiryougunn[/Z] で一体打鍵されること
     expect(stream).toContain('[Z]chiryougunn[/Z]');
@@ -56,8 +58,9 @@ describe('臨床試験・論文抄録の誤転送防止・一般化検証テス�
     // 「胃体部小彎」が「小ワン」にならず、[Z]itaibu[/Z][Z]shouwan[/Z] で一体打鍵されること
     expect(stream).toContain('[Z]itaibu[/Z][Z]shouwan[/Z]');
 
-    // 「腺萎縮」が「しぼ縮」にならず、[Z]sensaibou[/Z][BS][BS][Z]isyuku[/Z] で打鍵されること
-    expect(stream).toContain('[Z]sensaibou[/Z][BS][BS][Z]isyuku[/Z]');
+    // 「腺萎縮」が [Z]senn[/Z][Z]isyuku[/Z] で打鍵されること（BS完全廃止）
+    expect(stream).toContain('[Z]senn[/Z][Z]isyuku[/Z]');
+    expect(stream).not.toContain('[BS]');
 
     // 全角不等号「＜」が脱落せず [A]<[/A] として半角F10送出されること
     expect(stream).toContain('[A]<[/A]');
@@ -68,10 +71,11 @@ describe('臨床試験・論文抄録の誤転送防止・一般化検証テス�
     const res = compileToKeyStrokeStream(text);
     const stream = res.streamText;
 
-    // 「軽度」が安全訓読み分解打鍵され、制御タグや「旅」（tabi）が露出しないこと
-    expect(stream).toContain('[Z]karui[/Z][BS][Z]do[/Z]');
+    // 「軽度」が素直な音読み [Z]keido[/Z] で打鍵され、制御タグや「旅」（tabi）が露出しないこと
+    expect(stream).toContain('[Z]keido[/Z]');
     expect(stream).not.toContain('[Z]tabi[/Z]');
     expect(stream).not.toContain('[LEFT]');
+    expect(stream).not.toContain('[BS]');
 
     // 「有害事象」が一体打鍵されること
     expect(stream).toContain('[Z]yuugaijisyou[/Z]');
@@ -109,12 +113,12 @@ describe('臨床試験・論文抄録の誤転送防止・一般化検証テス�
     expect(stream).toContain('[Z]itaibu[/Z][Z]shouwan[/Z]');
     expect(stream).not.toContain('[Z]wan[/Z]');
 
-    // 4. 腺萎縮 ➔ [Z]sensaibou[/Z][BS][BS][Z]isyuku[/Z]（「しぼ縮」化防止）
-    expect(stream).toContain('[Z]sensaibou[/Z][BS][BS][Z]isyuku[/Z]');
+    // 4. 腺萎縮 ➔ [Z]senn[/Z][Z]isyuku[/Z]（「しぼ縮」化防止・BS完全廃止）
+    expect(stream).toContain('[Z]senn[/Z][Z]isyuku[/Z]');
     expect(stream).not.toContain('[Z]shibomu[/Z]');
 
-    // 5. 軽度 ➔ [Z]karui[/Z][BS][Z]do[/Z] (危険二文字安全訓読み分解)
-    expect(stream).toContain('[Z]karui[/Z][BS][Z]do[/Z]');
+    // 5. 軽度 ➔ [Z]kei[/Z][Z]do[/Z] または [Z]keido[/Z] (BS完全廃止)
+    expect(stream).not.toContain('[BS]');
     expect(stream).not.toContain('[Z]tabi[/Z]');
     expect(stream).not.toContain('[LEFT]');
 
@@ -168,32 +172,28 @@ describe('臨床試験・論文抄録の誤転送防止・一般化検証テス�
     // 1. ピロリ菌除菌 ➔ [K]pirorikinn[/K][Z]jokinn[/Z]
     expect(stream).toContain('[K]pirorikinn[/K][Z]jokinn[/Z]');
 
-    // 2. 血清ペプシノゲン法 ➔ 「結成」化防止 ([Z]chi[/Z][Z]kiyomeru[/Z][BS][BS])
-    expect(stream).toContain('[Z]chi[/Z][Z]kiyomeru[/Z][BS][BS][K]pepushinogenn[/K][Z]hou[/Z]');
-    expect(stream).not.toContain('kessei');
+    // 2. 血清ペプシノゲン法 ➔ 一括打鍵 ([Z]kessei[/Z][K]pepushinogenn[/K][Z]hou[/Z])
+    expect(stream).toContain('[Z]kessei[/Z][K]pepushinogenn[/K][Z]hou[/Z]');
+    expect(stream).not.toContain('[BS]');
 
-    // 3. リスク層別化スクリーニング ➔ 「送別化」化防止 ([Z]kaisou[/Z][BS][Z]betuka[/Z])
-    expect(stream).toContain('[K]risuku[/K][Z]kaisou[/Z][BS][Z]betuka[/Z][K]sukuri-ningu[/K]');
-    expect(stream).not.toContain('soubetuka');
+    // 3. リスク層別化スクリーニング ➔ 「送別化」化防止・素直な長単位 ([K]risuku[/K][Z]soubetuka[/Z][K]sukuri-ningu[/K])
+    expect(stream).toContain('[K]risuku[/K][Z]soubetuka[/Z][K]sukuri-ningu[/K]');
 
-    // 4. 大腸がん検診受診者 ➔ 「受信者」「健診」化防止
-    expect(stream).toContain('[Z]daityou[/Z][H]gann[/H][Z]kensa[/Z][BS][Z]shinsatsu[/Z][BS][BS][Z]ukeru[/Z][BS][Z]shinsatsu[/Z][BS][BS][Z]sha[/Z]');
-    expect(stream).not.toContain('jushin');
+    // 4. 大腸がん検診受診者 ➔ 素直な長単位結合
+    expect(stream).toContain('[Z]daityou[/Z][H]gann[/H][Z]kenshinn[/Z][Z]jushinsha[/Z]');
 
-    // 5. 胃前がん病変 ➔ 「イ前がん病変」化防止 ([Z]inou[/Z][BS])
-    expect(stream).toContain('[Z]inou[/Z][BS][Z]mae[/Z][H]gann[/H][Z]byouhenn[/Z]');
-    expect(stream).not.toContain('[Z]i[/Z]');
+    // 5. 胃前がん病変 ➔ 素直な音読み・形態素結合
+    expect(stream).toContain('[Z]i[/Z][Z]mae[/Z][H]gann[/H][Z]byouhenn[/Z]');
 
-    // 6. 併施検出 ➔ 「兵氏検出」「兵士」化防止 ([Z]awaseru[/Z][BS][BS][Z]hodokosu[/Z][BS][BS][Z]kenshutsu[/Z])
-    expect(stream).toContain('[Z]awaseru[/Z][BS][BS][Z]hodokosu[/Z][BS][BS][Z]kenshutsu[/Z]');
-    expect(stream).not.toContain('heishi');
+    // 6. 併施検出 ➔ 素直な長単位結合
+    expect(stream).toContain('[Z]heishi[/Z][Z]kenshutsu[/Z]');
 
     // 7. 費用対効果・最新知見 ➔ 一括長単位打鍵
     expect(stream).toContain('[Z]hiyoutaikouka[/Z]');
     expect(stream).toContain('[Z]saishinchikenn[/Z]');
 
-    // 8. 内視鏡検診 ➔ 「内視鏡健診」化防止
-    expect(stream).toContain('[Z]naishikyou[/Z][Z]kensa[/Z][BS][Z]shinsatsu[/Z][BS][BS]');
+    // 8. 内視鏡検診 ➔ 素直な長単位結合
+    expect(stream).toContain('[Z]naishikyou[/Z][Z]kenshinn[/Z]');
 
     // 9. 中低罹患地域・実行可能性・実装エビデンス
     expect(stream).toContain('[Z]chuutei[/Z][Z]rikanchiiki[/Z]');
@@ -204,8 +204,8 @@ describe('臨床試験・論文抄録の誤転送防止・一般化検証テス�
     expect(stream).toContain('[Z]sugureta[/Z]');
     expect(stream).not.toContain('masare');
 
-    // 11. 検診適正化モデル ➔ 「健診的成果モデル」化防止
-    expect(stream).toContain('[Z]kensa[/Z][BS][Z]shinsatsu[/Z][BS][BS][Z]tekiseika[/Z][K]moderu[/K]');
+    // 11. 検診適正化モデル ➔ 素直な長単位結合
+    expect(stream).toContain('[Z]kenshinn[/Z][Z]tekiseika[/Z][K]moderu[/K]');
     expect(stream).not.toContain('[Z]teki[/Z]');
     expect(stream).not.toContain('[Z]seika[/Z]');
   });

@@ -1162,25 +1162,16 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
 
   // ─── 臨床重要・頻出誤爆防止（膵がん・サーベイランス・盾・根治） ───
   '早期膵がん': [
-    { tag: 'Z', text: '早期', romaji: 'souki' },
-    { tag: 'Z', text: '膵', romaji: 'suizou' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'H', text: 'がん', romaji: 'gann' },
+    { tag: 'Z', text: '早期膵がん', romaji: 'soukisuigann' },
   ],
   '家族性膵がん': [
-    { tag: 'Z', text: '家族性', romaji: 'kazokusei' },
-    { tag: 'Z', text: '膵', romaji: 'suizou' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'H', text: 'がん', romaji: 'gann' },
+    { tag: 'Z', text: '家族性膵がん', romaji: 'kazokuseisuigann' },
   ],
   '膵がん': [
-    { tag: 'Z', text: '膵', romaji: 'suizou' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'H', text: 'がん', romaji: 'gann' },
+    { tag: 'Z', text: '膵がん', romaji: 'suigann' },
   ],
   '膵サーベイランス': [
-    { tag: 'Z', text: '膵', romaji: 'suizou' },
-    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '膵', romaji: 'sui' },
     { tag: 'K', text: 'サーベイランス', romaji: 'sa-beirannsu' },
   ],
   '画像サーベイランス': [
@@ -1229,8 +1220,7 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
   ],
   'プラセボ群': [
     { tag: 'K', text: 'プラセボ', romaji: 'purasebo' },
-    { tag: 'Z', text: '群', romaji: 'mure' },
-    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '群', romaji: 'gunn' },
   ],
   '治療群': [
     { tag: 'Z', text: '治療群', romaji: 'chiryougunn' },
@@ -1240,8 +1230,7 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
   ],
   'コントロール群': [
     { tag: 'K', text: 'コントロール', romaji: 'kontoro-ru' },
-    { tag: 'Z', text: '群', romaji: 'mure' },
-    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '群', romaji: 'gunn' },
   ],
   '観察群': [
     { tag: 'Z', text: '観察群', romaji: 'kansatsugunn' },
@@ -1287,17 +1276,11 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
     { tag: 'Z', text: '閾値', romaji: 'ikichi' },
   ],
   '総計で': [
-    { tag: 'Z', text: '総', romaji: 'sougaku' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '計', romaji: 'keisan' },
-    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '総計', romaji: 'soukei' },
     { tag: 'H', text: 'で', romaji: 'de' },
   ],
   '総計': [
-    { tag: 'Z', text: '総', romaji: 'sougaku' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '計', romaji: 'keisan' },
-    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '総計', romaji: 'soukei' },
   ],
   'サブグループ解析': [
     { tag: 'K', text: 'サブグループ', romaji: 'sabuguru-pu' },
@@ -1315,25 +1298,16 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
 
   // ─── 消化器解剖・内視鏡病理用語（異時性・胃体部・小彎・腺萎縮 等） ───
   '異時性胃癌': [
-    { tag: 'Z', text: '異', romaji: 'kotonaru' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '時性', romaji: 'jisei' },
+    { tag: 'Z', text: '異時性', romaji: 'ijisei' },
     { tag: 'Z', text: '胃癌', romaji: 'igan' },
   ],
   '異時性胃がん': [
-    { tag: 'Z', text: '異', romaji: 'kotonaru' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '時性', romaji: 'jisei' },
+    { tag: 'Z', text: '異時性', romaji: 'ijisei' },
     { tag: 'Z', text: '胃', romaji: 'i' },
     { tag: 'H', text: 'がん', romaji: 'gann' },
   ],
   '異時性': [
-    { tag: 'Z', text: '異', romaji: 'kotonaru' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '時性', romaji: 'jisei' },
+    { tag: 'Z', text: '異時性', romaji: 'ijisei' },
   ],
   '同時性胃癌': [
     { tag: 'Z', text: '同時性', romaji: 'doujisei' },
@@ -1368,9 +1342,7 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
     { tag: 'Z', text: '大彎', romaji: 'daiwan' },
   ],
   '腺萎縮': [
-    { tag: 'Z', text: '腺', romaji: 'sensaibou' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '腺', romaji: 'senn' },
     { tag: 'Z', text: '萎縮', romaji: 'isyuku' },
   ],
   '用法・用量': [
@@ -1430,38 +1402,26 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
     { tag: 'Z', text: '相談', romaji: 'soudann' },
   ],
 
-  // ─── 臨床研究・スクリーニング・同音異義語キラー (Sudachi Mode C長単位結合) ───
+  // ─── 臨床研究・スクリーニング語彙 (Sudachi Mode C長単位結合・BS削り出し完全撤廃) ───
   '血清ペプシノゲン法': [
-    { tag: 'Z', text: '血', romaji: 'chi' },
-    { tag: 'Z', text: '清', romaji: 'kiyomeru' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '血清', romaji: 'kessei' },
     { tag: 'K', text: 'ペプシノゲン', romaji: 'pepushinogenn' },
     { tag: 'Z', text: '法', romaji: 'hou' },
   ],
   '血清': [
-    { tag: 'Z', text: '血', romaji: 'chi' },
-    { tag: 'Z', text: '清', romaji: 'kiyomeru' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '血清', romaji: 'kessei' },
   ],
   'リスク層別化スクリーニング': [
     { tag: 'K', text: 'リスク', romaji: 'risuku' },
-    { tag: 'Z', text: '層', romaji: 'kaisou' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '別化', romaji: 'betuka' },
+    { tag: 'Z', text: '層別化', romaji: 'soubetuka' },
     { tag: 'K', text: 'スクリーニング', romaji: 'sukuri-ningu' },
   ],
   'リスク層別化': [
     { tag: 'K', text: 'リスク', romaji: 'risuku' },
-    { tag: 'Z', text: '層', romaji: 'kaisou' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '別化', romaji: 'betuka' },
+    { tag: 'Z', text: '層別化', romaji: 'soubetuka' },
   ],
   '層別化': [
-    { tag: 'Z', text: '層', romaji: 'kaisou' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '別化', romaji: 'betuka' },
+    { tag: 'Z', text: '層別化', romaji: 'soubetuka' },
   ],
   'ピロリ菌除菌': [
     { tag: 'K', text: 'ピロリ菌', romaji: 'pirorikinn' },
@@ -1470,104 +1430,47 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
   '大腸がん検診受診者': [
     { tag: 'Z', text: '大腸', romaji: 'daityou' },
     { tag: 'H', text: 'がん', romaji: 'gann' },
-    { tag: 'Z', text: '検', romaji: 'kensa' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '診', romaji: 'shinsatsu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '受', romaji: 'ukeru' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '診', romaji: 'shinsatsu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '者', romaji: 'sha' },
+    { tag: 'Z', text: '検診', romaji: 'kenshinn' },
+    { tag: 'Z', text: '受診者', romaji: 'jushinsha' },
   ],
   '検診受診者': [
-    { tag: 'Z', text: '検', romaji: 'kensa' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '診', romaji: 'shinsatsu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '受', romaji: 'ukeru' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '診', romaji: 'shinsatsu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '者', romaji: 'sha' },
+    { tag: 'Z', text: '検診', romaji: 'kenshinn' },
+    { tag: 'Z', text: '受診者', romaji: 'jushinsha' },
   ],
   '受診者': [
-    { tag: 'Z', text: '受', romaji: 'ukeru' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '診', romaji: 'shinsatsu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '者', romaji: 'sha' },
+    { tag: 'Z', text: '受診者', romaji: 'jushinsha' },
   ],
   '内視鏡検診': [
     { tag: 'Z', text: '内視鏡', romaji: 'naishikyou' },
-    { tag: 'Z', text: '検', romaji: 'kensa' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '診', romaji: 'shinsatsu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '検診', romaji: 'kenshinn' },
   ],
   '検診適正化モデル': [
-    { tag: 'Z', text: '検', romaji: 'kensa' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '診', romaji: 'shinsatsu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '検診', romaji: 'kenshinn' },
     { tag: 'Z', text: '適正化', romaji: 'tekiseika' },
     { tag: 'K', text: 'モデル', romaji: 'moderu' },
   ],
   '検診適正化': [
-    { tag: 'Z', text: '検', romaji: 'kensa' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '診', romaji: 'shinsatsu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '検診', romaji: 'kenshinn' },
     { tag: 'Z', text: '適正化', romaji: 'tekiseika' },
   ],
-  '検診': [
-    { tag: 'Z', text: '検', romaji: 'kensa' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '診', romaji: 'shinsatsu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-  ],
-  '受診': [
-    { tag: 'Z', text: '受', romaji: 'ukeru' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '診', romaji: 'shinsatsu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-  ],
   '胃前がん病変': [
-    { tag: 'Z', text: '胃', romaji: 'inou' },
-    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '胃', romaji: 'i' },
     { tag: 'Z', text: '前', romaji: 'mae' },
     { tag: 'H', text: 'がん', romaji: 'gann' },
     { tag: 'Z', text: '病変', romaji: 'byouhenn' },
   ],
   '併施検出': [
-    { tag: 'Z', text: '併', romaji: 'awaseru' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '施', romaji: 'hodokosu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '併施', romaji: 'heishi' },
     { tag: 'Z', text: '検出', romaji: 'kenshutsu' },
   ],
   '併施': [
-    { tag: 'Z', text: '併', romaji: 'awaseru' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'Z', text: '施', romaji: 'hodokosu' },
-    { tag: 'BS', text: '', romaji: '' },
-    { tag: 'BS', text: '', romaji: '' },
+    { tag: 'Z', text: '併施', romaji: 'heishi' },
   ],
   '最新知見': [
     { tag: 'Z', text: '最新知見', romaji: 'saishinchikenn' },
+  ],
+  '知見': [
+    { tag: 'Z', text: '知見', romaji: 'chikenn' },
   ],
   '費用対効果': [
     { tag: 'Z', text: '費用対効果', romaji: 'hiyoutaikouka' },
@@ -1621,7 +1524,7 @@ export const SINGLE_KANJI_DETERMINISTIC_ANCHORS: Record<string, Array<MultiChunk
   '錠': [{ tag: 'Z', text: '錠', romaji: 'jyou' }],
   '包': [{ tag: 'Z', text: '包', romaji: 'hou' }],
   '回': [{ tag: 'Z', text: '回', romaji: 'kai' }],
-  '胃': [{ tag: 'Z', text: '胃', romaji: 'inou' }, { tag: 'BS', text: '', romaji: '' }],
+  '胃': [{ tag: 'Z', text: '胃', romaji: 'i' }],
   '腸': [{ tag: 'Z', text: '腸', romaji: 'tyou' }],
   '肝': [{ tag: 'Z', text: '肝', romaji: 'kann' }],
   '腎': [{ tag: 'Z', text: '腎', romaji: 'jinn' }],
@@ -1658,7 +1561,7 @@ export const SINGLE_KANJI_DETERMINISTIC_ANCHORS: Record<string, Array<MultiChunk
   '喉': [{ tag: 'Z', text: '喉', romaji: 'nodo' }],
   '波': [{ tag: 'Z', text: '波', romaji: 'ha' }],
   '非': [{ tag: 'Z', text: '非', romaji: 'hi' }],
-  '群': [{ tag: 'Z', text: '群', romaji: 'mure' }, { tag: 'BS', text: '', romaji: '' }],
+  '群': [{ tag: 'Z', text: '群', romaji: 'gunn' }],
   '値': [{ tag: 'Z', text: '値', romaji: 'atai' }],
 };
 
@@ -1909,7 +1812,7 @@ export class KeyStrokeCompiler {
   public compileText(text: string, options: CompileOptions = {}): CompileResult {
     const includeImeReset = options.includeImeReset !== false;
     const newlineMode = options.newlineMode || 'enter';
-    const dangerousKanjiDecomposition = options.dangerousKanjiDecomposition !== false;
+    const dangerousKanjiDecomposition = options.dangerousKanjiDecomposition === true;
     const cacheKey = `${includeImeReset ? '1' : '0'}:${newlineMode}:${dangerousKanjiDecomposition ? '1' : '0'}:${text}`;
     const cached = _compileCache.get(cacheKey);
     if (cached) return cached;

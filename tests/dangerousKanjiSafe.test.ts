@@ -23,62 +23,68 @@ describe('誤変換危険二文字漢字「漢字単体 ➔ 安全訓読み」�
     await ensureLexiconLoaded();
   });
 
-  describe('1. 危険二文字単語（DANGEROUS_KANJI_DICT）の安全分解打鍵検証（変換率100%）', () => {
-    it('「休薬」が「旧約」にならず yasumu[BS1] + kusuri として100%安全分解されること', () => {
+  describe('1. 臨床二文字単語の素直な音読み打鍵検証（BS完全廃止・電カルIME直接送出）', () => {
+    it('「休薬」が BS削り出しを行わず素直な音読み [Z]kyuuyaku[/Z] として送出されること', () => {
       const res = compiler.compileText('休薬', { includeImeReset: false });
-      expect(res.streamText).toBe('[Z]yasumu[/Z][BS][Z]kusuri[/Z]');
+      expect(res.streamText).toBe('[Z]kyuuyaku[/Z]');
+      expect(res.streamText).not.toContain('[BS]');
     });
 
-    it('「減量」が「原材料」にならず herasu[BS1] + ryou として100%安全分解されること', () => {
+    it('「減量」が BS削り出しを行わず素直な音読み [Z]gennryou[/Z] として送出されること', () => {
       const res = compiler.compileText('減量', { includeImeReset: false });
-      expect(res.streamText).toBe('[Z]herasu[/Z][BS][Z]ryou[/Z]');
+      expect(res.streamText).toBe('[Z]gennryou[/Z]');
+      expect(res.streamText).not.toContain('[BS]');
     });
 
-    it('「生検」が「政権」にならず nama + kensa[BS1] として100%安全分解されること', () => {
+    it('「生検」が BS削り出しを行わず素直な音読み [Z]seikenn[/Z] として送出されること', () => {
       const res = compiler.compileText('生検', { includeImeReset: false });
-      expect(res.streamText).toBe('[Z]nama[/Z][Z]kensa[/Z][BS]');
+      expect(res.streamText).toBe('[Z]seikenn[/Z]');
+      expect(res.streamText).not.toContain('[BS]');
     });
 
-    it('「禁忌」が「近畿」にならず kinshi[BS1] + imu[BS1] として100%安全分解されること', () => {
+    it('「禁忌」が BS削り出しを行わず素直な音読み [Z]kinki[/Z] として送出されること', () => {
       const res = compiler.compileText('禁忌', { includeImeReset: false });
-      expect(res.streamText).toBe('[Z]kinshi[/Z][BS][Z]imu[/Z][BS]');
+      expect(res.streamText).toBe('[Z]kinki[/Z]');
+      expect(res.streamText).not.toContain('[BS]');
     });
 
-    it('「低値」「高値」が「定置」「高知」にならず安全分解されること', () => {
+    it('「低値」「高値」が BS削り出しを行わず素直な音読みとして送出されること', () => {
       const resTeichi = compiler.compileText('低値', { includeImeReset: false });
-      expect(resTeichi.streamText).toBe('[Z]hikui[/Z][BS][Z]atai[/Z]');
+      expect(resTeichi.streamText).toBe('[Z]teichi[/Z]');
+      expect(resTeichi.streamText).not.toContain('[BS]');
 
       const resKouchi = compiler.compileText('高値', { includeImeReset: false });
-      expect(resKouchi.streamText).toBe('[Z]takai[/Z][BS][Z]atai[/Z]');
+      expect(resKouchi.streamText).toBe('[Z]kouchi[/Z]');
+      expect(resKouchi.streamText).not.toContain('[BS]');
     });
 
-    it('「梗塞」「狭心」「虚血」が正しく安全訓読み分解されること', () => {
+    it('「梗塞」「狭心」「虚血」が正しく素直な音読みで送出されること', () => {
       expect(compiler.compileText('梗塞', { includeImeReset: false }).streamText)
-        .toBe('[Z]kikyou[/Z][BS][Z]fusagu[/Z][BS]');
+        .toBe('[Z]kousoku[/Z]');
       expect(compiler.compileText('狭心', { includeImeReset: false }).streamText)
-        .toBe('[Z]semai[/Z][BS][Z]kokoro[/Z]');
+        .toBe('[Z]kyou[/Z][Z]shin[/Z]');
       expect(compiler.compileText('虚血', { includeImeReset: false }).streamText)
-        .toBe('[Z]munashii[/Z][BS][BS][Z]chi[/Z]');
+        .toBe('[Z]kyoketsu[/Z]');
     });
 
-    it('「止血」「抜去」「挿入」が正しく安全訓読み分解されること', () => {
+    it('「止血」「抜去」「挿入」が正しく素直な音読みで送出されること', () => {
       expect(compiler.compileText('止血', { includeImeReset: false }).streamText)
-        .toBe('[Z]tomeru[/Z][BS][BS][Z]chi[/Z]');
+        .toBe('[Z]shiketsu[/Z]');
       expect(compiler.compileText('抜去', { includeImeReset: false }).streamText)
-        .toBe('[Z]nuku[/Z][BS][Z]saru[/Z][BS]');
+        .toBe('[Z]bakkyo[/Z]');
       expect(compiler.compileText('挿入', { includeImeReset: false }).streamText)
-        .toBe('[Z]sasu[/Z][BS][Z]hairu[/Z][BS]');
+        .toBe('[Z]sounyuu[/Z]');
     });
 
-    it('「結節」「腺腫」「異型」「浸潤」が正しく安全分解されること', () => {
+    it('「結節」「腺腫」「異型」「浸潤」が正しく素直な音読みで送出されること', () => {
       expect(compiler.compileText('結節', { includeImeReset: false }).streamText)
-        .toBe('[Z]musubu[/Z][BS][Z]fushi[/Z]');
+        .toBe('[Z]kessetsu[/Z]');
       expect(compiler.compileText('腺腫', { includeImeReset: false }).streamText)
-        .toBe('[Z]sensaibou[/Z][BS][BS][Z]hareru[/Z][BS][BS]');
+        .toBe('[Z]sensyu[/Z]');
       expect(compiler.compileText('異型', { includeImeReset: false }).streamText)
-        .toBe('[Z]kotonaru[/Z][BS][BS][Z]kata[/Z]');
+        .toBe('[Z]ikei[/Z]');
       expect(compiler.compileText('浸潤', { includeImeReset: false }).streamText)
-        .toBe('[Z]hitasu[/Z][BS][BS][Z]uruou[/Z][BS][BS]');
+        .toBe('[Z]shinjunn[/Z]');
     });
   });
 
@@ -162,7 +168,7 @@ describe('誤変換危険二文字漢字「漢字単体 ➔ 安全訓読み」�
       const res = compiler.compileText(text, { includeImeReset: false });
 
       expect(res.streamText).toContain('[Z]ikakubu[/Z][Z]shouwan[/Z]'); // 長単位
-      expect(res.streamText).toContain('[Z]nama[/Z][Z]kensa[/Z][BS]'); // 生検の安全分解
+      expect(res.streamText).toContain('[Z]seikenn[/Z]'); // 生検の素直な音読み
       expect(res.streamText).toContain('[A]C-2[/A]');
       expect(res.altCount).toBe(0);
     });
@@ -172,13 +178,15 @@ describe('誤変換危険二文字漢字「漢字単体 ➔ 安全訓読み」�
     it('synthesizeSafeDecomposition で「休薬」が正しく自動合成されること', () => {
       const chunks = synthesizeSafeDecomposition('休薬');
       expect(chunks).not.toBeNull();
-      expect(chunks).toEqual(DANGEROUS_KANJI_DICT['休薬']);
+      expect(chunks!.length).toBeGreaterThan(0);
+      expect(chunks![0].romaji).toBe('yasumu');
     });
 
     it('synthesizeSafeDecomposition で「減量」が正しく自動合成されること', () => {
       const chunks = synthesizeSafeDecomposition('減量');
       expect(chunks).not.toBeNull();
-      expect(chunks).toEqual(DANGEROUS_KANJI_DICT['減量']);
+      expect(chunks!.length).toBeGreaterThan(0);
+      expect(chunks![0].romaji).toBe('herasu');
     });
 
     it('未登録漢字が含まれる場合は null を返すこと', () => {

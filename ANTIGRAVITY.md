@@ -949,6 +949,36 @@
     - 全13テストスイート・128件のテストが100% PASS。
     - USB接続直後から0.05秒以内の超高速BLEアドバタイズ送出と、スマホPWAダイアログへの即時「EHR-AI-Dongle」表示を達成。
 
+- **ステップ67: 二文字訓読み分割辞書 ＆ BS削り出しギミックの完全廃止・素直な電カルIME直接送出への回帰 ＆ 臨床運用ディスクレーマー明記 (v2.38.0 / FW v23.6)**
+  - **背景 & 課題（ユーザーからの提起）**:
+    - 「以下のように二文字漢字単語の訓読み登録は想像以上にご変換が多いので、訓読み分割辞書登録は廃止してください。BS削り出し法などの凝ったギミックも一旦廃止して、素直に電カルIMEに渡して、ご変換は電カルで一度修正してもらうようにすれば良いと思います。（同音異義語は電カルIMEに学習させてください等のディスクレーマの対応で）」
+    - ユーザーが実機で経験した誤転送事故：
+      - 「リスク層別化」➔「リスク改別化」（階層-1BSの削り残し）
+      - 「受診者」➔「検受け者」（受ける-1BSの削り残し）
+      - 「併施検出」➔「合わ検出」（併せる-2BSの削り残し）
+      - 「中低」➔「チュ雨亭」
+      - 「検診適正化」➔「検適正化」（診察-2BSの文字脱落）
+  - **根本原因の解明**:
+    - Windows/電子カルテ端末環境では、BackspaceキーのHID送出タイミングとIMEの変換確定タイミングが競合・遅延することがあり、送り仮名を削るためのBackspaceが電カル側で脱落または無視され、削り出そうとした不要文字（「改」「受け」「合わ」等）がカルテ上に残存してしまう。
+    - また、二文字熟語を漢字単体＋BSに細切れ分断することで、電カルIME本来の文脈解析・バイグラム確率が完全に破壊され、後続単語の大誤爆を誘発していた。
+  - **実装・解決内容**:
+    1. **二文字訓読み分割辞書（`DANGEROUS_KANJI_DICT`）の完全廃止**:
+       - `safeKanjiMaster.ts` において、`DANGEROUS_KANJI_DICT` への自動登録を停止し空オブジェクト化。
+       - `KeyStrokeCompiler.ts` の `compileText` において、`dangerousKanjiDecomposition` オプションをデフォルト `false` 化し、H-2ブロック（2文字訓読み分解）をスキップ。
+    2. **BS削り出し法の全面撤廃**:
+       - `SINGLE_KANJI_DETERMINISTIC_ANCHORS`:
+         - `'胃'`: `[{ tag: 'Z', text: '胃', romaji: 'i' }]` (inou+BS 廃止)
+         - `'群'`: `[{ tag: 'Z', text: '群', romaji: 'gunn' }]` (mure+BS 廃止)
+       - `MULTI_CHUNK_LEXICON` 内の全エントリから `[BS]` タグを完全撤廃し、自然な音読み熟語・長単位結合（`heishi`, `kenshinn`, `jushinsha`, `soubetuka`, `chuutei`, `tekiseika`, `ijisei`, `soukei`, `senn`+`isyuku`, `keido` 等）へ回帰。
+       - コード全体から `[BS]`、`[LEFT]`、`[DEL]`、`[RIGHT]` などの危険なカーソル・文字消去タグをカルテ送信ストリームから完全に根絶。
+    3. **臨床運用ディスクレーマー（同音異義語ガイダンス）のUI常設**:
+       - `src/components/nativePwa/ClinicalEditorCard.tsx` のエディタ下部に、注意書きを常時表示：
+         `※同音異義語（血清/結成、検診/健診等）は、電子カルテ端末のIME側で一度正しく変換・学習させてください。`
+    4. **テストスイートの全面更新 & 整合性検証**:
+       - `tests/clinicalTrialMisconversion.test.ts`, `tests/misconversionCorrection.test.ts`, `tests/dangerousKanjiSafe.test.ts`, `tests/keyStrokeCompiler.test.ts` を素直な音読み・BS完全廃止の期待値に整合更新。
+       - 全13テストスイート・127件のテストが 100% PASS を達成。
+       - 本番ビルド（`npm run build`）の正常完了を確認。
+
 ## 5. 運用ルール & 安全指針
 - **完全日本語対応**: コメント、ドキュメント、システムメッセージはすべて日本語で記述する。
 - **ファームウェア更新時の実機自動書き込み（絶対遵守）**: `firmware/src/` 配下のソースコードや設定ファイルを更新・修正した際は、必ず PlatformIO で接続中の T-Dongle-S3 実機（`/dev/ttyACM0` 等）へ即時 Flash Upload を行い、正常起動を確認すること。
