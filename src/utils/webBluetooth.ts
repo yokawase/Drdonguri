@@ -65,6 +65,7 @@ export class BleDongleManager {
   private onDisconnectListener: (() => void) | null = null;
   private isNotifyActive: boolean = false;
   private isWriting: boolean = false;
+  private isSessionTransmitting: boolean = false;
 
   private state: BleConnectionState = 'disconnected';
   private eventListeners: { [K in keyof BleEventMap]?: BleEventMap[K][] } = {};
@@ -79,6 +80,10 @@ export class BleDongleManager {
 
   public getState(): BleConnectionState {
     return this.state;
+  }
+
+  public isTransmitting(): boolean {
+    return this.isSessionTransmitting;
   }
 
   private setState(newState: BleConnectionState): void {
@@ -343,6 +348,7 @@ export class BleDongleManager {
     this.characteristic = null;
     this.isNotifyActive = false;
     this.isWriting = false;
+    this.isSessionTransmitting = false;
     this.setState('disconnected');
     if (this.onDisconnectListener) {
       this.onDisconnectListener();
@@ -629,12 +635,13 @@ export class BleDongleManager {
     this.characteristic = null;
     this.isNotifyActive = false;
     this.isWriting = false;
+    this.isSessionTransmitting = false;
     this.setState('disconnected');
     this.log('sys', 'BLE', '切断処理が完了しました。');
   }
 
   /**
-   * 打鍵ストリーム送出（BLE MTU 240バイトセーフチャンク分割＆フロー制御）
+   * 打鍵ストリーム送出（iOS/Android 単一PDU安全サイズ 180バイト分割＆フロー制御）
    */
   public async sendStream(
     streamText: string,
@@ -647,7 +654,7 @@ export class BleDongleManager {
     const encoder = new TextEncoder();
     const bytes = encoder.encode(streamText);
     const totalBytes = bytes.length;
-    const chunkSize = 240;
+    const chunkSize = 180;
 
     let offset = 0;
     while (offset < totalBytes) {
@@ -666,7 +673,7 @@ export class BleDongleManager {
   }
 
   /**
-   * バッファ安全書き込みヘルパー (2回目送信のデッドロック・GATTストール防止・高速ノンブロッキング)
+   * バッファ安全書き込みヘルパー (iOS/Bluefy ATT_MTU=185 単一PDU保護・GATTストール防止)
    */
   private async writeData(data: Uint8Array): Promise<void> {
     if (!this.characteristic) throw new Error('Characteristicが初期化されていません。');
@@ -688,10 +695,16 @@ export class BleDongleManager {
       // リトライループ (最大3回)
       let lastErr: any = null;
       const props = (this.characteristic as any)?.properties;
+      // iOS / iPadOS (Bluefy / CoreBluetooth) の単一ATT書き込み上限は 182B (ATT_MTU 185 - 3)。
+      // 180B 以下の場合は最速の writeValueWithoutResponse を使用し、
+      // 180B を超える超長文チャンクの場合のみ BLE Long Write 対応の writeValueWithResponse を優先する。
+      const fitsSingleIosPdu = bufferToSend.byteLength <= 180;
+
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          // 1. Android/iOS WebBLEで最速・ストールしない writeValueWithoutResponse を最優先
+          // 1. 単一PDUサイズ (<=180B) は最速・ストールしない writeValueWithoutResponse を最優先
           if (
+            fitsSingleIosPdu &&
             (!props || props.writeWithoutResponse) &&
             typeof (this.characteristic as any).writeValueWithoutResponse === 'function'
           ) {
@@ -891,178 +904,188 @@ export class BleDongleManager {
     session: PreparedSession,
     onProgress?: (progressPercent: number, stage: string) => void
   ): Promise<boolean> {
-    // 送信前に必ず排他ロックをリセット & 中断フラグクリア
-    this.isWriting = false;
     this.isTransmissionAborted = false;
+    this.isSessionTransmitting = true;
 
-    if (!this.isConnected()) {
-      try {
-        await this.ensureConnected();
-      } catch (reconnectErr: any) {
-        throw new Error(`AtomS3Uと再接続できませんでした: ${reconnectErr.message}`);
+    try {
+      // 直前のバックグラウンドGATT書込 (CMD:HUD_SYNC等) が進行中なら完了まで最大600ms待機して衝突を防止
+      const drainStart = Date.now();
+      while (this.isWriting && Date.now() - drainStart < 600) {
+        await new Promise(r => setTimeout(r, 10));
       }
-    }
+      this.isWriting = false;
 
-    return new Promise<boolean>(async (resolve, reject) => {
-      let isReadyForSlots = false;
-      let isCompleted = false;
-
-      const removeAck = this.addAckListener(async (event) => {
-        if (event.sessionId !== session.sessionId) return;
-
-        // 1. セッション受付
-        if (event.ackType === 'SESSION_READY') {
-          isReadyForSlots = true;
-          this.log('sys', 'FLOW', `セッション受付完了 (SID: ${session.sessionId})。スロット送信へ進みます。`);
+      if (!this.isConnected()) {
+        try {
+          await this.ensureConnected();
+        } catch (reconnectErr: any) {
+          throw new Error(`AtomS3Uと再接続できませんでした: ${reconnectErr.message}`);
         }
+      }
 
-        // 2. ピンポイント再送要求 (RETRY)
-        if (event.ackType === 'RETRY' && event.detail) {
-          if (this.isTransmissionAborted) return;
-          const missingSeqs = parseMissingBitmap(event.detail, session.totalPackets);
-          this.log('sys', 'RETRY', `マイコンから再送要求検知: 未着スロット [${missingSeqs.join(', ')}]`);
-          try {
-            for (const seq of missingSeqs) {
-              if (this.isTransmissionAborted) return;
-              const slot = session.slotPackets[seq];
-              if (slot) {
-                this.log('tx', `RETRY#${seq}`, `未着スロット#${seq} をピンポイント再送 (${slot.payloadLen}B)...`);
-                await this.writeData(slot.fullPacket);
-                await new Promise(r => setTimeout(r, 30));
-              }
-            }
-          } catch (e: any) {
-            this.log('sys', 'ERR', `再送処理中のエラー: ${e.message}`);
+      return await new Promise<boolean>(async (resolve, reject) => {
+        let isReadyForSlots = false;
+        let isCompleted = false;
+
+        const removeAck = this.addAckListener(async (event) => {
+          if (event.sessionId !== session.sessionId) return;
+
+          // 1. セッション受付
+          if (event.ackType === 'SESSION_READY') {
+            isReadyForSlots = true;
+            this.log('sys', 'FLOW', `セッション受付完了 (SID: ${session.sessionId})。スロット送信へ進みます。`);
           }
-        }
 
-        // 3. 全パケット受信完了・検証完了 ➔ 自動打鍵トリガー送出 (CMD:TRIGGER)
-        if (event.ackType === 'ALL_PACKETS_READY') {
-          if (onProgress) onProgress(96, '全パケット照合完了！電カルへ自動打鍵を開始中...');
-          this.log('sys', 'FLOW', '★全パケット受信・全体CRC照合完了！自動打鍵トリガー(CMD:TRIGGER)を送出します。');
-          // ドングルへ CMD:TRIGGER を即時送出 (ファームウェア側と二重保証)
-          setTimeout(async () => {
-            if (this.isTransmissionAborted || isCompleted) return;
+          // 2. ピンポイント再送要求 (RETRY)
+          if (event.ackType === 'RETRY' && event.detail) {
+            if (this.isTransmissionAborted) return;
+            const missingSeqs = parseMissingBitmap(event.detail, session.totalPackets);
+            this.log('sys', 'RETRY', `マイコンから再送要求検知: 未着スロット [${missingSeqs.join(', ')}]`);
             try {
-              if (this.isConnected()) {
-                await this.sendCommand('CMD:TRIGGER');
+              for (const seq of missingSeqs) {
+                if (this.isTransmissionAborted) return;
+                const slot = session.slotPackets[seq];
+                if (slot) {
+                  this.log('tx', `RETRY#${seq}`, `未着スロット#${seq} をピンポイント再送 (${slot.payloadLen}B)...`);
+                  await this.writeData(slot.fullPacket);
+                  await new Promise(r => setTimeout(r, 30));
+                }
               }
-            } catch (err: any) {
-              this.log('sys', 'DEBUG', `CMD:TRIGGER通知: ${err?.message || err}`);
+            } catch (e: any) {
+              this.log('sys', 'ERR', `再送処理中のエラー: ${e.message}`);
             }
-          }, 60);
-        }
-
-        // 4. 打鍵開始検知 (リモートCMD:TRIGGER または 本体物理ボタン押下)
-        if (
-          event.ackType === 'DISPATCH_STARTED' ||
-          event.ackType === 'REMOTE_TRIGGER_ACCEPTED' ||
-          event.ackType === 'ALREADY_TYPING' ||
-          event.ackType === 'PHYSICAL_BTN_PRESSED'
-        ) {
-          if (onProgress) onProgress(98, 'カルテ端末へ自動打鍵中... (LED赤色)');
-          this.log('sys', 'FLOW', '打鍵開始を検知。USB-HIDキーストローク送出中...');
-        }
-
-        // 5. 打鍵完了検知
-        if (event.ackType === 'USB_REPORTS_SENT' || event.ackType === 'HVC_SCORE') {
-          if (onProgress) onProgress(100, '打鍵完了！カルテ画面の入力を確認してください。');
-          this.log('sys', 'FLOW', '打鍵完了！電子カルテ画面に正常に入力されました。');
-          isCompleted = true;
-          removeAck();
-          resolve(true);
-        }
-
-        // 6. エラー通知
-        if (event.ackType.startsWith('ERR_')) {
-          this.log('sys', 'ERR', `マイコン側エラー通知: ${event.ackType} ${event.detail || ''}`);
-          removeAck();
-          reject(new Error(`マイコンエラー: ${event.ackType} ${event.detail || ''}`));
-        }
-      });
-
-      try {
-        if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
-
-        // ステップ1: セッション初期化フレーム (8バイト) 送信
-        this.log('tx', 'INIT', `セッション初期化フレーム送信 (SID:${session.sessionId}, Pkts:${session.totalPackets}, Bytes:${session.totalBytes}, CRC:0x${session.totalCrc16.toString(16).toUpperCase()})`, toHexDump(session.initPacket));
-        if (onProgress) onProgress(5, 'セッション初期化中...');
-        
-        await this.writeData(session.initPacket);
-
-        if (this.isNotifyActive) {
-          // マイコンからの SESSION_READY を待機 (最大600ms)
-          const waitStart = Date.now();
-          while (!isReadyForSlots && Date.now() - waitStart < 600) {
-            if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
-            await new Promise(r => setTimeout(r, 20));
           }
 
-          if (!isReadyForSlots) {
-            this.log('sys', 'WARN', 'SESSION_READY の応答待機タイムアウト。スロット送信へ進みます。');
+          // 3. 全パケット受信完了・検証完了 ➔ 自動打鍵トリガー送出 (CMD:TRIGGER)
+          if (event.ackType === 'ALL_PACKETS_READY') {
+            if (onProgress) onProgress(96, '全パケット照合完了！電カルへ自動打鍵を開始中...');
+            this.log('sys', 'FLOW', '★全パケット受信・全体CRC照合完了！自動打鍵トリガー(CMD:TRIGGER)を送出します。');
+            // ドングルへ CMD:TRIGGER を即時送出 (ファームウェア側と二重保証)
+            setTimeout(async () => {
+              if (this.isTransmissionAborted || isCompleted) return;
+              try {
+                if (this.isConnected()) {
+                  await this.sendCommand('CMD:TRIGGER');
+                }
+              } catch (err: any) {
+                this.log('sys', 'DEBUG', `CMD:TRIGGER通知: ${err?.message || err}`);
+              }
+            }, 60);
           }
-        } else {
-          await new Promise(r => setTimeout(r, 40));
-        }
 
-        // ステップ2: 各スロットパケット順次送信 (安定インターバル 35ms)
-        for (let i = 0; i < session.slotPackets.length; i++) {
-          if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
-
-          const slot = session.slotPackets[i];
-          const pct = Math.floor(10 + ((i + 1) / session.slotPackets.length) * 85);
-          if (onProgress) onProgress(pct, `スロット #${i + 1}/${session.totalPackets} 送信中...`);
-
-          this.log('tx', `SLOT#${i}`, `スロット #${i} 送信 (${slot.payloadLen}B, CRC:0x${slot.chunkCrc16.toString(16).toUpperCase()})`, toHexDump(slot.fullPacket));
-          await this.writeData(slot.fullPacket);
-          await new Promise(r => setTimeout(r, 35));
-        }
-
-        if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
-
-        if (!this.isNotifyActive) {
-          await new Promise(r => setTimeout(r, 100));
-          try {
-            await this.sendCommand('CMD:TRIGGER');
-          } catch {}
-          await new Promise(r => setTimeout(r, 200));
-          if (onProgress) onProgress(100, '全パケット送信完了！自動打鍵を開始しました。');
-          this.log('sys', 'FLOW', '★全パケット送信完了＆CMD:TRIGGER送出完了。');
-          removeAck();
-          resolve(true);
-          return;
-        }
-
-        if (onProgress) onProgress(95, '全パケット送信完了。マイコン照合待機中...');
-
-        // マイコンからの ALL_PACKETS_READY / USB_REPORTS_SENT 受信待機タイムアウト
-        // 打鍵時間は 11ms 遅延 × キーストローク数 (600Bで約15秒) となるため、
-        // ペイロード長に応じた動的セーフティタイムアウト（最低25秒）を設定し、誤タイムアウトを完全防止
-        const dynamicTimeoutMs = Math.max(25000, session.totalBytes * 50);
-
-        const checkInterval = setInterval(() => {
-          if (this.isTransmissionAborted) {
-            clearInterval(checkInterval);
-            removeAck();
-            reject(new Error('TRANSMISSION_ABORTED'));
+          // 4. 打鍵開始検知 (リモートCMD:TRIGGER または 本体物理ボタン押下)
+          if (
+            event.ackType === 'DISPATCH_STARTED' ||
+            event.ackType === 'REMOTE_TRIGGER_ACCEPTED' ||
+            event.ackType === 'ALREADY_TYPING' ||
+            event.ackType === 'PHYSICAL_BTN_PRESSED'
+          ) {
+            if (onProgress) onProgress(98, 'カルテ端末へ自動打鍵中... (LED赤色)');
+            this.log('sys', 'FLOW', '打鍵開始を検知。USB-HIDキーストローク送出中...');
           }
-        }, 100);
 
-        setTimeout(() => {
-          clearInterval(checkInterval);
-          if (!isCompleted && !this.isTransmissionAborted) {
+          // 5. 打鍵完了検知
+          if (event.ackType === 'USB_REPORTS_SENT' || event.ackType === 'HVC_SCORE') {
+            if (onProgress) onProgress(100, '打鍵完了！カルテ画面の入力を確認してください。');
+            this.log('sys', 'FLOW', '打鍵完了！電子カルテ画面に正常に入力されました。');
             isCompleted = true;
             removeAck();
-            this.log('sys', 'ERR', '完了ACK (ALL_PACKETS_READY / USB_REPORTS_SENT) の受信がタイムアウトしました。ドングル側で打鍵が完了していない可能性があるため、未達として扱います。');
-            resolve(false);
+            resolve(true);
           }
-        }, dynamicTimeoutMs);
 
-      } catch (err: any) {
-        removeAck();
-        reject(err);
-      }
-    });
+          // 6. エラー通知
+          if (event.ackType.startsWith('ERR_')) {
+            this.log('sys', 'ERR', `マイコン側エラー通知: ${event.ackType} ${event.detail || ''}`);
+            removeAck();
+            reject(new Error(`マイコンエラー: ${event.ackType} ${event.detail || ''}`));
+          }
+        });
+
+        try {
+          if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
+
+          // ステップ1: セッション初期化フレーム (8バイト) 送信
+          this.log('tx', 'INIT', `セッション初期化フレーム送信 (SID:${session.sessionId}, Pkts:${session.totalPackets}, Bytes:${session.totalBytes}, CRC:0x${session.totalCrc16.toString(16).toUpperCase()})`, toHexDump(session.initPacket));
+          if (onProgress) onProgress(5, 'セッション初期化中...');
+          
+          await this.writeData(session.initPacket);
+
+          if (this.isNotifyActive) {
+            // マイコンからの SESSION_READY を待機 (最大600ms)
+            const waitStart = Date.now();
+            while (!isReadyForSlots && Date.now() - waitStart < 600) {
+              if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
+              await new Promise(r => setTimeout(r, 20));
+            }
+
+            if (!isReadyForSlots) {
+              this.log('sys', 'WARN', 'SESSION_READY の応答待機タイムアウト。スロット送信へ進みます。');
+            }
+          } else {
+            await new Promise(r => setTimeout(r, 40));
+          }
+
+          // ステップ2: 各スロットパケット順次送信 (安定インターバル 30ms)
+          for (let i = 0; i < session.slotPackets.length; i++) {
+            if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
+
+            const slot = session.slotPackets[i];
+            const pct = Math.floor(10 + ((i + 1) / session.slotPackets.length) * 85);
+            if (onProgress) onProgress(pct, `スロット #${i + 1}/${session.totalPackets} 送信中...`);
+
+            this.log('tx', `SLOT#${i}`, `スロット #${i} 送信 (${slot.payloadLen}B, CRC:0x${slot.chunkCrc16.toString(16).toUpperCase()})`, toHexDump(slot.fullPacket));
+            await this.writeData(slot.fullPacket);
+            await new Promise(r => setTimeout(r, 30));
+          }
+
+          if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
+
+          if (!this.isNotifyActive) {
+            await new Promise(r => setTimeout(r, 100));
+            try {
+              await this.sendCommand('CMD:TRIGGER');
+            } catch {}
+            await new Promise(r => setTimeout(r, 200));
+            if (onProgress) onProgress(100, '全パケット送信完了！自動打鍵を開始しました。');
+            this.log('sys', 'FLOW', '★全パケット送信完了＆CMD:TRIGGER送出完了。');
+            removeAck();
+            resolve(true);
+            return;
+          }
+
+          if (onProgress) onProgress(95, '全パケット送信完了。マイコン照合待機中...');
+
+          // マイコンからの ALL_PACKETS_READY / USB_REPORTS_SENT 受信待機タイムアウト
+          // 打鍵時間は 11ms 遅延 × キーストローク数 (600Bで約15秒) となるため、
+          // ペイロード長に応じた動的セーフティタイムアウト（最低25秒）を設定し、誤タイムアウトを完全防止
+          const dynamicTimeoutMs = Math.max(25000, session.totalBytes * 50);
+
+          const checkInterval = setInterval(() => {
+            if (this.isTransmissionAborted) {
+              clearInterval(checkInterval);
+              removeAck();
+              reject(new Error('TRANSMISSION_ABORTED'));
+            }
+          }, 100);
+
+          setTimeout(() => {
+            clearInterval(checkInterval);
+            if (!isCompleted && !this.isTransmissionAborted) {
+              isCompleted = true;
+              removeAck();
+              this.log('sys', 'ERR', '完了ACK (ALL_PACKETS_READY / USB_REPORTS_SENT) の受信がタイムアウトしました。ドングル側で打鍵が完了していない可能性があるため、未達として扱います。');
+              resolve(false);
+            }
+          }, dynamicTimeoutMs);
+
+        } catch (err: any) {
+          removeAck();
+          reject(err);
+        }
+      });
+    } finally {
+      this.isSessionTransmitting = false;
+    }
   }
 
   /**
@@ -1094,6 +1117,7 @@ export class BleDongleManager {
 
   /**
    * 現在のカルテの形態素カウント・HVCスコア・安全監査アラート・バイタル要約をT-Dongle-S3液晶へ同期
+   * ※ 電カル打鍵セッション送出中 (isSessionTransmitting / isWriting) は GATT 衝突防止のため完全スキップ
    */
   async syncHudTelemetry(
     z: number,
@@ -1104,11 +1128,15 @@ export class BleDongleManager {
     alerts: number,
     vitalSummary: string
   ): Promise<void> {
-    if (!this.isConnected()) return;
+    if (!this.isConnected() || this.isSessionTransmitting || this.isWriting) return;
     const safeVital = (vitalSummary || 'BP 142/86 HR 82')
       .replace(/[\r\n,]/g, ' ')
       .slice(0, 24);
-    await this.sendCommand(`CMD:HUD_SYNC:${z},${k},${a},${h},${hvc},${alerts},${safeVital}`);
+    try {
+      await this.sendCommand(`CMD:HUD_SYNC:${z},${k},${a},${h},${hvc},${alerts},${safeVital}`);
+    } catch {
+      // HUD同期失敗は本体送信に影響させない
+    }
   }
 
   /**

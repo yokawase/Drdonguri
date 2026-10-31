@@ -22,6 +22,8 @@
 // TinyUSB マウント監視API
 extern "C" bool tud_mounted(void);
 
+bool ensureSpiffsMounted();
+
 #if defined(T_DONGLE_S3)
 #include "donguri_display.h"
 #include "SD_MMC.h"
@@ -32,14 +34,39 @@ extern "C" bool tud_mounted(void);
 #define SD_CMD_PIN          16
 #define SD_D0_PIN           14
 static bool g_sdMounted = false;
+static bool g_atlasStorageInitialized = false;
+static volatile bool g_bleDisplayDirty = false;
+static volatile bool g_prnDisplayDirty = false;
 #include <WiFi.h>
 #include <WebServer.h>
 static WebServer g_httpServer(80);
 static bool g_wifiApActive = false;
 static MindsGuidelineEngine g_mindsEngine;
 
+void ensureAtlasStorageReady() {
+  if (g_atlasStorageInitialized) return;
+  g_atlasStorageInitialized = true;
+
+  if (ensureSpiffsMounted()) {
+    g_mindsEngine.beginFlash("/minds_cds.bin");
+  }
+
+  SD_MMC.setPins(SD_CLK_PIN, SD_CMD_PIN, SD_D0_PIN);
+  g_sdMounted = SD_MMC.begin("/sdcard", true);
+  if (!g_sdMounted) {
+    SD_MMC.setPins(SD_CLK_PIN, SD_CMD_PIN, SD_D0_PIN, 17, 21, 18);
+    g_sdMounted = SD_MMC.begin("/sdcard", false);
+  }
+  if (g_sdMounted) {
+    g_mindsEngine.beginSdCard(SD_MMC, "/minds_fulltext.dat");
+  }
+}
+
 void initWifiSoftAp() {
   if (g_wifiApActive) return;
+  // Wi-Fi AP ストリーミング要求時にのみオンデマンドで Minds & MicroSD を初期化（起動時の Core 1 ブロッキング完全排除）
+  ensureAtlasStorageReady();
+
   WiFi.mode(WIFI_AP);
   WiFi.softAP("Drdonguri-Atlas-Direct", "drdonguri");
   WiFi.setSleep(true); // BLEパケット優先・省電力共存モード
@@ -47,7 +74,10 @@ void initWifiSoftAp() {
   g_httpServer.on("/api/status", HTTP_GET, []() {
     g_httpServer.sendHeader("Access-Control-Allow-Origin", "*");
     g_httpServer.sendHeader("Access-Control-Allow-Private-Network", "true");
-    g_httpServer.send(200, "application/json", "{\"status\":\"ok\",\"model\":\"T-Dongle-S3\",\"sdMounted\":true}");
+    g_httpServer.send(200, "application/json",
+      g_sdMounted
+        ? "{\"status\":\"ok\",\"model\":\"T-Dongle-S3\",\"sdMounted\":true}"
+        : "{\"status\":\"ok\",\"model\":\"T-Dongle-S3\",\"sdMounted\":false}");
   });
 
   // Minds 診療ガイドライン CDS & SRAMキャッシュ統計API
@@ -165,7 +195,7 @@ void updateTypingProgress(int pct);
 
 // プロトコル制約
 #define MAX_PAYLOAD_SIZE    4096
-#define MAX_PACKETS         16
+#define MAX_PACKETS         24
 #define MAX_PACKET_LEN      512
 #define BLE_CHUNK_SIZE      (8 + MAX_PACKET_LEN)
 #define BLE_QUEUE_SIZE      32
@@ -308,6 +338,7 @@ struct PrinterChunkItem {
 static QueueHandle_t s_printer_queue = nullptr;
 static uint32_t s_last_printer_rx_ms = 0;
 static volatile bool s_printer_job_active = false;
+static volatile bool g_dfuRequested = false;
 static uint32_t s_printer_total_bytes = 0;
 
 void setLedColor(uint8_t r, uint8_t g, uint8_t b, bool forceRefresh = false);
@@ -316,9 +347,9 @@ void setLedBrightness(uint8_t pct);
 void onPrinterDataReceived(const uint8_t* data, uint16_t len) {
   if (len == 0 || data == nullptr) return;
 
-  // USB仮想プリンタ経由でのDFUブートローダー突入コマンド検知
+  // USB仮想プリンタ経由でのDFUブートローダー突入コマンド検知 (Core 1 loop で安全にPHY切替リセット)
   if (len >= 7 && (strncmp((const char*)data, "CMD:DFU", 7) == 0 || strncmp((const char*)data, "CMD:REBOOT_BOOTLOADER", 21) == 0)) {
-    rebootToBootloader();
+    g_dfuRequested = true;
     return;
   }
 
@@ -327,10 +358,7 @@ void onPrinterDataReceived(const uint8_t* data, uint16_t len) {
   s_printer_total_bytes += len;
   setLedColor(0, 96, 96); // シアン点灯 (電カル吸い上げ中)
 #if defined(T_DONGLE_S3)
-  char prnBuf[24];
-  snprintf(prnBuf, sizeof(prnBuf), "PULL %uB", (unsigned int)s_printer_total_bytes);
-  g_display.showFace(FACE_RECEIVING);
-  g_display.updateStatus(prnBuf, 0, 0, 0, 0, 50, 0, "Pulling EHR");
+  g_prnDisplayDirty = true;
 #endif
 
   if (s_printer_queue != nullptr) {
@@ -364,6 +392,15 @@ static SystemState currentState = STATE_WAITING_BLE;
 static bool isBleConnected = false;
 static bool lastUsbState = false;
 static bool spiffsMounted = false;
+static bool spiffsMountAttempted = false;
+
+bool ensureSpiffsMounted() {
+  if (spiffsMounted) return true;
+  if (spiffsMountAttempted) return false;
+  spiffsMountAttempted = true;
+  spiffsMounted = SPIFFS.begin(true);
+  return spiffsMounted;
+}
 
 static MessageContext currentMsg;
 
@@ -521,11 +558,12 @@ void setLedBrightness(uint8_t pct) {
 #endif
 }
 
-// ソフトウェアから ROM ダウンロードモード（ブートローダー）へ突入
+// ソフトウェアから ROM ダウンロードモード（ブートローダー）へ突入 (ESP32-S3 USB-Serial/JTAG PHY自動切替)
 void rebootToBootloader() {
   Serial.println("[BOOT] Entering ROM Bootloader for flashing...");
   setLedColor(64, 0, 64); // 紫色点灯（書込モード移行）
   delay(150);
+  usb_persist_restart(RESTART_BOOTLOADER);
   REG_WRITE(RTC_CNTL_OPTION1_REG, RTC_CNTL_FORCE_DOWNLOAD_BOOT);
   esp_restart();
 }
@@ -924,7 +962,7 @@ bool lookupKanjiYomi(File& f, uint16_t count, const char* utf8Char, char* outRom
 }
 
 bool lookupKanjiYomi(const char* utf8Char, char* outRomaji, size_t maxLen) {
-  if (utf8Char == nullptr || !spiffsMounted) return false;
+  if (utf8Char == nullptr || !ensureSpiffsMounted()) return false;
 
   File f = SPIFFS.open("/kanji_yomi.bin", "r");
   if (!f) return false;
@@ -980,7 +1018,7 @@ bool lookupMedicalTerm(File& f, uint32_t count, const char* word, size_t len, Me
 }
 
 bool lookupMedicalTerm(const char* word, size_t len, MedTermRecord* outRec) {
-  if (word == nullptr || len == 0 || !spiffsMounted) return false;
+  if (word == nullptr || len == 0 || !ensureSpiffsMounted()) return false;
 
   File f = SPIFFS.open("/med_terms.bin", "r");
   if (!f) return false;
@@ -1236,13 +1274,18 @@ bool dispatchSafeKeystrokes() {
   g_tagH = 0;
   updateTypingProgress(0);
 
-  // SPIFFS辞書ファイルのオープン（打鍵セッション中のみファイルハンドルを保持）
+  // SPIFFS辞書ファイルは、タグ外の生マルチバイトUTF-8文字に出くわした場合のみオンデマンドでマウント・オープンする
+  // （PWA KeyStrokeCompiler からの v20.1 HYBRID [Z][K][H][A] ストリームでは Flash I/O 0ms）
   File fYomi;
   File fTerms;
   uint16_t yomiCount = 0;
   uint32_t termCount = 0;
+  bool dictsOpened = false;
 
-  if (spiffsMounted) {
+  auto openSpiffsDictsIfNeeded = [&]() {
+    if (dictsOpened) return;
+    dictsOpened = true;
+    if (!ensureSpiffsMounted()) return;
     if (SPIFFS.exists("/kanji_yomi.bin")) {
       fYomi = SPIFFS.open("/kanji_yomi.bin", "r");
       if (fYomi) {
@@ -1265,7 +1308,7 @@ bool dispatchSafeKeystrokes() {
         }
       }
     }
-  }
+  };
 
   while (i < total) {
     char c = buf[i];
@@ -1607,6 +1650,7 @@ bool dispatchSafeKeystrokes() {
     // ------------------------------------------------------------------------
     // D. マルチバイトUTF-8処理 (レベル2, レベル3, レベル4)
     // ------------------------------------------------------------------------
+    openSpiffsDictsIfNeeded();
 
     // 【レベル2】: /med_terms.bin に合致する医薬品・傷病名の最長一致判定 (Zero-RAM二分探索)
     bool termMatched = false;
@@ -2054,12 +2098,13 @@ void dispatchOutput() {
 // ============================================================================
 class MyServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer* pServer) override {
+    (void)pServer;
     isBleConnected = true;
     currentState = STATE_BLE_CONNECTED;
     setLedColor(0, 64, 0); // 接続完了: 緑点灯
 #if defined(T_DONGLE_S3)
-    g_display.showFace(FACE_IDLE);
-    g_display.updateStatus("BLE READY", 0, 0, 0, 0, 0, 0, "Minds 3.3K (RAM)");
+    // Core 0 (BTC_TASK) からの直接 SPI2 LCD 転送によるスタック圧迫・バス競合を防ぐため、Core 1 loop で描画更新
+    g_bleDisplayDirty = true;
 #endif
   }
 
@@ -2081,8 +2126,7 @@ class MyServerCallbacks : public BLEServerCallbacks {
     Keyboard.releaseAll();
     setLedColor(0, 0, 64); // 待機状態: 青点灯
 #if defined(T_DONGLE_S3)
-    g_display.showFace(FACE_IDLE);
-    g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, "Minds 3.3K (RAM)");
+    g_bleDisplayDirty = true;
 #endif
     // 切断直後に即時再アドバタイズを開始（再接続待ち時間をゼロ化）
     pServer->startAdvertising();
@@ -2109,7 +2153,7 @@ class MyCallbacks : public BLECharacteristicCallbacks {
 };
 
 // ============================================================================
-// Arduino setup()
+// Arduino setup() - サブ秒 (0.12秒以内) 即時 loop() 到達アーキテクチャ (FW v24.0)
 // ============================================================================
 void setup() {
 #if defined(T_DONGLE_S3)
@@ -2125,6 +2169,8 @@ void setup() {
   pinMode(FRONT_BTN_PIN, INPUT_PULLUP);
 
   setLedColor(0, 0, 64); // 青色（起動中）
+  secureWipeMessageContext();
+  resetButtonState();
 
   // ============================================================================
   // 1. USB-HID ＆ 仮想プリンター (Class 07h) 最速列挙
@@ -2144,10 +2190,26 @@ void setup() {
   USB.productName("Donguri Medical Coprocessor");
   USB.manufacturerName("MedArt");
   USB.begin();
+  Keyboard.releaseAll();
+  lastUsbState = tud_mounted();
 
   // ============================================================================
-  // 2. BLE最速起動＆アドバタイジング開始 (USB初期化直後 0.05秒以内)
-  // 主パケット完全デバイス名格納により、スマホスキャン初弾でPWAに即座に表示・接続可能
+  // 2. ディスプレイ初期化 & 平常時 Wi-Fi 完全休止 (T-Dongle-S3, ~30ms)
+  // ※ SPIFFS(9.9MB) / Minds(1.7MB) / SD_MMC の起動時同期スキャンは Core 1 (loopTask) を
+  //    60〜120秒間フリーズさせ、「BLE接続直後に電カル送信を押しても1分以上赤LEDが点かず待機する」
+  //    致命的遅延を引き起こすため setup() から完全排除し、必要時オンデマンド初期化する。
+  // ============================================================================
+#if defined(T_DONGLE_S3)
+  WiFi.mode(WIFI_OFF);
+  g_wifiApActive = false;
+
+  g_display.init();
+  g_display.showFace(FACE_IDLE);
+  g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, "Instant Ready");
+#endif
+
+  // ============================================================================
+  // 3. BLE起動＆アドバタイジング開始 ➔ 直ちに loop() 突入 (0.12秒以内)
   // ============================================================================
   bleQueue = xQueueCreate(BLE_QUEUE_SIZE, sizeof(BleQueueItem));
 
@@ -2178,8 +2240,6 @@ void setup() {
 
   // 主アドバタイズパケット（ADV_IND: 18バイト ≦ 31バイト）
   // Flags(3バイト) + Complete Local Name "EHR-AI-Dongle"(15バイト) = 18バイト
-  // 主パケットに完全デバイス名を直接格納することで、SCAN_RSP待ち遅延をゼロ化し、
-  // スマホスキャン初弾(0.02〜0.03秒)でPWAダイアログに「EHR-AI-Dongle」を即時表示させる
   BLEAdvertisementData oAdvertisementData;
   oAdvertisementData.setFlags(0x06);
   oAdvertisementData.setName("EHR-AI-Dongle");
@@ -2193,69 +2253,45 @@ void setup() {
   pAdvertising->setScanResponseData(oScanResponseData);
   pAdvertising->setScanResponse(true);
 
-  // 高速スキャン応答インターバル: 20ms〜30ms (単位: 0.625ms ➔ 0x20〜0x30)
-  // デフォルトの遅延(100〜1000ms)を排し、スマホ・PCのスキャンウィンドウへ超高頻度にヒットさせる
   pAdvertising->setMinInterval(0x20); // 20ms
   pAdvertising->setMaxInterval(0x30); // 30ms
   pAdvertising->setMinPreferred(0x0C); // 15ms (Android/iOS標準互換)
   pAdvertising->setMaxPreferred(0x18); // 30ms (Android/iOS標準互換)
   pAdvertising->start();
 
-  // ============================================================================
-  // 3. ディスプレイ初期化 (T-Dongle-S3)
-  // ============================================================================
-#if defined(T_DONGLE_S3)
-  g_display.init();
-  g_display.showFace(FACE_IDLE);
-  g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, "Booting...");
-#endif
-
-  // ============================================================================
-  // 4. SPIFFS & Minds CDS ガイドラインエンジン初期化
-  // ============================================================================
-  spiffsMounted = SPIFFS.begin(true);
-#if defined(T_DONGLE_S3)
-  if (spiffsMounted) {
-    g_mindsEngine.beginFlash("/minds_cds.bin");
+  if (!isBleConnected) {
+    setLedColor(0, 0, 64); // 青色（BLE接続待機中）
   }
-#endif
-
-  // ============================================================================
-  // 5. MicroSD & Wi-Fi SoftAP 初期化 (バックグラウンド処理)
-  // ============================================================================
-#if defined(T_DONGLE_S3)
-  SD_MMC.setPins(SD_CLK_PIN, SD_CMD_PIN, SD_D0_PIN);
-  g_sdMounted = SD_MMC.begin("/sdcard", true);
-  if (!g_sdMounted) {
-    SD_MMC.setPins(SD_CLK_PIN, SD_CMD_PIN, SD_D0_PIN, 17, 21, 18);
-    g_sdMounted = SD_MMC.begin("/sdcard", false);
-  }
-  if (g_sdMounted) {
-    g_mindsEngine.beginSdCard("/minds_fulltext.dat");
-  }
-
-  // ★【平常時 Wi-Fi 完全休止】
-  // Wi-Fi SoftAP (100ms周期ビーコン) は同一2.4GHz RFアンテナをBLEと奪い合い、
-  // iOS / Android でのパケット衝突・遅延・ジッター・発熱を招くため、平常時は WIFI_OFF で待機。
-  // 必要な場合のみ BLE コマンド (CMD:WIFI_AP_START) でオンデマンド起動する。
-  WiFi.mode(WIFI_OFF);
-  g_wifiApActive = false;
-
-  g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, g_sdMounted ? "SD:OK | BLE" : "Minds 3.3K (RAM)");
-#endif
-
-  secureWipeMessageContext();
-  resetButtonState();
-  Keyboard.releaseAll();
-  lastUsbState = tud_mounted();
-  setLedColor(0, 0, 64); // 青色（BLE接続待機中）
 }
 
 // ============================================================================
 // Arduino loop()
 // ============================================================================
 void loop() {
+  if (g_dfuRequested) {
+    g_dfuRequested = false;
+    delay(80);
+    rebootToBootloader();
+    return;
+  }
+
 #if defined(T_DONGLE_S3)
+  if (g_bleDisplayDirty) {
+    g_bleDisplayDirty = false;
+    g_display.showFace(FACE_IDLE);
+    g_display.updateStatus(
+      isBleConnected ? "BLE READY" : "WAITING BLE",
+      0, 0, 0, 0, 0, 0,
+      isBleConnected ? "Instant Ready" : "Minds 10-Masters"
+    );
+  }
+  if (g_prnDisplayDirty) {
+    g_prnDisplayDirty = false;
+    char prnBuf[24];
+    snprintf(prnBuf, sizeof(prnBuf), "PULL %uB", (unsigned int)s_printer_total_bytes);
+    g_display.showFace(FACE_RECEIVING);
+    g_display.updateStatus(prnBuf, 0, 0, 0, 0, 50, 0, "Pulling EHR");
+  }
   if (g_wifiApActive) {
     g_httpServer.handleClient();
   }
@@ -2566,10 +2602,14 @@ void loop() {
         currentMsg.mode = mode;
         currentMsg.lastActivityTime = millis();
 #if defined(T_DONGLE_S3)
-        int rxPct = (currentMsg.totalPackets > 0) ? (currentMsg.receivedCount * 100) / currentMsg.totalPackets : 0;
-        char rxBuf[24];
-        snprintf(rxBuf, sizeof(rxBuf), "RECV %d%%", rxPct);
-        g_display.updateStatus(rxBuf, 0, 0, 0, 0, rxPct, 0, "EHR Stream");
+        static unsigned long s_lastSlotLcdMs = 0;
+        if (millis() - s_lastSlotLcdMs >= 80 || currentMsg.receivedCount == currentMsg.totalPackets) {
+          s_lastSlotLcdMs = millis();
+          int rxPct = (currentMsg.totalPackets > 0) ? (currentMsg.receivedCount * 100) / currentMsg.totalPackets : 0;
+          char rxBuf[24];
+          snprintf(rxBuf, sizeof(rxBuf), "RECV %d%%", rxPct);
+          g_display.updateStatus(rxBuf, 0, 0, 0, 0, rxPct, 0, "EHR Stream");
+        }
 #endif
       }
 
@@ -2630,14 +2670,18 @@ void loop() {
     if (millis() - currentMsg.lastActivityTime > RX_TIMEOUT_MS) {
       if (currentMsg.retryAttempts < MAX_RETRY_COUNT) {
         currentMsg.retryAttempts++;
-        uint16_t missingBitmap = 0;
+        uint32_t missingBitmap = 0;
         for (uint8_t pIdx = 0; pIdx < currentMsg.totalPackets; pIdx++) {
           if (!currentMsg.slots[pIdx].received) {
-            missingBitmap |= (1 << pIdx);
+            missingBitmap |= (1UL << pIdx);
           }
         }
-        char bitmapHex[10];
-        snprintf(bitmapHex, sizeof(bitmapHex), "0x%04X", missingBitmap);
+        char bitmapHex[14];
+        if (currentMsg.totalPackets <= 16) {
+          snprintf(bitmapHex, sizeof(bitmapHex), "0x%04X", (unsigned int)missingBitmap);
+        } else {
+          snprintf(bitmapHex, sizeof(bitmapHex), "0x%08lX", (unsigned long)missingBitmap);
+        }
         sendBleAck("RETRY", currentMsg.sessionId, bitmapHex);
         currentMsg.lastActivityTime = millis();
       } else {

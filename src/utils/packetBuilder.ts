@@ -8,6 +8,9 @@ import { keyStrokeCompiler } from '../services/KeyStrokeCompiler';
 export const MAX_PAYLOAD_SIZE = 4096;
 export const MAX_PACKETS = 16;
 export const MAX_PACKET_LEN = 256;
+// iOS / iPadOS (Bluefy / CoreBluetooth) 標準ネゴシエーション ATT_MTU = 185B (最大単一ATTペイロード 182B)
+// ヘッダ8B + ペイロード172B = 180B (<= 182B) に収めることで、分割(Long Write)や無応答パケット破棄を100%回避
+export const IOS_SAFE_PAYLOAD_LEN = 172;
 export const SESSION_INIT_HEADER_SIZE = 8;
 export const SLOT_HEADER_SIZE = 8;
 
@@ -222,8 +225,14 @@ export function buildTransmissionSession(
   const sid = options.sessionId ?? (Math.floor(Math.random() * 65000) + 1);
   const totalCrc16 = calculateCrc16(rawBytes);
 
-  // パケット分割 (各スロット最大256バイト)
-  const totalPackets = Math.ceil(rawBytes.length / MAX_PACKET_LEN);
+  // パケット分割:
+  // 通常カルテ (<= 2,752B) は iOS/Bluefy 単一PDU安全サイズ (172B + 8Bヘッダ = 180B <= 182B MTU) で分割し、
+  // 超長文 (2,753〜4,096B) のみ旧ファームウェア互換の最大16パケット以内に収まるよう自動スケールする
+  const effectivePacketLen =
+    rawBytes.length <= MAX_PACKETS * IOS_SAFE_PAYLOAD_LEN
+      ? IOS_SAFE_PAYLOAD_LEN
+      : Math.min(MAX_PACKET_LEN, Math.ceil(rawBytes.length / MAX_PACKETS));
+  const totalPackets = Math.ceil(rawBytes.length / effectivePacketLen);
   if (totalPackets > MAX_PACKETS) {
     throw new Error(`パケット数超過 (${totalPackets}個 > 最大${MAX_PACKETS}個)`);
   }
@@ -244,8 +253,8 @@ export function buildTransmissionSession(
   // 2. 各データスロットフレーム
   const slotPackets: PreparedSlotPacket[] = [];
   for (let i = 0; i < totalPackets; i++) {
-    const start = i * MAX_PACKET_LEN;
-    const end = Math.min(start + MAX_PACKET_LEN, rawBytes.length);
+    const start = i * effectivePacketLen;
+    const end = Math.min(start + effectivePacketLen, rawBytes.length);
     const chunkPayload = rawBytes.slice(start, end);
     const chunkLen = chunkPayload.length;
     const chunkCrc = calculateCrc16(chunkPayload);

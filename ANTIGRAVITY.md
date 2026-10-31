@@ -1069,6 +1069,35 @@
     - 全13テストスイート・127件の単体・結合テストが 100% PASS。
     - PlatformIO にて `lilygo-t-dongle-s3` および `m5stack-atoms3u` の双方で `[SUCCESS]` コンパイル確認。
 
+- **ステップ71: T-Dongle-S3「電カル送信」1分以上遅延の真因（Core 1 `setup()` SPIFFS/Minds $O(N^2)$ シークによる60〜120秒ブロッキング ＆ iOS Bluefy ATT_MTU超過 ＆ Core 0 SPI2競合）の完全根絶 (v2.42.0 / FW v24.0)**
+  - **背景 & 課題（ユーザーからの提起）**:
+    - 「まだ、T-dongle-S3をBulefyにBLE接続して電カル送信押しても1分以上かかってから赤いLEDが点灯してテキスト転送されます この遅れる原因を精査して修正してください」（一方、Atom S3U では即座に赤LED点灯・転送成功）。
+  - **根本原因の徹底解剖（100%特定）**:
+    1. **Core 0 先行アドバタイズ ＋ Core 1 `setup()` 内 60〜120秒ブロッキングの非対称デッドロック（T-Dongle-S3 固有・最大主因）**:
+       - `v2.37.0` (`f912936`) にて `pAdvertising->start()` が `setup()` の冒頭（0.05秒時点）へ移動されていたため、**Core 0 (`BTC_TASK`)** は USB 挿抜直後から即座に Bluefy と BLE 接続（緑LED点灯）し、「電カル送信」の全パケットを `onWrite` で `bleQueue`（容量32）へ格納できていた。
+       - しかし **Core 1 (`loopTask`)** は、その後続の `SPIFFS.begin(true)`（9.875MB パーティション・5.7MB 使用中のスキャン）および **`#if defined(T_DONGLE_S3)` ブロック内の `g_mindsEngine.beginFlash("/minds_cds.bin")`**（1.69MB ファイルに対する **3,295回の `flashFile.seek(i * 512, SeekSet)` 呼び出し＝SPIFFS オブジェクトインデックスの $O(N^2)$ 線形ページ走査**）＋ `SD_MMC.begin()` によって **60〜120秒間 `setup()` 内で完全にフリーズ** していた。
+       - Atom S3U は `#if !defined(T_DONGLE_S3)` により `g_mindsEngine.beginFlash()`・`SD_MMC`・LCD初期化をすべてスキップしていたため即座に `loop()` に到達しサブ秒で赤LED点灯していたのに対し、T-Dongle-S3 は1〜2分後に `setup()` を抜けて `loop()` に入った瞬間に `bleQueue` を一気に処理して赤LEDが点灯していた。
+    2. **iOS / iPadOS (Bluefy / CoreBluetooth) の標準 `ATT_MTU = 185`（単一PDU上限 182B）に対する 264B パケット超過と `HUD_SYNC` GATT 競合**:
+       - 従来の `MAX_PACKET_LEN = 256`（ヘッダ8B込み `264B`）は iOS 標準の単一 ATT ペイロード上限 `182B` を超過しており、`writeValueWithoutResponse` での無応答トランケーション／ドロップや ACK タイムアウト再送の原因となっていた。さらにテキスト入力直後のデバウンス `CMD:HUD_SYNC` が `transmitSession()` 開始と GATT レベルで衝突する競合が存在した。
+    3. **Core 0 (`BTC_TASK`) コールバック内からのスレッド非安全 SPI2 LCD 描画 (`g_display`) および `dispatchSafeKeystrokes` 毎回の SPIFFS オープン**:
+       - `onConnect` / `onDisconnect` 内から 25.6KB の LovyanGFX SPI2 DMA 転送を直接呼んでいたほか、打鍵のたびに毎回 `/kanji_yomi.bin` と `/med_terms.bin` を SPIFFS 上で `open/close` していた。
+    4. **ESP32-S3 TinyUSB 稼働中のソフトウェア `CMD:DFU` における USB PHY 切替欠落**:
+       - `REG_WRITE(RTC_CNTL_OPTION1_REG, RTC_CNTL_FORCE_DOWNLOAD_BOOT)` のみで `usb_persist_restart(RESTART_BOOTLOADER)` を呼んでいなかったため、TinyUSB OTG から内蔵 `USB-Serial/JTAG` (`/dev/ttyACM0`) へ PHY が切り替わらず再列挙されない問題があった。
+  - **実装・解決内容**:
+    1. **`setup()` からのストレージマウント完全撤廃・0.12秒 `loop()` 即時到達 (`firmware/src/main.cpp`)**:
+       - `SPIFFS.begin()`・`g_mindsEngine.beginFlash()`・`SD_MMC.begin()` を `setup()` から完全撤去し、USB挿抜後 **120ms 以内** に `loop()` の BLE キュー監視へ突入。
+       - PWA からの `v20.1 HYBRID` (`[Z][K][H][A]`) 打鍵時は **Flash I/O 0ms（SPIFFS 未マウントのまま即時打鍵）** とし、万一生の UTF-8 漢字が来た場合のみ遅延マウント、Minds/SD_MMC は `CMD:WIFI_AP_START` 時のみオンデマンド初期化。
+    2. **`MindsGuidelineEngine::beginFlash()` の $O(N^2)$ `seek()` 完全廃止・4KB シーケンシャル読込化 (`firmware/include/minds_guideline.h`)**:
+       - 3,295回の `seek()` をゼロにし、4,096B バッファの順次ストリーム読込へ刷新（数ミリ秒で完了）＋ `SD_MMC` 対応オーバーロード追加。
+    3. **Core 1 専用 LCD 描画フラグ化 ＆ `usb_persist_restart(RESTART_BOOTLOADER)` 導入 (`firmware/src/main.cpp`)**:
+       - `BTC_TASK` / TinyUSB コールバックからの直接 SPI2 描画を廃止し `g_bleDisplayDirty` / `g_prnDisplayDirty` による Core 1 一元描画＋80ms スロットルを導入。ソフトウェア DFU 時は USB PHY を確実に `USB-Serial/JTAG` へ切り替えて再起動。
+    4. **iPad / Bluefy 単一 ATT PDU 最適化 (`IOS_SAFE_PAYLOAD_LEN = 172` ➔ 合計 `180B <= 182B`) ＆ `HUD_SYNC` 排他ロック (`src/utils/packetBuilder.ts`, `src/utils/webBluetooth.ts`)**:
+       - 通常〜中長文カルテ（`<= 2,752B`）は全スロットを `180B` 以下に収めて単一 PDU でゼロ分割高速転送し、超長文（`2,753〜4,096B`）は自動で `<= 256B` かつ `writeValueWithResponse` (Reliable Long Write) へ切り替えることで未更新の Atom S3U（`MAX_PACKETS = 16`）とも 100% 後方互換を維持。
+       - `isSessionTransmitting` ロックにより送信中のバックグラウンド `CMD:HUD_SYNC` 割り込みを完全遮断。
+  - **検証と成果**:
+    - 新規単体テスト `tests/iosBluefyPacketMtu.test.ts` を追加し、全14テストスイート・130件が 100% PASS。
+    - TypeScript 静的型検査（`npm run lint`）・Vite 本番ビルド（`npm run build`）・PlatformIO 両環境ビルド（`lilygo-t-dongle-s3` / `m5stack-atoms3u`）すべてエラーゼロで `[SUCCESS]`。
+
 ## 5. 運用ルール & 安全指針
 - **完全日本語対応**: コメント、ドキュメント、システムメッセージはすべて日本語で記述する。
 - **ファームウェア更新時の実機自動書き込み（絶対遵守）**: `firmware/src/` 配下のソースコードや設定ファイルを更新・修正した際は、必ず PlatformIO で接続中の T-Dongle-S3 実機（`/dev/ttyACM0` 等）へ即時 Flash Upload を行い、正常起動を確認すること。

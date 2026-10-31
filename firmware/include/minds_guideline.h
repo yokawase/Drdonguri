@@ -310,8 +310,11 @@ public:
 
     /**
      * 16MB Flash 内の固定長辞書 (/minds_cds.bin) をマウントし、SRAMアクセラレータを展開
+     * ※ SPIFFS 上での毎回 seek() はページヘッダ走査 O(N^2) (60〜120秒ブロッキング) を招くため、
+     *    seek() を一切行わず 4KB バッファのシーケンシャル一括リードで高速展開する。
      */
     bool beginFlash(const char* path = "/minds_cds.bin") {
+        if (isFlashLoaded) return true;
         if (!SPIFFS.exists(path)) {
             Serial.printf("[Minds] Flash辞書が見つかりません: %s\n", path);
             return false;
@@ -333,15 +336,34 @@ public:
         if (!sramIndexTable) {
             Serial.printf("[Minds] SRAMインデックス確保失敗 (%d B)。標準Zero-RAM探索にフォールバック\n", indexBytes);
         } else {
-            // Flash からハッシュのみを一括ストリーム読み込み (SRAM展開)
             Serial.printf("[Minds] SRAMインデックス確保成功: %d 件 (%d KB)\n", totalRecords, indexBytes / 1024);
-            MindsGuidelineRecord512 tmpRec;
-            for (size_t i = 0; i < totalRecords; i++) {
-                if (flashFile.seek(i * MINDS_RECORD_SIZE, SeekSet)) {
-                    // trigger_hash (オフセット 8) だけを直接読めばさらに高速だが安全に構造体リード
+            constexpr size_t BATCH_RECS = 8; // 8 * 512B = 4096B (SPIFFSブロック境界整合)
+            uint8_t* batchBuf = (uint8_t*)malloc(BATCH_RECS * MINDS_RECORD_SIZE);
+            if (batchBuf) {
+                size_t idx = 0;
+                while (idx < totalRecords) {
+                    size_t toReadRecs = (totalRecords - idx > BATCH_RECS) ? BATCH_RECS : (totalRecords - idx);
+                    size_t bytesRead = flashFile.read(batchBuf, toReadRecs * MINDS_RECORD_SIZE);
+                    size_t gotRecs = bytesRead / MINDS_RECORD_SIZE;
+                    if (gotRecs == 0) break;
+                    for (size_t b = 0; b < gotRecs; b++) {
+                        const MindsGuidelineRecord512* recPtr =
+                            reinterpret_cast<const MindsGuidelineRecord512*>(batchBuf + b * MINDS_RECORD_SIZE);
+                        sramIndexTable[idx].hash = recPtr->trigger_hash;
+                        sramIndexTable[idx].record_idx = (uint16_t)idx;
+                        idx++;
+                    }
+                    yield();
+                }
+                free(batchBuf);
+            } else {
+                MindsGuidelineRecord512 tmpRec;
+                for (size_t i = 0; i < totalRecords; i++) {
                     if (flashFile.read((uint8_t*)&tmpRec, MINDS_RECORD_SIZE) == MINDS_RECORD_SIZE) {
                         sramIndexTable[i].hash = tmpRec.trigger_hash;
                         sramIndexTable[i].record_idx = (uint16_t)i;
+                    } else {
+                        break;
                     }
                 }
             }
@@ -357,15 +379,16 @@ public:
     }
 
     /**
-     * 32GB MicroSD カード内の全文ナレッジベース (/minds_fulltext.dat) をマウント
+     * 32GB MicroSD カード内の全文ナレッジベース (/minds_fulltext.dat) をマウント (SD_MMC / SD 両対応)
      */
-    bool beginSdCard(const char* path = "/minds_fulltext.dat") {
-        if (!SD.exists(path)) {
+    bool beginSdCard(fs::FS& fsBackend, const char* path = "/minds_fulltext.dat") {
+        if (isSdMounted) return true;
+        if (!fsBackend.exists(path)) {
             Serial.printf("[Minds] SDカード詳細テキストが見つかりません: %s\n", path);
             isSdMounted = false;
             return false;
         }
-        sdFile = SD.open(path, "r");
+        sdFile = fsBackend.open(path, "r");
         if (!sdFile) {
             Serial.println("[Minds] SDカードファイルオープン失敗");
             isSdMounted = false;
@@ -374,6 +397,10 @@ public:
         isSdMounted = true;
         Serial.printf("[Minds] 32GB SDカード 全文ナレッジマウント成功: %d KB\n", sdFile.size() / 1024);
         return true;
+    }
+
+    bool beginSdCard(const char* path = "/minds_fulltext.dat") {
+        return beginSdCard(SD, path);
     }
 
     /**
