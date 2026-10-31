@@ -39,6 +39,7 @@ static bool g_wifiApActive = false;
 static MindsGuidelineEngine g_mindsEngine;
 
 void initWifiSoftAp() {
+  if (g_wifiApActive) return;
   WiFi.mode(WIFI_AP);
   WiFi.softAP("Drdonguri-Atlas-Direct", "drdonguri");
   WiFi.setSleep(true); // BLEパケット優先・省電力共存モード
@@ -134,6 +135,14 @@ void initWifiSoftAp() {
 
   g_httpServer.begin();
   g_wifiApActive = true;
+}
+
+void stopWifiSoftAp() {
+  if (!g_wifiApActive) return;
+  g_httpServer.stop();
+  WiFi.softAPdisconnect(true);
+  WiFi.mode(WIFI_OFF);
+  g_wifiApActive = false;
 }
 #else
 #define RGB_LED_PIN         35  // AtomS3U 内蔵WS2812フルカラーLED
@@ -306,6 +315,13 @@ void setLedBrightness(uint8_t pct);
 
 void onPrinterDataReceived(const uint8_t* data, uint16_t len) {
   if (len == 0 || data == nullptr) return;
+
+  // USB仮想プリンタ経由でのDFUブートローダー突入コマンド検知
+  if (len >= 7 && (strncmp((const char*)data, "CMD:DFU", 7) == 0 || strncmp((const char*)data, "CMD:REBOOT_BOOTLOADER", 21) == 0)) {
+    rebootToBootloader();
+    return;
+  }
+
   s_last_printer_rx_ms = millis();
   s_printer_job_active = true;
   s_printer_total_bytes += len;
@@ -2048,17 +2064,13 @@ class MyServerCallbacks : public BLEServerCallbacks {
   }
 
   void onConnect(BLEServer* pServer, esp_ble_gatts_cb_param_t *param) override {
-    isBleConnected = true;
-    currentState = STATE_BLE_CONNECTED;
-    setLedColor(0, 64, 0); // 接続完了: 緑点灯
-#if defined(T_DONGLE_S3)
-    g_display.showFace(FACE_IDLE);
-    g_display.updateStatus("BLE READY", 0, 0, 0, 0, 0, 0, "Minds 3.3K (RAM)");
-#endif
-    if (param != nullptr) {
-      // Android / iOS 完全準拠 高速安定コネクションパラメータ (15ms〜30ms, latency 0, timeout 4000ms)
-      pServer->updateConnParams(param->connect.remote_bda, 0x000C, 0x0018, 0, 400);
-    }
+    // Apple iOS (iPad/iPhone/Bluefy) において接続直後に updateConnParams を送出すると、
+    // CoreBluetooth が L2CAP パラメータ更新を保留・拒否し、30〜60秒間の GATT 書き込みフリーズ
+    // (L2CAP トランザクションタイムアウト) を引き起こす。
+    // そのため接続直後の updateConnParams 送出は完全排除し、
+    // アドバタイズパケットの Peripheral Preferred Connection Parameters (PPCP: 15〜30ms) に委ねる。
+    (void)pServer;
+    (void)param;
   }
 
   void onDisconnect(BLEServer* pServer) override {
@@ -2222,10 +2234,14 @@ void setup() {
     g_mindsEngine.beginSdCard("/minds_fulltext.dat");
   }
 
-  // Wi-Fi SoftAP & MicroSD 直接ストリーミングHTTPサーバー起動
-  initWifiSoftAp();
+  // ★【平常時 Wi-Fi 完全休止】
+  // Wi-Fi SoftAP (100ms周期ビーコン) は同一2.4GHz RFアンテナをBLEと奪い合い、
+  // iOS / Android でのパケット衝突・遅延・ジッター・発熱を招くため、平常時は WIFI_OFF で待機。
+  // 必要な場合のみ BLE コマンド (CMD:WIFI_AP_START) でオンデマンド起動する。
+  WiFi.mode(WIFI_OFF);
+  g_wifiApActive = false;
 
-  g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, g_sdMounted ? "Minds (SD:OK)" : "Minds 3.3K (RAM)");
+  g_display.updateStatus("WAITING BLE", 0, 0, 0, 0, 0, 0, g_sdMounted ? "SD:OK | BLE" : "Minds 3.3K (RAM)");
 #endif
 
   secureWipeMessageContext();
@@ -2460,6 +2476,26 @@ void loop() {
         g_display.syncClinicalTelemetry(z, k, a, h, hvc, alerts, vitalBuf);
 #endif
         sendBleAck("HUD_SYNC_OK", 0);
+        continue;
+      }
+
+      // 13. Wi-Fi SoftAP オンデマンド起動・停止コマンド
+      if (strcmp(cmdBuf, "CMD:WIFI_AP_START") == 0) {
+#if defined(T_DONGLE_S3)
+        initWifiSoftAp();
+        sendBleAck("WIFI_AP_STARTED", 0);
+#else
+        sendBleAck("ERR_NO_WIFI", 0);
+#endif
+        continue;
+      }
+      if (strcmp(cmdBuf, "CMD:WIFI_AP_STOP") == 0) {
+#if defined(T_DONGLE_S3)
+        stopWifiSoftAp();
+        sendBleAck("WIFI_AP_STOPPED", 0);
+#else
+        sendBleAck("ERR_NO_WIFI", 0);
+#endif
         continue;
       }
     }

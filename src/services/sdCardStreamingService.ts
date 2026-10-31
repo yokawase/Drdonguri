@@ -171,6 +171,30 @@ class SdCardStreamingService {
     }
     return null;
   }
+
+  /**
+   * T-Dongle-S3 Wi-Fi SoftAP をオンデマンド起動 (Phase 2 大判アトラス・原本PDFストリーミング用)
+   */
+  public async enableWifiAp(): Promise<boolean> {
+    try {
+      const { bleManager } = await import('./BleManager');
+      return await bleManager.startWifiAp();
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * T-Dongle-S3 Wi-Fi SoftAP を停止 (2.4GHz無線を100% BLE専有化)
+   */
+  public async disableWifiAp(): Promise<boolean> {
+    try {
+      const { bleManager } = await import('./BleManager');
+      return await bleManager.stopWifiAp();
+    } catch {
+      return false;
+    }
+  }
 }
 
 export interface MindsLiveStats {

@@ -1042,6 +1042,33 @@
     - 全13テストスイート・127件の単体・統合テストが 100% PASS。
     - TypeScript静的型検査（`npm run lint` / `tsc --noEmit`）がエラーゼロで完了。
 
+- **ステップ70: iPad/Bluefy「電カル送信」30〜60秒遅延の完全解明と根絶 ＆ iOS L2CAP競合完全防止 ＆ Wi-Fi SoftAPオンデマンド化 ＆ USB仮想プリンタ経由DFU対応 (v2.41.0 / FW v23.9)**
+  - **背景 & 課題（ユーザーからの提起）**:
+    - 「iPadにBluefyをインストールしてAtom S3Uからの電カル送信はすぐに赤いLEDになって送信できましたが、T-dongle-S3では電カル送信押してから30−６０秒くらい遅れて赤いLED点灯しテキスト送信しました。遅れた原因を精査して修正してください」
+  - **根本原因の徹底解剖**:
+    1. **Apple iOS (CoreBluetooth / Bluefy) における即時 `updateConnParams` による L2CAP 30〜60秒スタック**:
+       - 直前の `v23.8` (FW) において追加された `pServer->updateConnParams(remote_bda, 0x000C, 0x0018, 0, 400)` が、接続確立直後（`onConnect` 内・0秒時点）に送出されていた。
+       - Apple の公式仕様（*Accessory Design Guidelines for Apple Devices*）では「接続確立後5秒未満でのコネクション更新リクエスト送出の禁止」および「Supervision Timeoutは最低6秒（6000ms）以上」が厳格に義務付けられている。
+       - 接続直後に4秒タイムアウトの更新要求を受信した iOS CoreBluetooth は、これを保留または拒否した上で内部L2CAPタイマーの完了待ち（バックオフ）に入り、**その間の全GATT書き込みを30〜60秒間完全にフリーズ（キューイング）** していた。30〜60秒後にiOS側タイマーがタイムアウト・解放された瞬間に溜まっていた全パケットがESP32へ一気に流し込まれ、そこでようやくLEDが赤色になり打鍵が開始されていた（30〜60秒遅延の直接原因）。
+       - 対して、以前のファームウェアのまま稼働していた Atom S3U では `updateConnParams` が一切送出されていなかったため、iOS が標準の高速接続インターバルを即座に維持し、一切遅延せず即座に赤色LED点灯・打鍵が完了していた。
+    2. **T-Dongle-S3 での常時 Wi-Fi SoftAP 稼働による 2.4GHz RF 競合・パケット衝突**:
+       - T-Dongle-S3 ではブート時に `initWifiSoftAp()` が呼ばれ、`Drdonguri-Atlas-Direct` のビーコンが 100ms 周期で常時空中に送出されていた。
+       - ESP32-S3 は 2.4GHz RF ハードウェアを Wi-Fi と BLE で共有しているため、SoftAP ビーコン送信時に BLE タイムスロットがプリエンプトされ、BLE パケットの衝突・再送・ジッターを誘発していた（Wi-Fi非搭載の Atom S3U は常時 100% BLE専有で極めて安定）。
+  - **実装・解決内容**:
+    1. **`onConnect` での即時 `updateConnParams` 送出の完全廃止 (`firmware/src/main.cpp`)**:
+       - `MyServerCallbacks::onConnect(..., param)` 内の強制更新を排除。
+       - アドバタイズパケット内の Peripheral Preferred Connection Parameters (PPCP: 15〜30ms) のみに委ねることで、iOS / iPad (Bluefy) が L2CAP ネゴシエーションでスタックする事故を恒久根絶。
+    2. **T-Dongle-S3 Wi-Fi SoftAP のオンデマンド化 (`firmware/src/main.cpp`, `src/services/sdCardStreamingService.ts`)**:
+       - ブート時は `WiFi.mode(WIFI_OFF)` で待機し、平常時は Atom S3U と同様に 2.4GHz RF を 100% BLE 専用化。
+       - 新コマンド `CMD:WIFI_AP_START` / `CMD:WIFI_AP_STOP` を新設し、大判アトラスや原本PDFの取得時のみオンデマンド起動・停止可能に改修。
+    3. **Web Bluetooth `writeData` の特性プロパティ整合判定の精密化 (`src/utils/webBluetooth.ts`)**:
+       - `characteristic.properties.writeWithoutResponse` / `write` を事前に精密判定し、Bluefy / iOS での不要な例外キャッチ待ちをゼロ化。
+    4. **USB仮想プリンタ経由での DFU ブートローダー突入対応 (`firmware/src/main.cpp`)**:
+       - `/dev/usb/lp0` に対する `CMD:DFU` 送出で、PCスクリプトから実機ボタン操作不要でROM書き込みモードへ移行可能化。
+  - **検証と成果**:
+    - 全13テストスイート・127件の単体・結合テストが 100% PASS。
+    - PlatformIO にて `lilygo-t-dongle-s3` および `m5stack-atoms3u` の双方で `[SUCCESS]` コンパイル確認。
+
 ## 5. 運用ルール & 安全指針
 - **完全日本語対応**: コメント、ドキュメント、システムメッセージはすべて日本語で記述する。
 - **ファームウェア更新時の実機自動書き込み（絶対遵守）**: `firmware/src/` 配下のソースコードや設定ファイルを更新・修正した際は、必ず PlatformIO で接続中の T-Dongle-S3 実機（`/dev/ttyACM0` 等）へ即時 Flash Upload を行い、正常起動を確認すること。

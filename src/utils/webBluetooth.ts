@@ -687,14 +687,18 @@ export class BleDongleManager {
 
       // リトライループ (最大3回)
       let lastErr: any = null;
+      const props = (this.characteristic as any)?.properties;
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          // 1. Android/WebBLEで最もストールせず高速な writeValueWithoutResponse を最優先
-          if ('writeValueWithoutResponse' in this.characteristic) {
+          // 1. Android/iOS WebBLEで最速・ストールしない writeValueWithoutResponse を最優先
+          if (
+            (!props || props.writeWithoutResponse) &&
+            typeof (this.characteristic as any).writeValueWithoutResponse === 'function'
+          ) {
             try {
               await this.runWithTimeout(
                 (this.characteristic as any).writeValueWithoutResponse(bufferToSend),
-                1200,
+                1000,
                 'WRITE_NR'
               );
               return;
@@ -703,12 +707,15 @@ export class BleDongleManager {
             }
           }
 
-          // 2. writeValueWithResponse (最大1500msタイムアウト保護でAndroid 120秒ハングを物理遮断)
-          if ('writeValueWithResponse' in this.characteristic) {
+          // 2. writeValueWithResponse (タイムアウト保護でハングを物理遮断)
+          if (
+            (!props || props.write) &&
+            typeof (this.characteristic as any).writeValueWithResponse === 'function'
+          ) {
             try {
               await this.runWithTimeout(
                 (this.characteristic as any).writeValueWithResponse(bufferToSend),
-                1500,
+                1200,
                 'WRITE_RESP'
               );
               return;
@@ -721,7 +728,7 @@ export class BleDongleManager {
           if ('writeValue' in this.characteristic) {
             await this.runWithTimeout(
               this.characteristic.writeValue(bufferToSend),
-              1500,
+              1200,
               'WRITE_STD'
             );
             return;
@@ -1102,6 +1109,22 @@ export class BleDongleManager {
       .replace(/[\r\n,]/g, ' ')
       .slice(0, 24);
     await this.sendCommand(`CMD:HUD_SYNC:${z},${k},${a},${h},${hvc},${alerts},${safeVital}`);
+  }
+
+  /**
+   * T-Dongle-S3 Wi-Fi SoftAP のオンデマンド起動 (Phase 2 SDカードストリーミング用)
+   */
+  async startWifiAp(): Promise<boolean> {
+    if (!this.isConnected()) return false;
+    return this.sendCommand('CMD:WIFI_AP_START');
+  }
+
+  /**
+   * T-Dongle-S3 Wi-Fi SoftAP の停止 (2.4GHz無線を100% BLE専有化)
+   */
+  async stopWifiAp(): Promise<boolean> {
+    if (!this.isConnected()) return false;
+    return this.sendCommand('CMD:WIFI_AP_STOP');
   }
 }
 

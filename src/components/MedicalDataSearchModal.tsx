@@ -145,9 +145,10 @@ export const MedicalDataSearchModal: React.FC<MedicalDataSearchModalProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Wi-Fi SoftAP 疎通チェック関数
+  // Wi-Fi SoftAP 疎通チェック関数 (必要時にオンデマンド起動)
   const handleCheckAp = async () => {
     setIsCheckingAp(true);
+    await sdCardStreamingService.enableWifiAp();
     const status = await sdCardStreamingService.checkApConnection();
     setApStatus(status);
     setIsCheckingAp(false);

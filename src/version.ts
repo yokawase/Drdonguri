@@ -10,15 +10,15 @@ export const APP_NAME = 'Dr.Dongly';
 export const APP_NAME_JA = 'DrVoice どんぐり君！';
 
 // アプリケーションバージョン (package.json と同期)
-export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.40.0';
+export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.41.0';
 
 // ビルドタイムスタンプ (Vite ビルド時に自動更新)
 export const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : new Date().toISOString();
 
-// 最新ファームウェアバージョン (Direct Auto-Dispatch & Remote Trigger 安定化 FW)
-export const LATEST_FIRMWARE_VERSION = 'v23.8';
-export const FIRMWARE_RELEASE_DATE = '2026-10-30';
-export const FIRMWARE_RELEASE_TITLE = 'v23.8（2分間ハング根絶・BLE接続パラメータ最適化・GATTタイムアウト保護＆動的完了判定版）';
+// 最新ファームウェアバージョン (iPad/Bluefy 30〜60秒遅延根絶 & L2CAP競合防止 & Wi-Fiオンデマンド化 FW)
+export const LATEST_FIRMWARE_VERSION = 'v23.9';
+export const FIRMWARE_RELEASE_DATE = '2026-10-31';
+export const FIRMWARE_RELEASE_TITLE = 'v23.9（iPad/Bluefy 30〜60秒遅延根絶・L2CAP競合完全防止・Wi-Fiオンデマンド化・USB DFU対応版）';
 
 // ローカルAI & 臨床セマンティック検索エンジン構成
 export const AI_ENGINE_INFO = 'Aho-Corasick自己進化 ＆ EmbeddingGemma 2 (740M MRL 128d) ＆ WebLLM (Gemma 2 2B Q4F16/F32)';
