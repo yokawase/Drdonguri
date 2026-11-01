@@ -22,6 +22,7 @@ import {
 } from '../../utils/chartTextCleaner';
 import { expandMedicalAbbreviations } from '../../services/clinicalCopilotEngine';
 import { CompiledStreamPreview, CopilotData, ChartContext, triggerHaptic } from './types';
+import { useInferenceBackend } from '../../hooks/useInferenceBackend';
 
 interface NavigationDrawerProps {
   isOpen: boolean;
@@ -74,6 +75,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   copilotData,
   compiledStreamPreview,
 }) => {
+  const inferenceEnv = useInferenceBackend();
+
   if (!isOpen) return null;
 
   return (
@@ -518,13 +521,39 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
             </div>
           </div>
 
-          {/* グループ4: 3省2ガイドライン準拠 ＆ 医療安全 */}
+          {/* グループ4: 3省2ガイドライン準拠 ＆ 推論バックエンド状態 */}
           <div className="space-y-2">
             <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase flex items-center justify-between">
-              <span>3省2ガイドライン準拠 ＆ 通信</span>
+              <span>推論バックエンド ＆ 3省2ガイドライン</span>
               <span className="text-[10px] text-emerald-400 font-mono">完全オフライン・オンプレミス</span>
             </span>
             <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">現在の推論モード:</span>
+                <span
+                  className={`font-mono font-bold px-2 py-0.5 rounded border text-[11px] ${
+                    inferenceEnv.backend === 'webgpu'
+                      ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/50'
+                      : 'bg-sky-950/70 text-sky-300 border-sky-500/50'
+                  }`}
+                >
+                  {inferenceEnv.badgeLabel}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">量子化フォーマット:</span>
+                <span className="text-amber-300 font-mono text-[11px]">
+                  {inferenceEnv.backend === 'webgpu'
+                    ? `${inferenceEnv.recommendedDtype.toUpperCase()} (GPU Shader)`
+                    : `${inferenceEnv.recommendedDtype.toUpperCase()} (CPU SIMD ${inferenceEnv.wasmConfig.numThreads}T)`}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">音声認識モデル:</span>
+                <span className="text-slate-300 font-mono text-[11px]">
+                  {inferenceEnv.recommendedWhisperModel.replace('Xenova/', '')}
+                </span>
+              </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">BLE 打鍵転送:</span>
                 <span className={`font-mono font-bold ${isBleConnected ? 'text-emerald-400' : 'text-slate-500'}`}>

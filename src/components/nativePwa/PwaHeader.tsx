@@ -11,6 +11,7 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { triggerHaptic } from './types';
+import { useInferenceBackend } from '../../hooks/useInferenceBackend';
 
 interface PwaHeaderProps {
   isDrawerOpen: boolean;
@@ -41,11 +42,13 @@ export const PwaHeader: React.FC<PwaHeaderProps> = ({
   isBleConnected,
   onConnectBle,
 }) => {
+  const inferenceEnv = useInferenceBackend();
+
   return (
     <header className="sticky top-0 left-0 right-0 w-full px-4 pt-[calc(env(safe-area-inset-top,0px)+0.35rem)] pb-1.5 shrink-0 border-b border-slate-800/80 bg-[#0F172A]/95 backdrop-blur-md z-50">
       <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
-        {/* 左側: ハンバーガーメニュー & 戻るトグル */}
-        <div className="flex items-center gap-2">
+        {/* 左側: ハンバーガーメニュー & 戻るトグル + 推論バックエンド状態バッジ */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             type="button"
             onClick={() => {
@@ -72,6 +75,18 @@ export const PwaHeader: React.FC<PwaHeaderProps> = ({
               </>
             )}
           </button>
+
+          {/* 推論バックエンド自動判定ステータスバッジ (🟢 WebGPU / 🔵 WASM) */}
+          <span
+            className={`px-2 py-1 rounded-lg border text-[10px] sm:text-[11px] font-mono font-bold flex items-center gap-1 shrink-0 select-none ${
+              inferenceEnv.backend === 'webgpu'
+                ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/50'
+                : 'bg-sky-950/70 text-sky-300 border-sky-500/50'
+            }`}
+            title={`現在の推論モード: ${inferenceEnv.badgeLabel} — ${inferenceEnv.detailDescription}`}
+          >
+            <span>{inferenceEnv.shortBadgeLabel}</span>
+          </span>
         </div>
 
         {/* デスクトップ専用: ヘッダー中央クイックナビ (lg:flex hidden) */}

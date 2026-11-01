@@ -28,6 +28,7 @@ import {
   setGeminiApiKey,
   type OcrTargetMode 
 } from '../services/geminiVisionOcrService';
+import { useInferenceBackend } from '../hooks/useInferenceBackend';
 
 interface CameraOcrModalProps {
   isOpen: boolean;
@@ -40,6 +41,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
   onClose,
   onApplyText,
 }) => {
+  const inferenceEnv = useInferenceBackend();
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [ocrMode, setOcrMode] = useState<OcrTargetMode>('auto');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -260,9 +262,9 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                     Gemini Vision 100%
                   </span>
                 ) : (
-                  <span className="text-[10px] bg-slate-800 text-sky-400 border border-slate-700 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <Cpu className="w-2.5 h-2.5" />
-                    完全ローカル閉域
+                  <span className="text-[10px] bg-slate-800 text-sky-300 border border-slate-700 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Cpu className="w-2.5 h-2.5 text-sky-400" />
+                    <span>完全ローカル閉域 ({inferenceEnv.shortBadgeLabel})</span>
                   </span>
                 )}
               </div>
@@ -472,7 +474,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   {isKeyConfigured
                     ? '⚡ Gemini Vision が液晶モアレ縞を完全除去して100%完璧に文字起こしします'
-                    : '端末内（WebGPU）のローカルAIで安全・高速に処理されます'}
+                    : `端末内（${inferenceEnv.badgeLabel}）のローカルAIで安全・高速に処理されます`}
                 </p>
               </div>
 

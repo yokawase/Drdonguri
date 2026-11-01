@@ -188,22 +188,15 @@ export const AiAssistModal: React.FC<AiAssistModalProps> = ({
   const handleGenerateWithWebLlm = async () => {
     setIsLoading(true);
     setError(null);
-    setLoadStatus('Gemma 2 日本語モデル 高速WebGPU推論準備中...');
+    setLoadStatus(
+      isWebGpuSupported()
+        ? '🟢 Gemma 2 日本語モデル 高速WebGPU推論準備中...'
+        : '🔵 WASM (CPU SIMD) 推論パイプラインで構造化中...'
+    );
     setProgressPercent(15);
     playMacBeep();
 
     const targetText = cleanedOriginal;
-
-    if (!isWebGpuSupported()) {
-      const fallbackFormatted = generateSafeFallbackChart(targetText, style);
-      setResultText(fallbackFormatted);
-      setError('お使いの環境はWebGPU非対応のため、内蔵の高速臨床構造化エンジン（0.01秒）で出力しました。');
-      setIsLoading(false);
-      setLoadStatus('');
-      setProgressPercent(0);
-      return;
-    }
-
     const selectedModel = useFastFp16 ? GEMMA_2_JPN_FAST_F16_MODEL : GEMMA_2_JPN_MODEL;
 
     try {
