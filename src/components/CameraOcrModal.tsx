@@ -7,6 +7,7 @@ import {
   Check, 
   RefreshCw, 
   AlertCircle, 
+  AlertTriangle,
   FileText, 
   Image as ImageIcon,
   ShieldCheck,
@@ -222,7 +223,19 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
 
   // APIキーの保存
   const handleSaveApiKey = () => {
-    setGeminiApiKey(apiKeyInput);
+    const trimmedKey = apiKeyInput.trim();
+    if (trimmedKey) {
+      const alertMsg =
+        '【重要注意：3省2ガイドライン・ゼロイグレスに関する確認】\n\n' +
+        'このアプリは「完全なゼロイグレス（外部送信ゼロ）」ですが、APIキー設定すると通信が外部（Google Cloud）へ送信されます。' +
+        '厚労省・経産省・総務省の「3省2ガイドライン」および個人情報保護法において 「外部サーバーへの患者プライバシー情報漏洩」 とみなされる重大なリスクが生じるため、' +
+        '一般的な植物の育て方・技術マニュアル・園芸メモ等の「非医療・公開情報」に限定してAPIを利用してください。\n\n' +
+        '上記を理解・遵守し、APIキーを設定しますか？';
+      if (typeof window !== 'undefined' && !window.confirm(alertMsg)) {
+        return;
+      }
+    }
+    setGeminiApiKey(trimmedKey);
     setIsKeyConfigured(hasGeminiApiKey());
     setShowApiKeyModal(false);
   };
@@ -257,9 +270,9 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-sm sm:text-base leading-tight text-white">高精度カメラ・カルテOCR</h3>
                 {isKeyConfigured ? (
-                  <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-500/60 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-[0_0_8px_rgba(16,185,129,0.3)]">
-                    <Zap className="w-2.5 h-2.5 text-emerald-400" />
-                    Gemini Vision 100%
+                  <span className="text-[10px] bg-amber-950/80 text-amber-300 border border-amber-500/60 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-[0_0_8px_rgba(245,158,11,0.3)]">
+                    <Zap className="w-2.5 h-2.5 text-amber-400" />
+                    Gemini Vision (外部通信・公開情報限定)
                   </span>
                 ) : (
                   <span className="text-[10px] bg-slate-800 text-sky-300 border border-slate-700 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -285,14 +298,14 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
         <div className="bg-[#131F33] border-b border-slate-800 px-3.5 py-2 flex items-center justify-between text-xs shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             {isKeyConfigured ? (
-              <div className="flex items-center gap-1.5 text-emerald-400 font-semibold truncate">
-                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">⚡ 100%完璧文字起こし有効 (画面撮影・モアレ完全除去)</span>
+              <div className="flex items-center gap-1.5 text-amber-300 font-semibold truncate">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+                <span className="truncate">⚠️ 外部通信中 (Google Cloud送信: 非医療・公開情報限定)</span>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 text-amber-300/90 font-medium truncate">
-                <Sparkles className="w-3.5 h-3.5 shrink-0 text-amber-400" />
-                <span className="truncate">PC画面の写真を1文字の狂いもなく読ませるには？</span>
+              <div className="flex items-center gap-1.5 text-emerald-300/90 font-medium truncate">
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
+                <span className="truncate">🔒 完全ゼロイグレス稼働中（外部通信 0 Byte / 院内完結）</span>
               </div>
             )}
           </div>
@@ -306,7 +319,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
             }`}
           >
             <Key className="w-3 h-3" />
-            <span>{isKeyConfigured ? '設定変更' : '100%神精度キー設定'}</span>
+            <span>{isKeyConfigured ? '設定変更' : 'APIキー設定 (外部通信)'}</span>
           </button>
         </div>
 
@@ -316,7 +329,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
                 <Zap className="w-4 h-4" />
-                <span>Google Gemini API キー設定 (100%完璧OCR)</span>
+                <span>Google Gemini API キー設定 (公開情報・高精度OCR)</span>
               </h4>
               <button
                 type="button"
@@ -326,9 +339,20 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                 ✕
               </button>
             </div>
+
+            {/* ⚠️ 3省2ガイドライン＆ゼロイグレス厳格注意アラート */}
+            <div className="p-3 bg-rose-950/90 border border-rose-500/80 rounded-xl text-rose-100 text-xs space-y-1.5 shadow-md">
+              <div className="flex items-center gap-1.5 font-bold text-rose-300">
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>【重要警告】ゼロイグレス遮断・医療情報漏洩防止に関する注意</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-rose-100 font-medium">
+                このアプリは「完全なゼロイグレス（外部送信ゼロ）」ですが、APIキー設定すると通信が外部（Google Cloud）へ送信されます。厚労省・経産省・総務省の「3省2ガイドライン」および個人情報保護法において 「外部サーバーへの患者プライバシー情報漏洩」 とみなされる重大なリスクが生じるため、一般的な植物の育て方・技術マニュアル・園芸メモ等の「非医療・公開情報」に限定してAPIを利用してください。
+              </p>
+            </div>
+
             <p className="text-[11px] text-slate-300 leading-relaxed">
-              Google AI Studio で無料取得できる Gemini API キーを設定すると、液晶ディスプレイ特有のモアレ干渉縞・ランダム記号ノイズ・反射を100%排除し、設計書やカルテを完全再現します。
-              キーはお使いのブラウザ内部（localStorage）にのみ保存されます。
+              Google AI Studio で取得した Gemini API キーを設定すると、液晶ディスプレイ特有のモアレ干渉縞・ランダム記号ノイズ・反射を100%排除し、公開資料・設計書を高精度に文字起こしします。キーはお使いのブラウザ内部（localStorage）にのみ保存されます。
             </p>
             <div className="flex gap-2">
               <input
@@ -473,8 +497,8 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   {isKeyConfigured
-                    ? '⚡ Gemini Vision が液晶モアレ縞を完全除去して100%完璧に文字起こしします'
-                    : `端末内（${inferenceEnv.badgeLabel}）のローカルAIで安全・高速に処理されます`}
+                    ? '⚠️ Gemini Vision 外部送信中（3省2ガイドライン遵守のため非医療・公開情報限定）'
+                    : `端末内（${inferenceEnv.badgeLabel}）のローカルAIで安全・高速に処理されます（完全ゼロイグレス）`}
                 </p>
               </div>
 
