@@ -446,8 +446,10 @@ async function startServer() {
    - PCモニタ枠、タスクバー、不要なボタンUIは無視し、カルテ記事本文・所見・数値のみを元の改行・箇条書き構造を保って出力すること。
    - 前置き・解説・AIとしての挨拶は一切出力せず、本文のみを出力すること。`;
 
-      let prompt = `この画像からカルテ記事または医療文書のテキストを、上記の医療DX品質基準に従って正確に読み取ってください。`;
-      if (mode === 'soap') {
+      let prompt = `この画像からテキストを1文字の狂いもなく正確に読み取ってください。`;
+      if (mode === 'document' || mode === 'auto') {
+        prompt += `\n【指示】画像がホワイトボードの手書き板書・一般文書・技術設計書の場合は、無理にカルテ形式に当てはめず、タイトル・箇条書き・矢印（→, ↔, ↘）・囲み枠（[希釈] 等）の構造を100%忠実に文字起こししてください。医療文書の場合のみ上記の医療DX品質基準を適用してください。`;
+      } else if (mode === 'soap') {
         prompt += `\n【指示】SOAP形式（S:主訴、O:客観的所見、A:評価、P:治療方針）で整理して出力してください。`;
       } else if (mode === 'prescription') {
         prompt += `\n【指示】薬剤名、用法、用量、日数の処方内容を中心に正確に抽出してください。`;
@@ -471,8 +473,9 @@ async function startServer() {
         },
         candidateModels: [
           'gemini-2.5-flash',
-          'gemini-2.0-flash',
-          'gemini-1.5-flash',
+          'gemini-3-flash-preview',
+          'gemini-3.5-flash-lite',
+          'gemini-2.5-flash-lite',
         ],
       });
 

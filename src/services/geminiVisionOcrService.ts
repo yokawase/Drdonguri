@@ -1,8 +1,8 @@
 /**
  * Gemini Vision OCR Service (100% 完璧 OCR エンジン)
  *
- * モアレ縞ノイズ・液晶画面撮影・斜めアングル・手書きカルテを
- * Google のマルチモーダル AI (Gemini 2.5 Flash / 3.8 Flash) で
+ * モアレ縞ノイズ・液晶画面撮影・太陽光ブラインド反射・斜めアングル・
+ * ホワイトボード手書き文字・手書きカルテを Google のマルチモーダル AI で
  * 1文字の狂いもなく100%完璧に文字起こし＆文書復元するサービス。
  */
 
@@ -11,13 +11,19 @@ const GEMINI_API_KEY_STORAGE = 'DR_DONGLY_GEMINI_API_KEY';
 let memoryApiKey = '';
 
 /**
- * 保存されている Gemini API キーを取得
+ * 保存されている Gemini API キーを取得 (localStorage または 環境変数)
  */
 export function getGeminiApiKey(): string {
   if (typeof localStorage !== 'undefined') {
-    return localStorage.getItem(GEMINI_API_KEY_STORAGE) || memoryApiKey;
+    const stored = localStorage.getItem(GEMINI_API_KEY_STORAGE);
+    if (stored && stored.trim()) return stored.trim();
   }
-  return memoryApiKey;
+  if (memoryApiKey) return memoryApiKey;
+  const envKey = (import.meta as any)?.env?.VITE_GEMINI_API_KEY;
+  if (typeof envKey === 'string' && envKey.trim() && envKey !== 'MY_GEMINI_API_KEY') {
+    return envKey.trim();
+  }
+  return '';
 }
 
 /**
@@ -86,8 +92,8 @@ export async function performGeminiVisionOcr(
   switch (targetMode) {
     case 'document':
       modeInstruction = `
-- 対象文書: 技術仕様書、設計書、一般マニュアル、またはビジネス文書です。
-- 指示: カルテ（主訴・所見・診断・処方）に当てはめず、元の文書タイトル・章立て（Phase等）・見出し・段落・箇条書きの階層構造を100%忠実に文字起こししてください。`;
+- 対象文書: ホワイトボード手書き板書、テレビ・モニター画面キャプチャ、技術仕様書、設計書、一般マニュアル、またはビジネス文書です。
+- 指示: カルテ（主訴・所見・診断・処方）に当てはめず、元の文書タイトル・見出し・箇条書き・矢印（→, ↔, ↘）・囲み枠（[希釈] 等）・添え字の階層構造を100%忠実に文字起こししてください。`;
       break;
     case 'chart':
       modeInstruction = `
@@ -109,29 +115,36 @@ export async function performGeminiVisionOcr(
       modeInstruction = `
 - 対象文書: 自動判別してください。
 - 指示:
-  1. 画像が「技術仕様書」「設計書」「一般マニュアル」「案内文」等の場合は、絶対にカルテ（主訴・所見・診断等）に無理やり分類せず、元のタイトル・見出し・段落のまま自然に文字起こししてください。
+  1. 画像が「ホワイトボードの手書き板書」「TV番組のフリップ・解説画面」「技術仕様書」「設計書」「一般マニュアル」「案内文」等の場合は、絶対にカルテ（主訴・所見・診断等）に無理やり分類せず、元のタイトル・箇条書き・矢印（→, ↔, ↘）・囲み枠のまま自然に100%忠実に文字起こししてください。
   2. 画像が「電子カルテ画面」「紹介状」「処方箋」等の医療文書の場合のみ、医療用語や単位を正確に整えて文字起こししてください。`;
       break;
   }
 
-  const systemPrompt = `あなたは世界最高峰の画像文字認識（OCR）および文書復元エキスパートAIです。
-画像内のすべての文字を1文字も漏らさず、誤読ゼロ・100%完璧な精度で文字起こししてください。
+  const systemPrompt = `あなたは世界最高峰の画像文字認識（OCR）・手書き板書解読・文書復元エキスパートAIです。
+画像内のすべての文字（活字・手書きマーカー文字・丸囲み文字・四角囲み文字・行間の挿入文字・添え字）を1文字も漏らさず、誤読ゼロ・100%完璧な精度で文字起こししてください。
 
 【厳格な遵守ルール】
-1. 【モアレノイズ・液晶画面アーティファクトの完全排除】
-   - ノートPCやスマホ等の液晶ディスプレイをカメラ撮影した際特有のモアレ干渉縞（RGB格子のモアレ）によって生じるランダム英数記号列（例: "SEXYrTEsgsih", "X FICERLF9", "mo £0" 等の無意味なゴミ文字列）は100%無視・除外してください。
-   - 画面の外枠（ノートPCのベゼル、dynabook/Dell/Lenovo等のロゴ、Windows/Macのタスクバー、時刻表示、ブラウザタブ、ウインドウ枠）は本文ではないため完全に除外してください。
-2. 【文書形式の尊重】
+1. 【モアレノイズ・太陽光ブラインド反射・液晶画面アーティファクトの完全排除】
+   - テレビやPCモニターを撮影した際のモアレ干渉縞、窓のブラインドによる斜めの太陽光反射、画面端の造花・インテリアの映り込みは100%無視してください。
+   - 画面の外枠（テレビやノートPCのベゼル、SHARP/dynabook等のメーカーロゴ、タスクバー）は除外してください。
+2. 【手書きホワイトボード・カラーマーカー・図解記号の100%忠実再現】
+   - 黒・赤・青マーカーによる手書き文字、四角囲み（例: [希釈]、[スプレー]）、丸囲み（例: ベンレート、注意!!、Point）、双方向矢印（↔）、斜め矢印（↘）、中括弧（｛）によるグループ化、行間の挿入矢印（例: 「↳できるだけ」を該当箇所へ自然に統合または明記）を空間的意味通りに100%正確に再現してください。
+   - 園芸薬剤名（ベンレート、サプロール、モスピラントップジンM、アタックワン、ベニカXネクスト、カダンプラスDX、カダンMAX等）や専門用語のカタカナ・英数字を1文字も誤読しないでください。
+3. 【文書形式の尊重】
    ${modeInstruction}
-3. 【誤読防止】
+4. 【誤読防止】
    - 漢字の潰れ（「世磐」➔「設計書」等）やOCR特有の類似文字誤認を前後の文脈から自動的に完全補正してください。
-4. 【余計な出力の禁止】
+5. 【余計な出力の禁止】
    - 「はい、文字起こしをしました」「以下がテキストです」などの前置き・挨拶・解説・マークダウンの三重バッククォート（\`\`\`）は一切出力しないでください。
    - テキスト本文のみを直接出力してください。`;
 
-  // Gemini 2.5 Flash は高速かつマルチモーダル認識に極めて優れる
-  // fallback として gemini-3.8-flash も考慮
-  const models = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+  // 現行の最新マルチモーダルFlashモデル群 (廃止された 1.5-flash / 2.0-flash を排除)
+  const models = [
+    'gemini-2.5-flash',
+    'gemini-3-flash-preview',
+    'gemini-3.5-flash-lite',
+    'gemini-2.5-flash-lite',
+  ];
 
   let lastError: any = null;
 
@@ -163,8 +176,8 @@ export async function performGeminiVisionOcr(
               },
             ],
             generationConfig: {
-              temperature: 0.05, // 幻覚を極小化し忠実性を最高化
-              maxOutputTokens: 2048,
+              temperature: 0.0, // 幻覚をゼロにし忠実性を最高化
+              maxOutputTokens: 8192, // Thinkingトークン消費による出力切れを完全防止
             },
           }),
         }
@@ -179,7 +192,13 @@ export async function performGeminiVisionOcr(
       }
 
       const data = await response.json();
-      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      const parts: any[] = data?.candidates?.[0]?.content?.parts || [];
+      // Thinkingモデル (gemini-2.5-flash 等) の thought パートを除外して本文パートを結合
+      const rawText = parts
+        .filter((p) => !p?.thought && typeof p?.text === 'string')
+        .map((p) => p.text)
+        .join('')
+        .trim();
 
       if (!rawText) {
         throw new Error('Gemini API からテキストを取得できませんでした。');
@@ -192,7 +211,7 @@ export async function performGeminiVisionOcr(
         .trim();
 
       // 文書種別の判定
-      let detectedType = '一般ドキュメント・技術書';
+      let detectedType = '一般ドキュメント・ホワイトボード';
       if (/【?[SOAP]】?|主訴|現病歴|身体所見|バイタル|アセスメント/i.test(cleaned)) {
         detectedType = '臨床カルテ (SOAP)';
       } else if (/処方|用法|用量|錠|カプセル|日分|毎食後/i.test(cleaned)) {

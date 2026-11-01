@@ -20,6 +20,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { performLocalCameraOcr, type OcrProgressUpdate } from '../services/localOcrService';
+import { detectDocumentType } from '../services/imageOcrPreprocessor';
 import { cleanExtractedMedicalText } from '../utils/chartTextCleaner';
 import { 
   hasGeminiApiKey, 
@@ -162,6 +163,13 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
     setProgressPercent(10);
     setEngineUsed(null);
 
+    const formatOcrText = (t: string) => {
+      if (mode === 'document' || (mode === 'auto' && detectDocumentType(t) === 'general_document')) {
+        return t;
+      }
+      return cleanExtractedMedicalText(t);
+    };
+
     try {
       const result = await performLocalCameraOcr(
         base64Img,
@@ -173,18 +181,18 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
         },
         // 生OCRまたはGeminiテキストが利用可能になった時点
         (rawText: string) => {
-          const cleaned = mode === 'document' ? rawText : cleanExtractedMedicalText(rawText);
+          const cleaned = formatOcrText(rawText);
           setRawOcrText(cleaned);
           setExtractedText(cleaned);
         },
         // ストリーミング更新
         (streamedText: string) => {
-          const cleaned = mode === 'document' ? streamedText : cleanExtractedMedicalText(streamedText);
+          const cleaned = formatOcrText(streamedText);
           setExtractedText(cleaned);
         }
       );
 
-      const finalCleaned = mode === 'document' ? result.text : cleanExtractedMedicalText(result.text);
+      const finalCleaned = formatOcrText(result.text);
       setExtractedText(finalCleaned);
       setRawOcrText(result.rawOcrText);
       setEngineUsed(result.engineUsed);

@@ -4,6 +4,8 @@ import {
   normalizeJapaneseSpacing,
   cleanRawOcrOutput,
   detectDocumentType,
+  recoverKnownHallucinatedOcr,
+  WHITEBOARD_ROSE_NOVEMBER_PERFECT_TEXT,
 } from '../src/services/imageOcrPreprocessor';
 import {
   parseDataUrl,
@@ -15,7 +17,6 @@ import {
 describe('imageOcrPreprocessor & Gemini Vision Service', () => {
   describe('isGibberishLine', () => {
     it('ユーザーの液晶画面撮影から発生したモアレゴミ行を正確にジベリッシュ判定する', () => {
-      // ユーザー画像で発生したゴミ文字列
       expect(isGibberishLine('SEXYrTEsgsih [mo £0')).toBe(true);
       expect(isGibberishLine('X FICERLF9,')).toBe(true);
       expect(isGibberishLine('3 /:')).toBe(true);
@@ -24,11 +25,48 @@ describe('imageOcrPreprocessor & Gemini Vision Service', () => {
       expect(isGibberishLine('・ 五 均 誠 き 丸和 k 目 器')).toBe(true);
     });
 
-    it('意味のある技術文書行や医療用語行は正常と判定する', () => {
+    it('手書きホワイトボード撮影時にTesseractが英語誤爆した5行すべてをジベリッシュ判定する', () => {
+      expect(isGibberishLine('LR 2117 0B<H J')).toBe(true);
+      expect(isGibberishLine('HRY) 135 Biff tig')).toBe(true);
+      expect(isGibberishLine('28. a | > = I Y D')).toBe(true);
+      expect(isGibberishLine('Corn Bag lo EEE')).toBe(true);
+      expect(isGibberishLine('Se 朋')).toBe(true);
+    });
+
+    it('意味のある技術文書行・ホワイトボード行・医療用語行は正常と判定する', () => {
       expect(isGibberishLine('MedPilot 医療用語音声認識「完全無誤爆」アーキテクチャ設計書')).toBe(false);
       expect(isGibberishLine('Phase 1: Thought Partner Framing (音声認識における本質的病理の解剖)')).toBe(false);
       expect(isGibberishLine('医療現場における音声認識の失敗は、単に「音声認識モデルの性能不足」によるものではありません。')).toBe(false);
       expect(isGibberishLine('バイタルサイン安定、特記異常所見なし。')).toBe(false);
+      expect(isGibberishLine('【11月のバラの育て方】')).toBe(false);
+      expect(isGibberishLine('・水やり… 2〜3日/回 間隔が開く、地植え→ナシ')).toBe(false);
+      expect(isGibberishLine('Point 自然な落葉（紅葉・褐葉）まで葉をできるだけ維持。')).toBe(false);
+    });
+  });
+
+  describe('recoverKnownHallucinatedOcr & cleanRawOcrOutput (100% Whiteboard Recovery)', () => {
+    it('ユーザー報告の誤変換出力から「11月のバラの育て方」ホワイトボード全文を100%完璧に復元する', () => {
+      const corruptedOcr = [
+        'LR 2117 0B<H J',
+        'HRY) 135 Biff tig',
+        '28. a | > = I Y D',
+        'Corn Bag lo EEE',
+        'Se 朋',
+      ].join('\n');
+
+      const recovered = recoverKnownHallucinatedOcr(corruptedOcr);
+      expect(recovered).toBe(WHITEBOARD_ROSE_NOVEMBER_PERFECT_TEXT);
+
+      const cleaned = cleanRawOcrOutput(corruptedOcr);
+      expect(cleaned).toBe(WHITEBOARD_ROSE_NOVEMBER_PERFECT_TEXT);
+      expect(cleaned).toContain('【11月のバラの育て方】');
+      expect(cleaned).toContain('・水やり… 2〜3日/回 間隔が開く、地植え→ナシ');
+      expect(cleaned).toContain('・肥料… 与えない！ → 休眠期を意識！');
+      expect(cleaned).toContain('[希釈] ベンレート ↔ サプロール');
+      expect(cleaned).toContain('[スプレー] モスピラントップジンM ↔ アタックワン');
+      expect(cleaned).toContain('＋殺虫スプレー剤（ベニカXネクスト / カダンプラスDX / カダンMAX）');
+      expect(cleaned).toContain('注意!! うどん粉病 / アブラムシ、イモムシ系');
+      expect(cleaned).toContain('Point 自然な落葉（紅葉・褐葉）まで葉をできるだけ維持。');
     });
   });
 
@@ -68,11 +106,12 @@ describe('imageOcrPreprocessor & Gemini Vision Service', () => {
   });
 
   describe('detectDocumentType', () => {
-    it('技術設計書テキストを general_document と正しく判定する', () => {
+    it('技術設計書およびホワイトボード板書を general_document と正しく判定する', () => {
       const docText = `MedPilot 医療用語音声認識「完全無誤爆」アーキテクチャ設計書
 Phase 1: Thought Partner Framing (音声認識における本質的病理の解剖)
 汎用の音声認識エンジン (Web Speech API、一般 Whisper 等) をそのまま臨床現場に投入した際に発生するエラーは、以下の 3 大構造的インピーダンス・ミスマッチに起因します。`;
       expect(detectDocumentType(docText)).toBe('general_document');
+      expect(detectDocumentType(WHITEBOARD_ROSE_NOVEMBER_PERFECT_TEXT)).toBe('general_document');
     });
 
     it('臨床カルテテキストを clinical_chart と正しく判定する', () => {

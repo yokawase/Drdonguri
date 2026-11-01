@@ -10,7 +10,7 @@ export const APP_NAME = 'Dr.Dongly';
 export const APP_NAME_JA = 'DrVoice どんぐり君！';
 
 // アプリケーションバージョン (package.json と同期)
-export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.42.0';
+export const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.43.0';
 
 // ビルドタイムスタンプ (Vite ビルド時に自動更新)
 export const BUILD_TIME = typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : new Date().toISOString();
@@ -22,7 +22,7 @@ export const FIRMWARE_RELEASE_TITLE = 'v24.0（T-Dongle-S3 起動時Core1ブロ�
 
 // ローカルAI & 臨床セマンティック検索エンジン構成
 export const AI_ENGINE_INFO = 'Aho-Corasick自己進化 ＆ EmbeddingGemma 2 (740M MRL 128d) ＆ WebLLM (Gemma 2 2B Q4F16/F32)';
-export const OCR_ENGINE_INFO = 'Gemini Vision (100%完璧OCR) ＆ Canvasモアレ前処理＋Tesseract.js';
+export const OCR_ENGINE_INFO = 'Gemini Vision (100%完璧OCR) ＆ 2D Retinex色マーカー強調＋手書き板書完全復元';
 export const LOCAL_RULE_ENGINE_INFO = 'Aho-Corasickクローズドループ ＆ Vibrato 0.5ms形態素解析';
 
 // 統合バージョン表示ラベル
