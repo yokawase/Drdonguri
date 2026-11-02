@@ -10,7 +10,6 @@ import {
 import {
   hasGeminiApiKey,
   performGeminiVisionOcr,
-  parseDataUrl,
   type OcrTargetMode,
 } from './geminiVisionOcrService';
 
@@ -36,12 +35,10 @@ async function toDataUrl(imageSource: string | File): Promise<string> {
 }
 
 /**
- * 3段構えハイブリッドOCRパイプライン:
- * 1. 【Gemini Vision Direct API 最優先】APIキー設定時は、液晶画面撮影のモアレ・太陽光反射・
- *    ホワイトボード手書き文字を1文字の狂いもなく100%完璧に文字起こし＆文書復元
- * 2. 【バックエンドAIプロキシ (/api/ai/ocr-chart)】ローカル開発サーバー稼働時はサーバー側Geminiで100%認識
- * 3. 【完全ローカル・セーフティ】2D Retinex色マーカー強調前処理 ➔ 視覚シーン復元 / Tesseract.js
- *    ➔ 手書き英語誤爆・ジベリッシュ完全パージ ➔ 文書自動判別 ➔ WebLLM(Gemma 2)
+ * 2段構えハイブリッドOCRパイプライン:
+ * 1. 【Gemini Vision Direct API】ユーザーが明示的にAPIキーを設定した場合のみ使用（非医療・公開情報向け）
+ * 2. 【完全ローカル・ゼロイグレス (外部通信 0 Byte)】色順応型 2D Retinex前処理 ＋ 外周枠線除去 ＋ アンシャープ鮮鋭化
+ *    ➔ Tesseract.js ('jpn' 単一モデル ＋ PSM.SINGLE_BLOCK) ➔ 日本語・医療ドメイン高精度正規化 ➔ WebLLM(Gemma 2)
  */
 export async function performLocalCameraOcr(
   imageSource: string | File,
@@ -53,7 +50,8 @@ export async function performLocalCameraOcr(
   const base64Url = await toDataUrl(imageSource);
 
   // -------------------------------------------------------------
-  // パスA1: Gemini Vision Direct API (100% 完璧 OCR)
+  // パスA: Gemini Vision Direct API (ユーザーがAPIキーを設定した場合のみ)
+  // ※APIキー未設定時は開発サーバー環境であっても外部送信を一切行わず完全ゼロイグレスを厳守
   // -------------------------------------------------------------
   if (hasGeminiApiKey()) {
     try {
@@ -109,54 +107,15 @@ export async function performLocalCameraOcr(
         });
       }
     }
-  } else if (typeof window !== 'undefined' && !window.location.hostname.includes('github.io')) {
-    // -------------------------------------------------------------
-    // パスA2: バックエンドサーバー (/api/ai/ocr-chart) が利用可能な場合
-    // -------------------------------------------------------------
-    try {
-      const { mimeType, base64Data } = parseDataUrl(base64Url);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-      const resp = await fetch('/api/ai/ocr-chart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: base64Data, mimeType, mode }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (resp.ok) {
-        const json = await resp.json();
-        if (json?.success && json?.text) {
-          const text = String(json.text).trim();
-          if (onRawTextAvailable) onRawTextAvailable(text);
-          if (onStreamUpdate) onStreamUpdate(text);
-          if (onProgress) {
-            onProgress({
-              stage: 'gemini_vision',
-              message: '【100%認識完了】サーバーAI Vision OCR',
-              progress: 1.0,
-            });
-          }
-          return {
-            text,
-            rawOcrText: text,
-            engineUsed: 'gemini_vision',
-          };
-        }
-      }
-    } catch {
-      // サーバー未起動またはAPIキー未設定時は即座にパスBへ進む
-    }
   }
 
   // -------------------------------------------------------------
-  // パスB: 完全ローカル高度OCR (2D Retinex前処理 + シーン復元 + Tesseract + Gemma 2)
+  // パスB: 完全ローカル高度OCR (色順応2D Retinex + 枠線消去 + Tesseract + Gemma 2)
   // -------------------------------------------------------------
   if (onProgress) {
     onProgress({
       stage: 'preprocessing',
-      message: '画像前処理中 (2D Retinex反射除去・カラーマーカー強調)...',
+      message: '画像前処理中 (色順応2D Retinex・外枠罫線除去・鮮鋭化)...',
       progress: 0.08,
     });
   }
@@ -164,7 +123,7 @@ export async function performLocalCameraOcr(
   clearLastDetectedVisualPresetText();
   let processedImage: string = base64Url;
   try {
-    processedImage = await preprocessImageForOcr(imageSource, 2000);
+    processedImage = await preprocessImageForOcr(imageSource, 2200);
   } catch (prepErr) {
     console.warn('[OCR Preprocessing warning]:', prepErr);
     processedImage = base64Url;
@@ -207,8 +166,11 @@ export async function performLocalCameraOcr(
   let rawTextFromTesseract = '';
 
   try {
-    const { createWorker } = await import('tesseract.js');
-    worker = await createWorker(['jpn', 'eng'], 1, {
+    const { createWorker, PSM } = await import('tesseract.js');
+    // jpn モデル単体で日本語＋ASCII英数字(TEL/FAX/単位/英単語)を完全認識可能。
+    // eng 二重ロードを廃止することで、均等割付行(「□ 医 事 課」等)への英語誤爆("[labs == &")を防ぎ、
+    // iPad等の省メモリ端末における WASM ヒープ消費を半減させる。
+    worker = await createWorker('jpn', 1, {
       logger: (m: LoggerMessage) => {
         if (onProgress && typeof m.progress === 'number') {
           onProgress({
@@ -220,8 +182,21 @@ export async function performLocalCameraOcr(
       },
     });
 
-    const ocrResult = await worker.recognize(processedImage || imageSource);
+    await worker.setParameters({
+      tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+    });
+
+    let ocrResult = await worker.recognize(processedImage || imageSource);
     rawTextFromTesseract = ocrResult?.data?.text?.trim() || '';
+
+    // 万一 SINGLE_BLOCK でテキストが空だった場合のみ PSM.AUTO で再試行
+    if (!rawTextFromTesseract) {
+      await worker.setParameters({
+        tessedit_pageseg_mode: PSM.AUTO,
+      });
+      ocrResult = await worker.recognize(processedImage || imageSource);
+      rawTextFromTesseract = ocrResult?.data?.text?.trim() || '';
+    }
   } finally {
     if (worker) {
       try {

@@ -147,7 +147,7 @@ export const CameraOcrModal: React.FC<CameraOcrModalProps> = ({
     setErrorMessage(null);
 
     try {
-      const optimizedDataUrl = await compressAndOptimizeImage(file, 2048, 0.88);
+      const optimizedDataUrl = await compressAndOptimizeImage(file, 2200, 0.95);
       setCapturedImage(optimizedDataUrl);
       await runOcrPipeline(optimizedDataUrl, ocrMode);
     } catch (err: any) {
