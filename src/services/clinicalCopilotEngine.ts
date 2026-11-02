@@ -206,7 +206,7 @@ const RED_FLAG_RULES: Array<{
   {
     id: 'rf_chest',
     syndrome: '胸痛・胸部圧迫感 (Killer Chest Pain 4大疾患)',
-    triggers: /(?:胸痛|胸部圧迫感|胸部絞扼|前胸部|胸が苦しい|狭心症|心筋梗塞|ニトロペン)/,
+    triggers: /(?:胸痛|胸部圧迫感|胸部絞扼|前胸部|胸が苦しい|胸が痛い|狭心症|心筋梗塞|ニトロペン)/,
     criticalDifferentials: ['急性冠症候群(ACS/STEMI)', '急性大動脈解離', '肺血栓塞栓症(PE)', '緊張性気胸'],
     mustCheckSigns: ['血圧左右差(>20mmHg)・背部移動痛', '冷汗・放散痛(左肩/顎)', '呼吸音左右差・SpO2低下', '12誘導心電図(ST変化)・トロポニン'],
     defensiveChartSnippet: '【Red Flags除外確認】冷汗なし、背部への移動痛なし、上肢血圧左右差なし、呼吸音左右差なし。12誘導心電図および心筋逸脱酵素にて致死的胸痛（ACS・大動脈解離・肺塞栓・気胸）を慎重に鑑別。',
@@ -214,26 +214,58 @@ const RED_FLAG_RULES: Array<{
   {
     id: 'rf_headache',
     syndrome: '頭痛・後頸部痛 (二次性頭痛 Red Flags: SNOOP)',
-    triggers: /(?:頭痛|後頸部痛|頭が痛い|片頭痛|雷鳴頭痛)/,
+    triggers: /(?:頭痛|後頸部痛|後頭部痛|頭が痛い|片頭痛|雷鳴頭痛|バットで殴られた)/,
     criticalDifferentials: ['クモ膜下出血(SAH)', '椎骨動脈解離(VAD)', '細菌性髄膜炎', '脳出血・占拠性病変'],
     mustCheckSigns: ['突然発症(雷鳴様: 何時何分に発症したか)', '項部硬直・Jolt accentuation', '神経脱落症状(麻痺・構音障害・複視)', '50歳以上の初発頭痛'],
     defensiveChartSnippet: '【Red Flags除外確認】突然発症（雷鳴頭痛）ではなく、項部硬直(-)・Jolt accentuation(-)、瞳孔不同や四肢麻痺・構音障害等の局所神経脱落所見を認めず。症状増悪時は頭部CT/MRI精査指示。',
   },
   {
     id: 'rf_abdomen',
-    syndrome: '腹痛・心窩部痛 (急性腹症・心窩部痛ピットフォール)',
-    triggers: /(?:腹痛|心窩部痛|胃痛|みぞおち|右下腹部痛|腹部膨満)/,
-    criticalDifferentials: ['下壁心筋梗塞(心窩部痛型)', '消化管穿孔・汎発性腹膜炎', '腹部大動脈瘤破裂・上腸間膜動脈閉塞', '急性虫垂炎・胆管炎'],
+    syndrome: '腹痛・心窩部痛 (急性腹症・血管イベント)',
+    triggers: /(?:腹痛|心窩部痛|胃痛|みぞおち|右下腹部痛|左下腹部痛|下腹部痛|臍周囲痛|腹部膨満|反跳痛|虫垂炎)/,
+    criticalDifferentials: ['消化管穿孔・汎発性腹膜炎', '下壁心筋梗塞(心窩部痛型)', '腹部大動脈瘤破裂・上腸間膜動脈閉塞', '急性虫垂炎・胆管炎・急性膵炎'],
     mustCheckSigns: ['筋性防御(Guarding)・反跳痛(Blumberg徴候)', '高齢者・心房細動既往(腸管虚血)', '心窩部痛での12誘導心電図確認', 'バイタル変動(頻脈・血圧低下)'],
-    defensiveChartSnippet: '【Red Flags除外確認】腹部軟、板状硬や筋性防御(-)、反跳痛(-)。バイタル安定しており急性腹症（穿孔・腹膜炎・血管イベント）を示唆する危険徴候なし。',
+    defensiveChartSnippet: '【Red Flags除外確認】腹部軟、板状硬や筋性防御(-)、反跳痛(-)。バイタル安定しており急性腹症（穿孔・腹膜炎・大動脈瘤・腸管虚血）を示唆する危険徴候なし。',
   },
   {
-    id: 'rf_dyspnea_fever',
-    syndrome: '発熱・咽頭痛・呼吸困難 (気道緊急 ＆ 敗血症)',
-    triggers: /(?:呼吸困難|息切れ|咽頭痛|喉が痛い|発熱|高熱|肺炎|気管支炎|扁桃)/,
-    criticalDifferentials: ['急性喉頭蓋炎・扁桃周囲膿瘍(気道閉塞)', '敗血症(qSOFA≧2)', '重症肺炎(A-DROP)', '急性心不全増悪'],
-    mustCheckSigns: ['含み声(Muffled voice)・流涎・嚥下困難(吸気性喘鳴)', '呼吸数≧22回/分・意識変容・収縮期血圧≦100 (qSOFA)', 'SpO2低下・起坐呼吸'],
-    defensiveChartSnippet: '【Red Flags除外確認】吸気性喘鳴(Stridor)や流涎・含み声等の気道狭窄徴候なし。呼吸数安定・意識清明でありqSOFAスコア0点。',
+    id: 'rf_dyspnea_cough',
+    syndrome: '呼吸困難・咳嗽・喘鳴 (急性呼吸不全・肺塞栓)',
+    triggers: /(?:呼吸困難|息切れ|息苦しい|喘鳴|ぜいぜい|ヒューヒュー|咳嗽|咳|喀痰|血痰|起坐呼吸|COPD|喘息)/,
+    criticalDifferentials: ['肺血栓塞栓症(PE)', '急性心不全・肺水腫', '気管支喘息重積発作', '重症肺炎・気胸'],
+    mustCheckSigns: ['起坐呼吸・呼吸音左右差・湿性ラ音', 'SpO2低下(<93%)・チアノーゼ', '下肢腫脹(深部静脈血栓徴候)', '吸気性喘鳴(Stridor: 気道狭窄)'],
+    defensiveChartSnippet: '【Red Flags除外確認】起坐呼吸なし、呼吸音左右差なし、チアノーゼ(-)。SpO2維持され下肢非対称性浮腫なし。急性肺塞栓および心不全・気道狭窄を示唆する所見なし。',
+  },
+  {
+    id: 'rf_fever_infection',
+    syndrome: '発熱・悪寒・咽頭痛 (敗血症・気道閉塞・重症感染)',
+    triggers: /(?:発熱|高熱|熱発|悪寒|戦慄|微熱|咽頭痛|喉が痛い|扁桃|嚥下痛)/,
+    criticalDifferentials: ['敗血症(qSOFA≧2)', '急性喉頭蓋炎・扁桃周囲膿瘍(気道閉塞)', '重症肺炎(A-DROP)', '細菌性髄膜炎・壊死性軟部組織感染'],
+    mustCheckSigns: ['含み声(Muffled voice)・流涎・吸気性喘鳴', '呼吸数≧22回/分・意識変容・収縮期血圧≦100 (qSOFA)', '悪寒戦慄(Shaking chills)'],
+    defensiveChartSnippet: '【Red Flags除外確認】含み声や流涎・吸気性喘鳴等の気道緊急所見なし。呼吸数安定・意識清明、qSOFAスコア0点であり敗血症を示唆する危険徴候なし。',
+  },
+  {
+    id: 'rf_dizziness_syncope',
+    syndrome: 'めまい・ふらつき・失神 (中枢性・心原性 Red Flags)',
+    triggers: /(?:めまい|眩暈|ふらつき|ふらつく|回転性|浮動性|立ちくらみ|失神|気を失った|倒れた)/,
+    criticalDifferentials: ['小脳・脳幹梗塞(中枢性めまい)', '致死性不整脈・Adams-Stokes症候群', '大動脈弁狭窄症(AS)', '消化管出血・貧血ショック'],
+    mustCheckSigns: ['頭痛併発・構音障害・運動失調(小脳徴候)', '垂直性眼振・注視方向性眼振', '心雑音(収縮期駆出性雑音)・徐脈/頻脈', '起立性低血圧・タール便'],
+    defensiveChartSnippet: '【Red Flags除外確認】小脳失調徴候(指鼻試験・開脚歩行)正常、構音障害や複視なし。心音整・明らかな心雑音なし、起立時著明な血圧低下なし。中枢性脳血管障害および心原性失神を除外。',
+  },
+  {
+    id: 'rf_palpitation',
+    syndrome: '動悸・不整脈・頻脈 (致死性不整脈・心不全)',
+    triggers: /(?:動悸|胸がドキドキ|不整脈|脈が飛ぶ|頻脈|徐脈|心拍数|心室頻拍|心房細動)/,
+    criticalDifferentials: ['発作性心室頻拍(VT)・心室細動', '心房細動(血栓塞栓リスク)', '急性冠症候群(ACS)', '甲状腺クリーゼ・電解質異常'],
+    mustCheckSigns: ['失神前駆症状(眼前暗黒感)・冷汗', '血圧低下(<90mmHg)・脈拍左右差', '12誘導心電図での調律・虚血性ST変化確認'],
+    defensiveChartSnippet: '【Red Flags除外確認】眼前暗黒感や冷汗なし、血圧低下なし。12誘導心電図にて致死性不整脈および急性虚血性変化なし。',
+  },
+  {
+    id: 'rf_stroke_neuro',
+    syndrome: '脱力・片麻痺・しびれ・構音障害 (脳血管障害 Red Flags)',
+    triggers: /(?:麻痺|片麻痺|脱力|力が入らない|しびれ|痺れ|ろれつ|呂律|構音障害|言葉が出ない|複視|視野欠損)/,
+    criticalDifferentials: ['急性期脳梗塞(超急性期t-PA/血栓回収適応)', '頭蓋内出血(脳出血・硬膜下血腫)', '一過性脳虚血発作(TIA)', '脊髄圧迫病変'],
+    mustCheckSigns: ['発症時間(Last Known Well: 最終未発症時刻)', 'FAST所見(Face/Arm/Speech)', '瞳孔不同・眼球運動障害'],
+    defensiveChartSnippet: '【Red Flags除外確認】FAST所見陰性（顔面麻痺なし、上肢挙上保持可能、構音障害・失語なし）。瞳孔不同なし。超急性期脳卒中を示唆する明らかな局所神経脱落徴候を認めず。',
   },
   {
     id: 'rf_backpain',
@@ -243,9 +275,44 @@ const RED_FLAG_RULES: Array<{
     mustCheckSigns: ['安静時痛・夜間痛(体動と無関係な持続痛)', '膀胱直腸障害(尿閉・便失禁)・会陰部感覚低下', '発熱・原因不明の体重減少'],
     defensiveChartSnippet: '【Red Flags除外確認】安静時持続痛や冷汗を伴う引き裂かれるような背部痛なし。下肢運動麻痺および膀胱直腸障害（馬尾症候群徴候）を認めず。',
   },
+  {
+    id: 'rf_gi_bleed',
+    syndrome: '嘔気・嘔吐・下痢・消化管出血 (出血ショック・腸閉塞)',
+    triggers: /(?:吐き気|嘔気|嘔吐|吐いた|下痢|血便|下血|タール便|黒色便|吐血|腸閉塞|イレウス)/,
+    criticalDifferentials: ['上部/下部消化管出血(出血性ショック)', '機械的腸閉塞(絞扼性イレウス)', '虚血性大腸炎', '急性膵炎'],
+    mustCheckSigns: ['Vital Signs(頻脈 HR>100, 低血圧 BP<90)', '貧血結膜・末梢冷感・毛細血管再充満(CRT)', '腹部膨満・金属音・排ガス停止'],
+    defensiveChartSnippet: '【Red Flags除外確認】タール便や肉眼的大量下血なし。眼瞼結膜蒼白なし、Vital安定。腸雑音正常、絞扼性腸閉塞や出血性ショック徴候なし。',
+  },
+  {
+    id: 'rf_allergy',
+    syndrome: '皮疹・アレルギー・アナフィラキシー (急性アレルギー)',
+    triggers: /(?:アレルギー|蕁麻疹|じんましん|皮疹|発疹|痒み|紅斑|水疱|薬疹|アナフィラキシー)/,
+    criticalDifferentials: ['アナフィラキシーショック', 'Stevens-Johnson症候群(SJS/TEN)', '重症薬疹(DRESS/DIHS)'],
+    mustCheckSigns: ['気道・呼吸器症状(喉の違和感・嗄声・喘鳴)', '循環器症状(血圧低下・頻脈・冷汗)', '粘膜疹(口唇・眼球結膜)・表皮剥離'],
+    defensiveChartSnippet: '【Red Flags除外確認】呼吸苦・喘鳴・嗄声等の気道症状なし。循環動態安定しておりアナフィラキシーショック徴候なし。口唇・粘膜疹や水疱形成を認めず。',
+  },
+  {
+    id: 'rf_edema_renal',
+    syndrome: '浮腫・尿量減少・腎機能低下 (心不全・急性腎障害)',
+    triggers: /(?:浮腫|むくみ|下腿浮腫|足のむくみ|尿量減少|乏尿|体重増加|AKI|急性腎障害|心不全)/,
+    criticalDifferentials: ['急性増悪うっ血性心不全', '急性腎障害(AKI)・高カリウム血症', '深部静脈血栓症(DVT)', 'ネフローゼ症候群'],
+    mustCheckSigns: ['左右非対称性浮腫・下肢把握痛(Homan徴候)', '頸静脈怒張・肝頸静脈逆流・肺ラ音', '急激な体重増加(>2kg/週)'],
+    defensiveChartSnippet: '【Red Flags除外確認】下肢浮腫は左右対称性、発赤・熱感・圧痛なし(DVT陰性)。頸静脈怒張なし、肺副雑音聴取せず。急性うっ血性心不全徴候なし。',
+  },
+  {
+    id: 'rf_urology',
+    syndrome: '排尿障害・血尿・側腹部痛 (尿路結石・重症尿路感染)',
+    triggers: /(?:排尿痛|血尿|頻尿|残尿感|尿が出ない|尿閉|側腹部痛|背部叩打痛|CVA叩打痛|腎盂腎炎)/,
+    criticalDifferentials: ['閉塞性腎盂腎炎(敗血症性ショックリスク)', '尿管結石(腎後性腎不全)', '急性尿閉', '腹部大動脈瘤破裂(側腹部痛類似)'],
+    mustCheckSigns: ['肋骨脊柱角(CVA)叩打痛・高熱・悪寒戦慄', '下腹部膀胱部膨隆・自尿有無', 'バイタル変動・意識変容'],
+    defensiveChartSnippet: '【Red Flags除外確認】著明なCVA叩打痛なし、悪寒戦慄を伴う高熱なし。下腹部膨隆なし。閉塞性尿路感染症・急性尿閉を示唆する所見なし。',
+  },
 ];
 
-export function detectClinicalRedFlags(chartText: string): RedFlagAdvisory[] {
+export function detectClinicalRedFlags(
+  chartText: string,
+  options?: { fallbackToGeneral?: boolean }
+): RedFlagAdvisory[] {
   const normalized = normalizeMedicalSpeechTerms(cleanExtractedMedicalText(chartText));
   if (!normalized.trim()) {
     return [];
@@ -264,8 +331,8 @@ export function detectClinicalRedFlags(chartText: string): RedFlagAdvisory[] {
     }
   }
 
-  // マッチがない場合でも汎用バイタル・全身状態確認を提供
-  if (matched.length === 0) {
+  // 明示的な要求時のみ汎用バイタル・全身状態確認を提供 (デフォルトはカルテ個別検出のみ)
+  if (matched.length === 0 && options?.fallbackToGeneral) {
     matched.push({
       id: 'rf_general',
       syndrome: '全身状態・バイタル安全確認 (標準トリアージ)',
@@ -343,7 +410,10 @@ export function calculateEmergencyDoses(weightKg: number = 60): EmergencyDosePro
 // ============================================================================
 // 5. Mindsガイドライン ＆ レセプト審査パス根拠文ジェネレータ
 // ============================================================================
-export function generateGuidelineEvidenceSnippets(chartText: string): Array<{
+export function generateGuidelineEvidenceSnippets(
+  chartText: string,
+  options?: { fallbackToDefault?: boolean }
+): Array<{
   id: string;
   title: string;
   badge: string;
@@ -382,8 +452,8 @@ export function generateGuidelineEvidenceSnippets(chartText: string): Array<{
     }
   }
 
-  // デフォルト汎用エビデンス記載
-  if (results.length === 0) {
+  // 明示的な要求時のみデフォルト汎用エビデンス記載を提供 (デフォルトはカルテ個別検出のみ)
+  if (results.length === 0 && options?.fallbackToDefault) {
     results.push({
       id: 'gl_default_abx',
       title: '抗微生物薬適正使用の手引き (厚労省)',

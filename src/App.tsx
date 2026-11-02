@@ -86,6 +86,7 @@ export default function App() {
   const [isCoprocessorModalOpen, setIsCoprocessorModalOpen] = useState(false);
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [aiModalInitialStyle, setAiModalInitialStyle] = useState<any>('soap');
+  const [aiModalTextOverride, setAiModalTextOverride] = useState<string | null>(null);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isCameraOcrOpen, setIsCameraOcrOpen] = useState(false);
   const [isLearnedDictOpen, setIsLearnedDictOpen] = useState(false);
@@ -507,8 +508,16 @@ export default function App() {
           prePullOriginalTextRef.current = inputText;
           setIsCoprocessorModalOpen(true);
         }}
-        onOpenWebLlm={(style?: any) => {
+        onOpenWebLlm={(style?: any, textOverride?: string) => {
           setAiModalInitialStyle(style || 'soap');
+          if (textOverride !== undefined && textOverride !== null) {
+            setAiModalTextOverride(textOverride);
+            if (textOverride && textOverride !== inputText) {
+              setInputText(textOverride);
+            }
+          } else {
+            setAiModalTextOverride(null);
+          }
           setIsAiModalOpen(true);
         }}
         onOpenTemplates={() => setIsTemplateModalOpen(true)}
@@ -570,7 +579,7 @@ export default function App() {
               setIsAiModalOpen(false);
               resetViewportScroll();
             }}
-            originalText={inputText}
+            originalText={aiModalTextOverride !== null ? aiModalTextOverride : inputText}
             initialStyle={aiModalInitialStyle}
             isBleConnected={isBleConnected}
             onApplyFormattedText={(text: string) => {

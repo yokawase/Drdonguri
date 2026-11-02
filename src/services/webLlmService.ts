@@ -1070,6 +1070,189 @@ export const SECRETARY_QUICK_PROMPTS: { label: string; prompt: string; badge: st
 ];
 
 /**
+ * 入力されたカルテ内容に基づき、臨床医のカルテ総合監査・見落としチェック・対話チャット応答を生成する
+ */
+export function buildClinicalAuditChatResponse(
+  rawChartText: string,
+  _userQuery?: string
+): {
+  answer: string;
+  references: string[];
+} {
+  const cleanChart = cleanExtractedMedicalText(rawChartText || '').trim();
+  const references: string[] = ['カルテ総合監査エンジン'];
+
+  // ① カルテが未入力または極端に短い場合（無関係な固定文誤爆を完全防止し、親切な案内を返却）
+  if (cleanChart.length < 5) {
+    return {
+      answer: [
+        '先生、現在カルテ内容が未入力です。',
+        '',
+        'メイン画面のエディタに、患者様の【主訴・現病歴・バイタルサイン・身体所見・処方薬・検査値】を入力（またはマイクボタンから音声入力）した上で、再度「🩺 カルテ総合監査・見落としチェック」をお試しください。',
+        '',
+        '入力された具体的なカルテ所見に基づき、以下の観点から即座に個別監査を実施いたします：',
+        '・🚨 見落としてはならない致死性疾患（Red Flags）と緊急除外診断',
+        '・⚠️ 現在のカルテ記載で不足している重要確認所見（ピットフォール）',
+        '・💊 処方薬の腎機能(eGFR)別減量基準 ＆ 併用禁忌チェック',
+        '・📘 Minds診療ガイドライン推奨方針 ＆ レセプト算定根拠',
+        '・📝 電カルにそのまま転記できる防衛的カルテ推奨文',
+      ].join('\n'),
+      references: ['カルテ入力待機'],
+    };
+  }
+
+  // ② カルテ内容の構造化分解（S/O/A/Pおよび要素の抽出）
+  const { expandedText } = expandMedicalAbbreviations(cleanChart);
+  const normalizedChart = normalizeMedicalSpeechTerms(expandedText);
+
+  // 症候別Red Flags検出（カルテ本文のみを対象にし、無関係な汎用フォールバックは除外）
+  const redFlags = detectClinicalRedFlags(normalizedChart, { fallbackToGeneral: false });
+  // 処方・腎機能監査（カルテ本文のみを対象）
+  const renalAudit = auditRenalAndPrescriptions(normalizedChart);
+  // ガイドライン根拠（カルテ本文のみを対象）
+  const guidelines = generateGuidelineEvidenceSnippets(normalizedChart, { fallbackToDefault: false });
+
+  // カルテからバイタル記載状況の検出
+  const hasSpO2 = /(?:SpO2|酸素飽和度)/i.test(normalizedChart);
+  const hasBP = /(?:BP|血圧)/i.test(normalizedChart);
+  const hasHR = /(?:HR|PR|脈拍|心拍)/i.test(normalizedChart);
+  const hasBT = /(?:BT|KT|体温|度|℃)/i.test(normalizedChart);
+
+  // カルテの主訴・症状の代表的要約（最初の数行）
+  const lines = normalizedChart.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const firstLines = lines.slice(0, 3).join(' / ');
+
+  const responseSections: string[] = [];
+
+  // 冒頭: カルテの把握状況と対話挨拶
+  responseSections.push(
+    `先生、入力されたカルテ所見を確認いたしました。\n現在のカルテ内容（『${cleanChart.length > 70 ? cleanChart.slice(0, 70) + '...' : cleanChart}』）に基づき、見落とし防止・医療安全の観点から総合監査を実施いたしました。`
+  );
+
+  // 1. 鑑別診断 ＆ 見落とし厳禁Red Flags
+  if (redFlags.length > 0) {
+    const rfTexts: string[] = ['【🚨 鑑別診断 ＆ 見落とし厳禁Red Flags（致死的疾患）】'];
+    for (const rf of redFlags.slice(0, 3)) {
+      rfTexts.push(
+        `・対象症候: 【${rf.syndrome}】\n  除外すべき緊急疾患: ${rf.criticalDifferentials.join(' / ')}\n  確認すべき危険徴候: ${rf.mustCheckSigns.join('、')}`
+      );
+      references.push(`RedFlag: ${rf.syndrome}`);
+    }
+    responseSections.push(rfTexts.join('\n'));
+  } else {
+    // 特定のKiller症候には該当しない場合、カルテ内容に基づく一般的鑑別
+    responseSections.push(
+      `【🚨 鑑別診断 ＆ 安全確認】\n・現在記載されている所見（${firstLines}）において、直ちに緊急処置を要する典型的なKiller Red Flags（ACS・大動脈解離・重症気道閉塞等）は検出されませんでした。\n・ただし、症状が急速に増悪する場合や新たな激痛・意識障害・呼吸困難が出現するリスクを念頭に慎重な経過観察が必要です。`
+    );
+  }
+
+  // 2. カルテ追記・追加確認すべき見落とし防止所見（ピットフォール）
+  const missingChecks: string[] = [];
+  if (!hasBP) missingChecks.push('血圧 (BP: ショック・高血圧緊急症の評価)');
+  if (!hasHR) missingChecks.push('心拍数・脈拍 (HR/PR: 頻脈・徐脈・不整脈評価)');
+  if (!hasSpO2) missingChecks.push('経皮的動脈血酸素飽和度 (SpO2: 低酸素血症・呼吸不全評価)');
+  if (!hasBT) missingChecks.push('体温 (BT: 感染症・発熱評価)');
+
+  // 症候別ピットフォール
+  if (/(?:腹痛|心窩部痛|胃痛|みぞおち|下腹部)/.test(normalizedChart)) {
+    if (!/(?:反跳痛|Blumberg|筋性防御|Guarding|板状硬)/i.test(normalizedChart)) {
+      missingChecks.push('腹膜刺激徴候（筋性防御・反跳痛）の有無');
+    }
+    if (!/(?:腸雑音|腸音|金属音)/.test(normalizedChart)) {
+      missingChecks.push('腸雑音（蠕動音減弱・金属音・亢進）の聴取所見');
+    }
+  }
+  if (/(?:胸痛|胸部|前胸部|絞扼)/.test(normalizedChart)) {
+    if (!/(?:心電図|ECG|ST)/i.test(normalizedChart)) {
+      missingChecks.push('12誘導心電図（ST変化・虚血所見）の確認');
+    }
+    if (!/(?:冷汗|放散痛|背部痛)/.test(normalizedChart)) {
+      missingChecks.push('冷汗・左肩/顎への放散痛・背部移動痛の有無');
+    }
+  }
+  if (/(?:頭痛|後頸部|後頭部)/.test(normalizedChart)) {
+    if (!/(?:項部硬直|Jolt|髄膜刺激)/i.test(normalizedChart)) {
+      missingChecks.push('項部硬直・Jolt accentuation（髄膜炎・SAH除外）');
+    }
+    if (!/(?:突然|何時何分|雷鳴)/.test(normalizedChart)) {
+      missingChecks.push('発症様式（突然発症か、何時何分にピークに達したか）');
+    }
+  }
+  if (/(?:発熱|熱|咽頭痛|咳|呼吸困難)/.test(normalizedChart)) {
+    if (!/(?:呼吸数|RR)/i.test(normalizedChart)) {
+      missingChecks.push('呼吸数（RR≧22回/分はqSOFA敗血症警戒）');
+    }
+    if (!/(?:喘鳴|Stridor|含み声|流涎)/.test(normalizedChart)) {
+      missingChecks.push('吸気性喘鳴(Stridor)・含み声・流涎（気道閉塞徴候）の有無');
+    }
+  }
+
+  if (missingChecks.length > 0) {
+    responseSections.push(
+      `【⚠️ カルテ追記・追加確認を推奨する所見（見落としピットフォール）】\n現在のカルテ記載から、以下の重要所見の確認・カルテ追記を推奨します：\n・${missingChecks.slice(0, 5).join('\n・')}`
+    );
+  }
+
+  // 3. 処方・腎機能(eGFR)ドーズアジャスト監査
+  const drugLines: string[] = [];
+  if (renalAudit.detectedEgfr !== null) {
+    drugLines.push(`・検出腎機能: eGFR ${renalAudit.detectedEgfr} mL/min/1.73m² (記載確認済)`);
+    references.push(`腎機能判定: eGFR ${renalAudit.detectedEgfr}`);
+  }
+  if (renalAudit.alerts.length > 0) {
+    for (const al of renalAudit.alerts) {
+      drugLines.push(`・⚠️【${al.drugName}】${al.recommendedAction}\n  ➔ 推奨記載: 「${al.orderSnippet}」`);
+      references.push(`処方監査: ${al.drugName}`);
+    }
+  }
+  // カルテ内の薬剤検索
+  const matchedRenalDrugs = RENAL_DOSE_CATALOG.filter((r) => {
+    const base = r.drugName.split(/[()（）\s/]+/)[0];
+    return base && base.length >= 2 && normalizedChart.includes(base);
+  }).slice(0, 2);
+
+  for (const r of matchedRenalDrugs) {
+    const cutoffStr = r.cutoffs.map((c) => `${c.range}: ${c.dose}`).join(' / ');
+    drugLines.push(`・💊【${r.drugName} (${r.category})】通常: ${r.standardDose} ➔ 腎機能別減量: ${cutoffStr} (${r.clinicalTip})`);
+    references.push(`腎機能用量: ${r.drugName}`);
+  }
+
+  if (drugLines.length > 0) {
+    responseSections.push(`【💊 処方・腎機能(eGFR)ドーズアジャスト監査】\n${drugLines.join('\n')}`);
+  } else {
+    // カルテ内に薬剤が未記載の場合、無関係な数値を捏造せず正確に回答
+    responseSections.push(
+      '【💊 処方・腎機能(eGFR)監査】\n・現在入力中のカルテ内に特定の処方薬・内服薬は記載されていません。\n・※NSAIDs、抗菌薬、降圧薬、糖尿病薬等を処方される際は、腎機能(eGFR)ステージに応じた用量調整およびアレルギー歴をご確認ください。'
+    );
+  }
+
+  // 4. Minds診療ガイドライン推奨 ＆ レセプト算定根拠
+  if (guidelines.length > 0) {
+    const glLines: string[] = [];
+    for (const g of guidelines.slice(0, 2)) {
+      glLines.push(`・📘【${g.title}】${g.snippet}`);
+      references.push(g.title);
+    }
+    responseSections.push(`【📘 Minds診療ガイドライン推奨 ＆ 算定根拠】\n${glLines.join('\n')}`);
+  }
+
+  // 5. 電カル推奨追記文（ワンタップ転記用）
+  const defensiveText =
+    redFlags.length > 0
+      ? redFlags[0].defensiveChartSnippet
+      : '【安全確認】バイタルサイン安定、意識清明。緊急処置を要する危険徴候（Red Flags）を認めず。症状増悪時の早期再診および救急要請基準を患者・家族に指導。';
+
+  responseSections.push(
+    `【📝 電カル推奨追記文（ワンタップ転記用）】\n「${defensiveText}」`
+  );
+
+  return {
+    answer: responseSections.join('\n\n'),
+    references: Array.from(new Set(references)).slice(0, 6),
+  };
+}
+
+/**
  * 質問と現在のカルテから 32GB MicroSD 10大医療マスターを 0.01秒で横断検索し、
  * 根拠データと即応医療秘書アンサーを構築する
  */
@@ -1082,14 +1265,24 @@ export function buildInstantSecretaryRagResponse(
   references: string[];
 } {
   const q = userQuery.trim();
-  const qLower = q.toLowerCase();
-  const combinedText = `${q}\n${chartText || ''}`;
-  const references: string[] = [];
-  const contextBlocks: string[] = [];
+  const cleanChart = cleanExtractedMedicalText(chartText || '').trim();
 
-  // 1. 特定タスク意図の直接実行（SOAP / 紹介状 / 指示簿SBAR / 患者IC / 監査）
+  // 1. カルテ総合監査・見落としチェック（専用エンジンへディスパッチ）
+  if (
+    /(?:監査|見落と|鑑別|red\s*flag|チェック|リスク|注意点|カルテ総合監査)/i.test(q) ||
+    q.includes('カルテ総合監査・見落としチェック')
+  ) {
+    const auditResult = buildClinicalAuditChatResponse(cleanChart, userQuery);
+    return {
+      instantAnswer: auditResult.answer,
+      ragContext: auditResult.answer,
+      references: auditResult.references,
+    };
+  }
+
+  // 2. 特定タスク意図の直接実行（SOAP / 紹介状 / 指示簿SBAR / 患者IC）
   if (/(?:soap|ソープ).*(?:まとめ|整理|清書|作成|変換)/i.test(q)) {
-    const soap = generateSafeFallbackChart(chartText, 'soap');
+    const soap = generateSafeFallbackChart(cleanChart, 'soap');
     return {
       instantAnswer: `【どんぐり医療秘書・SOAP構造化案】\n${soap}`,
       ragContext: soap,
@@ -1097,7 +1290,7 @@ export function buildInstantSecretaryRagResponse(
     };
   }
   if (/(?:紹介状|診療情報提供書|対診|サマリー).*(?:書|作成|ドラフト|まとめ)/i.test(q)) {
-    const refDoc = generateSafeFallbackChart(chartText, 'referral');
+    const refDoc = generateSafeFallbackChart(cleanChart, 'referral');
     return {
       instantAnswer: refDoc,
       ragContext: refDoc,
@@ -1105,7 +1298,7 @@ export function buildInstantSecretaryRagResponse(
     };
   }
   if (/(?:指示簿|sbar|申し送り).*(?:書|作成|ドラフト|まとめ)/i.test(q)) {
-    const sbarDoc = generateSafeFallbackChart(chartText, 'order_sbar');
+    const sbarDoc = generateSafeFallbackChart(cleanChart, 'order_sbar');
     return {
       instantAnswer: sbarDoc,
       ragContext: sbarDoc,
@@ -1113,7 +1306,7 @@ export function buildInstantSecretaryRagResponse(
     };
   }
   if (/(?:患者|家族|わかりやすく|平易|説明文|説明書|ic)/i.test(q) && /(?:書|作成|作っ|説明|翻訳)/i.test(q)) {
-    const icDoc = generateSafeFallbackChart(chartText, 'patient_ic');
+    const icDoc = generateSafeFallbackChart(cleanChart, 'patient_ic');
     return {
       instantAnswer: icDoc,
       ragContext: icDoc,
@@ -1121,51 +1314,57 @@ export function buildInstantSecretaryRagResponse(
     };
   }
 
-  // 2. カルテ連動の処方・腎機能監査 / Red Flags / ガイドライン根拠抽出
-  const renalAudit = auditRenalAndPrescriptions(combinedText);
-  const redFlags = detectClinicalRedFlags(combinedText);
-  const guidelines = generateGuidelineEvidenceSnippets(combinedText);
+  // 3. 一般自由質問 ＆ カルテ連動検索
+  const references: string[] = [];
+  const contextBlocks: string[] = [];
+  const sections: string[] = [];
 
-  // 3. 10大医療マスターからのピンポイント検索（薬剤・腎機能用量・ガイドライン・救急・スコア・検査・点数）
-  const matchedRenal = RENAL_DOSE_CATALOG.filter((r) => {
-    const base = r.drugName.split(/[()（）\s/]+/)[0];
-    return base && combinedText.includes(base);
-  }).slice(0, 3);
+  // カルテ本文から医療要素を抽出
+  const renalAudit = auditRenalAndPrescriptions(cleanChart);
+  const redFlags = detectClinicalRedFlags(cleanChart, { fallbackToGeneral: false });
+  const guidelines = generateGuidelineEvidenceSnippets(cleanChart, { fallbackToDefault: false });
 
-  const matchedDrugs = DRUGS_CATALOG.filter((d) => {
-    const base = d.name.replace(/(?:錠|カプセル|舌下錠|OD錠|[\d.]+mg).*$/g, '').trim();
-    return (base.length >= 2 && combinedText.includes(base)) || (d.genericName && combinedText.includes(d.genericName));
-  }).slice(0, 4);
-
-  const matchedMinds = MINDS_KNOWLEDGE_CATALOG.filter((m) => {
-    const cleanDis = m.diseaseName.replace(/[（()）].*?[）)]/g, '').trim();
-    return (cleanDis.length >= 2 && combinedText.includes(cleanDis)) || m.cqTitle.toLowerCase().includes(qLower);
-  }).slice(0, 3);
-
+  // 質問に関連する救急・中毒プロトコル検索
+  const qLower = q.toLowerCase();
   const matchedEmer = EMERGENCY_PROTOCOLS_CATALOG.filter((e) =>
     e.title.toLowerCase().includes(qLower) ||
     e.category.toLowerCase().includes(qLower) ||
     e.title.split(/[\s:：()（）・/]+/).some((part) => part.length >= 2 && q.includes(part))
   ).slice(0, 2);
 
+  // 質問に関連する臨床スコア検索
   const matchedScores = CLINICAL_SCORES_CATALOG.filter((s) =>
     s.scoreName.toLowerCase().includes(qLower) ||
     s.targetClinicalCondition.toLowerCase().includes(qLower) ||
-    s.scoreName.split(/[\s()（）]+/).some((part) => part.length >= 3 && combinedText.includes(part))
+    s.scoreName.split(/[\s()（）]+/).some((part) => part.length >= 3 && q.includes(part))
   ).slice(0, 2);
 
-  const matchedLabs = LAB_TESTS_CATALOG.filter((l) =>
-    l.name.toLowerCase().includes(qLower) ||
-    l.name.split(/[\s()（）/・]+/).some((part) => part.length >= 2 && q.includes(part))
-  ).slice(0, 3);
+  // カルテに含まれる、または質問で具体的に尋ねられた検査マスター検索（qにeGFR等の文字があるだけで無条件ヒットしないよう防護）
+  const matchedLabs = LAB_TESTS_CATALOG.filter((l) => {
+    const labName = l.name.toLowerCase();
+    const isExplicitlyQueried =
+      qLower.includes(labName) ||
+      l.name.split(/[\s()（）/・]+/).some((part) => part.length >= 3 && qLower.includes(part.toLowerCase()));
+    const isInChart = cleanChart.length > 0 && cleanChart.includes(l.name.split(/[()（）\s/]+/)[0]);
+    return isExplicitlyQueried || isInChart;
+  }).slice(0, 2);
 
-  const matchedProcs = PROCEDURES_CATALOG.filter((p) =>
-    p.name.includes(q) || q.includes(p.name) || combinedText.includes(p.name)
-  ).slice(0, 2);
+  // カルテ内の薬剤または質問薬剤
+  const matchedRenal = RENAL_DOSE_CATALOG.filter((r) => {
+    const base = r.drugName.split(/[()（）\s/]+/)[0];
+    return base && base.length >= 2 && (cleanChart.includes(base) || q.includes(base));
+  }).slice(0, 2);
 
-  const sections: string[] = [];
+  const matchedDrugs = DRUGS_CATALOG.filter((d) => {
+    const base = d.name.replace(/(?:錠|カプセル|舌下錠|OD錠|[\d.]+mg).*$/g, '').trim();
+    return (
+      (base.length >= 2 && (cleanChart.includes(base) || q.includes(base))) ||
+      (d.genericName && (cleanChart.includes(d.genericName) || q.includes(d.genericName)))
+    );
+  }).slice(0, 3);
 
-  if (redFlags.length > 0 && (/(?:監査|見落と|鑑別|red\s*flag|危険|胸痛|圧迫|息切れ|腹痛|頭痛|めまい)/i.test(q) || sections.length === 0)) {
+  // 該当データに基づくセクション組み立て
+  if (redFlags.length > 0) {
     const rfLines = redFlags.slice(0, 2).map(
       (rf) => `・【${rf.syndrome}】除外すべき疾患: ${rf.criticalDifferentials.join(' / ')}\n  確認所見: ${rf.mustCheckSigns.join('、')}\n  推奨カルテ記載: 「${rf.defensiveChartSnippet}」`
     );
@@ -1179,7 +1378,7 @@ export function buildInstantSecretaryRagResponse(
     if (renalAudit.detectedEgfr !== null) {
       drugLines.push(`・検出腎機能: eGFR ${renalAudit.detectedEgfr} mL/min/1.73m²`);
     }
-    for (const al of renalAudit.alerts.slice(0, 3)) {
+    for (const al of renalAudit.alerts.slice(0, 2)) {
       drugLines.push(`・⚠️【${al.drugName}】${al.recommendedAction} (${al.orderSnippet})`);
       references.push(`腎機能監査: ${al.drugName}`);
     }
@@ -1193,25 +1392,19 @@ export function buildInstantSecretaryRagResponse(
       references.push(`PMDA添付文書: ${d.name}`);
     }
     if (drugLines.length > 0) {
-      sections.push(`■ 処方・医薬品・腎機能(eGFR)チェック\n${drugLines.join('\n')}`);
+      sections.push(`■ 処方・医薬品・腎機能チェック\n${drugLines.join('\n')}`);
       contextBlocks.push(drugLines.join('\n'));
     }
   }
 
-  if (guidelines.length > 0 || matchedMinds.length > 0) {
+  if (guidelines.length > 0) {
     const glLines: string[] = [];
     for (const g of guidelines.slice(0, 2)) {
       glLines.push(`・📘【${g.title} (${g.badge})】カルテ記載用根拠文: 「${g.snippet}」`);
       references.push(g.title);
     }
-    for (const m of matchedMinds) {
-      glLines.push(`・📘【Minds: ${m.diseaseName}】${m.cqTitle}\n  推奨(${m.strength} / Ev:${m.evidenceLevel}): ${m.recommendation}`);
-      references.push(`Minds: ${m.diseaseName}`);
-    }
-    if (glLines.length > 0) {
-      sections.push(`■ Minds診療ガイドライン推奨＆カルテ記載根拠\n${glLines.join('\n')}`);
-      contextBlocks.push(glLines.join('\n'));
-    }
+    sections.push(`■ Minds診療ガイドライン推奨＆カルテ記載根拠\n${glLines.join('\n')}`);
+    contextBlocks.push(glLines.join('\n'));
   }
 
   if (matchedEmer.length > 0) {
@@ -1232,25 +1425,28 @@ export function buildInstantSecretaryRagResponse(
     references.push(...matchedScores.map((s) => `臨床スコア: ${s.scoreName}`));
   }
 
-  if (matchedLabs.length > 0 || matchedProcs.length > 0) {
+  if (matchedLabs.length > 0) {
     const lpLines: string[] = [];
     for (const l of matchedLabs) {
       lpLines.push(`・🔬【${l.name}】基準値: ${l.referenceRange} / パニック値: ${l.panicValue} / 臨床意義: ${l.clinicalSignificance}`);
       references.push(`検査マスター: ${l.name}`);
     }
-    for (const p of matchedProcs) {
-      lpLines.push(`・🏥【${p.name} (${p.code})】${p.points}点 / 算定要件: ${p.requirements}`);
-      references.push(`医科点数表: ${p.name}`);
-    }
-    sections.push(`■ 検査基準値・医科診療報酬算定要件\n${lpLines.join('\n')}`);
+    sections.push(`■ 検査基準値・臨床意義\n${lpLines.join('\n')}`);
     contextBlocks.push(lpLines.join('\n'));
   }
 
   if (sections.length === 0) {
-    const concise = generateSafeFallbackChart(chartText, 'concise');
-    sections.push(`■ カルテ連動・医療秘書ブリーフィング\n${concise}`);
-    contextBlocks.push(concise);
-    references.push('カルテ文脈解析エンジン');
+    if (cleanChart.length >= 5) {
+      const concise = generateSafeFallbackChart(cleanChart, 'concise');
+      sections.push(`■ カルテ連動・医療秘書ブリーフィング\n${concise}`);
+      contextBlocks.push(concise);
+      references.push('カルテ文脈解析エンジン');
+    } else {
+      sections.push(
+        '先生、ご質問ありがとうございます。\n現在カルテ内容が未入力のため、一般的な医療マスター検索を行います。カルテエディタに所見を入力していただくと、患者様の個別症状に連動した高精度な助言が可能となります。'
+      );
+      references.push('医療マスター検索');
+    }
   }
 
   const uniqueRefs = Array.from(new Set(references)).slice(0, 6);
@@ -1329,12 +1525,15 @@ export async function chatWithGemma2Secretary(
 
     const cleanChart = cleanExtractedMedicalText(currentChartText || '').slice(0, 500);
 
-    const prompt = `あなたは臨床医師の右腕となる優秀な「医療秘書AI (Dr.Dongly Gemma 2)」です。
+    const prompt = `あなたは臨床医師の右腕となる優秀な「専属医療秘書AI (Dr.Dongly Gemma 2)」です。
 以下の【現在診察中のカルテ】と【32GB医療マスター照合根拠】を踏まえ、医師の質問・指示に対して簡潔・正確・実践的な100%日本語で回答してください。
-厳守: 架空の薬品名や数値を捏造せず、電カルにそのまま転記・活用できる明確な構成で前置き挨拶なしに出力すること。
+厳守事項:
+1. 必ず【現在診察中のカルテ】の内容（主訴、症状、バイタル、所見、処方等）を具体的に引用・参照して回答すること。カルテと無関係な一般的定型文の出力は厳禁。
+2. もしカルテが未入力の場合は、その旨を親切に伝え、カルテ入力（主訴・所見等）を促すこと。
+3. 架空の薬品名や数値を捏造せず、電カルにそのまま転記・活用できる明確な構成で前置き挨拶なしに出力すること。
 
 【現在診察中のカルテ】
-${cleanChart || '（未入力）'}
+${cleanChart || '（未入力: カルテエディタに所見が入力されていません）'}
 
 【32GB医療マスター照合根拠】
 ${ragContext}

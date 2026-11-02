@@ -263,6 +263,28 @@ export const Gemma2MedicalChatPanel: React.FC<Gemma2MedicalChatPanelProps> = ({
         </div>
       </div>
 
+      {/* リアルタイムカルテ文脈インジケーター（カルテ連動の可視化） */}
+      <div className="px-3 py-1.5 bg-slate-950/80 border-b border-slate-800 flex items-center justify-between gap-2 text-[10px]">
+        <div className="flex items-center gap-1.5 truncate">
+          <BookOpen className="w-3 h-3 text-cyan-400 shrink-0" />
+          <span className="text-slate-400 font-bold shrink-0">連動カルテ:</span>
+          {effectiveChartText.trim() ? (
+            <span className="text-slate-200 truncate font-mono">
+              {effectiveChartText.trim().replace(/\s+/g, ' ')}
+            </span>
+          ) : (
+            <span className="text-amber-400/90 font-medium italic">
+              （未入力: メイン画面でカルテを入力すると自動連動します）
+            </span>
+          )}
+        </div>
+        {effectiveChartText.trim() && (
+          <span className="shrink-0 text-[9px] font-mono text-emerald-400 bg-emerald-950/80 border border-emerald-700/50 px-1.5 py-0.2 rounded">
+            {effectiveChartText.length}文字
+          </span>
+        )}
+      </div>
+
       {/* ワンタップ医療秘書クイック指示チップス */}
       <div className="px-3 py-2 bg-slate-900/70 border-b border-slate-800/80 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
         <span className="text-[10px] font-bold text-indigo-300 shrink-0">秘書コマンド:</span>

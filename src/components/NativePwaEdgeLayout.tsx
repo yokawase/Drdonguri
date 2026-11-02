@@ -31,7 +31,7 @@ export interface NativePwaEdgeLayoutProps {
   onAbortTransfer?: () => void;
   onOpenSearch: (initialTab?: any) => void;
   onOpenCoprocessor?: () => void;
-  onOpenWebLlm: (initialStyle?: any) => void;
+  onOpenWebLlm: (initialStyle?: any, textOverride?: string) => void;
   onOpenTemplates: () => void;
   onOpenCameraOcr?: () => void;
   onLearnAsrDiff?: (rawSpeechText: string, finalizedText: string) => Promise<any>;
@@ -167,6 +167,13 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
     [localDraft, setInputText, speechRecognition]
   );
 
+  const handleOpenWebLlmWithCurrentText = useCallback(
+    (style?: any) => {
+      onOpenWebLlm(style, (localDraft || inputText).trim());
+    },
+    [onOpenWebLlm, localDraft, inputText]
+  );
+
   return (
     <div className="relative w-full h-[100dvh] max-h-[100dvh] bg-[#0F172A] text-slate-100 flex flex-col justify-between overflow-hidden select-none font-sans overscroll-none touch-manipulation">
       {/* 1. ヘッダー部 */}
@@ -175,7 +182,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         onToggleDrawer={() => setIsDrawerOpen((prev) => !prev)}
         onOpenSearch={onOpenSearch}
         onOpenTemplates={onOpenTemplates}
-        onOpenWebLlm={onOpenWebLlm}
+        onOpenWebLlm={handleOpenWebLlmWithCurrentText}
         onSelectRightPaneTab={setRightPaneTab}
         onToggleInlineChat={() => setShowInlineChat((prev) => !prev)}
         onOpenCameraOcr={onOpenCameraOcr}
@@ -221,7 +228,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
             setInputText={setInputText}
             onAbortTransfer={onAbortTransfer}
             onOpenCameraOcr={onOpenCameraOcr}
-            onOpenWebLlm={onOpenWebLlm}
+            onOpenWebLlm={handleOpenWebLlmWithCurrentText}
             speechSuccessNotice={speechRecognition.speechSuccessNotice}
             setSpeechSuccessNotice={speechRecognition.setSpeechSuccessNotice}
             handleEditorChange={handleEditorChange}
@@ -245,7 +252,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
           onSendSession={onSendSession}
           onOpenSearch={onOpenSearch}
           onOpenTemplates={onOpenTemplates}
-          onOpenWebLlm={onOpenWebLlm}
+          onOpenWebLlm={handleOpenWebLlmWithCurrentText}
           onOpenCameraOcr={onOpenCameraOcr}
           onOpenCoprocessor={onOpenCoprocessor}
           chartContext={clinicalCopilot.chartContext}
@@ -280,7 +287,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         isSending={isSending}
         onOpenSearch={onOpenSearch}
         onOpenTemplates={onOpenTemplates}
-        onOpenWebLlm={onOpenWebLlm}
+        onOpenWebLlm={handleOpenWebLlmWithCurrentText}
         onOpenCameraOcr={onOpenCameraOcr}
         onOpenLearnedDict={onOpenLearnedDict}
         learnedDictCount={learnedDictCount}
@@ -310,7 +317,7 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         patientWeightKg={clinicalCopilot.patientWeightKg}
         onChangePatientWeight={clinicalCopilot.setPatientWeightKg}
         onAppendText={handleAppendSnippet}
-        onOpenWebLlm={onOpenWebLlm}
+        onOpenWebLlm={handleOpenWebLlmWithCurrentText}
       />
     </div>
   );
