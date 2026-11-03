@@ -102,7 +102,7 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
     it('否定モダリティ文（右下腹部痛、急性虫垂炎、否定的、発熱なし）', () => {
       const input = '右下腹部痛あり。急性虫垂炎は否定的。発熱なし。';
       const res = compiler.compileText(input, { includeImeReset: false });
-      expect(res.streamText).toBe('[Z]migikahukubutuu[/Z][H]ari[/H][H]。[/H] [Z]kyuuseityuusyuien[/Z][H]ha[/H][Z]hiteiteki[/Z][H]。[/H] [Z]hatunetu[/Z][H]nashi[/H][H]。[/H]');
+      expect(res.streamText).toBe('[Z]migikahukubutuu[/Z][H]ari[/H][H]。[/H] [Z]kyuuseityuusuien[/Z][H]ha[/H][Z]hiteiteki[/Z][H]。[/H] [Z]hatunetu[/Z][H]nashi[/H][H]。[/H]');
     });
 
     it('処方・用法（カロナール錠500mg 1回1錠 疼痛時頓服）', () => {
@@ -395,6 +395,22 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
 
       // 【法則⑤: 同音異義語コントロール】MS-IME第2候補「健診」の[G]Space2回直接確定
       expect(res.streamText).toContain('[G]kennsinn[/G]');
+    });
+
+    it('11. 虫垂炎・急性虫垂炎の読みタイポ（旧成虫首位炎）再発防止検証', () => {
+      // 「急性虫垂炎」単体
+      const res1 = compiler.compileText('急性虫垂炎', { includeImeReset: false });
+      expect(res1.streamText).toBe('[Z]kyuuseityuusuien[/Z]');
+      expect(res1.streamText).not.toContain('syui'); // 「首位」の原因となるタイポの排除
+
+      // 「虫垂炎」単体
+      const res2 = compiler.compileText('虫垂炎', { includeImeReset: false });
+      expect(res2.streamText).toBe('[Z]tyuusuien[/Z]');
+      expect(res2.streamText).not.toContain('syui');
+
+      // 「虫垂」単体
+      const res3 = compiler.compileText('虫垂', { includeImeReset: false });
+      expect(res3.streamText).toBe('[Z]tyuusui[/Z]');
     });
   });
 });
