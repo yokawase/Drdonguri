@@ -1162,7 +1162,7 @@ export const CLINICAL_COMPOUND_MAP: Record<string, string> = {
   '両側肺野清': '[Z]ryousoku[/Z][Z]hai[/Z][Z]yasai[/Z][BS][Z]seiketu[/Z][BS]', '肺野清': '[Z]hai[/Z][Z]yasai[/Z][BS][Z]seiketu[/Z][BS]', '肺野': '[Z]hai[/Z][Z]yasai[/Z][BS]',
   '両側下腿浮腫': '[Z]ryousoku[/Z][Z]kataibu[/Z][BS][Z]husyu[/Z]', '下腿浮腫': '[Z]kataibu[/Z][BS][Z]husyu[/Z]', '下腿': '[Z]kataibu[/Z][BS]', '浮腫': 'husyu',
   'アムロジピン錠': '[K]amurojipinn[/K][Z]jyouzai[/Z][BS]', 'テルミサルタン錠': '[K]terumisarutann[/K][Z]jyouzai[/Z][BS]',
-  '朝食後': 'asasyokugo', '日分': 'nitibunn', '減塩': 'gennnenn', '食塩': 'syokuenn', '日未満': 'nitimimann',
+  '朝食後': 'asasyokugo', '日分': 'nitibunn', '減塩': 'gennenn', '貴科': 'kika', '貴院': 'kiinn', '食塩': 'syokuenn', '日未満': 'nitimimann',
   'コントロール中': '[K]konntoro-ru[/K][Z]tyuusinn[/Z][BS]',
   '有酸素運動': 'yuusannsoundou', '適度な有酸素運動': 'tekidonayuusannsoundou', '継続指導': 'keizokusidou',
   '次回3ヶ月後の定期採血': 'jikai3kagetugonoteikisaiketu', '次回3ヶ月後': 'jikai3kagetugo', '次回': 'jikai',

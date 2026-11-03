@@ -5267,7 +5267,7 @@ export const JIS_KANJI_ROMAJI: Record<string, string> = {
   '貰': 'sei',
   '貲': 'shi',
   '貳': 'ni',
-  '貴': 'takashi',
+  '貴': 'ki',
   '貶': 'henn',
   '買': 'bai',
   '貸': 'tai',

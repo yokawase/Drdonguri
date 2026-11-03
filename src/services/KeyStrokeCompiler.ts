@@ -584,10 +584,18 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '出現': 'syutugenn',
   '首相': 'syusou',
   '主訴': 'syuso',
+  '減塩': 'gennenn',
+  '貴科': 'kika',
+  '貴科受診': 'kikajushin',
+  '貴科宛': 'kikaate',
+  '貴院': 'kiinn',
+  '貴院宛': 'kiinate',
+  '貴台': 'kidai',
   '放散痛': 'housantsuu',
   '胸部絞扼痛': 'kyoubukouyakutsuu',
-  '湿性ラ音': 'sisseiraon',
-  '乾性ラ音': 'kanseiraon',
+  '湿性ラ音': 'sisseiraonn',
+  '乾性ラ音': 'kanseiraonn',
+  'ラ音': 'raonn',
   '乾性咳嗽': 'kanseigaisou',
   '湿性咳嗽': 'sisseigaisou',
   '背部痛': 'haibutuu',
@@ -952,17 +960,14 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
   ],
   '湿性ラ音': [
     { tag: 'Z', text: '湿性', romaji: 'sissei' },
-    { tag: 'K', text: 'ラ', romaji: 'ra' },
-    { tag: 'Z', text: '音', romaji: 'oto' },
+    { tag: 'Z', text: 'ラ音', romaji: 'raonn' },
   ],
   '乾性ラ音': [
     { tag: 'Z', text: '乾性', romaji: 'kannsei' },
-    { tag: 'K', text: 'ラ', romaji: 'ra' },
-    { tag: 'Z', text: '音', romaji: 'oto' },
+    { tag: 'Z', text: 'ラ音', romaji: 'raonn' },
   ],
   'ラ音': [
-    { tag: 'K', text: 'ラ', romaji: 'ra' },
-    { tag: 'Z', text: '音', romaji: 'oto' },
+    { tag: 'Z', text: 'ラ音', romaji: 'raonn' },
   ],
 
   // 消化器・内視鏡 臨床所見 最適チャンク分解 (ヘボン式・Gタグ全廃・MS-IME標準互換)
@@ -1068,7 +1073,19 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
     { tag: 'Z', text: '首相', romaji: 'shusou' },
   ],
   '主訴': [
-    { tag: 'Z', text: '主訴', romaji: 'shuso' },
+    { tag: 'G', text: '主訴', romaji: 'shuso' },
+  ],
+  '減塩': [
+    { tag: 'Z', text: '減塩', romaji: 'gennenn' },
+  ],
+  '貴科': [
+    { tag: 'Z', text: '貴科', romaji: 'kika' },
+  ],
+  '貴科受診': [
+    { tag: 'Z', text: '貴科受診', romaji: 'kikajushin' },
+  ],
+  '貴院': [
+    { tag: 'Z', text: '貴院', romaji: 'kiinn' },
   ],
   '受診': [
     { tag: 'Z', text: '受診', romaji: 'jushin' },
@@ -1564,6 +1581,7 @@ export const SINGLE_KANJI_DETERMINISTIC_ANCHORS: Record<string, Array<MultiChunk
   '非': [{ tag: 'Z', text: '非', romaji: 'hi' }],
   '群': [{ tag: 'Z', text: '群', romaji: 'gunn' }],
   '値': [{ tag: 'Z', text: '値', romaji: 'atai' }],
+  '貴': [{ tag: 'Z', text: '貴', romaji: 'ki' }],
 };
 
 // 熟語フォールバック用 医療音読み優先テーブル（訓読み誤爆・キメラ連結を完全根絶）
@@ -1601,6 +1619,7 @@ export const ONYOMI_KANJI_FALLBACK: Record<string, string> = {
   '波': 'ha', '導': 'dou', '歳': 'sai', '差': 'sa', '昨': 'saku',
   '出': 'syutu', '現': 'genn', '受': 'jyu', '信': 'sinn', '針': 'sinn',
   '安': 'ann', '静': 'sei', '鎮': 'tinn', '討': 'tou', '男': 'dann',
+  '貴': 'ki',
 };
 
 // 医療接尾辞リスト（直前の自立語へ完全融合する接尾辞）

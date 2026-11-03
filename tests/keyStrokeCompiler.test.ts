@@ -412,6 +412,32 @@ describe('長単位結合オートマトン (Sudachi Mode C) ＆ v20.1 HYBRIDキ
       const res3 = compiler.compileText('虫垂', { includeImeReset: false });
       expect(res3.streamText).toBe('[Z]tyuusui[/Z]');
     });
+
+    it('12. 誤送信4大臨床語（ラ音なし・減塩・主訴・貴科）の誤変換再発防止検証', () => {
+      // ① ラ音なし: 「ラオとなし」（[K]ra[/K][Z]oto[/Z]）への分断・訓読み誤爆を完全遮断し、一体打鍵
+      const res1 = compiler.compileText('ラ音なし', { includeImeReset: false });
+      expect(res1.streamText).toBe('[Z]raonn[/Z][H]nashi[/H]');
+      expect(res1.streamText).not.toContain('oto'); // 単漢字「音」の訓読み誤爆排除
+      expect(res1.streamText).not.toContain('[K]ra[/K]'); // カタカナ分断の排除
+
+      // ② 減塩: 「原燃」（gennnenn = げんねん）タイポを完全遮断し、正しいローマ字（gennenn = げんえん）
+      const res2 = compiler.compileText('減塩', { includeImeReset: false });
+      expect(res2.streamText).toBe('[Z]gennenn[/Z]');
+      expect(res2.streamText).not.toContain('gennnenn'); // 「げんねん」の排除
+
+      // ③ 主訴: MS-IME第1候補「首座」への誤爆を防止し、[G]タグ（Space 2回）で第2候補「主訴」を直接召喚
+      const res3 = compiler.compileText('主訴', { includeImeReset: false });
+      expect(res3.streamText).toBe('[G]shuso[/G]');
+
+      // ④ 貴科: 「貴」の人名訓「たかし（takashi）」＋「科（ka）」＝「たかしか」フォールバック誤爆を完全遮断
+      const res4 = compiler.compileText('貴科', { includeImeReset: false });
+      expect(res4.streamText).toBe('[Z]kika[/Z]');
+      expect(res4.streamText).not.toContain('takashi'); // 人名訓の排除
+
+      // ⑤ ユーザー提示の連結テキスト検証
+      const res5 = compiler.compileText('ラ音なし　減塩　主訴　貴科', { includeImeReset: false });
+      expect(res5.streamText).toBe('[Z]raonn[/Z][H]nashi[/H] [Z]gennenn[/Z] [G]shuso[/G] [Z]kika[/Z]');
+    });
   });
 });
 
