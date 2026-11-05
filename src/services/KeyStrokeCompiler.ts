@@ -320,9 +320,19 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '待たず': 'matazu',
   '胸部圧迫感': 'kyoubuappakukan',
   '胸部絞扼感': 'kyoubukouyakukan',
+  '12誘導': '12yuudou',
+  '誘導': 'yuudou',
   '胸部誘導': 'kyoubuyuudou',
   '左側胸部誘導': 'hidarigawakyoubuyuudou',
   '左側': 'hidarigawa',
+  '一致': 'itti',
+  '一致した': 'ittisita',
+  '効果': 'kouka',
+  '伴う': 'tomonau',
+  '伴い': 'tomonai',
+  '陰転化': 'intenka',
+  '陰性': 'insei',
+  '陽性': 'yousei',
   '息切れ': 'ikigire',
   '動悸発作': 'doukihossa',
   '動悸': 'douki',
@@ -1608,6 +1618,7 @@ export const ONYOMI_KANJI_FALLBACK: Record<string, string> = {
   '波': 'ha', '導': 'dou', '歳': 'sai', '差': 'sa', '昨': 'saku',
   '出': 'syutu', '現': 'genn', '受': 'jyu', '信': 'sinn', '針': 'sinn',
   '安': 'ann', '静': 'sei', '鎮': 'tinn', '討': 'tou', '男': 'dann',
+  '誘': 'yuu', '一': 'iti', '致': 'ti', '伴': 'han', '効': 'kou', '果': 'ka',
   '貴': 'ki',
 };
 
@@ -2623,15 +2634,26 @@ export class KeyStrokeCompiler {
       const singleKanji = remaining.match(/^[\u4E00-\u9FFF\u3005]/);
       if (singleKanji) {
         const ch = singleKanji[0];
-        const romaji = _jisKanjiRomaji[ch] || ONYOMI_KANJI_FALLBACK[ch] || ch;
-        blocks.push({
-          type: 'z_kanji',
-          tag: 'Z',
-          rawText: ch,
-          compiledPayload: `[Z]${romaji}[/Z]`,
-        });
-        zCount++;
-        totalKeystrokes += romaji.length + 2;
+        const romaji = _jisKanjiRomaji[ch] || ONYOMI_KANJI_FALLBACK[ch];
+        if (romaji) {
+          blocks.push({
+            type: 'z_kanji',
+            tag: 'Z',
+            rawText: ch,
+            compiledPayload: `[Z]${romaji}[/Z]`,
+          });
+          zCount++;
+          totalKeystrokes += romaji.length + 2;
+        } else {
+          // 読みが不明な漢字は[Z]に漢字を生で入れず、生文字としてファームウェア側のkanji_yomi.bin解決に委ねる
+          blocks.push({
+            type: 'raw',
+            tag: 'raw',
+            rawText: ch,
+            compiledPayload: ch,
+          });
+          totalKeystrokes += 1;
+        }
         i += 1;
         continue;
       }
