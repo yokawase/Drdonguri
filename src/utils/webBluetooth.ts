@@ -995,6 +995,11 @@ export class BleDongleManager {
 
           // 6. エラー通知
           if (event.ackType.startsWith('ERR_')) {
+            // 打鍵完了後または二重TRIGGER応答 (ERR_NOT_READY_TO_TYPE) はセッション致命的エラーとして扱わない
+            if (isCompleted || event.ackType === 'ERR_NOT_READY_TO_TYPE') {
+              this.log('sys', 'DEBUG', `軽微なステータス通知をスキップ: ${event.ackType}`);
+              return;
+            }
             this.log('sys', 'ERR', `マイコン側エラー通知: ${event.ackType} ${event.detail || ''}`);
             removeAck();
             reject(new Error(`マイコンエラー: ${event.ackType} ${event.detail || ''}`));
