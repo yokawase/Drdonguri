@@ -795,19 +795,20 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
     { tag: 'Z', text: '恐れ入りますが', romaji: 'osoreirimasuga' },
   ],
 
-  // 法則⑤: 完全同音異義語コントロール（健診 vs 検診）
-  // 「健診」はMS-IME初期順位で第2候補となるため [G] (Space 2回 ➔ Enter) で第2候補「健診」を1発確定！
+  // 法則⑤: 完全同音異義語コントロール（電カルIME学習優先運用）
+  // 【同音異義語 Space 2回確定ロジックの完全廃止】
+  // 電カルIMEの学習状態や候補順位の変動により誤変換（首座等）を招くため、
+  // すべて通常の [Z] (Space 1回 ➔ Enter) で電カルIMEに素直に選択・学習させる運用へ統一
   '健診': [
-    { tag: 'G', text: '健診', romaji: 'kennsinn' },
+    { tag: 'Z', text: '健診', romaji: 'kennsinn' },
   ],
-  // 「検診」は第1候補なので通常 [Z] (Space 1回 ➔ Enter)
   '検診': [
     { tag: 'Z', text: '検診', romaji: 'kennsinn' },
   ],
 
   // ★ 英数混在医療フレーズ (英字は[A]直接送出、漢字は決定論的Space確定)
   '非ST上昇型心筋梗塞': [
-    { tag: 'G', text: '非', romaji: 'hi' },
+    { tag: 'Z', text: '非', romaji: 'hi' },
     { tag: 'A', text: 'ST', romaji: 'ST' },
     { tag: 'Z', text: '上昇型心筋梗塞', romaji: 'jousyougatashinkinkousoku' },
   ],
@@ -1073,7 +1074,7 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
     { tag: 'Z', text: '首相', romaji: 'shusou' },
   ],
   '主訴': [
-    { tag: 'G', text: '主訴', romaji: 'shuso' },
+    { tag: 'Z', text: '主訴', romaji: 'shuso' },
   ],
   '減塩': [
     { tag: 'Z', text: '減塩', romaji: 'gennenn' },
@@ -1883,14 +1884,17 @@ export class KeyStrokeCompiler {
           aCount++;
           totalKeystrokes += chunk.romaji.length;
         } else if (chunk.tag === 'G') {
+          // 【同音異義語 Space 2回確定ロジックの完全廃止】
+          // 電カルIMEの学習状態や候補順位の変動により誤変換を招くため、
+          // 通常の [Z] (Space 1回 ➔ Enter) で電カルIMEに素直に学習させる運用へ統一
           blocks.push({
             type: 'z_kanji',
-            tag: 'G',
+            tag: 'Z',
             rawText: chunk.text,
-            compiledPayload: `[G]${chunk.romaji}[/G]`,
+            compiledPayload: `[Z]${chunk.romaji}[/Z]`,
           });
           zCount++;
-          totalKeystrokes += chunk.romaji.length + 3;
+          totalKeystrokes += chunk.romaji.length + 2;
         } else if (chunk.tag === 'BS') {
           blocks.push({
             type: 'control',
