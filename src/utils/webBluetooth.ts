@@ -980,8 +980,18 @@ export class BleDongleManager {
             event.ackType === 'ALREADY_TYPING' ||
             event.ackType === 'PHYSICAL_BTN_PRESSED'
           ) {
-            if (onProgress) onProgress(98, 'カルテ端末へ自動打鍵中... (LED赤色)');
+            if (onProgress) onProgress(97, 'カルテ端末へ自動打鍵中... (LED赤色)');
             this.log('sys', 'FLOW', '打鍵開始を検知。USB-HIDキーストローク送出中...');
+          }
+
+          // 4.5 マイコンからのリアルタイム打鍵進捗ハートビート (TYPING_PROGRESS: "XX%,cur/tot")
+          if (event.ackType === 'TYPING_PROGRESS' && event.detail) {
+            const parts = event.detail.split(',');
+            const pctStr = parts[0] || '0%';
+            const countStr = parts[1] || '';
+            const numPct = parseInt(pctStr.replace('%', ''), 10) || 0;
+            const uiPct = Math.min(99, Math.max(97, Math.floor(97 + (numPct * 0.02))));
+            if (onProgress) onProgress(uiPct, `自動打鍵中 (${countStr}文字 / ${pctStr})...`);
           }
 
           // 5. 打鍵完了検知
@@ -1030,7 +1040,7 @@ export class BleDongleManager {
             await new Promise(r => setTimeout(r, 40));
           }
 
-          // ステップ2: 各スロットパケット順次送信 (安定インターバル 30ms)
+          // ステップ2: 各スロットパケット順次送信 (iOS/Android BLE バッファ溢れ防止インターバル 45ms)
           for (let i = 0; i < session.slotPackets.length; i++) {
             if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
 
@@ -1040,7 +1050,7 @@ export class BleDongleManager {
 
             this.log('tx', `SLOT#${i}`, `スロット #${i} 送信 (${slot.payloadLen}B, CRC:0x${slot.chunkCrc16.toString(16).toUpperCase()})`, toHexDump(slot.fullPacket));
             await this.writeData(slot.fullPacket);
-            await new Promise(r => setTimeout(r, 30));
+            await new Promise(r => setTimeout(r, 45));
           }
 
           if (this.isTransmissionAborted) throw new Error('TRANSMISSION_ABORTED');
