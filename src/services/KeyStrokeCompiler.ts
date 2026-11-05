@@ -346,7 +346,18 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '対診': 'taishin',
   '鑑別疾患': 'kambetushikkan',
   '鑑別': 'kambetu',
+  '高血圧性': 'kouketsuatsusei',
   '左室肥大': 'sashitsuhidai',
+  '心肥大': 'shinhidai',
+  '左室': 'sashitsu',
+  '右室': 'ushitsu',
+  '左房': 'sabou',
+  '右房': 'ubou',
+  '負荷': 'huka',
+  '電位': 'denni',
+  '肥大': 'hidai',
+  '二峰性': 'nihousei',
+  '二峰': 'nihou',
   'ストレイン型': 'sutoreingata',
   'ジギタリス効果': 'jigitarisukouka',
   'ジギタリス': 'jigitarisu',
@@ -950,6 +961,43 @@ export const MULTI_CHUNK_LEXICON: Record<string, Array<MultiChunkItem>> = {
   ],
   '低カリウム血症': [
     { tag: 'Z', text: '低カリウム血症', romaji: 'teikariumukessyou' },
+  ],
+  // 循環器・心電図 複合用語の最適チャンク分解（香典に・茶房不可・Tha未変換等の防止）
+  '左室高電位': [
+    { tag: 'Z', text: '左室', romaji: 'sashitsu' },
+    { tag: 'Z', text: '高', romaji: 'kou' },
+    { tag: 'Z', text: '電位', romaji: 'denni' },
+  ],
+  '高電位': [
+    { tag: 'Z', text: '高', romaji: 'kou' },
+    { tag: 'Z', text: '電位', romaji: 'denni' },
+  ],
+  '左房負荷所見': [
+    { tag: 'Z', text: '左房', romaji: 'sabou' },
+    { tag: 'Z', text: '負荷', romaji: 'huka' },
+    { tag: 'Z', text: '所見', romaji: 'shoken' },
+  ],
+  '左房負荷': [
+    { tag: 'Z', text: '左房', romaji: 'sabou' },
+    { tag: 'Z', text: '負荷', romaji: 'huka' },
+  ],
+  '右房負荷所見': [
+    { tag: 'Z', text: '右房', romaji: 'ubou' },
+    { tag: 'Z', text: '負荷', romaji: 'huka' },
+    { tag: 'Z', text: '所見', romaji: 'shoken' },
+  ],
+  '右房負荷': [
+    { tag: 'Z', text: '右房', romaji: 'ubou' },
+    { tag: 'Z', text: '負荷', romaji: 'huka' },
+  ],
+  '高血圧性左室肥大': [
+    { tag: 'Z', text: '高血圧性', romaji: 'kouketsuatsusei' },
+    { tag: 'Z', text: '左室', romaji: 'sashitsu' },
+    { tag: 'Z', text: '肥大', romaji: 'hidai' },
+  ],
+  '高血圧性心肥大': [
+    { tag: 'Z', text: '高血圧性', romaji: 'kouketsuatsusei' },
+    { tag: 'Z', text: '心肥大', romaji: 'shinhidai' },
   ],
   '頸部リンパ節腫脹': [
     { tag: 'Z', text: '頸部', romaji: 'keibu' },
@@ -1749,7 +1797,7 @@ type KanjiRomajiSegment = {
 };
 
 function isSafeRomajiPayload(romaji: string | undefined): romaji is string {
-  return !!romaji && /^[A-Za-z0-9-]+$/.test(romaji);
+  return !!romaji && /^[a-z0-9-]+$/.test(romaji);
 }
 
 function resolveSingleKanjiRomaji(kanji: string): string | undefined {
@@ -2373,8 +2421,8 @@ export class KeyStrokeCompiler {
         }
       }
 
-      // G. 半角英数字・記号 (ASCII / ギリシャ文字 / カンマ) ➔ [A] (直接送出 / F10確定)
-      const asciiMatch = remaining.match(/^(?:[\u0370-\u03FFa-zA-Z0-9_\-\.\,\:\/\%\+\(\)]+)/);
+      // G. 半角英数字・記号 (ASCII / ギリシャ文字 / カンマ / 不等号) ➔ [A] (直接送出 / F10確定)
+      const asciiMatch = remaining.match(/^(?:[\u0370-\u03FFa-zA-Z0-9_\-\.\,\:\/\%\+\<\>\=\(\)]+)/);
       if (asciiMatch) {
         const asc = asciiMatch[0];
         blocks.push({
@@ -2496,6 +2544,11 @@ export class KeyStrokeCompiler {
         if (_morphRomaji[sub]) {
           const romaji = _morphRomaji[sub];
           const tag = _morphTags[sub] || 'Z';
+          // 英大文字や半角英数字を含む複合辞書エントリ（例: '巨大陰性T波': 'kyodaiinseiTha' 等）は
+          // [Z] 一括変換するとMS-IME等で未変換ひらがな＋英字化けを起こすためスキップし、個別トークンへ分割させる
+          if (tag !== 'K' && tag !== 'H' && (/[A-Za-z0-9]/.test(sub) || !/^[a-z0-9-]+$/.test(romaji))) {
+            continue;
+          }
 
           if (tag === 'K') {
             blocks.push({
@@ -2528,7 +2581,7 @@ export class KeyStrokeCompiler {
                   compound = combined;
                   compRomaji = COMPOUND_LEXICON[combined];
                   offset += 1;
-                } else if (_morphRomaji[combined]) {
+                } else if (_morphRomaji[combined] && /^[a-z0-9-]+$/.test(_morphRomaji[combined])) {
                   compound = combined;
                   compRomaji = _morphRomaji[combined];
                   offset += 1;
