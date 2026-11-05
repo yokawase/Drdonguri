@@ -177,32 +177,19 @@ export default function App() {
         showToast('success', '【USB打鍵完了】電子カルテPCへの自動入力が正常に完了しました！');
 
         // 【系統A：外部ループ自動吸い上げトリガー】
-        // HID打鍵完了後、電カルIMEの変換確定とカーソル落ち着きを待って即座に仮想プリンタBulk OUTから自動吸い上げ
+        // バックグラウンドで静かにトリガーを試行（ユーザーを混乱させる「照合中」バッジはプリンタデータ受信時にのみ表示）
         setTimeout(async () => {
           try {
             if (ble.isConnected()) {
-              isAutoLearnPullRef.current = true;
-              updateEhrSyncStatus('syncing', '🔄 電カル照合中…', 3500);
-
-              if (autoLearnPullResetTimerRef.current !== null) {
-                window.clearTimeout(autoLearnPullResetTimerRef.current);
-              }
-              autoLearnPullResetTimerRef.current = window.setTimeout(() => {
-                isAutoLearnPullRef.current = false;
-                autoLearnPullResetTimerRef.current = null;
-                updateEhrSyncStatus('idle', '');
-              }, 3500);
               ble.clearPrinterBuffer();
               await ble.triggerAutoPull();
             }
           } catch (e) {
-            isAutoLearnPullRef.current = false;
-            updateEhrSyncStatus('idle', '');
             console.debug('[AutoPull] 自動吸い上げトリガー待機:', e);
           }
         }, 350);
       } else if (event.ackType === 'ALL_PACKETS_READY') {
-        showToast('info', '【転送完了】ドングル側で打鍵準備が整いました。');
+        showToast('info', '【照合完了】電子カルテ端末へ自動打鍵を開始中…', 1500);
       } else if (event.ackType === 'PHYSICAL_BTN_PRESSED') {
         showToast('info', 'ドングル本体ボタンが押されました。');
       }
