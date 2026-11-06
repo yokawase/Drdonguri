@@ -27,6 +27,7 @@ import {
   isTwoKanjiDecomposable,
   getDecompositionPreview,
 } from '../constants/safeKanjiMaster';
+import { APP_VERSION } from '../version';
 
 export interface LearnedDictRecord {
   id: string; // `${type}:::${source}:::${target}`
@@ -39,6 +40,15 @@ export interface LearnedDictRecord {
   lastSeen: number;
   isDecomposed?: boolean; // 二文字誤変換単語の訓読み安全分解登録フラグ
   decompositionRule?: string; // 訓読み分解プレビュー (例: "強[強い-1BS] + 力[力]")
+}
+
+export interface LearnedDictionaryExportFormat {
+  format: 'drdonguri_learned_dict';
+  version: number;
+  exportedAt: string;
+  appVersion: string;
+  totalCount: number;
+  entries: LearnedDictRecord[];
 }
 
 const DB_NAME = 'drdonguri_knowledge_db';
@@ -153,6 +163,24 @@ async function saveLearnedRecord(record: LearnedDictRecord): Promise<void> {
     });
   } catch (e) {
     console.warn('[useAutoDictionary] IndexedDB保存エラー:', e);
+  }
+}
+
+async function saveLearnedRecordsBulk(records: LearnedDictRecord[]): Promise<void> {
+  if (records.length === 0) return;
+  try {
+    const db = await openLearnedDatabase();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      for (const record of records) {
+        store.put(record);
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) {
+    console.warn('[useAutoDictionary] IndexedDB一括保存エラー:', e);
   }
 }
 
@@ -443,6 +471,156 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
     ahoEngineRef.current.loadDictionary(dictMap);
   }, []);
 
+  // 9. 自己学習辞書データのエクスポート (JSON ファイルダウンロード)
+  const exportDictionary = useCallback(() => {
+    try {
+      const exportData: LearnedDictionaryExportFormat = {
+        format: 'drdonguri_learned_dict',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        appVersion: APP_VERSION,
+        totalCount: entriesRef.current.length,
+        entries: entriesRef.current,
+      };
+      const jsonStr = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+      a.href = url;
+      a.download = `drdonguri_learned_dict_${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      optionsRef.current?.onNotice?.(`📦 自己学習辞書 (${entriesRef.current.length}件) をエクスポートしました`);
+      return true;
+    } catch (e: any) {
+      console.error('[useAutoDictionary] エクスポートエラー:', e);
+      return false;
+    }
+  }, []);
+
+  // 10. 自己学習辞書データのインポート (JSON パース ＆ マージ ＆ IndexedDB永続化 ＆ Aho-Corasick再構築)
+  const importDictionary = useCallback(
+    async (jsonString: string): Promise<{ success: boolean; importedCount: number; message: string }> => {
+      try {
+        if (!jsonString || !jsonString.trim()) {
+          throw new Error('インポート対象のデータが空です');
+        }
+
+        const parsed = JSON.parse(jsonString);
+        let incomingEntries: any[] = [];
+
+        if (Array.isArray(parsed)) {
+          incomingEntries = parsed;
+        } else if (parsed && Array.isArray(parsed.entries)) {
+          incomingEntries = parsed.entries;
+        } else {
+          throw new Error('有効な辞書データ形式 (JSON) ではありません');
+        }
+
+        if (incomingEntries.length === 0) {
+          return { success: true, importedCount: 0, message: 'インポート対象のデータが0件でした' };
+        }
+
+        const validRecords: LearnedDictRecord[] = [];
+        const now = Date.now();
+
+        for (const item of incomingEntries) {
+          if (!item || typeof item !== 'object') continue;
+          const source = typeof item.source === 'string' ? item.source.trim() : '';
+          const target = typeof item.target === 'string' ? item.target.trim() : '';
+          if (!source || !target || source === target) continue;
+
+          const type: 'ime' | 'asr' = item.type === 'asr' ? 'asr' : 'ime';
+          const id = typeof item.id === 'string' && item.id.includes(':::')
+            ? item.id
+            : `${type}:::${source}:::${target}`;
+          const count = typeof item.count === 'number' && item.count > 0 ? Math.floor(item.count) : 2;
+          const promoted = typeof item.promoted === 'boolean' ? item.promoted : (count >= 2);
+          const shouldDecompose = item.isDecomposed !== undefined
+            ? !!item.isDecomposed
+            : isTwoKanjiDecomposable(target);
+          const decompositionRule = item.decompositionRule || (shouldDecompose ? (getDecompositionPreview(target) || undefined) : undefined);
+
+          validRecords.push({
+            id,
+            source,
+            target,
+            type,
+            count,
+            promoted,
+            firstSeen: typeof item.firstSeen === 'number' ? item.firstSeen : now,
+            lastSeen: typeof item.lastSeen === 'number' ? item.lastSeen : now,
+            isDecomposed: shouldDecompose,
+            decompositionRule,
+          });
+        }
+
+        if (validRecords.length === 0) {
+          throw new Error('インポート可能な有効な単語ペアが見つかりませんでした');
+        }
+
+        // 既存レコードとマージ (既存の出現回数と新規を安全に統合)
+        const mergedMap = new Map<string, LearnedDictRecord>();
+        for (const r of entriesRef.current) {
+          mergedMap.set(r.id, r);
+        }
+
+        let newOrUpdatedCount = 0;
+        for (const inc of validRecords) {
+          const exist = mergedMap.get(inc.id);
+          if (exist) {
+            mergedMap.set(inc.id, {
+              ...exist,
+              count: Math.max(exist.count, inc.count),
+              promoted: exist.promoted || inc.promoted,
+              lastSeen: Math.max(exist.lastSeen, inc.lastSeen),
+              isDecomposed: exist.isDecomposed || inc.isDecomposed,
+              decompositionRule: exist.decompositionRule || inc.decompositionRule,
+            });
+          } else {
+            mergedMap.set(inc.id, inc);
+            newOrUpdatedCount++;
+          }
+        }
+
+        const nextEntries = Array.from(mergedMap.values());
+        entriesRef.current = nextEntries;
+        setEntries(nextEntries);
+
+        // IndexedDB へ一括保存
+        await saveLearnedRecordsBulk(nextEntries);
+
+        // Aho-Corasick エンジンを全件再構築
+        const promoted = nextEntries.filter((r) => r.promoted && r.source.length >= MIN_PROMOTABLE_SOURCE_LENGTH);
+        const dictMap = new Map<string, string>();
+        for (const r of promoted) {
+          dictMap.set(r.source, r.target);
+        }
+        ahoEngineRef.current.loadDictionary(dictMap);
+
+        // 訓読み安全分解辞書への再登録
+        for (const r of nextEntries) {
+          if (r.isDecomposed || isTwoKanjiDecomposable(r.target)) {
+            registerDynamicDangerousKanji(r.target);
+          }
+        }
+
+        const msg = `辞書インポート完了: ${validRecords.length}件を統合（新規 ${newOrUpdatedCount}件、合計 ${nextEntries.length}件）`;
+        optionsRef.current?.onNotice?.(msg);
+        return { success: true, importedCount: validRecords.length, message: msg };
+      } catch (err: any) {
+        const errMsg = `インポート失敗: ${err.message || err}`;
+        console.error('[useAutoDictionary]', errMsg);
+        return { success: false, importedCount: 0, message: errMsg };
+      }
+    },
+    []
+  );
+
   // 昇格済み・未昇格候補エントリ
   const promotedEntries = entries.filter((e) => e.promoted);
   const candidateEntries = entries.filter((e) => !e.promoted);
@@ -454,6 +632,8 @@ export function useAutoDictionary(options?: UseAutoDictionaryOptions) {
     candidateEntries,
     recordPair,
     deleteEntry,
+    exportDictionary,
+    importDictionary,
     learnFromImeDiff,
     learnFromAsrDiff,
     replaceWithLearnedDict,

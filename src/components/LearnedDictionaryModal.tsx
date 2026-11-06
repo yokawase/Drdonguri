@@ -10,7 +10,7 @@
  * の置換テーブル、出現頻度スコア、昇格ステータス (n >= 2) を可視化・管理する。
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   X,
   Zap,
@@ -27,6 +27,9 @@ import {
   Search,
   CheckSquare,
   Square,
+  Download,
+  Upload,
+  FileCheck,
 } from 'lucide-react';
 import type { LearnedDictRecord } from '../hooks/useAutoDictionary';
 import { isTwoKanjiDecomposable, getDecompositionPreview } from '../constants/safeKanjiMaster';
@@ -37,6 +40,8 @@ interface LearnedDictionaryModalProps {
   entries: LearnedDictRecord[];
   onAddPair: (source: string, target: string, type: 'ime' | 'asr', enableDecomposition?: boolean) => Promise<any>;
   onDeleteEntry?: (id: string) => void;
+  onExport?: () => boolean | void;
+  onImport?: (jsonString: string) => Promise<{ success: boolean; importedCount: number; message: string }>;
   whisperPrompt: string;
 }
 
@@ -46,6 +51,8 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
   entries,
   onAddPair,
   onDeleteEntry,
+  onExport,
+  onImport,
   whisperPrompt,
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'ime' | 'asr'>('all');
@@ -55,6 +62,9 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
   const [newType, setNewType] = useState<'ime' | 'asr'>('ime');
   const [enableDecomposition, setEnableDecomposition] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
@@ -93,6 +103,38 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
     }
   };
 
+  const handleExport = () => {
+    if (onExport) {
+      onExport();
+      setStatusMessage({ text: '自己学習辞書データをJSONファイルとしてエクスポートしました', type: 'success' });
+      setTimeout(() => setStatusMessage(null), 3500);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onImport) return;
+
+    try {
+      setIsImporting(true);
+      const text = await file.text();
+      const res = await onImport(text);
+      if (res.success) {
+        setStatusMessage({ text: res.message, type: 'success' });
+      } else {
+        setStatusMessage({ text: res.message, type: 'error' });
+      }
+    } catch (err: any) {
+      setStatusMessage({ text: `インポート読み取りエラー: ${err.message || err}`, type: 'error' });
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      setTimeout(() => setStatusMessage(null), 5000);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-slate-100">
@@ -124,7 +166,7 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
         </div>
 
         {/* Whisper initial_prompt プレビューバナー */}
-        <div className="px-4 py-2.5 bg-slate-950 border-b border-slate-800 text-[11px] flex items-center gap-2">
+        <div className="px-4 py-2 bg-slate-950 border-b border-slate-800 text-[11px] flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
           <div className="flex-1 truncate">
             <span className="text-slate-400 font-medium">Whisper注入プロンプト: </span>
@@ -132,12 +174,38 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
           </div>
         </div>
 
-        {/* タブ ＆ 検索バー */}
-        <div className="p-3 border-b border-slate-800 bg-slate-900/50 flex flex-col sm:flex-row gap-2.5 justify-between items-center">
-          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 w-full sm:w-auto">
+        {/* インポート・エクスポート状態通知バナー */}
+        {statusMessage && (
+          <div
+            className={`px-4 py-2 text-xs flex items-center justify-between border-b animate-in fade-in duration-150 ${
+              statusMessage.type === 'success'
+                ? 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300'
+                : 'bg-rose-950/70 border-rose-500/40 text-rose-300'
+            }`}
+          >
+            <div className="flex items-center gap-2 truncate">
+              {statusMessage.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : (
+                <X className="w-4 h-4 text-rose-400 shrink-0" />
+              )}
+              <span className="font-medium truncate">{statusMessage.text}</span>
+            </div>
+            <button
+              onClick={() => setStatusMessage(null)}
+              className="text-slate-400 hover:text-white p-0.5"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* タブ ＆ ツールバー（検索・インポート・エクスポート） */}
+        <div className="p-3 border-b border-slate-800 bg-slate-900/50 flex flex-col md:flex-row gap-2.5 justify-between items-stretch md:items-center">
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 shrink-0 overflow-x-auto">
             <button
               onClick={() => setActiveTab('all')}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
+              className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
                 activeTab === 'all'
                   ? 'bg-amber-500 text-slate-950 shadow-md'
                   : 'text-slate-400 hover:text-white'
@@ -147,7 +215,7 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
             </button>
             <button
               onClick={() => setActiveTab('ime')}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
+              className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 whitespace-nowrap transition ${
                 activeTab === 'ime'
                   ? 'bg-sky-500 text-slate-950 shadow-md'
                   : 'text-slate-400 hover:text-white'
@@ -158,7 +226,7 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
             </button>
             <button
               onClick={() => setActiveTab('asr')}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition ${
+              className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 whitespace-nowrap transition ${
                 activeTab === 'asr'
                   ? 'bg-pink-500 text-slate-950 shadow-md'
                   : 'text-slate-400 hover:text-white'
@@ -169,15 +237,55 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
             </button>
           </div>
 
-          <div className="relative w-full sm:w-48">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={filterQuery}
-              onChange={(e) => setFilterQuery(e.target.value)}
-              placeholder="単語を検索..."
-              className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
-            />
+          <div className="flex items-center gap-2 flex-1 justify-end min-w-0">
+            <div className="relative flex-1 md:w-44 md:flex-initial">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={filterQuery}
+                onChange={(e) => setFilterQuery(e.target.value)}
+                placeholder="単語を検索..."
+                className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50"
+              />
+            </div>
+
+            {/* インポート (隠し input & トリガーボタン) */}
+            {onImport && (
+              <>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".json,application/json"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isImporting}
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-200 border border-slate-700/80 text-xs font-semibold flex items-center gap-1.5 transition shrink-0 disabled:opacity-50 shadow-sm"
+                  title="自己学習辞書をJSONファイルから復元・インポート"
+                >
+                  <Upload className="w-3.5 h-3.5 text-sky-400" />
+                  <span className="hidden sm:inline">インポート</span>
+                  <span className="sm:hidden">読込</span>
+                </button>
+              </>
+            )}
+
+            {/* エクスポートボタン */}
+            {onExport && (
+              <button
+                type="button"
+                onClick={handleExport}
+                className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-200 border border-slate-700/80 text-xs font-semibold flex items-center gap-1.5 transition shrink-0 shadow-sm"
+                title="大切な自己学習辞書をJSONファイルとしてダウンロード保存"
+              >
+                <Download className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">エクスポート</span>
+                <span className="sm:hidden">保存</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -364,11 +472,15 @@ export const LearnedDictionaryModal: React.FC<LearnedDictionaryModalProps> = ({
         </div>
 
         {/* フッター */}
-        <div className="p-3 border-t border-slate-800 bg-slate-950 flex items-center justify-between text-xs text-slate-400">
-          <span>厳格ルール: PII・数値ノイズ排除 ＆ 同一ペア2回以上観測で自動昇格</span>
+        <div className="p-3 border-t border-slate-800 bg-slate-950 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
+          <div className="flex items-center gap-2 text-[11px] text-slate-400">
+            <span>厳格ルール: PII・数値排除 ＆ 2回観測で自動昇格</span>
+            <span className="hidden md:inline text-slate-600">|</span>
+            <span className="hidden md:inline text-slate-500">JSON保存で別端末移行・完全バックアップ対応</span>
+          </div>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition"
+            className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition shrink-0 self-end sm:self-auto"
           >
             閉じる
           </button>

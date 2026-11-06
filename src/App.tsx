@@ -149,6 +149,8 @@ export default function App() {
     promotedEntries,
     recordPair,
     deleteEntry,
+    exportDictionary,
+    importDictionary,
     learnFromImeDiff,
     learnFromAsrDiff,
     replaceWithLearnedDict,
@@ -611,6 +613,8 @@ export default function App() {
               recordPair(source, target, type, true, enableDecomposition)
             }
             onDeleteEntry={deleteEntry}
+            onExport={exportDictionary}
+            onImport={importDictionary}
             whisperPrompt={getWhisperInitialPrompt()}
           />
         )}
