@@ -1098,6 +1098,28 @@
     - 新規単体テスト `tests/iosBluefyPacketMtu.test.ts` を追加し、全14テストスイート・130件が 100% PASS。
     - TypeScript 静的型検査（`npm run lint`）・Vite 本番ビルド（`npm run build`）・PlatformIO 両環境ビルド（`lilygo-t-dongle-s3` / `m5stack-atoms3u`）すべてエラーゼロで `[SUCCESS]`。
 
+- **ステップ72: 自己学習クローズドループ辞書の大切な学習データ（電カルIME・ASR誤変換）のJSON完全エクスポート＆安全マージインポート機能の実装 (v2.57.0)**
+  - **背景 & 課題（ユーザーからの要望）**:
+    - 「自己学習辞書で登録された大切なデータのエクスポート＆インポート機能を実装してください」
+    - 臨床現場で蓄積された誤変換・誤認識ペア（n≥2自動昇格エントリ、出現頻度スコア、訓読み安全分解設定）は極めて価値が高く、ブラウザキャッシュクリアや別端末（PC、iPad、スマホ）への移行時に消失しないよう、安全にバックアップ・復元できる仕組みが必須であった。
+  - **実装・解決内容**:
+    1. **`LearnedDictionaryExportFormat` 型定義と IndexedDB バルク保存 (`src/hooks/useAutoDictionary.ts`)**:
+       - メタデータ付きエクスポート構造（フォーマット名、エクスポート日時、アプリバージョン、総件数、エントリ配列）を策定。
+       - IndexedDB (`dongly_learned_dict`) の読み書きトランザクションによる高速一括バルク保存関数 `saveLearnedRecordsBulk()` を実装。
+    2. **ワンクリック JSON ダウンロード機能 (`exportDictionary`)**:
+       - 全学習レコードを JSON Blob 化し、動的 `<a>` タグによるダウンロードを自動発火。ファイル名に日時（`drdonguri_learned_dict_YYYY-MM-DD.json`）を付与。
+    3. **安全マージ・リアルタイム全件再構築インポート機能 (`importDictionary`)**:
+       - メタデータ付き形式およびプレーン配列形式の双方を自動判別し、無効な空文字や同一ペアを安全にバリデーション除外。
+       - 既存エントリと新規エントリの出現回数（`Math.max`）や最新日時、安全分解設定を欠損なくマージ統合。
+       - インポート完了と同時に、メモリ上の Aho-Corasick Trie 木（ミリ秒最長一致置換）を全件再構築し、`KeyStrokeCompiler` の訓読み安全分解辞書（`registerDynamicDangerousKanji`）へ即時再登録。ブラウザのリロード不要で即座に置換・安全打鍵を有効化。
+    4. **直感的な UI コンポーネント実装 (`src/components/LearnedDictionaryModal.tsx`, `src/App.tsx`)**:
+       - 辞書管理モーダルのヘッダーに「インポート」「エクスポート」ボタンを配置。
+       - 隠しファイル選択 input (`.json`) と連動し、インポート結果（統合件数・新規件数）やエラーを直感的なバナーで表示。
+  - **検証と成果**:
+    - Vite 本番ビルド（`npm run build`）がエラーゼロで `[SUCCESS]`。
+    - `package.json`、`src/version.ts`、`GEMINI.md` を `v2.57.0` へ同期更新。
+    - GitHub 各ブランチ（`main`, `dr-dongly`, `Dr.Dongly`）へプッシュ完了、GitHub Actions による GitHub Pages への自動デプロイが `conclusion: success` で完了。
+
 ## 5. 運用ルール & 安全指針
 - **完全日本語対応**: コメント、ドキュメント、システムメッセージはすべて日本語で記述する。
 - **ファームウェア更新時の実機自動書き込み（絶対遵守）**: `firmware/src/` 配下のソースコードや設定ファイルを更新・修正した際は、必ず PlatformIO で接続中の T-Dongle-S3 実機（`/dev/ttyACM0` 等）へ即時 Flash Upload を行い、正常起動を確認すること。
