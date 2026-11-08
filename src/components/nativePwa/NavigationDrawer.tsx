@@ -14,6 +14,7 @@ import {
   Volume2,
   VolumeX,
   Lock,
+  Printer,
 } from 'lucide-react';
 import { APP_VERSION, LATEST_FIRMWARE_VERSION } from '../../version';
 import {
@@ -45,6 +46,8 @@ interface NavigationDrawerProps {
   handleSecretAirGapTap: () => void;
   isMuted: boolean;
   handleToggleMute: () => void;
+  autoEhrPull?: boolean;
+  onToggleAutoEhrPull?: (enabled: boolean) => void;
   chartContext: ChartContext;
   copilotData: CopilotData;
   compiledStreamPreview: CompiledStreamPreview;
@@ -71,6 +74,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   handleSecretAirGapTap,
   isMuted,
   handleToggleMute,
+  autoEhrPull,
+  onToggleAutoEhrPull,
   chartContext,
   copilotData,
   compiledStreamPreview,
@@ -484,6 +489,51 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
               </button>
 
+            </div>
+          </div>
+
+          {/* グループ: 電カル受診 ＆ 送信設定 (外来プリンター誤印刷防止) */}
+          <div className="space-y-2">
+            <span className="text-[11px] font-bold text-slate-400 tracking-wider uppercase flex items-center justify-between">
+              <span>電カル受診 ＆ 送信設定</span>
+              <span className="text-[10px] text-amber-400 font-mono">外来誤印刷防止</span>
+            </span>
+            <div className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/40 space-y-2 text-xs">
+              <label className="flex items-start justify-between gap-3 cursor-pointer select-none">
+                <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                  <Printer className={`w-4 h-4 shrink-0 mt-0.5 ${autoEhrPull ? 'text-amber-400' : 'text-slate-400'}`} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-slate-200 text-xs">自動電カル受診</span>
+                      <span
+                        className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-bold ${
+                          autoEhrPull
+                            ? 'bg-amber-950/80 text-amber-300 border border-amber-500/40'
+                            : 'bg-slate-900 text-slate-400 border border-slate-700'
+                        }`}
+                      >
+                        {autoEhrPull ? '有効 (ON)' : '無効 (OFF: 安全)'}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 leading-normal mt-1">
+                      電カル送信完了後に [Ctrl+P] 受診信号を自動送出してカルテテキストを吸い上げます。
+                      <span className="text-amber-300/90 block mt-0.5 font-medium">
+                        ※外来プリンターの設定によって実際にプリントされてしまうのを防ぐため、デフォルトではOFFになっています。
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={!!autoEhrPull}
+                  onChange={(e) => {
+                    triggerHaptic(10);
+                    onToggleAutoEhrPull?.(e.target.checked);
+                  }}
+                  className="w-4 h-4 rounded border-slate-600 text-amber-500 focus:ring-amber-500/50 bg-slate-900 mt-1 shrink-0 cursor-pointer accent-amber-500"
+                  aria-label="自動電カル受診の有効無効切り替え"
+                />
+              </label>
             </div>
           </div>
 

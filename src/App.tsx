@@ -31,6 +31,7 @@ const LearnedDictionaryModal = React.lazy(() =>
 
 const STORAGE_KEY_BUFFER = 'drvoice_dispatcher_buf';
 const STORAGE_KEY_TEMPLATES = 'drvoice_custom_templates';
+const STORAGE_KEY_AUTO_EHR_PULL = 'drvoice_auto_ehr_pull_v1';
 
 export default function App() {
   // 入力テキスト (Local-first: 自動永続化 ＆ 無駄なスペース・改行削除)
@@ -79,6 +80,37 @@ export default function App() {
   const [isSending, setIsSending] = useState<boolean>(false);
   const [, setTransmissionProgress] = useState<number>(0);
   const [, setTransmissionStage] = useState<string>('');
+
+  // 自動電カル受診 (Ctrl+P -> Enter による送信完了後自動吸い上げ)
+  // ※外来の物理プリンターから誤って印刷される事故を防ぐため、デフォルトは厳格に OFF (false)
+  const [autoEhrPull, setAutoEhrPull] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY_AUTO_EHR_PULL);
+        return saved === 'true'; // デフォルトは false
+      } catch {}
+    }
+    return false;
+  });
+
+  const autoEhrPullRef = useRef(autoEhrPull);
+  useEffect(() => {
+    autoEhrPullRef.current = autoEhrPull;
+  }, [autoEhrPull]);
+
+  const handleToggleAutoEhrPull = useCallback((enabled: boolean) => {
+    setAutoEhrPull(enabled);
+    try {
+      localStorage.setItem(STORAGE_KEY_AUTO_EHR_PULL, String(enabled));
+    } catch {}
+    showToast(
+      'info',
+      enabled
+        ? '【自動電カル受診: ON】送信完了後に自動吸い上げ(Ctrl+P)を実行します'
+        : '【自動電カル受診: OFF】送信後の自動受診信号を停止しました（外来プリンター誤印刷防止）',
+      2500
+    );
+  }, []);
 
   // モーダル開閉ステート
   const [isMedicalSearchOpen, setIsMedicalSearchOpen] = useState(false);
@@ -179,17 +211,20 @@ export default function App() {
         showToast('success', '【USB打鍵完了】電子カルテPCへの自動入力が正常に完了しました！');
 
         // 【系統A：外部ループ自動吸い上げトリガー】
-        // バックグラウンドで静かにトリガーを試行（ユーザーを混乱させる「照合中」バッジはプリンタデータ受信時にのみ表示）
-        setTimeout(async () => {
-          try {
-            if (ble.isConnected()) {
-              ble.clearPrinterBuffer();
-              await ble.triggerAutoPull();
+        // 外来の通常プリンターでの誤印刷事故を防止するため、デフォルトOFF。
+        // メニューの「自動電カル受診」チェックボックスがONの場合にのみトリガーを送出する。
+        if (autoEhrPullRef.current) {
+          setTimeout(async () => {
+            try {
+              if (ble.isConnected()) {
+                ble.clearPrinterBuffer();
+                await ble.triggerAutoPull();
+              }
+            } catch (e) {
+              console.debug('[AutoPull] 自動吸い上げトリガー待機:', e);
             }
-          } catch (e) {
-            console.debug('[AutoPull] 自動吸い上げトリガー待機:', e);
-          }
-        }, 350);
+          }, 350);
+        }
       } else if (event.ackType === 'ALL_PACKETS_READY') {
         showToast('info', '【照合完了】電子カルテ端末へ自動打鍵を開始中…', 1500);
       } else if (event.ackType === 'PHYSICAL_BTN_PRESSED') {
@@ -492,6 +527,8 @@ export default function App() {
         onConnectBle={handleConnectBle}
         onSendSession={handleSendDirect}
         onAbortTransfer={handleAbortTransfer}
+        autoEhrPull={autoEhrPull}
+        onToggleAutoEhrPull={handleToggleAutoEhrPull}
         onOpenSearch={handleOpenSearch}
         onOpenCoprocessor={() => {
           prePullOriginalTextRef.current = inputText;
@@ -544,6 +581,8 @@ export default function App() {
             }}
             isBleConnected={isBleConnected}
             originalText={inputText || lastSentTextRef.current}
+            autoEhrPull={autoEhrPull}
+            onToggleAutoEhrPull={handleToggleAutoEhrPull}
             onLearnDiff={learnFromImeDiff}
             onOpenLearnedDict={() => setIsLearnedDictOpen(true)}
             onWriteBackToChart={async (text: string) => {

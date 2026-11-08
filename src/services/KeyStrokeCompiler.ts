@@ -330,7 +330,6 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '効果': 'kouka',
   '伴う': 'tomonau',
   '伴い': 'tomonai',
-  '陰転化': 'intenka',
   '陰性': 'insei',
   '陽性': 'yousei',
   '息切れ': 'ikigire',
@@ -365,8 +364,6 @@ export const COMPOUND_LEXICON: Record<string, string> = {
   '低カリウム血症': 'teikariumukessyou',
   'カリウム血症': 'kariumukessyou',
   '高カリウム血症': 'koukariumukessyou',
-  '陽性': 'yousei',
-  '陰性': 'insei',
   '疑い': 'utagai',
 
   // 診療情報提供書・紹介状・時候挨拶・退院サマリー

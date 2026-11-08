@@ -8,6 +8,7 @@ import {
   Pill,
   Activity,
   BookOpen,
+  Printer,
 } from 'lucide-react';
 import { cleanExtractedMedicalText } from '../../utils/chartTextCleaner';
 import { Gemma2MedicalChatPanel } from '../Gemma2MedicalChatPanel';
@@ -28,6 +29,8 @@ interface ClinicalRightPaneProps {
   onOpenWebLlm: (style?: any) => void;
   onOpenCameraOcr?: () => void;
   onOpenCoprocessor?: () => void;
+  autoEhrPull?: boolean;
+  onToggleAutoEhrPull?: (enabled: boolean) => void;
   chartContext: ChartContext;
   copilotData: CopilotData;
   compiledStreamPreview: CompiledStreamPreview;
@@ -48,6 +51,8 @@ export const ClinicalRightPane: React.FC<ClinicalRightPaneProps> = ({
   onOpenWebLlm,
   onOpenCameraOcr,
   onOpenCoprocessor,
+  autoEhrPull,
+  onToggleAutoEhrPull,
   chartContext,
   copilotData,
   compiledStreamPreview,
@@ -381,27 +386,64 @@ export const ClinicalRightPane: React.FC<ClinicalRightPaneProps> = ({
               )}
 
               {onOpenCoprocessor && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic(15);
-                    onOpenCoprocessor();
-                  }}
-                  className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-all group hover:border-slate-600 cursor-pointer"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Download className="w-4 h-4 text-rose-400 shrink-0" />
-                    <div>
-                      <div className="text-xs font-semibold text-slate-200 group-hover:text-rose-300 transition-colors">
-                        電カル双方向受信コプロセッサ
-                      </div>
-                      <div className="text-[10px] text-rose-400 font-mono">
-                        仮想プリンタ (07h) カルテ吸い上げ・空白自動削除
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(15);
+                      onOpenCoprocessor();
+                    }}
+                    className="w-full p-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 flex items-center justify-between text-left transition-all group hover:border-slate-600 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Download className="w-4 h-4 text-rose-400 shrink-0" />
+                      <div>
+                        <div className="text-xs font-semibold text-slate-200 group-hover:text-rose-300 transition-colors">
+                          電カル双方向受信コプロセッサ
+                        </div>
+                        <div className="text-[10px] text-rose-400 font-mono">
+                          仮想プリンタ (07h) カルテ吸い上げ・空白自動削除
+                        </div>
                       </div>
                     </div>
+                    <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
+                  </button>
+
+                  <div className="p-2.5 rounded-xl bg-slate-800/40 border border-slate-700/40">
+                    <label className="flex items-start justify-between gap-2.5 cursor-pointer select-none">
+                      <div className="flex items-start gap-2 min-w-0 flex-1">
+                        <Printer className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${autoEhrPull ? 'text-amber-400' : 'text-slate-400'}`} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-200 text-[11px]">自動電カル受診</span>
+                            <span
+                              className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-bold ${
+                                autoEhrPull
+                                  ? 'bg-amber-950/80 text-amber-300 border border-amber-500/40'
+                                  : 'bg-slate-900 text-slate-400 border border-slate-700'
+                              }`}
+                            >
+                              {autoEhrPull ? 'ON' : 'OFF'}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 leading-normal mt-0.5">
+                            送信後に自動受診([Ctrl+P])を送出。外来誤印刷防止のため初期OFF
+                          </div>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={!!autoEhrPull}
+                        onChange={(e) => {
+                          triggerHaptic(10);
+                          onToggleAutoEhrPull?.(e.target.checked);
+                        }}
+                        className="w-4 h-4 rounded border-slate-600 text-amber-500 focus:ring-amber-500/50 bg-slate-900 mt-0.5 shrink-0 cursor-pointer accent-amber-500"
+                        aria-label="自動電カル受診の有効無効切り替え"
+                      />
+                    </label>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" />
-                </button>
+                </>
               )}
             </div>
           </div>

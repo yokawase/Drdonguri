@@ -39,6 +39,8 @@ export interface NativePwaEdgeLayoutProps {
   whisperInitialPrompt?: string;
   onOpenLearnedDict?: () => void;
   learnedDictCount?: number;
+  autoEhrPull?: boolean;
+  onToggleAutoEhrPull?: (enabled: boolean) => void;
 }
 
 export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
@@ -58,6 +60,8 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
   onAhoCorasickReplace,
   onOpenLearnedDict,
   learnedDictCount,
+  autoEhrPull,
+  onToggleAutoEhrPull,
 }) => {
   // ドロワー開閉
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -255,6 +259,8 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
           onOpenWebLlm={handleOpenWebLlmWithCurrentText}
           onOpenCameraOcr={onOpenCameraOcr}
           onOpenCoprocessor={onOpenCoprocessor}
+          autoEhrPull={autoEhrPull}
+          onToggleAutoEhrPull={onToggleAutoEhrPull}
           chartContext={clinicalCopilot.chartContext}
           copilotData={clinicalCopilot.copilotData}
           compiledStreamPreview={clinicalCopilot.compiledStreamPreview}
@@ -296,6 +302,8 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
         handleSecretAirGapTap={handleSecretAirGapTap}
         isMuted={isMuted}
         handleToggleMute={handleToggleMute}
+        autoEhrPull={autoEhrPull}
+        onToggleAutoEhrPull={onToggleAutoEhrPull}
         chartContext={clinicalCopilot.chartContext}
         copilotData={clinicalCopilot.copilotData}
         compiledStreamPreview={clinicalCopilot.compiledStreamPreview}

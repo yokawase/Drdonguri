@@ -31,6 +31,8 @@ interface MedicalCoprocessorModalProps {
   originalText?: string;
   onLearnDiff?: (pulledText: string, originalText: string, forcePromote?: boolean) => Promise<LearnedPair[]>;
   onOpenLearnedDict?: () => void;
+  autoEhrPull?: boolean;
+  onToggleAutoEhrPull?: (enabled: boolean) => void;
 }
 
 // 誤変換を含む電カル吸い上げテキスト (誤字側: きょう新将、心金梗塞、新田図)
@@ -57,6 +59,8 @@ export const MedicalCoprocessorModal: React.FC<MedicalCoprocessorModalProps> = (
   originalText = '',
   onLearnDiff,
   onOpenLearnedDict,
+  autoEhrPull,
+  onToggleAutoEhrPull,
 }) => {
   // 受信ステート
   const [ingestedRawText, setIngestedRawText] = useState<string>('');
@@ -411,6 +415,37 @@ ${pPart}`;
 
             <div className="text-[10px] text-slate-400 bg-slate-900/60 p-2 rounded-xl border border-slate-800 mb-2 leading-relaxed">
               💡 <strong>逆流スキャン＆略語正規化:</strong> ドングルが電カルへ <code className="bg-slate-800 text-amber-300 px-1 py-0.5 rounded border border-slate-700">[Ctrl+P] ➔ [Enter]</code> を自動打鍵！英語略語（HTN, DM, s/o, r/o等）を正式日本語に展開し、無駄な空白を除去して取り込みます。
+            </div>
+
+            {/* 電カル送信後 自動受診(Ctrl+P)設定 */}
+            <div className="p-2 rounded-xl bg-slate-900/80 border border-slate-800 mb-2">
+              <label className="flex items-center justify-between gap-2 cursor-pointer select-none">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Printer className={`w-3.5 h-3.5 shrink-0 ${autoEhrPull ? 'text-amber-400' : 'text-slate-500'}`} />
+                  <span className="text-[11px] font-semibold text-slate-300">
+                    電カル送信完了時の自動電カル受診:
+                  </span>
+                  <span
+                    className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-bold ${
+                      autoEhrPull
+                        ? 'bg-amber-950/80 text-amber-300 border border-amber-500/40'
+                        : 'bg-slate-950 text-slate-400 border border-slate-700'
+                    }`}
+                  >
+                    {autoEhrPull ? 'ON' : 'OFF (外来プリンター誤印刷防止中)'}
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={!!autoEhrPull}
+                  onChange={(e) => {
+                    playMacBeep();
+                    onToggleAutoEhrPull?.(e.target.checked);
+                  }}
+                  className="w-4 h-4 rounded border-slate-600 text-amber-500 focus:ring-amber-500/50 bg-slate-900 shrink-0 cursor-pointer accent-amber-500"
+                  aria-label="自動電カル受診の有効無効切り替え"
+                />
+              </label>
             </div>
 
             {/* 吸い上げ生テキストモニター */}
