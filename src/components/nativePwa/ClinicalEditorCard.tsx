@@ -1,5 +1,5 @@
 import React, { startTransition } from 'react';
-import { RefreshCw, Trash2, Sparkles, Camera } from 'lucide-react';
+import { RefreshCw, Trash2, Sparkles, Camera, ShieldCheck } from 'lucide-react';
 import {
   cleanExtractedMedicalText,
   normalizeMedicalSpeechTerms,
@@ -9,7 +9,10 @@ import { triggerHaptic } from './types';
 
 interface ClinicalEditorCardProps {
   isSending: boolean;
-  isRecording: boolean;
+  isRecording?: boolean;
+  isZeroEgressGuiding?: boolean;
+  zeroEgressNoticeVisible?: boolean;
+  setZeroEgressNoticeVisible?: React.Dispatch<React.SetStateAction<boolean>>;
   localDraft: string;
   inputText: string;
   isEditing: boolean;
@@ -30,7 +33,10 @@ interface ClinicalEditorCardProps {
 
 export const ClinicalEditorCard: React.FC<ClinicalEditorCardProps> = ({
   isSending,
-  isRecording,
+  isRecording = false,
+  isZeroEgressGuiding = false,
+  zeroEgressNoticeVisible = false,
+  setZeroEgressNoticeVisible,
   localDraft,
   inputText,
   isEditing,
@@ -110,6 +116,11 @@ export const ClinicalEditorCard: React.FC<ClinicalEditorCardProps> = ({
                 中断
               </button>
             </div>
+          ) : isZeroEgressGuiding ? (
+            <span className="text-[11px] font-bold text-emerald-400 animate-pulse flex items-center gap-1 bg-emerald-950/80 px-2 py-0.5 rounded-lg border border-emerald-500/50 shadow-sm">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              キーボードマイク待機中
+            </span>
           ) : isRecording ? (
             <span className="text-[11px] font-bold text-rose-500 animate-pulse flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-rose-500" />
@@ -146,6 +157,35 @@ export const ClinicalEditorCard: React.FC<ClinicalEditorCardProps> = ({
           )}
         </div>
       </div>
+
+      {/* 🛡️ 完全ゼロイグレス音声案内バナー */}
+      {zeroEgressNoticeVisible && (
+        <div className="mx-2 my-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-950/95 via-slate-900/95 to-slate-950/95 border border-emerald-500/70 text-emerald-100 shadow-xl animate-in slide-in-from-top-1 duration-200 shrink-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5 animate-pulse" />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  キーボード内のマイク［🎙️］を押して発話してください
+                </span>
+                <span className="text-[11px] text-amber-300 font-medium leading-tight">
+                  🛡️ <strong>【院内安全・完全ゼロイグレス】</strong> 外部送信0 Byteを担保するため、端末の<strong>Wi-Fiをオフ（機内モード推奨）</strong>にしてご使用ください。
+                </span>
+              </div>
+            </div>
+            {setZeroEgressNoticeVisible && (
+              <button
+                type="button"
+                onClick={() => setZeroEgressNoticeVisible(false)}
+                className="text-slate-400 hover:text-white p-0.5 rounded cursor-pointer text-xs"
+                title="閉じる"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 音声解読完了マイクロ通知 */}
       {speechSuccessNotice && (
@@ -205,7 +245,7 @@ export const ClinicalEditorCard: React.FC<ClinicalEditorCardProps> = ({
                 setInputText(cleaned);
               }
             }}
-            placeholder="所見を入力、または下の音声入力ボタンをタップして音声入力してください..."
+            placeholder="所見を入力、または下の「ゼロイグレス音声」をタップしてキーボードのマイクから入力してください..."
             className="w-full flex-1 h-full min-h-[280px] bg-transparent text-slate-100 text-xs sm:text-[13px] lg:text-sm leading-relaxed resize-none focus:outline-none font-mono selection:bg-amber-500/30"
           />
         ) : (

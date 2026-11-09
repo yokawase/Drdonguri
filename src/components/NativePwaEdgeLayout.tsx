@@ -149,6 +149,37 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
     onLearnAsrDiff,
   });
 
+  // 🛡️ 完全ゼロイグレス音声入力ガイダンス状態
+  const [zeroEgressNoticeVisible, setZeroEgressNoticeVisible] = useState(false);
+  const zeroEgressTimerRef = useRef<number | null>(null);
+
+  // 🛡️ 完全ゼロイグレス音声入力ハンドラ（キーボードマイク起動誘導）
+  const handleTriggerZeroEgressVoice = useCallback(() => {
+    triggerHaptic(30);
+    // 編集モードをONにしてテキストエリアへフォーカス
+    setIsEditing(true);
+    setLocalDraft((prev) => prev || inputText);
+
+    // 短遅延で確実にキーボードをせり上がらせる
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        const len = textareaRef.current.value.length;
+        textareaRef.current.setSelectionRange(len, len);
+      }
+    }, 40);
+
+    // ゼロイグレスガイダンス表示 (6秒間)
+    setZeroEgressNoticeVisible(true);
+    if (zeroEgressTimerRef.current !== null) {
+      window.clearTimeout(zeroEgressTimerRef.current);
+    }
+    zeroEgressTimerRef.current = window.setTimeout(() => {
+      setZeroEgressNoticeVisible(false);
+      zeroEgressTimerRef.current = null;
+    }, 6000);
+  }, [inputText]);
+
   // 表示用テキスト（編集モード中は計算自体をスキップして 0ms タイピングレスポンスを保証）
   const displayLines = useMemo(() => {
     if (isEditing) return [];
@@ -223,7 +254,10 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
           {/* 臨床所見・SOAPカルテ編集カード */}
           <ClinicalEditorCard
             isSending={isSending}
-            isRecording={speechRecognition.isRecording}
+            isRecording={false}
+            isZeroEgressGuiding={zeroEgressNoticeVisible}
+            zeroEgressNoticeVisible={zeroEgressNoticeVisible}
+            setZeroEgressNoticeVisible={setZeroEgressNoticeVisible}
             localDraft={localDraft}
             inputText={inputText}
             isEditing={isEditing}
@@ -269,12 +303,10 @@ export const NativePwaEdgeLayout: React.FC<NativePwaEdgeLayoutProps> = ({
 
       {/* 3. 親指ボトムアクションバー */}
       <PwaBottomBar
-        isRecording={speechRecognition.isRecording}
         isSending={isSending}
         inputText={inputText}
-        wavePath1Ref={speechRecognition.wavePath1Ref}
-        wavePath2Ref={speechRecognition.wavePath2Ref}
-        toggleSpeechRecognition={speechRecognition.toggleSpeechRecognition}
+        isZeroEgressGuiding={zeroEgressNoticeVisible}
+        onTriggerZeroEgressVoice={handleTriggerZeroEgressVoice}
         onOpenCoprocessor={onOpenCoprocessor}
         onAbortTransfer={onAbortTransfer}
         onSendSession={onSendSession}

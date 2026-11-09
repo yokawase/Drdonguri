@@ -1,59 +1,33 @@
 import React from 'react';
-import { Download, Square, Mic, OctagonX, Send } from 'lucide-react';
+import { Download, Mic, ShieldCheck, OctagonX, Send } from 'lucide-react';
 import { triggerHaptic } from './types';
 
 interface PwaBottomBarProps {
-  isRecording: boolean;
+  isRecording?: boolean;
   isSending: boolean;
   inputText: string;
-  wavePath1Ref: React.RefObject<SVGPathElement | null>;
-  wavePath2Ref: React.RefObject<SVGPathElement | null>;
-  toggleSpeechRecognition: () => Promise<void>;
+  wavePath1Ref?: React.RefObject<SVGPathElement | null>;
+  wavePath2Ref?: React.RefObject<SVGPathElement | null>;
+  toggleSpeechRecognition?: () => Promise<void>;
+  isZeroEgressGuiding?: boolean;
+  onTriggerZeroEgressVoice: () => void;
   onOpenCoprocessor?: () => void;
   onAbortTransfer?: () => void;
   onSendSession: () => void;
 }
 
 export const PwaBottomBar: React.FC<PwaBottomBarProps> = ({
-  isRecording,
+  isRecording = false,
   isSending,
   inputText,
-  wavePath1Ref,
-  wavePath2Ref,
-  toggleSpeechRecognition,
+  isZeroEgressGuiding = false,
+  onTriggerZeroEgressVoice,
   onOpenCoprocessor,
   onAbortTransfer,
   onSendSession,
 }) => {
   return (
     <nav className="w-full pb-[calc(env(safe-area-inset-bottom,0px)+0.35rem)] pt-1 px-4 bg-[#0F172A]/95 border-t border-slate-800/80 backdrop-blur-md shrink-0 flex flex-col items-center relative z-20">
-      {/* 音声録音中のオシロスコープ波形（FAB上部） */}
-      {isRecording && (
-        <div className="w-full max-w-xs sm:max-w-sm h-6 flex items-center justify-center mb-0.5 animate-in fade-in">
-          <svg className="w-full h-6 overflow-visible" viewBox="0 0 240 24" fill="none">
-            {/* 第1波形 (主波形: ローズレッド) */}
-            <path
-              ref={wavePath1Ref}
-              d="M 10 12 Q 40 11 70 12 T 120 13 T 170 12 T 230 12"
-              stroke="#F43F5E"
-              strokeWidth="2"
-              strokeLinecap="round"
-              className="animate-waveform-1"
-            />
-            {/* 第2波形 (副波形: ソフトピンク・位相ずれ) */}
-            <path
-              ref={wavePath2Ref}
-              d="M 10 12 Q 50 14 90 12 T 140 11 T 190 12 T 230 12"
-              stroke="#FB7185"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-              opacity="0.8"
-              className="animate-waveform-2"
-            />
-          </svg>
-        </div>
-      )}
-
       <div className="w-full flex items-center justify-between max-w-xs sm:max-w-sm mx-auto">
         {/* 【左側】電カルから受信 (コーラルピンク・コンパクト44px) */}
         <div className="flex flex-col items-center gap-0.5">
@@ -73,41 +47,49 @@ export const PwaBottomBar: React.FC<PwaBottomBarProps> = ({
           </span>
         </div>
 
-        {/* 【中央】音声入力 ⇒ 自動テキスト化整形 (コンパクト48px FAB) */}
+        {/* 【中央】完全ゼロイグレス音声入力 ⇒ キーボード展開＆オフライン発話誘導 (コンパクト48px FAB) */}
         <div className="flex flex-col items-center gap-0.5 -translate-y-1">
           <div className="relative flex items-center justify-center">
             {/* 同心円の外側グローサークル */}
             <div
               className={`absolute w-15 h-15 rounded-full transition-all duration-300 pointer-events-none ${
-                isRecording
-                  ? 'bg-rose-950/70 ring-2 ring-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.4)] animate-pulse'
+                isZeroEgressGuiding
+                  ? 'bg-emerald-950/70 ring-2 ring-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.4)] animate-pulse'
                   : 'bg-amber-500/15 ring-1.5 ring-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
               }`}
             />
 
             <button
               type="button"
-              onClick={toggleSpeechRecognition}
+              onClick={() => {
+                triggerHaptic(30);
+                onTriggerZeroEgressVoice();
+              }}
               className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 relative z-10 shadow-lg cursor-pointer ${
-                isRecording
-                  ? 'bg-[#F43F5E] hover:bg-[#E11D48] text-white shadow-[0_6px_20px_rgba(225,29,72,0.5)]'
+                isZeroEgressGuiding
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_6px_20px_rgba(16,185,129,0.5)] ring-2 ring-emerald-400/80'
                   : 'bg-[#F59E0B] hover:bg-[#D97706] text-slate-950 shadow-[0_6px_20px_rgba(245,158,11,0.35)]'
               }`}
-              title={isRecording ? '録音を停止してカルテを自動整形' : 'マイクを起動して音声入力開始'}
+              title="完全ゼロイグレス音声入力：キーボードを開いてオフラインマイクを発話起動"
             >
-              {isRecording ? (
-                <Square className="w-5 h-5 fill-white" />
-              ) : (
+              <div className="relative flex items-center justify-center">
                 <Mic className="w-5.5 h-5.5 stroke-[2.4]" />
-              )}
+                <ShieldCheck
+                  className={`w-3.5 h-3.5 absolute -bottom-1 -right-1 rounded-full ${
+                    isZeroEgressGuiding
+                      ? 'fill-emerald-400 text-emerald-950 stroke-[2.5]'
+                      : 'fill-emerald-500 text-slate-950 stroke-[2.5]'
+                  }`}
+                />
+              </div>
             </button>
           </div>
           <span
-            className={`text-[10px] font-bold tracking-tight transition-colors ${
-              isRecording ? 'text-rose-400 animate-pulse' : 'text-slate-100'
+            className={`text-[10px] font-bold tracking-tight transition-colors flex items-center gap-0.5 ${
+              isZeroEgressGuiding ? 'text-emerald-400 font-extrabold animate-pulse' : 'text-slate-100'
             }`}
           >
-            {isRecording ? '完了・整形' : '音声入力'}
+            ゼロイグレス音声
           </span>
         </div>
 
